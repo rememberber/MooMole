@@ -41,6 +41,10 @@ cpSync(
   resolve(root, 'scripts/mole-clean-preview.sh'),
   resolve(destination, 'moomole-clean-preview.sh'),
 )
+cpSync(
+  resolve(root, 'scripts/mole-review-rules.sh'),
+  resolve(destination, 'moomole-review-rules.sh'),
+)
 writeFileSync(
   resolve(destination, 'UPSTREAM.json'),
   JSON.stringify(
@@ -50,6 +54,7 @@ writeFileSync(
       platform: process.platform,
       arch: process.arch,
       cleanProtocol: 1,
+      rulesProtocol: 1,
     },
     null,
     2,

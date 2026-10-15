@@ -39,6 +39,22 @@ export const reviewPlan = (planId: string): Promise<ReviewPlan> =>
   desktop
     ? invoke('get_review_plan', { planId })
     : Promise.reject(new Error('请在桌面 App 中复核计划。'))
+export async function checkReviewRules(planId: string, signal: AbortSignal): Promise<ReviewPlan> {
+  if (!desktop) throw new Error('请在桌面 App 中复查 Mole 规则。')
+  if (signal.aborted) throw new Error('规则复查已取消。')
+  const requestId = crypto.randomUUID()
+  const cancel = () => {
+    void cancelTask(requestId).catch(() => {})
+  }
+  signal.addEventListener('abort', cancel, { once: true })
+  try {
+    const result = await invoke<ReviewPlan>('check_review_rules', { planId, requestId })
+    if (signal.aborted) throw new Error('规则复查已取消。')
+    return result
+  } finally {
+    signal.removeEventListener('abort', cancel)
+  }
+}
 export const chooseDirectory = async (): Promise<string | null> => {
   if (!desktop) return null
   const selected = await open({ directory: true, multiple: false, title: '选择要检查的文件夹' })

@@ -22,6 +22,7 @@ pub enum TaskKind {
     Apps,
     Cleanup,
     Clean,
+    Review,
 }
 
 impl TaskKind {
@@ -32,6 +33,7 @@ impl TaskKind {
             Self::Apps => "apps",
             Self::Cleanup => "cleanup",
             Self::Clean => "clean",
+            Self::Review => "review",
         }
     }
 }
@@ -93,6 +95,9 @@ pub fn info(root: &Path) -> EngineInfo {
             || !root.join("moomole-clean-preview.sh").is_file()
         {
             return Err("清理适配协议未准备，请重新运行 npm run engine:prepare。".into());
+        }
+        if manifest["rulesProtocol"] != 1 || !root.join("moomole-review-rules.sh").is_file() {
+            return Err("Mole 规则适配未准备，请重新运行 npm run engine:prepare。".into());
         }
         if manifest["arch"]
             != std::env::consts::ARCH
@@ -243,7 +248,7 @@ pub async fn output(
     Ok(stdout)
 }
 
-fn command(program: &Path) -> Command {
+pub(crate) fn command(program: &Path) -> Command {
     let mut command = Command::new(program);
     command
         .env(
@@ -315,7 +320,7 @@ pub async fn run(
                 .env("TERM", "dumb");
             command
         }
-        TaskKind::Cleanup => unreachable!(),
+        TaskKind::Cleanup | TaskKind::Review => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let bytes = output(
@@ -359,6 +364,7 @@ pub async fn run(
         TaskKind::Status => result["collected_at"].is_string(),
         TaskKind::Cleanup => false,
         TaskKind::Clean => false,
+        TaskKind::Review => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

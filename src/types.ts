@@ -95,6 +95,7 @@ export interface ReviewPlan extends ReviewPlanSummary {
   checkedAt: number
   readOnly: true
   requiresMoleRecheck: true
+  ruleCheckedAt?: number | null
   items: {
     id: string
     path: string
@@ -102,6 +103,7 @@ export interface ReviewPlan extends ReviewPlanSummary {
     section: string
     state: string
     reason: string
+    moleRule?: { code: string; source: string; reason: string } | null
   }[]
 }
 export interface CleanCandidate {

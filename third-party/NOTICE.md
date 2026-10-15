@@ -12,4 +12,6 @@
 
 MooMole's `scripts/mole-clean-preview.sh` is copied beside the unmodified upstream files. It sources the pinned `bin/clean.sh`, runs only the dry-run lifecycle and captures `emit_deduplicated_dry_run_ledger` before upstream exit cleanup. It redirects the human preview into a private task directory rather than overwriting the user's Mole preview. This wrapper is MooMole adaptation code, not an upstream feature or patch. Protocol details and limitations are documented in `docs/clean-preview-protocol.md`.
 
+`scripts/mole-review-rules.sh` is a separate read-only adapter that loads the same pinned source and invokes its path-level protection, whitelist, active-cache and SQLite guards. It does not invoke cleanup or grant execution eligibility; results are request-bound and kept in memory for review only.
+
 The generated engine is application-local and is not installed into `/usr/local/bin` or Homebrew. Runtime commands are limited to analysis, status snapshots, application listing and cleanup preview. Before distributing compiled packages publicly, provide the corresponding source and build information under the applicable licenses and review notices for transitive dependencies. Local development packages are not an assertion that distribution compliance or Apple notarization has been completed.

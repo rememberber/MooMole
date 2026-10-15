@@ -193,6 +193,7 @@ pub struct ItemCheck {
     pub section: String,
     pub state: String,
     pub reason: String,
+    pub mole_rule: Option<crate::rules::RuleCheck>,
 }
 
 #[derive(Serialize)]
@@ -204,6 +205,7 @@ pub struct PlanView {
     pub items: Vec<ItemCheck>,
     pub read_only: bool,
     pub requires_mole_recheck: bool,
+    pub rule_checked_at: Option<i64>,
 }
 
 fn protected(item: &Candidate, rules: &[String]) -> bool {
@@ -259,6 +261,7 @@ pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
                 section: item.candidate.section.clone(),
                 state: state.into(),
                 reason,
+                mole_rule: None,
             }
         })
         .collect();
@@ -268,6 +271,7 @@ pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
         items,
         read_only: true,
         requires_mole_recheck: true,
+        rule_checked_at: None,
     }
 }
 
@@ -322,9 +326,67 @@ pub fn create(scan: &Scan, ids: &[String], rules: &[String], now: i64) -> Result
     Ok(plan)
 }
 
+pub fn apply_rule_checks(
+    mut view: PlanView,
+    checks: &HashMap<String, crate::rules::RuleCheck>,
+    now: i64,
+) -> PlanView {
+    view.rule_checked_at = Some(now);
+    for item in &mut view.items {
+        if let Some(check) = checks.get(&item.id) {
+            // A passing probe never overrides a changed/expired/protected local target.
+            if item.state == "unchanged" && check.code != "passed" {
+                item.state = if ["coreProtection", "whitelist", "compiledModel"]
+                    .contains(&check.code.as_str())
+                {
+                    "moleProtected".into()
+                } else if ["activeOrUncertain", "sqliteInUse"].contains(&check.code.as_str()) {
+                    "active".into()
+                } else {
+                    "ruleUnavailable".into()
+                };
+                item.reason = check.reason.clone();
+            }
+            item.mole_rule = Some(check.clone());
+        }
+    }
+    view
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn passing_mole_rules_do_not_override_new_client_protection_or_expiry() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap().join("file");
+        std::fs::write(&path, "fixture").unwrap();
+        let plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
+        let checks = HashMap::from([(
+            "scan-1:0".into(),
+            crate::rules::RuleCheck {
+                code: "passed".into(),
+                source: "fixture".into(),
+                reason: "fixture".into(),
+            },
+        )]);
+        assert_eq!(
+            apply_rule_checks(
+                check(&plan, &[path.to_str().unwrap().into()], 1002),
+                &checks,
+                1002
+            )
+            .items[0]
+                .state,
+            "protected"
+        );
+        assert_eq!(
+            apply_rule_checks(check(&plan, &[], plan.expires_at), &checks, plan.expires_at).items
+                [0]
+            .state,
+            "expired"
+        );
+    }
     fn scan(path: &Path) -> Scan {
         let metadata = std::fs::metadata(path).unwrap();
         let candidate = Candidate {

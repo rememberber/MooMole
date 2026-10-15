@@ -146,3 +146,39 @@ test('review plan dialog saves selected scope and explains changed identities on
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
 })
+
+test('Mole rule evidence is visible and cancelling a new probe clears previous eligibility', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () => (await import('/tests/e2e/fixtures/clean-review.tsx')).mount())
+  const fixture = page.locator('#review-test-fixture')
+  await fixture
+    .getByRole('checkbox', {
+      name: '审阅 /Users/demo/Library/Caches/ExampleApp/Images',
+      exact: true,
+    })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByText('Mole 规则保护', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Mole 有效白名单：路径与当前有效规则匹配，应保留。')).toBeVisible()
+  await page.screenshot({ path: 'test-results/mole-rules.png', fullPage: true })
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('cancel'),
+  )
+  await fixture
+    .getByRole('checkbox', {
+      name: '审阅 /Users/demo/Library/Caches/ExampleApp/Images',
+      exact: true,
+    })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await dialog.getByRole('button', { name: '取消复查', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
+  await expect(dialog.getByText('规则复查未完成', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('本次元数据复核未发现变化', { exact: true })).toHaveCount(0)
+})

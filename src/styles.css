@@ -1840,6 +1840,7 @@ input[type='checkbox'] {
   justify-content: space-between;
   gap: 15px;
   align-items: center;
+  flex-wrap: wrap;
   margin: 22px 0 14px;
 }
 .plan-toolbar label {

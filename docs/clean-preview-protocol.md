@@ -48,6 +48,18 @@ SQLite v2 保存最近 10 份扫描及最多 20 份关联审阅计划，同时�
 
 重启后恢复最近扫描并显示原扫描时间，历史页提供已保存计划的查看与重新复核。扫描过期仍可查看，不能保存新计划或显示为可执行。已经保存的保护目录即使暂时不存在，也保留原保护意图，不阻塞无关设置保存；新加目录仍需通过目录验证。
 
+## Mole 路径规则复查 v1
+
+审阅计划新增显式“复查 Mole 规则”，不随历史查看自动启动较慢的进程/占用探测。前端只提交计划 ID 和请求 UUID；后端从保存的计划取路径，对本地身份/有效期/客户端保护仍通过的项目复查。不存在前端传路径或任意 Shell 的入口。
+
+自有 `scripts/mole-review-rules.sh` 加载原版 `clean.sh`，不调用扫描或清理生命周期，只调用与其候选验证相同的路径级函数：`should_protect_path`、`is_path_whitelisted`、`holds_compiled_model_cache`、`_mole_should_refuse_live_user_cache_path`，以及适用时的 SQLite 占用判断。明确禁用卸载模式、测试捷径和容器探测延后选项；不请求管理员权限。白名单读取失败、异常类型或被忽略的非法规则会中止复查，避免默默忽略保护意图。
+
+请求为 `MooMole.rules.request.v1 NUL [id NUL path NUL]* complete NUL`；响应为 `MooMole.rules.v1 NUL revision NUL [id NUL path NUL code NUL]* complete NUL`。Rust 校验请求项目与响应 ID/路径一一对应、完整性、去重及已知状态；禁止将日志作为判断依据。当前状态为 `passed / coreProtection / whitelist / compiledModel / activeOrUncertain / sqliteInUse / sqliteUnknown / checkFailed`。
+
+其中 `activeOrUncertain` 保留上游合并后的语义，不能声称已经确定应用运行或空闲。`passed` 只表示这次路径级探测未要求保留，**不是每个清理模块的完整规则/影响审计或执行许可**。规则结果只在当前弹窗内存中展示，不写入持久计划，也不跨重启复用。真正执行前仍需重新检查，因此 `requiresMoleRecheck` 继续为 `true`。
+
+复查使用独立私有临时目录，最多 500 项、报告上限 8 MiB、45 秒超时，注册为可取消任务并清理整个进程组；退出 App 也会停止该任务。复查结束后再次读取当前客户端保护、身份与有效期；Mole 的 `passed` 不覆盖本地失效或新增保护。取消、超时、协议损坏或探测错误不保留旧的通过状态，界面显示未完成。
+
 ## 检查
 
 ```bash

@@ -2,6 +2,7 @@ mod clean_preview;
 mod db;
 mod engine;
 mod review;
+mod rules;
 
 use db::{Settings, TaskRecord};
 use engine::{Job, TaskKind};
@@ -86,6 +87,9 @@ fn start_task(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    if kind == TaskKind::Review {
+        return Err("请从审阅计划启动规则复查。".into());
+    }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let settings = db::settings(&db)?;
@@ -232,6 +236,59 @@ async fn get_review_plan(
 }
 
 #[tauri::command]
+async fn check_review_rules(
+    plan_id: String,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<review::PlanView, String> {
+    uuid::Uuid::parse_str(&request_id).map_err(|_| "复查任务 ID 无效。")?;
+    let state = state.inner().clone();
+    let job = Arc::new(Job::new(TaskKind::Review));
+    {
+        let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+        if jobs.len() >= 3
+            || jobs.contains_key(&request_id)
+            || jobs.values().any(|j| j.kind == TaskKind::Review)
+        {
+            return Err("已有规则复查正在运行，请等待或取消。".into());
+        }
+        jobs.insert(request_id.clone(), job.clone());
+    }
+    let result = async {
+        let (plan, settings) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            (db::plan(&db, &plan_id)?, db::settings(&db)?)
+        };
+        if !settings.acknowledged {
+            return Err("请先阅读首次使用说明。".into());
+        }
+        let local = review::check(&plan, &settings.protected_paths, db::now());
+        let requested: Vec<_> = local
+            .items
+            .iter()
+            .filter(|i| i.state == "unchanged")
+            .map(|i| (i.id.clone(), i.path.clone()))
+            .collect();
+        if requested.is_empty() {
+            return Ok(local);
+        }
+        let checks = rules::run(&state.engine_root, &requested, job.clone()).await?;
+        let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+        // Re-read local identities, expiry and client protection after the probes.
+        let view = review::check(&plan, &settings.protected_paths, db::now());
+        if job.cancelled.load(Ordering::SeqCst) {
+            return Err("规则复查已取消。".into());
+        }
+        Ok(review::apply_rule_checks(view, &checks, db::now()))
+    }
+    .await;
+    if let Ok(mut jobs) = state.jobs.lock() {
+        jobs.remove(&request_id);
+    }
+    result
+}
+
+#[tauri::command]
 fn cancel_task(task_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(job) = state.jobs.lock().map_err(|e| e.to_string())?.get(&task_id) {
         job.cancel();
@@ -310,6 +367,7 @@ pub fn run() {
             list_review_plans,
             create_review_plan,
             get_review_plan,
+            check_review_rules,
             start_task,
             cancel_task,
             reveal_path,

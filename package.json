@@ -12,7 +12,7 @@
     "desktop": "node scripts/tauri.mjs dev",
     "engine:prepare": "node scripts/prepare-engine.mjs",
     "test": "vitest run",
-    "test:adapter": "node scripts/test-clean-preview.mjs",
+    "test:adapter": "node scripts/test-clean-preview.mjs && node scripts/test-review-rules.mjs",
     "test:e2e": "playwright test",
     "format:check": "prettier --check src scripts tests package.json tsconfig.json vite.config.ts playwright.config.ts index.html src-tauri/tauri.conf.json src-tauri/capabilities/default.json",
     "check:rust": "node scripts/cargo.mjs test"

@@ -1201,6 +1201,7 @@ export default function App() {
           key={plan.id}
           initialPlan={plan}
           onRefresh={api.reviewPlan}
+          onCheckRules={api.checkReviewRules}
           onClose={() => setPlan(null)}
         />
       )}
