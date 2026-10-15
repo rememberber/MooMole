@@ -84,41 +84,16 @@ pub struct EngineInfo {
 
 pub fn info(root: &Path) -> EngineInfo {
     let checked = (|| -> Result<String, String> {
-        let manifest: Value = serde_json::from_slice(
-            &std::fs::read(root.join("UPSTREAM.json"))
-                .map_err(|_| "尚未准备 Mole 引擎，请在项目中运行 npm run engine:prepare。")?,
-        )
-        .map_err(|e| e.to_string())?;
-        if manifest["revision"] != REVISION {
-            return Err("引擎版本与应用不匹配，请重新准备引擎。".into());
+        if !root.join("UPSTREAM.json").is_file() {
+            return Err("尚未准备 Mole 引擎，请在项目中运行 npm run engine:prepare。".into());
         }
-        let source = std::fs::read_to_string(root.join("mole"))
-            .map_err(|_| "缺少 Mole CLI 版本信息，请重新准备引擎。")?;
+        let manifest = crate::engine_manifest::verify(root).map_err(|error| {
+            format!("Mole 引擎完整性检查失败：{error} 请重新运行 npm run engine:prepare。")
+        })?;
+        let source = std::fs::read_to_string(root.join("mole")).map_err(|e| e.to_string())?;
         let version = source_version(&source)?;
-        if manifest["version"].as_str() != Some(version) {
+        if manifest.version != version {
             return Err("Mole CLI 版本清单与源码不一致，请重新准备引擎。".into());
-        }
-        if manifest["cleanProtocol"] != crate::clean_preview::PROTOCOL
-            || !root.join("moomole-clean-preview.sh").is_file()
-        {
-            return Err("清理适配协议未准备，请重新运行 npm run engine:prepare。".into());
-        }
-        if manifest["rulesProtocol"] != 1 || !root.join("moomole-review-rules.sh").is_file() {
-            return Err("Mole 规则适配未准备，请重新运行 npm run engine:prepare。".into());
-        }
-        if manifest["arch"]
-            != std::env::consts::ARCH
-                .replace("aarch64", "arm64")
-                .replace("x86_64", "x64")
-        {
-            return Err("引擎架构与当前应用不匹配。".into());
-        }
-        for binary in ["analyze-go", "status-go"] {
-            let metadata = std::fs::metadata(root.join("bin").join(binary))
-                .map_err(|_| format!("缺少 {binary}，请重新准备引擎。"))?;
-            if !metadata.is_file() {
-                return Err("引擎文件无效。".into());
-            }
         }
         Ok(version.to_owned())
     })();
@@ -296,8 +271,9 @@ pub async fn run(
     path: Option<PathBuf>,
     protected: &[String],
 ) -> Result<Value, String> {
-    if !info(root).available {
-        return Err(info(root).reason.unwrap_or("引擎不可用。".into()));
+    let prepared = info(root);
+    if !prepared.available {
+        return Err(prepared.reason.unwrap_or("引擎不可用。".into()));
     }
     if job.kind == TaskKind::Cleanup {
         return inspect_cleanup(root, home, job, protected).await;
@@ -516,15 +492,14 @@ mod tests {
         ] {
             std::fs::write(root.join(name), "fixture").unwrap();
         }
-        let manifest = serde_json::json!({"revision": super::REVISION, "version": "1.59.1",
-            "cleanProtocol": 1, "rulesProtocol": 1,
-            "arch": std::env::consts::ARCH.replace("aarch64", "arm64").replace("x86_64", "x64")});
-        std::fs::write(root.join("UPSTREAM.json"), manifest.to_string()).unwrap();
         std::fs::write(
             root.join("mole"),
             "#!/bin/bash\nVERSION=\"1.59.1\"\nexit 99\n",
         )
         .unwrap();
+        crate::engine_manifest::fixture(root);
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join("UPSTREAM.json")).unwrap()).unwrap();
         let info = super::info(root);
         assert!(info.available);
         assert_eq!(info.version.as_deref(), Some("1.59.1"));
@@ -535,6 +510,7 @@ mod tests {
             "VERSION=\"1.59.1\"\nVERSION=\"1.59.1\"\n",
         ] {
             std::fs::write(root.join("mole"), source).unwrap();
+            crate::engine_manifest::fixture(root);
             let info = super::info(root);
             assert!(!info.available);
             assert_eq!(info.version, None);

@@ -48,7 +48,7 @@ npm run engine:prepare
 npm run desktop
 ```
 
-`engine:prepare` 从上游获取固定提交并验证 Git HEAD，复制必要 Shell 资源、保留许可证并编译分析/监控二进制。引擎资源生成于 `src-tauri/resources/mole/`，不提交编译产物；应用运行时不下载或更新引擎。
+`engine:prepare` 从固定 Git 树隔离构建，验证资源摘要与架构后原子替换生成目录；失败时保留旧引擎。有对应源码和 Go 模块缓存时可运行 `npm run engine:prepare -- --offline`。App 启动及任务前核对清单与资源，损坏/混版时拒绝使用。细节见 [引擎准备](docs/engine-integrity.md)。资源位于 `src-tauri/resources/mole/`，不提交编译产物；应用运行时不下载或更新引擎。
 
 ```bash
 # 只查看界面：显式展示示例数据，不访问本机文件
@@ -66,6 +66,7 @@ npm run tauri -- build --bundles app
 npm test
 npm run build
 npm run check:rust
+npm run test:engine # 清单、失败保护及 macOS 原子发布 fixture
 npm run test:adapter # 先运行 engine:prepare，使用隔离 fixture 验证 Shell 适配
 npx playwright install chromium
 npm run test:e2e

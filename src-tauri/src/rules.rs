@@ -164,10 +164,9 @@ mod tests {
             std::fs::write(root.join("bin").join(name), "fixture").unwrap();
         }
         std::fs::write(root.join("mole"), "VERSION=\"1.59.1\"\n").unwrap();
-        std::fs::write(root.join("UPSTREAM.json"), serde_json::json!({ "revision": engine::REVISION, "version": "1.59.1", "cleanProtocol": 1, "rulesProtocol": 1,
-            "arch": std::env::consts::ARCH.replace("aarch64", "arm64").replace("x86_64", "x64") }).to_string()).unwrap();
         std::fs::write(root.join("moomole-clean-preview.sh"), "fixture").unwrap();
         std::fs::write(root.join("moomole-review-rules.sh"), "sleep 30 & wait\n").unwrap();
+        crate::engine_manifest::fixture(root);
         let job = Arc::new(Job::new(engine::TaskKind::Review));
         let cancel = job.clone();
         tokio::spawn(async move {
