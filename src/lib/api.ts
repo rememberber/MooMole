@@ -10,6 +10,8 @@ import type {
   TaskResults,
   ReviewPlan,
   ReviewPlanSummary,
+  ExecutionSummary,
+  ExecutionDetail,
 } from '../types'
 import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
@@ -19,6 +21,12 @@ export const bootstrap = (): Promise<Bootstrap> =>
   desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
 export const history = (): Promise<TaskRecord[]> =>
   desktop ? invoke('get_history') : Promise.resolve([])
+export const executions = (): Promise<ExecutionSummary[]> =>
+  desktop ? invoke('list_executions') : Promise.resolve([])
+export const execution = (runId: string): Promise<ExecutionDetail> =>
+  desktop
+    ? invoke('get_execution', { runId })
+    : Promise.reject(new Error('请在桌面 App 中查看执行记录。'))
 export const saveSettings = (settings: Settings): Promise<Settings> =>
   desktop ? invoke('save_settings', { settings }) : Promise.resolve(settings)
 export const reveal = (path: string): Promise<void> =>

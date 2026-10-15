@@ -23,6 +23,7 @@ export interface Bootstrap {
   home: string
   latestCleanPreview: CleanPreview | null
   reviewPlans: ReviewPlanSummary[]
+  executions: ExecutionSummary[]
 }
 export interface Entry {
   name: string
@@ -143,4 +144,41 @@ export interface TaskEvent {
   result: unknown
   error: string | null
   resultUnavailable?: string | null
+}
+
+export interface ExecutionSummary {
+  id: string
+  planId: string
+  method: string
+  state: string
+  createdAt: number
+  finishedAt: number | null
+  itemCount: number
+  movedCount: number
+  uncertainCount: number
+  retainedForReview: boolean
+}
+export interface ExecutionReceipt {
+  destination: string
+  device: string
+  inode: string
+}
+export interface ExecutionDetail extends ExecutionSummary {
+  revision: string
+  protocol: number
+  snapshotSha256: string
+  items: {
+    id: string
+    path: string
+    state: string
+    reason: string
+    receipt: ExecutionReceipt | null
+  }[]
+  events: {
+    itemId: string
+    state: string
+    createdAt: number
+    reason: string
+    receipt: ExecutionReceipt | null
+  }[]
 }

@@ -47,6 +47,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { CleanReview } from './components/CleanReview'
 import { ReviewPlanDialog } from './components/ReviewPlanDialog'
 import { EngineSummary } from './components/EngineSummary'
+import { ExecutionHistory } from './components/ExecutionHistory'
 import type {
   Analysis,
   AppEntry,
@@ -1220,6 +1221,11 @@ export default function App() {
                   ))}
                 </section>
               )}
+              <ExecutionHistory
+                initialRecords={data.executions}
+                loadRecords={api.executions}
+                loadDetail={api.execution}
+              />
               <section className="card">
                 {data.history.length ? (
                   <>

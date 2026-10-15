@@ -298,3 +298,81 @@ test('open plans expire automatically and disable rule probes without another us
   await expect(dialog.getByLabel('用途与影响说明')).toBeVisible()
   await page.screenshot({ path: 'test-results/impact-plan.png', fullPage: true })
 })
+
+test('execution history distinguishes uncertain results, receipts and cancelled pending items', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/execution-history.tsx')).mount(),
+  )
+  const fixture = page.locator('#execution-test-fixture')
+  await fixture.getByRole('button', { name: '已中断 · 64 项', exact: false }).click()
+  const dialog = page.getByRole('dialog', { name: '逐项执行结果' })
+  await expect(
+    dialog.getByText('存在只有意图、没有可靠完成记录的项目。', { exact: false }),
+  ).toBeVisible()
+  await expect(dialog.getByRole('status')).toHaveText('显示 50 / 64 项')
+  await dialog.getByRole('button', { name: '再显示 50 项' }).click()
+  await expect(dialog.getByRole('status')).toHaveText('显示 64 / 64 项')
+  await dialog.getByRole('combobox', { name: '执行项目状态' }).selectOption('issues')
+  await expect(dialog.getByRole('status')).toHaveText('显示 50 / 63 项')
+  await dialog.getByRole('textbox', { name: '搜索执行路径' }).fill('cache-63')
+  await expect(dialog.getByRole('status')).toHaveText('显示 1 / 1 项')
+  await expect(dialog.getByText('中断后未开始', { exact: true })).toBeVisible()
+  await dialog.getByRole('textbox', { name: '搜索执行路径' }).fill('中文')
+  await expect(dialog.getByText('没有匹配的项目。')).toBeVisible()
+  await dialog.getByRole('combobox', { name: '执行项目状态' }).selectOption('moved')
+  await dialog.locator('.execution-item > summary').click()
+  await expect(dialog.getByText('/fixture/recovery/中文 cache *', { exact: true })).toBeVisible()
+  await expect(
+    dialog.getByText('设备 18446744073709551615 · inode 9007199254740993', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    dialog.getByRole('list', { name: '项目记录顺序' }).getByRole('listitem'),
+  ).toHaveCount(2)
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
+  await page.screenshot({ path: 'test-results/execution-history-dark.png', fullPage: true })
+  await page.keyboard.press('Escape')
+  await fixture.getByRole('button', { name: '已取消 · 2 项', exact: false }).click()
+  await expect(
+    dialog.getByText('取消与中断不会撤销已经完成的项目。', { exact: false }),
+  ).toBeVisible()
+  await expect(dialog.getByText('已移入废纸篓', { exact: true })).toBeVisible()
+  await expect(
+    dialog
+      .locator('.execution-item')
+      .filter({ hasText: '/fixture/cache-1' })
+      .getByText('已取消', { exact: true }),
+  ).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /重试操作|恢复|执行清理/ })).toHaveCount(0)
+})
+
+test('execution record read failures keep history and closing a pending read stays closed', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/execution-history.tsx')).mount(),
+  )
+  const fixture = page.locator('#execution-test-fixture')
+  await fixture.getByRole('button', { name: '模拟列表读取失败' }).click()
+  await fixture.getByRole('button', { name: '刷新记录' }).click()
+  await expect(fixture.getByRole('alert')).toHaveText('fixture 列表暂时不可读取')
+  await expect(fixture.getByRole('button', { name: '已中断 · 64 项', exact: false })).toBeVisible()
+  await fixture.getByRole('button', { name: '模拟详情读取失败' }).click()
+  await fixture.getByRole('button', { name: '已中断 · 64 项', exact: false }).click()
+  const dialog = page.getByRole('dialog', { name: '逐项执行结果' })
+  await expect(dialog.getByRole('alert')).toContainText('fixture 详情暂时不可读取')
+  await dialog.getByRole('button', { name: '重试读取' }).click()
+  await expect(dialog.getByRole('textbox', { name: '搜索执行路径' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await fixture.getByRole('button', { name: '已中断 · 64 项', exact: false }).click()
+  await expect(dialog.getByText('正在读取本地记录…')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await fixture.getByRole('button', { name: '已取消 · 2 项', exact: false }).click()
+  await expect(
+    dialog.getByText('已取消 · 已移入 1 / 2 项 · 待核实 0 项', { exact: true }),
+  ).toBeVisible()
+})

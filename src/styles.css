@@ -1995,3 +1995,97 @@ input[type='checkbox'] {
   cursor: pointer;
   color: var(--subtle);
 }
+
+.execution-retention {
+  padding: 14px 22px 18px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.execution-modal {
+  width: min(900px, calc(100vw - 48px));
+}
+.execution-metadata {
+  margin: 18px 0;
+  font-size: 12px;
+}
+.execution-metadata summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.execution-metadata dl {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px;
+}
+.execution-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.execution-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 20px 0 12px;
+}
+.execution-filters input {
+  flex: 1;
+  min-width: 180px;
+}
+.execution-items {
+  margin-bottom: 16px;
+}
+.execution-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.execution-item summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+}
+.execution-item summary > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.execution-item p,
+.execution-item summary > span:first-child {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.execution-item > p,
+.execution-receipt,
+.execution-events {
+  margin: 14px 0 0;
+  line-height: 1.7;
+}
+.execution-receipt {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--soft);
+}
+.execution-receipt p {
+  margin: 6px 0;
+}
+.execution-events {
+  padding-left: 24px;
+  color: var(--muted);
+}
+.execution-events p {
+  margin: 0 0 8px;
+}
+
+.execution-filters input,
+.execution-filters select {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--soft);
+  color: var(--text);
+}
+:root[data-theme='dark'] .execution-modal .notice.warning {
+  color: var(--peach-ink);
+}

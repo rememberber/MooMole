@@ -2,6 +2,7 @@ mod clean_preview;
 mod db;
 mod engine;
 mod engine_manifest;
+mod execution;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
@@ -41,6 +42,7 @@ struct Bootstrap {
     home: String,
     latest_clean_preview: Option<Value>,
     review_plans: Vec<review::PlanSummary>,
+    executions: Vec<execution::Summary>,
 }
 
 #[tauri::command]
@@ -53,6 +55,7 @@ fn bootstrap(state: tauri::State<'_, AppState>) -> Result<Bootstrap, String> {
         home: state.home.to_string_lossy().into_owned(),
         latest_clean_preview: db::latest_scan(&db)?,
         review_plans: db::plans(&db)?,
+        executions: execution::list(&db)?,
     })
 }
 
@@ -76,6 +79,19 @@ fn save_settings(
 #[tauri::command]
 fn get_history(state: tauri::State<'_, AppState>) -> Result<Vec<TaskRecord>, String> {
     db::history(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+fn list_executions(state: tauri::State<'_, AppState>) -> Result<Vec<execution::Summary>, String> {
+    execution::list(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+fn get_execution(
+    run_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<execution::Detail, String> {
+    execution::detail(&*state.db.lock().map_err(|e| e.to_string())?, &run_id)
 }
 
 #[tauri::command]
@@ -404,6 +420,8 @@ pub fn run() {
             bootstrap,
             save_settings,
             get_history,
+            list_executions,
+            get_execution,
             get_task_snapshot,
             list_review_plans,
             create_review_plan,

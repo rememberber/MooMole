@@ -76,6 +76,7 @@ export const demoBootstrap: Bootstrap = {
   history: [],
   latestCleanPreview: null,
   reviewPlans: [],
+  executions: [],
 }
 export const demoSnapshot: Snapshot = {
   collected_at: '2026-10-15T08:00:00Z',

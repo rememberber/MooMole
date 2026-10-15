@@ -52,25 +52,25 @@ pub fn open(path: &Path) -> Result<Connection, String> {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    if version > 2 {
+    if version > 3 {
         return Err("数据库来自更新版本，请使用新版 MooMole 打开。".into());
     }
     connection
         .pragma_update(None, "foreign_keys", "ON")
         .map_err(|e| e.to_string())?;
-    if version == 0 {
-        let migration = connection.transaction().map_err(|e| e.to_string())?;
-        migration.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
-            CREATE TABLE tasks (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT, state TEXT NOT NULL,
-                created_at INTEGER NOT NULL, finished_at INTEGER, message TEXT);
-            CREATE INDEX tasks_created ON tasks(created_at DESC);
-            PRAGMA user_version = 1;").map_err(|e| e.to_string())?;
-        migration.commit().map_err(|e| e.to_string())?;
-    }
-    if version == 1 {
-        // VACUUM INTO takes a consistent SQLite snapshot, including WAL content.
+    connection
+        .pragma_update(None, "synchronous", "FULL")
+        .map_err(|e| e.to_string())?;
+    connection
+        .pragma_update(None, "fullfsync", "ON")
+        .map_err(|e| e.to_string())?;
+    connection
+        .pragma_update(None, "checkpoint_fullfsync", "ON")
+        .map_err(|e| e.to_string())?;
+    if version > 0 && version < 3 {
+        // Back up the original schema before ANY migration. VACUUM INTO includes WAL data.
         let backup =
-            path.with_file_name(format!("moomole-before-v2-{}.sqlite", uuid::Uuid::new_v4()));
+            path.with_file_name(format!("moomole-before-v3-{}.sqlite", uuid::Uuid::new_v4()));
         connection
             .execute(
                 "VACUUM INTO ?1",
@@ -78,16 +78,27 @@ pub fn open(path: &Path) -> Result<Connection, String> {
             )
             .map_err(|e| format!("升级前备份失败，保留原数据库：{e}"))?;
     }
-    if version < 2 {
+    if version < 3 {
         let migration = connection.transaction().map_err(|e| e.to_string())?;
-        migration.execute_batch("CREATE TABLE clean_scans (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, body TEXT NOT NULL);
-            CREATE TABLE review_plans (id TEXT PRIMARY KEY, scan_id TEXT NOT NULL REFERENCES clean_scans(id) ON DELETE CASCADE,
-                created_at INTEGER NOT NULL, body TEXT NOT NULL);
-            CREATE INDEX clean_scans_created ON clean_scans(created_at DESC);
-            CREATE INDEX review_plans_created ON review_plans(created_at DESC);
-            PRAGMA user_version = 2;").map_err(|e| e.to_string())?;
+        if version == 0 {
+            migration.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
+                CREATE TABLE tasks (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT, state TEXT NOT NULL,
+                    created_at INTEGER NOT NULL, finished_at INTEGER, message TEXT);
+                CREATE INDEX tasks_created ON tasks(created_at DESC);").map_err(|e| e.to_string())?;
+        }
+        if version < 2 {
+            migration.execute_batch("CREATE TABLE clean_scans (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, body TEXT NOT NULL);
+                CREATE TABLE review_plans (id TEXT PRIMARY KEY, scan_id TEXT NOT NULL REFERENCES clean_scans(id) ON DELETE CASCADE,
+                    created_at INTEGER NOT NULL, body TEXT NOT NULL);
+                CREATE INDEX clean_scans_created ON clean_scans(created_at DESC);
+                CREATE INDEX review_plans_created ON review_plans(created_at DESC);").map_err(|e| e.to_string())?;
+        }
+        migration
+            .execute_batch(crate::execution::SCHEMA)
+            .map_err(|e| e.to_string())?;
         migration.commit().map_err(|e| e.to_string())?;
     }
+    crate::execution::reconcile(&mut connection, now())?;
     connection.execute("UPDATE tasks SET state = 'interrupted', finished_at = ?1, message = '应用退出，任务未完成；需要重新检查。' WHERE state IN ('queued', 'running')", [now()]).map_err(|e| e.to_string())?;
     prune(&connection, settings(&connection)?.retention_days)?;
     Ok(connection)
@@ -130,6 +141,7 @@ fn prune(connection: &Connection, days: u32) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     prune_reviews(connection)?;
+    crate::execution::prune(connection, now() - i64::from(days) * 86_400_000)?;
     Ok(())
 }
 
@@ -299,7 +311,7 @@ mod tests {
             upgraded
                 .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            2
+            3
         );
         let backups: Vec<_> = std::fs::read_dir(scratch.path())
             .unwrap()
@@ -308,7 +320,7 @@ mod tests {
                 p.file_name()
                     .unwrap()
                     .to_string_lossy()
-                    .starts_with("moomole-before-v2-")
+                    .starts_with("moomole-before-v3-")
             })
             .collect();
         assert_eq!(backups.len(), 1);
@@ -322,6 +334,124 @@ mod tests {
         assert_eq!(
             history(&backup).unwrap()[0].message.as_deref(),
             Some("legacy")
+        );
+    }
+
+    #[test]
+    fn v2_wal_backup_precedes_migration_and_is_not_repeated() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        let legacy = open(&path).unwrap();
+        legacy.execute_batch("DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
+        start(&legacy, "wal-only", "status", None).unwrap();
+        finish(&legacy, "wal-only", "succeeded", "preserve WAL data").unwrap();
+        let upgraded = open(&path).unwrap();
+        assert_eq!(history(&upgraded).unwrap()[0].id, "wal-only");
+        let backups: Vec<_> = std::fs::read_dir(scratch.path())
+            .unwrap()
+            .map(|p| p.unwrap().path())
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("moomole-before-v3-")
+            })
+            .collect();
+        assert_eq!(backups.len(), 1);
+        let backup = Connection::open(&backups[0]).unwrap();
+        assert_eq!(
+            backup
+                .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            history(&backup).unwrap()[0].message.as_deref(),
+            Some("preserve WAL data")
+        );
+        drop(upgraded);
+        drop(open(&path).unwrap());
+        assert_eq!(
+            std::fs::read_dir(scratch.path())
+                .unwrap()
+                .filter(|p| p
+                    .as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("moomole-before-v3-"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn failed_migration_rolls_back_all_schema_changes_and_future_version_is_refused() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        let legacy = Connection::open(&path).unwrap();
+        legacy.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY,value TEXT); CREATE TABLE tasks (id TEXT PRIMARY KEY,kind TEXT,path TEXT,state TEXT,created_at INTEGER,finished_at INTEGER,message TEXT); CREATE TABLE execution_runs (sentinel TEXT); INSERT INTO execution_runs VALUES ('keep'); PRAGMA user_version=1;").unwrap();
+        assert!(open(&path).is_err());
+        assert_eq!(
+            legacy
+                .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            legacy
+                .query_row::<String, _, _>("SELECT sentinel FROM execution_runs", [], |r| r.get(0))
+                .unwrap(),
+            "keep"
+        );
+        assert_eq!(
+            legacy
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM sqlite_master WHERE name='clean_scans'",
+                    [],
+                    |r| r.get(0)
+                )
+                .unwrap(),
+            0
+        );
+        legacy.pragma_update(None, "user_version", 99).unwrap();
+        assert!(open(&path).unwrap_err().contains("新版"));
+        assert_eq!(
+            legacy
+                .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            99
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn backup_creation_failure_blocks_migration() {
+        use std::os::unix::fs::PermissionsExt;
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        let legacy = open(&path).unwrap();
+        legacy.execute_batch("DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
+        // Keep WAL/SHM open, allowing the original DB to open while a new backup cannot be created.
+        std::fs::set_permissions(scratch.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+        let result = open(&path);
+        std::fs::set_permissions(scratch.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(result.unwrap_err().contains("备份失败"));
+        assert_eq!(
+            legacy
+                .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            legacy
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM sqlite_master WHERE name='execution_runs'",
+                    [],
+                    |r| r.get(0)
+                )
+                .unwrap(),
+            0
         );
     }
 
