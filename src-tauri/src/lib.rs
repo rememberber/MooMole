@@ -1,6 +1,8 @@
 mod clean_preview;
 mod db;
 mod engine;
+#[cfg(test)]
+mod execution_sandbox;
 mod impact;
 mod review;
 mod rules;
