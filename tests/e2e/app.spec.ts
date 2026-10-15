@@ -6,6 +6,11 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   await page.goto('/')
   await expect(page.getByText('浏览器预览', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '把空间，还给重要的事。' })).toBeVisible()
+  const engine = page.getByRole('region', { name: 'Mole CLI 版本' })
+  await expect(engine).toBeVisible()
+  await expect(engine).toContainText('内置 Mole CLI')
+  await expect(engine).toContainText('版本待确认')
+  await expect(engine).toContainText('未加载本机引擎')
   await expect(page.getByRole('button', { name: '刷新状态' })).toBeDisabled()
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await expect(page.getByText('部分目录未完整测量', { exact: false })).toBeVisible()
@@ -16,6 +21,25 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   await expect(page.getByText('当前只提供扫描与审阅', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: '重新扫描', exact: true })).toBeDisabled()
   expect(errors).toEqual([])
+})
+
+test('home engine summary shows verified version and handles unavailable engines', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () => {
+    const fixture = await import('/tests/e2e/fixtures/engine-summary.tsx')
+    fixture.mount()
+  })
+  const fixture = page.locator('#engine-test-fixture')
+  const engine = fixture.getByRole('region', { name: 'Mole CLI 版本' })
+  await expect(engine).toContainText('v1.59.1')
+  await expect(engine).toContainText('ba3a0f57f78e')
+  await expect(engine).toContainText('引擎就绪')
+  await fixture.getByRole('button', { name: '模拟引擎缺失' }).click()
+  await expect(engine).toContainText('版本待确认')
+  await expect(engine).toContainText('引擎未就绪')
+  await expect(engine).not.toContainText('v1.59.1')
 })
 
 test('structured preview supports selection, subset totals, filters and diagnostics', async ({

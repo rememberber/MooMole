@@ -320,6 +320,45 @@ h1 {
   font-size: 29px;
   letter-spacing: 0.2px;
 }
+.engine-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+.engine-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--text);
+}
+.engine-description {
+  flex: 1;
+  min-width: 210px;
+}
+.engine-version {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+}
+.engine-version strong {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.engine-description p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.8;
+  margin-top: 4px;
+}
 .button {
   display: inline-flex;
   align-items: center;

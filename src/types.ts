@@ -19,7 +19,7 @@ export interface TaskRecord {
 export interface Bootstrap {
   settings: Settings
   history: TaskRecord[]
-  engine: { available: boolean; revision: string; reason: string | null }
+  engine: { available: boolean; version: string | null; revision: string; reason: string | null }
   home: string
   latestCleanPreview: CleanPreview | null
   reviewPlans: ReviewPlanSummary[]

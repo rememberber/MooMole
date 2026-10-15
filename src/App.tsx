@@ -46,6 +46,7 @@ import { Modal } from './components/Modal'
 import { SettingsModal } from './components/SettingsModal'
 import { CleanReview } from './components/CleanReview'
 import { ReviewPlanDialog } from './components/ReviewPlanDialog'
+import { EngineSummary } from './components/EngineSummary'
 import type {
   Analysis,
   AppEntry,
@@ -493,6 +494,7 @@ export default function App() {
                   刷新状态
                 </button>
               </div>
+              <EngineSummary engine={data.engine} desktop={api.desktop} />
               <section className="storage-card card">
                 <div className="storage-main">
                   <div className="section-top">
@@ -1236,6 +1238,7 @@ export default function App() {
           initialTab={settingsTab}
           settings={data.settings}
           revision={data.engine.revision}
+          version={data.engine.version}
           onSave={updateSettings}
           onClose={() => setSettingsTab(null)}
         />

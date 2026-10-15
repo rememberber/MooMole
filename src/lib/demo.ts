@@ -68,6 +68,7 @@ export const demoBootstrap: Bootstrap = {
   home: '/Users/demo',
   engine: {
     available: false,
+    version: null,
     revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
     reason: '浏览器仅展示示例数据；请启动桌面 App 读取本机。',
   },

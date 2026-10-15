@@ -26,6 +26,11 @@ const head = spawnSync('git', ['rev-parse', 'HEAD'], {
 }).stdout.trim()
 if (head !== revision) throw new Error('Mole source revision does not match the pinned revision')
 run('git', ['diff', '--exit-code', 'HEAD'], source)
+const versions = [
+  ...readFileSync(resolve(source, 'mole'), 'utf8').matchAll(/^VERSION="(\d+\.\d+\.\d+)"$/gm),
+]
+if (versions.length !== 1) throw new Error('Cannot identify the pinned Mole CLI version')
+const version = versions[0][1]
 mkdirSync(destination, { recursive: true })
 for (const name of ['mole', 'mo', 'bin', 'lib', 'LICENSE', 'TRADEMARK.md']) {
   cpSync(resolve(source, name), resolve(destination, name), { recursive: true })
@@ -51,6 +56,7 @@ writeFileSync(
     {
       repository: 'https://github.com/tw93/Mole',
       revision,
+      version,
       platform: process.platform,
       arch: process.arch,
       cleanProtocol: 1,
@@ -62,4 +68,4 @@ writeFileSync(
 )
 mkdirSync(resolve(root, 'third-party'), { recursive: true })
 writeFileSync(resolve(root, 'third-party/Mole-LICENSE'), readFileSync(resolve(source, 'LICENSE')))
-console.log(`Mole ${revision.slice(0, 8)} prepared for ${process.arch}.`)
+console.log(`Mole v${version} (${revision.slice(0, 8)}) prepared for ${process.arch}.`)

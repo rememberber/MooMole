@@ -7,12 +7,14 @@ import { Modal } from './Modal'
 export function SettingsModal({
   settings,
   revision,
+  version,
   onSave,
   onClose,
   initialTab = 'general',
 }: {
   settings: Settings
   revision: string
+  version: string | null
   onSave: (settings: Settings) => Promise<void>
   onClose: () => void
   initialTab?: 'general' | 'protected' | 'about'
@@ -181,7 +183,7 @@ export function SettingsModal({
               </button>
             </div>
             <p className="fine-print">
-              Mole CLI · GPL-3.0
+              Mole CLI {version ? `v${version}` : '版本待确认'} · GPL-3.0
               <br />
               源码基线 <span className="mono">{revision.slice(0, 12)}</span>
             </p>

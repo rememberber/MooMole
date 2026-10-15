@@ -77,12 +77,13 @@ impl Drop for ProcessGuard {
 #[serde(rename_all = "camelCase")]
 pub struct EngineInfo {
     pub available: bool,
+    pub version: Option<String>,
     pub revision: String,
     pub reason: Option<String>,
 }
 
 pub fn info(root: &Path) -> EngineInfo {
-    let checked = (|| -> Result<(), String> {
+    let checked = (|| -> Result<String, String> {
         let manifest: Value = serde_json::from_slice(
             &std::fs::read(root.join("UPSTREAM.json"))
                 .map_err(|_| "尚未准备 Mole 引擎，请在项目中运行 npm run engine:prepare。")?,
@@ -90,6 +91,12 @@ pub fn info(root: &Path) -> EngineInfo {
         .map_err(|e| e.to_string())?;
         if manifest["revision"] != REVISION {
             return Err("引擎版本与应用不匹配，请重新准备引擎。".into());
+        }
+        let source = std::fs::read_to_string(root.join("mole"))
+            .map_err(|_| "缺少 Mole CLI 版本信息，请重新准备引擎。")?;
+        let version = source_version(&source)?;
+        if manifest["version"].as_str() != Some(version) {
+            return Err("Mole CLI 版本清单与源码不一致，请重新准备引擎。".into());
         }
         if manifest["cleanProtocol"] != crate::clean_preview::PROTOCOL
             || !root.join("moomole-clean-preview.sh").is_file()
@@ -113,13 +120,35 @@ pub fn info(root: &Path) -> EngineInfo {
                 return Err("引擎文件无效。".into());
             }
         }
-        Ok(())
+        Ok(version.to_owned())
     })();
     EngineInfo {
         available: checked.is_ok(),
+        version: checked.as_ref().ok().cloned(),
         revision: REVISION.into(),
         reason: checked.err(),
     }
+}
+
+fn source_version(source: &str) -> Result<&str, String> {
+    let versions: Vec<_> = source
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("VERSION=\"")
+                .and_then(|v| v.strip_suffix('"'))
+        })
+        .collect();
+    if versions.len() == 1 {
+        let parts: Vec<_> = versions[0].split('.').collect();
+        if parts.len() == 3
+            && parts
+                .iter()
+                .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return Ok(versions[0]);
+        }
+    }
+    Err("无法确认 Mole CLI 版本，请重新准备引擎。".into())
 }
 
 pub fn directory(raw: &str, home: &Path) -> Result<PathBuf, String> {
@@ -474,6 +503,50 @@ async fn inspect_cleanup(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn version_is_read_from_source_and_must_match_prepared_manifest() {
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path();
+        std::fs::create_dir(root.join("bin")).unwrap();
+        for name in [
+            "bin/analyze-go",
+            "bin/status-go",
+            "moomole-clean-preview.sh",
+            "moomole-review-rules.sh",
+        ] {
+            std::fs::write(root.join(name), "fixture").unwrap();
+        }
+        let manifest = serde_json::json!({"revision": super::REVISION, "version": "1.59.1",
+            "cleanProtocol": 1, "rulesProtocol": 1,
+            "arch": std::env::consts::ARCH.replace("aarch64", "arm64").replace("x86_64", "x64")});
+        std::fs::write(root.join("UPSTREAM.json"), manifest.to_string()).unwrap();
+        std::fs::write(
+            root.join("mole"),
+            "#!/bin/bash\nVERSION=\"1.59.1\"\nexit 99\n",
+        )
+        .unwrap();
+        let info = super::info(root);
+        assert!(info.available);
+        assert_eq!(info.version.as_deref(), Some("1.59.1"));
+        for source in [
+            "",
+            "VERSION=\"1.59.2\"\n",
+            "VERSION=\"$(echo 1.59.1)\"\n",
+            "VERSION=\"1.59.1\"\nVERSION=\"1.59.1\"\n",
+        ] {
+            std::fs::write(root.join("mole"), source).unwrap();
+            let info = super::info(root);
+            assert!(!info.available);
+            assert_eq!(info.version, None);
+            assert!(info.reason.is_some());
+        }
+        std::fs::write(root.join("mole"), "VERSION=\"1.59.1\"\n").unwrap();
+        let mut legacy = manifest.clone();
+        legacy.as_object_mut().unwrap().remove("version");
+        std::fs::write(root.join("UPSTREAM.json"), legacy.to_string()).unwrap();
+        assert!(!super::info(root).available);
+    }
+
     use super::*;
     #[test]
     fn unavailable_saved_protection_survives_unrelated_settings_changes() {
