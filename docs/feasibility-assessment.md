@@ -4,6 +4,8 @@
 
 开发期间用户进一步明确宗旨：对 Mole CLI 进行客户端可视化，并在此基础上提供更多人性化功能。当前产品方向及命令适配顺序见 [product-direction.md](product-direction.md)；开发缓存检查只是其中的补充场景。
 
+后续补充的发行约束：用户没有付费 Apple 开发者签名能力，安装升级参考 MooTool Electron 的 DMG 下载校验与手动替换方案。以下发行建议已据此修订，具体见 [distribution.md](distribution.md)。
+
 源码基线：Mole `main`，提交 [`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)。这是开发分支快照，并非已验证的稳定发布版本。
 
 本次完成了源码静态检查和官方资料核对，没有执行清理、卸载、维护或授权操作，也没有进行构建、性能测试或完整安全审计。工作区当前只有需求文档等初始文件，以下估算按新项目计算。
@@ -145,9 +147,9 @@ Tauri capabilities 用于限制窗口和 WebView 可以调用的能力；自定�
 
 发布包内固定执行引擎版本和接口版本，记录上游提交；升级时审查清理规则、协议变化及安全修复，回归后随 App 发布。运行时拉取 `main` 或完全依赖用户本机 Homebrew 版本会增加行为不确定性。
 
-建议首发采用官网 DMG、Developer ID 签名及公证，并覆盖内嵌可执行文件。Mac App Store 要求 App Sandbox；其访问限制与全盘清理目标存在较大张力，应作为单独缩减功能的发行方案评估。[Apple 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)、[App Sandbox](https://developer.apple.com/documentation/security/app-sandbox)
+首发采用无需付费 Apple 开发者证书的 DMG 分发，使用适合 Tauri 的 ad-hoc 签名并验证内嵌可执行文件，通过 GitHub Releases 提供下载。Developer ID、公证和 Mac App Store 不作为当前发布前提。首次打开的系统提示和用户确认流程需要实测并写入文档，不能保证 ad-hoc 签名能消除 Gatekeeper 提示。[Tauri ad-hoc 签名](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing)
 
-Tauri 发布流程需要验证 App、Go 辅助二进制、Shell 资源路径及目标架构的完整性；应用升级要同时兼容数据库迁移与引擎协议。学习研究阶段可以先使用本地开发包；公开 Beta 的工期才包含签名公证与更新链验证。[Tauri macOS 签名说明](https://v2.tauri.app/distribute/sign/macos/)
+Tauri 发布流程需要验证 App、Go 辅助二进制、Shell 资源路径及目标架构的完整性。参考 MooTool Electron，由 Rust 检查更新、下载匹配 DMG 并校验大小/SHA-512，用户打开 DMG 手动替换应用；新版启动时检查数据库迁移和引擎协议。公开 Beta 包含免费发行安装、系统确认和更新流程验证。特权功能也要在无付费证书前提下验证授权与辅助程序路线。
 
 ## 许可证与品牌
 
@@ -187,7 +189,7 @@ README 应另附上游来源、实际使用版本及适用许可证声明；App 
 3. 建立 Rust 命令、事件和 Mole 协议适配，接入磁盘分析、监控和应用列表；验证长输出、部分结果、超时与取消。
 4. 加入 Rust 侧 SQLite 访问、迁移、分页读取、历史和中断恢复，明确数据清理策略。
 5. 为一类规则打通扫描计划、逐项审阅、执行前验证、执行与结果记录，再逐步增加规则。
-6. 补齐 README、首次使用和关于页文案，以及实际依赖的许可证声明；需要对外分发时再完成架构构建、签名、公证和升级验证。
+6. 补齐 README、首次使用和关于页文案，以及实际依赖的许可证声明；需要对外分发时完成架构构建、ad-hoc 完整性、免费分发安装和手动升级验证。
 
 MVP 的核心验收是：用户能看清要处理的项目及影响，执行范围与勾选一致，任务可以取消，失败和中断可识别，历史记录不夸大实际释放空间。仅完成页面或展示 CLI 日志不算完成 MVP。
 
@@ -199,7 +201,7 @@ MVP 的核心验收是：用户能看清要处理的项目及影响，执行范�
 | --- | --- | --- |
 | 只读验证原型 | 约 1 周 | `.gitignore`、脚手架、参考风格主框架、JSON 接入和 SQLite 迁移最小验证 |
 | 可用 MVP | 5～8 周 | 上述有限规则、完整审阅执行闭环、用户权限范围清理、本地存储及说明文案、内部安装包 |
-| 小范围公开 Beta（可选） | 10～14 周 | 签名公证、更新链、数据库升级、更多真实机器验证；选择性增加卸载或特权操作 |
+| 小范围公开 Beta（可选） | 10～14 周 | 免费发行 DMG、系统确认、下载校验/手动升级、数据库升级及更多真实机器验证；选择性增加卸载或特权操作 |
 | 接近完整综合工具 | 3～6 个月或更久 | 覆盖多类维护、更多机型和应用，长期维护规则 |
 
 不应把这些估算当成交付承诺。团队经验不足、闭源引擎独立实现或扩展系统兼容范围时需重估。

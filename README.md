@@ -23,6 +23,8 @@ Mole CLI 的非官方 macOS 可视化客户端学习项目，在 CLI 能力之�
 
 客户端保护列表目前作用于补充的开发缓存检查；完整 `clean --dry-run` 遵循 Mole 自有白名单。后续实际清理接口必须统一执行两者的保护约束。
 
+正式发行按无付费 Apple 开发者证书方案推进：架构专用 DMG、ad-hoc 签名、GitHub Releases 下载；后续客户端负责检查、下载和校验更新，用户打开 DMG 手动替换 App。该流程参考 MooTool Electron，仍由 Tauri/Rust 实现。首次打开可能需要用户按 macOS 提示确认，Developer ID 和公证不作为发布前提。当前更新功能尚未实现，详见 [安装升级方案](docs/distribution.md)。
+
 ## 环境
 
 - macOS 14+；目前在 Apple Silicon 开发，Intel 尚未验证。
@@ -46,7 +48,7 @@ npm run desktop
 # 只查看界面：显式展示示例数据，不访问本机文件
 npm run dev
 
-# 本地应用包（未配置开发者证书，不能作为已签名公证的公开发行版）
+# 本地应用包（当前尚未完成正式 DMG 发行与安装升级验证）
 npm run tauri -- build --bundles app
 ```
 
