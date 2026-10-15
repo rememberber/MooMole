@@ -17,6 +17,9 @@ const states: Record<string, string> = {
   active: '使用中或无法确认空闲',
   ruleUnavailable: '规则复查未完成',
   pendingRules: '规则复查中',
+  pendingLocal: '本地复核中',
+  moduleRetained: '模块要求保留或重新确认',
+  moduleUnsupported: '模块规则尚未适配',
   contentsChanged: '目录内容已变化',
   inventoryUnavailable: '目录内容无法确认',
   inventoryMissing: '需要重新生成目录计划',
@@ -56,10 +59,29 @@ export function ReviewPlanDialog({
   async function refresh() {
     setPending('local')
     setError('')
+    setPlan((current) => ({
+      ...current,
+      ruleCheckedAt: null,
+      items: current.items.map((item) => ({
+        ...item,
+        moleRule: null,
+        state: 'pendingLocal',
+        reason: '正在重新读取本地身份与保护，之前的规则结果不再适用。',
+      })),
+    }))
     try {
       setPlan(await onRefresh(plan.id))
     } catch (error) {
       setError(String(error).replace(/^Error: /, ''))
+      setPlan((current) => ({
+        ...current,
+        items: current.items.map((item) => ({
+          ...item,
+          moleRule: null,
+          state: 'unavailable',
+          reason: '本次本地复核未完成，请重新检查；之前的规则结果不再适用。',
+        })),
+      }))
     } finally {
       setPending(null)
     }
@@ -115,8 +137,8 @@ export function ReviewPlanDialog({
       <div className="notice">
         <ShieldCheck size={18} />
         <span>
-          Mole
-          复查覆盖当前路径级保护，尚不包含完整清理审计与每项操作影响。实际操作前仍需再次复核，当前未开放执行。
+          复查包含 Mole 路径保护，以及已适配范围的用户缓存 Deno
+          约束、用户日志目录约束。其他模块条件仍需单独核对；当前未开放执行。
         </span>
       </div>
       <div className="plan-summary">
@@ -131,8 +153,8 @@ export function ReviewPlanDialog({
         {expired
           ? '此计划已失效，之前的复查结果不再适用。'
           : plan.ruleCheckedAt
-            ? `Mole 路径规则复查于 ${dateTime(plan.ruleCheckedAt)}`
-            : 'Mole 路径规则尚未完成本次复查'}
+            ? `Mole 规则复查于 ${dateTime(plan.ruleCheckedAt)}`
+            : 'Mole 规则尚未完成本次复查'}
       </p>
       <div className="plan-toolbar">
         <label>
@@ -201,9 +223,32 @@ export function ReviewPlanDialog({
               <ImpactDetails impact={item.impact} />
             </details>
             {item.moleRule && (
-              <p className="rule-evidence">
-                {item.moleRule.source}：{item.moleRule.reason}
-              </p>
+              <>
+                <p className="rule-evidence">
+                  {item.moleRule.source}：{item.moleRule.reason}
+                </p>
+                <div className="module-evidence" aria-label="模块规则复查">
+                  <strong>
+                    {item.moleRule.module?.scope === 'userCache'
+                      ? '用户缓存模块'
+                      : item.moleRule.module?.scope === 'userLogs'
+                        ? '用户日志模块'
+                        : '其他模块范围'}
+                  </strong>
+                  <p>
+                    {item.moleRule.module?.reason ??
+                      '这份结果没有模块检查证据，请重新复查；路径通过不代表模块条件已满足。'}
+                  </p>
+                  {item.moleRule.module && (
+                    <details>
+                      <summary>检查来源与版本</summary>
+                      <p>
+                        {item.moleRule.module.source} · 规则 v{item.moleRule.module.version}
+                      </p>
+                    </details>
+                  )}
+                </div>
+              </>
             )}
           </article>
         ))}

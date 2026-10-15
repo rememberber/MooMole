@@ -43,7 +43,7 @@ function fixture(folder, content = 'fixture') {
 }
 
 test('manifest detects equal-size corruption, unexpected files, missing files, links and old schemas', () => {
-  for (const failure of ['changed', 'extra', 'missing', 'link', 'old']) {
+  for (const failure of ['changed', 'extra', 'missing', 'link', 'old', 'rules-v1']) {
     const folder = work()
     fixture(folder)
     assert.equal(verifyPrepared(folder).version, '1.59.1')
@@ -56,6 +56,10 @@ test('manifest detects equal-size corruption, unexpected files, missing files, l
     if (failure === 'missing' || failure === 'link') rmSync(join(folder, 'mo'))
     if (failure === 'link') symlinkSync('mole', join(folder, 'mo'))
     if (failure === 'old') writeFileSync(join(folder, 'UPSTREAM.json'), '{}')
+    if (failure === 'rules-v1') {
+      manifest.rulesProtocol = 1
+      writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
+    }
     assert.throws(() => verifyPrepared(folder), undefined, failure)
   }
 })

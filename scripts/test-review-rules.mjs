@@ -36,6 +36,9 @@ function run(script, args, expected = 0) {
       MOLE_TEST_NO_AUTH: '1',
       MO_NO_OPLOG: '1',
       TMPDIR: scratch,
+      HOME: scratch,
+      SUDO_USER: '',
+      DENO_DIR: '',
     },
     encoding: 'utf8',
     timeout: 20_000,
@@ -46,7 +49,7 @@ let fd
 try {
   writeFileSync(database, 'isolated fixture')
   fd = openSync(database, 'r')
-  writeFileSync(request, ['MooMole.rules.request.v1', ...rows.flat(), 'complete', ''].join('\0'))
+  writeFileSync(request, ['MooMole.rules.request.v2', ...rows.flat(), 'complete', ''].join('\0'))
   writeFileSync(report, '')
   run(prefix + 'WHITELIST_PATTERNS=("$4"); moomole_review_rules "$2" "$3"', [
     engine,
@@ -55,24 +58,18 @@ try {
     `${scratch}/keep`,
   ])
   const fields = readFileSync(report, 'utf8').split('\0')
-  assert.deepEqual(fields.slice(0, 11), [
-    'MooMole.rules.v1',
-    revision,
-    'a',
-    clear,
-    'passed',
-    'b',
-    protectedPath,
-    'whitelist',
-    'c',
-    model,
-    'coreProtection',
-  ])
+  assert.deepEqual(fields.slice(0, 4), ['MooMole.rules.v2', revision, '1', scratch])
+  const decoded = new Map()
+  for (let i = 4; i < fields.length - 2; i += 5) decoded.set(fields[i], fields.slice(i + 1, i + 5))
+  assert.deepEqual(decoded.get('a'), [clear, 'passed', 'unsupported', 'unsupported'])
+  assert.deepEqual(decoded.get('b'), [protectedPath, 'whitelist', 'unsupported', 'notChecked'])
+  assert.deepEqual(decoded.get('c'), [model, 'coreProtection', 'unsupported', 'notChecked'])
   assert.ok(
-    ['sqliteInUse', 'sqliteUnknown'].includes(fields[13]),
+    ['sqliteInUse', 'sqliteUnknown'].includes(decoded.get('d')[1]),
     'An open database must never be reported as passed',
   )
-  assert.deepEqual(fields.slice(14), ['complete', ''])
+  assert.equal(decoded.get('d')[3], 'notChecked')
+  assert.deepEqual(fields.slice(-2), ['complete', ''])
   run(
     prefix +
       '_mole_should_refuse_live_user_cache_path() { return 2; }; moomole_probe_rules "$2"; [[ "$MOOMOLE_RULE_CODE" == activeOrUncertain ]]',
@@ -83,14 +80,105 @@ try {
       'should_protect_path() { return 99; }; moomole_probe_rules "$2"; [[ "$MOOMOLE_RULE_CODE" == checkFailed ]]',
     [engine, clear],
   )
-  writeFileSync(request, ['MooMole.rules.request.v1', 'a', clear, ''].join('\0'))
+  writeFileSync(request, ['MooMole.rules.request.v2', 'a', clear, ''].join('\0'))
   run('exec /bin/bash "$1/moomole-review-rules.sh" "$2" "$3"', [engine, request, report], 1)
+  // The request format is versioned; old requests must never run silently.
+  writeFileSync(request, ['MooMole.rules.request.v1', 'a', clear, 'complete', ''].join('\0'))
+  run('exec /bin/bash "$1/moomole-review-rules.sh" "$2" "$3"', [engine, request, report], 1)
+  const cache = resolve(scratch, 'Library/Caches')
+  const logs = resolve(scratch, 'Library/Logs')
+  const reports = resolve(logs, 'DiagnosticReports')
+  mkdirSync(resolve(cache, 'app'), { recursive: true })
+  mkdirSync(resolve(cache, 'deno'), { recursive: true })
+  mkdirSync(resolve(cache, 'owner/deno-root'), { recursive: true })
+  mkdirSync(reports, { recursive: true })
+  const log = resolve(logs, 'fixture.log')
+  const crash = resolve(reports, '中文 report\n[*].ips')
+  writeFileSync(log, 'keep log content')
+  writeFileSync(crash, 'keep diagnostic content')
+  const moduleProbe =
+    prefix +
+    'MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_SCOPE" == "$3" && "$MOOMOLE_MODULE_CODE" == "$4" ]]'
+  for (const [path, scope, code] of [
+    [resolve(cache, 'app'), 'userCache', 'checked'],
+    [resolve(cache, 'deno'), 'userCache', 'retainOrUnknown'],
+    [log, 'userLogs', 'checked'],
+    [reports, 'userLogs', 'preserveRoot'],
+    [crash, 'userLogs', 'checked'],
+    [resolve(cache, 'app/deep'), 'unsupported', 'unsupported'],
+    [resolve(cache, '.hidden'), 'unsupported', 'unsupported'],
+    [resolve(reports, '.hidden'), 'unsupported', 'unsupported'],
+    [resolve(scratch, 'Library/LogsOther/sibling'), 'unsupported', 'unsupported'],
+  ])
+    run(moduleProbe, [engine, path, scope, code])
+  run(
+    prefix +
+      'DENO_DIR="$2"; MOOMOLE_RULE_CODE=passed; moomole_probe_module "$3"; [[ "$MOOMOLE_MODULE_CODE" == retainOrUnknown ]]',
+    [engine, resolve(cache, 'owner/deno-root'), resolve(cache, 'owner')],
+  )
+  run(
+    prefix +
+      'DENO_DIR=relative; MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_CODE" == retainOrUnknown ]]',
+    [engine, resolve(cache, 'app')],
+  )
+  run(
+    prefix +
+      '_user_cache_deno_delete_guard() { return 99; }; MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_CODE" == checkFailed ]]',
+    [engine, resolve(cache, 'app')],
+  )
+  run(
+    prefix +
+      'unset -f _user_log_delete_guard; MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_CODE" == checkFailed ]]',
+    [engine, log],
+  )
+  // Change the root exactly between snapshot and the real upstream final guard.
+  run(
+    prefix +
+      `definition=$(declare -f _user_log_delete_guard); eval "${'${definition/_user_log_delete_guard/_fixture_original_log_guard}'}";
+    _user_log_delete_guard() { mv "$HOME/Library/Logs" "$HOME/Library/Logs.previous"; mkdir "$HOME/Library/Logs"; _fixture_original_log_guard "$@"; };
+    MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_CODE" == retainOrUnknown ]];
+    rmdir "$HOME/Library/Logs"; mv "$HOME/Library/Logs.previous" "$HOME/Library/Logs"`,
+    [engine, log],
+  )
+  run(
+    prefix +
+      'mv "$HOME/Library/Logs/DiagnosticReports" "$HOME/reports-original"; ln -s "$HOME/reports-original" "$HOME/Library/Logs/DiagnosticReports"; MOOMOLE_RULE_CODE=passed; moomole_probe_module "$2"; [[ "$MOOMOLE_MODULE_CODE" == retainOrUnknown ]]; unlink "$HOME/Library/Logs/DiagnosticReports"; mv "$HOME/reports-original" "$HOME/Library/Logs/DiagnosticReports"',
+    [engine, crash],
+  )
+  // Exercise the complete v2 wrapper and real guards with isolated HOME only.
+  writeFileSync(
+    request,
+    [
+      'MooMole.rules.request.v2',
+      'log',
+      log,
+      'cache',
+      resolve(cache, 'app'),
+      'outside',
+      clear,
+      'complete',
+      '',
+    ].join('\0'),
+  )
+  run('exec /bin/bash "$1/moomole-review-rules.sh" "$2" "$3"', [engine, request, report])
+  const full = readFileSync(report, 'utf8').split('\0')
+  assert.deepEqual(full.slice(0, 4), ['MooMole.rules.v2', revision, '1', scratch])
+  assert.deepEqual(full.slice(4, 9), ['log', log, 'passed', 'userLogs', 'checked'])
+  assert.deepEqual(full.slice(9, 14), [
+    'cache',
+    resolve(cache, 'app'),
+    'passed',
+    'userCache',
+    'checked',
+  ])
+  assert.equal(readFileSync(log, 'utf8'), 'keep log content')
+  assert.equal(readFileSync(crash, 'utf8'), 'keep diagnostic content')
   const config = resolve(scratch, '.config/mole')
   mkdirSync(config, { recursive: true })
   writeFileSync(resolve(config, 'whitelist'), '../invalid-policy\n')
   run(prefix + 'load_mole_whitelist "$2"; moomole_validate_rule_policy', [engine, scratch], 1)
   console.log(
-    'Mole rule fixtures passed: exact NUL paths, whitelist, model guard, open database, unknown state and invalid policy.',
+    'Mole rule fixtures passed: v2 framing, isolated HOME, path guards, Deno roots, log identities, root substitution, symlink refusal, unknown/missing guards and invalid policy.',
   )
 } finally {
   if (fd != null) closeSync(fd)

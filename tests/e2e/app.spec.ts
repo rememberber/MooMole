@@ -376,3 +376,64 @@ test('execution record read failures keep history and closing a pending read sta
     dialog.getByText('已取消 · 已移入 1 / 2 项 · 待核实 0 项', { exact: true }),
   ).toBeVisible()
 })
+
+test('module checks show partial coverage and local recheck failure clears all old evidence', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('modules'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  const checks = fixture.getByRole('checkbox', { name: /^审阅 / })
+  for (let i = 0; i < (await checks.count()); i++) await checks.nth(i).check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByText('模块规则尚未适配', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('模块要求保留或重新确认', { exact: true })).toBeVisible()
+  await expect(
+    dialog.getByText('仅 Deno 约束已复查，其他模块仍需单独核对。', { exact: true }),
+  ).toBeVisible()
+  await expect(dialog.getByText('2 项需要重新确认', { exact: true })).toBeVisible()
+  await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).check()
+  await expect(
+    dialog.getByText('仅 Deno 约束已复查，其他模块仍需单独核对。', { exact: true }),
+  ).toHaveCount(0)
+  await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).uncheck()
+  await dialog.getByText('检查来源与版本', { exact: true }).first().click()
+  await expect(
+    dialog.getByText('Mole _user_cache_deno_delete_guard · 规则 v1', { exact: true }),
+  ).toBeVisible()
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
+  await page.screenshot({
+    path: 'test-results/module-rules-dark.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await dialog.getByRole('button', { name: '重新复核', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('fixture 本地复核读取失败')
+  await expect(dialog.getByLabel('模块规则复查')).toHaveCount(0)
+  await expect(dialog.getByText('无法确认身份', { exact: true })).toHaveCount(3)
+})
+
+test('cancelling a repeated module check clears previous module observations', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('module-cancel'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  await fixture
+    .getByRole('checkbox', { name: '审阅 /Users/demo/Library/Caches/ExampleApp', exact: true })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('模块规则复查')).toHaveCount(1)
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('模块规则复查')).toHaveCount(0)
+  await dialog.getByRole('button', { name: '取消复查', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
+  await expect(dialog.getByText('规则复查未完成', { exact: true })).toBeVisible()
+  await expect(dialog.getByLabel('模块规则复查')).toHaveCount(0)
+})

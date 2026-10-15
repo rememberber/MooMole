@@ -105,7 +105,7 @@ pub fn verify(root: &Path) -> Result<Manifest, String> {
         || !manifest.build.go_version.starts_with("go version go")
         || manifest.build.go_version.len() > 200
         || manifest.clean_protocol != crate::clean_preview::PROTOCOL
-        || manifest.rules_protocol != 1
+        || manifest.rules_protocol != crate::rules::PROTOCOL
     {
         return Err("引擎清单、架构或适配版本与应用不匹配。".into());
     }
@@ -271,7 +271,7 @@ pub fn fixture(root: &Path) {
         (*name, serde_json::json!({"size": bytes.len(), "sha256": format!("{:x}", Sha256::digest(bytes)), "executable": mode & 0o111 != 0}))
     }).collect();
     let manifest = serde_json::json!({"schemaVersion":1, "repository":"https://github.com/tw93/Mole", "revision":crate::engine::REVISION,
-        "version":"1.59.1", "platform":"darwin", "arch":architecture(), "cleanProtocol":1,"rulesProtocol":1,
+        "version":"1.59.1", "platform":"darwin", "arch":architecture(), "cleanProtocol":1,"rulesProtocol":crate::rules::PROTOCOL,
         "build":{"recipeVersion":1,"goVersion":"go version go1.26.0 darwin/fixture","goos":"darwin","goarch": if architecture()=="x64" {"amd64"} else {"arm64"}},"files":files});
     std::fs::write(root.join("UPSTREAM.json"), manifest.to_string()).unwrap();
 }
@@ -310,12 +310,15 @@ mod tests {
 
     #[test]
     fn malformed_paths_wrong_binary_headers_and_deep_trees_are_rejected() {
-        for mode in ["path", "header", "deep"] {
+        for mode in ["path", "header", "deep", "rules-v1"] {
             let tmp = tempfile::tempdir().unwrap();
             fixture(tmp.path());
             let manifest_path = tmp.path().join("UPSTREAM.json");
             let mut value: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+            if mode == "rules-v1" {
+                value["rulesProtocol"] = 1.into();
+            }
             if mode == "path" {
                 value["files"]["../escape"] = value["files"]["mo"].clone();
             }

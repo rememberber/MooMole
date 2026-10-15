@@ -419,6 +419,23 @@ pub fn apply_rule_checks(
                 };
                 item.reason = check.reason.clone();
             }
+            if item.state == "unchanged" && check.code == "passed" {
+                match check.module.code.as_str() {
+                    "checked" => {}
+                    "retainOrUnknown" | "preserveRoot" => {
+                        item.state = "moduleRetained".into();
+                        item.reason = check.module.reason.clone();
+                    }
+                    "unsupported" => {
+                        item.state = "moduleUnsupported".into();
+                        item.reason = check.module.reason.clone();
+                    }
+                    _ => {
+                        item.state = "ruleUnavailable".into();
+                        item.reason = check.module.reason.clone();
+                    }
+                }
+            }
             item.mole_rule = Some(check.clone());
         }
     }
@@ -460,6 +477,7 @@ mod tests {
                 code: "passed".into(),
                 source: "fixture".into(),
                 reason: "fixture".into(),
+                module: crate::rules::ModuleCheck::from_codes("userCache", "checked").unwrap(),
             },
         )]);
         assert_eq!(
@@ -478,6 +496,43 @@ mod tests {
             .state,
             "expired"
         );
+    }
+    #[test]
+    fn module_observations_do_not_turn_partial_coverage_into_execution_eligibility() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap().join("file");
+        std::fs::write(&path, "fixture").unwrap();
+        let plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
+        for (scope, code, state) in [
+            ("userCache", "checked", "unchanged"),
+            ("userCache", "retainOrUnknown", "moduleRetained"),
+            ("userLogs", "preserveRoot", "moduleRetained"),
+            ("userLogs", "checkFailed", "ruleUnavailable"),
+            ("unsupported", "unsupported", "moduleUnsupported"),
+        ] {
+            let checks = HashMap::from([(
+                "scan-1:0".into(),
+                crate::rules::RuleCheck {
+                    code: "passed".into(),
+                    source: "fixture".into(),
+                    reason: "fixture".into(),
+                    module: crate::rules::ModuleCheck::from_codes(scope, code).unwrap(),
+                },
+            )]);
+            let view = apply_rule_checks(check(&plan, &[], 1002), &checks, 1002);
+            assert_eq!(view.items[0].state, state);
+            assert!(view.read_only && view.requires_mole_recheck);
+            assert_eq!(
+                apply_rule_checks(
+                    check(&plan, &[path.to_str().unwrap().into()], 1002),
+                    &checks,
+                    1002
+                )
+                .items[0]
+                    .state,
+                "protected"
+            );
+        }
     }
     fn scan(path: &Path) -> Scan {
         let metadata = std::fs::metadata(path).unwrap();

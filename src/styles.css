@@ -2089,3 +2089,25 @@ input[type='checkbox'] {
 :root[data-theme='dark'] .execution-modal .notice.warning {
   color: var(--peach-ink);
 }
+
+.plan-item > .module-evidence {
+  display: block;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--soft);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.module-evidence p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.module-evidence details {
+  color: var(--subtle);
+  margin-top: 8px;
+}
+.module-evidence summary {
+  cursor: pointer;
+}

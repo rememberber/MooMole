@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CleanReview } from '../../../src/components/CleanReview'
 import { demoCleanPreview } from '../../../src/lib/demo'
@@ -19,6 +19,7 @@ const legacyPreview = {
 function Fixture({ mode }: { mode: string }) {
   const fixturePreview = mode === 'legacy' ? legacyPreview : preview
   const [protectedPaths, setProtectedPaths] = useState<string[]>([])
+  const attempts = useRef(0)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   return (
     <>
@@ -60,22 +61,69 @@ function Fixture({ mode }: { mode: string }) {
         <ReviewPlanDialog
           initialPlan={plan}
           onClose={() => setPlan(null)}
-          onRefresh={async () => ({
-            ...plan,
-            checkedAt: Date.now(),
-            items: plan.items.map((item) => ({
-              ...item,
-              state: 'changed',
-              reason: '文件身份已变化，需要重新扫描。',
-            })),
-          })}
+          onRefresh={async () => {
+            if (mode === 'modules') throw new Error('fixture 本地复核读取失败')
+            return {
+              ...plan,
+              checkedAt: Date.now(),
+              items: plan.items.map((item) => ({
+                ...item,
+                state: 'changed',
+                reason: '文件身份已变化，需要重新扫描。',
+              })),
+            }
+          }}
           onCheckRules={async (_, signal) => {
-            if (mode === 'cancel')
+            attempts.current++
+            if (mode === 'cancel' || (mode === 'module-cancel' && attempts.current > 1))
               await new Promise((_, reject) =>
                 signal.addEventListener('abort', () => reject(new Error('规则复查已取消。')), {
                   once: true,
                 }),
               )
+            if (mode === 'modules' || mode === 'module-cancel')
+              return {
+                ...plan,
+                ruleCheckedAt: Date.now(),
+                items: plan.items.map((item, index) => ({
+                  ...item,
+                  state:
+                    index === 0
+                      ? 'unchanged'
+                      : index === 1
+                        ? 'moduleUnsupported'
+                        : 'moduleRetained',
+                  reason:
+                    index === 0
+                      ? '本次元数据复核未发现变化。'
+                      : index === 1
+                        ? '模块规则尚未适配。'
+                        : '模块要求保留或无法确认。',
+                  moleRule: {
+                    code: 'passed',
+                    source: 'Mole 路径级保护检查',
+                    reason: '路径级检查未要求保留。',
+                    module: {
+                      version: 1,
+                      scope: index === 0 ? 'userCache' : index === 1 ? 'unsupported' : 'userLogs',
+                      code:
+                        index === 0 ? 'checked' : index === 1 ? 'unsupported' : 'retainOrUnknown',
+                      source:
+                        index === 0
+                          ? 'Mole _user_cache_deno_delete_guard'
+                          : index === 1
+                            ? '尚未适配'
+                            : 'Mole _user_log_delete_guard',
+                      reason:
+                        index === 0
+                          ? '仅 Deno 约束已复查，其他模块仍需单独核对。'
+                          : index === 1
+                            ? '此路径的模块规则尚未适配。'
+                            : '模块要求保留或无法确认当前条件。',
+                    },
+                  },
+                })),
+              }
             return {
               ...plan,
               ruleCheckedAt: Date.now(),

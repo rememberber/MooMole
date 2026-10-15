@@ -327,7 +327,7 @@ async fn check_review_rules(
         if requested.is_empty() {
             return Ok(local);
         }
-        let checks = rules::run(&state.engine_root, &requested, job.clone()).await?;
+        let checks = rules::run(&state.engine_root, &state.home, &requested, job.clone()).await?;
         let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
         // Re-read local identities, expiry and client protection after the probes.
         let view = review::check(&plan, &settings.protected_paths, db::now());

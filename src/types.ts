@@ -104,7 +104,7 @@ export interface ReviewPlan extends ReviewPlanSummary {
     section: string
     state: string
     reason: string
-    moleRule?: { code: string; source: string; reason: string } | null
+    moleRule?: { code: string; source: string; reason: string; module?: ModuleCheck } | null
     inventoryEntries?: number | null
     impact?: Impact | null
   }[]
@@ -181,4 +181,12 @@ export interface ExecutionDetail extends ExecutionSummary {
     reason: string
     receipt: ExecutionReceipt | null
   }[]
+}
+
+export interface ModuleCheck {
+  version: number
+  scope: string
+  code: string
+  source: string
+  reason: string
 }

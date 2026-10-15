@@ -1,5 +1,6 @@
 #!/bin/bash
-# Read-only, path-level Mole guards. This is not cleanup authorization.
+# Read-only Mole path guards plus explicitly bounded module observations.
+# This never calls a cleanup lifecycle or deletion sink; no execution authority.
 set -euo pipefail
 
 moomole_probe_rules() {
@@ -30,8 +31,73 @@ moomole_probe_rules() {
     esac
 }
 
+# Scope comes from path boundaries, never terminal section labels. This only
+# observes these named module predicates; other modules may impose extra rules.
+moomole_module_scope() {
+    local path="$1" parent="${1%/*}"
+    MOOMOLE_MODULE_SCOPE=unsupported
+    [[ "${path##*/}" != .* ]] || return 0
+    case "$parent" in
+        "$HOME/Library/Caches") MOOMOLE_MODULE_SCOPE=userCache ;;
+        "$HOME/Library/Logs"|"$HOME/Library/Logs/DiagnosticReports") MOOMOLE_MODULE_SCOPE=userLogs ;;
+    esac
+}
+
+moomole_probe_log_module() {
+    local candidate="$1" ancestor="$HOME/Library/Logs"
+    local _MOLE_USER_LOG_ROOT="$ancestor"
+    [[ -d "$ancestor" ]] || return 3
+    # Mirror _clean_user_log_directory's physical-root prerequisites, without
+    # enumerating targets or calling safe_clean_guarded.
+    while [[ "$ancestor" != "$HOME" ]]; do
+        [[ "$ancestor" == "$HOME/"* && ! -L "$ancestor" ]] || return 1
+        ancestor="${ancestor%/*}"
+    done
+    _mole_snapshot_path_identity "$_MOLE_USER_LOG_ROOT" || return 3
+    local _MOLE_USER_LOG_PARENT="$_MOLE_PATH_SNAPSHOT_PARENT"
+    local _MOLE_USER_LOG_PARENT_ID="$_MOLE_PATH_SNAPSHOT_PARENT_ID"
+    local _MOLE_USER_LOG_ROOT_ID="$_MOLE_PATH_SNAPSHOT_TARGET_ID"
+    local _MOLE_USER_REPORTS_ID="" _MOLE_USER_REPORTS_PARENT=""
+    if [[ "${candidate%/*}" == "$_MOLE_USER_LOG_ROOT/DiagnosticReports" ]]; then
+        [[ -d "$_MOLE_USER_LOG_ROOT/DiagnosticReports" && ! -L "$_MOLE_USER_LOG_ROOT/DiagnosticReports" ]] || return 1
+        _mole_snapshot_path_identity "$_MOLE_USER_LOG_ROOT/DiagnosticReports" || return 3
+        _MOLE_USER_REPORTS_ID="$_MOLE_PATH_SNAPSHOT_TARGET_ID"
+        _MOLE_USER_REPORTS_PARENT="$_MOLE_PATH_SNAPSHOT_PARENT"
+    fi
+    _user_log_delete_guard "$candidate"
+}
+
+moomole_probe_module() {
+    local path="$1" state=0 fn
+    moomole_module_scope "$path"
+    MOOMOLE_MODULE_CODE=notChecked
+    [[ "$MOOMOLE_RULE_CODE" == passed ]] || return 0
+    case "$MOOMOLE_MODULE_SCOPE" in
+        userCache)
+            declare -F _user_cache_deno_delete_guard > /dev/null || { MOOMOLE_MODULE_CODE=checkFailed; return 0; }
+            _user_cache_deno_delete_guard "$path" >&2 || state=$?
+            ;;
+        userLogs)
+            if [[ "$path" == "$HOME/Library/Logs/DiagnosticReports" ]]; then
+                MOOMOLE_MODULE_CODE=preserveRoot
+                return 0
+            fi
+            for fn in _user_log_delete_guard _mole_snapshot_path_identity _mole_path_matches_identity; do
+                declare -F "$fn" > /dev/null || { MOOMOLE_MODULE_CODE=checkFailed; return 0; }
+            done
+            moomole_probe_log_module "$path" >&2 || state=$?
+            ;;
+        *) MOOMOLE_MODULE_CODE=unsupported; return 0 ;;
+    esac
+    case "$state" in
+        0) MOOMOLE_MODULE_CODE=checked ;;
+        1) MOOMOLE_MODULE_CODE=retainOrUnknown ;;
+        *) MOOMOLE_MODULE_CODE=checkFailed ;;
+    esac
+}
+
 moomole_review_rules() {
-    [[ $# -eq 2 ]] || return 1
+    [[ $# -eq 2 && "$MOLE_USER_HOME" == "$HOME" ]] || return 1
     local request="$1" report="$2" fn header id path count=0
     [[ "$request" == /* && -f "$request" && ! -L "$request" && -O "$request" ]] || return 1
     [[ "$report" == /* && -f "$report" && ! -L "$report" && -O "$report" ]] || return 1
@@ -41,8 +107,8 @@ moomole_review_rules() {
     done
     exec 3< "$request"
     IFS= read -r -d '' header <&3 || return 1
-    [[ "$header" == MooMole.rules.request.v1 ]] || return 1
-    printf '%s\0%s\0' 'MooMole.rules.v1' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' > "$report"
+    [[ "$header" == MooMole.rules.request.v2 ]] || return 1
+    printf '%s\0%s\0%s\0%s\0' 'MooMole.rules.v2' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '1' "$HOME" > "$report"
     while IFS= read -r -d '' id <&3; do
         if [[ "$id" == complete ]]; then
             # The Rust producer owns framing; reject unexpected trailing bytes.
@@ -56,7 +122,8 @@ moomole_review_rules() {
         count=$((count + 1))
         [[ "$count" -le 500 ]] || return 1
         moomole_probe_rules "$path"
-        printf '%s\0%s\0%s\0' "$id" "$path" "$MOOMOLE_RULE_CODE" >> "$report"
+        moomole_probe_module "$path"
+        printf '%s\0%s\0%s\0%s\0%s\0' "$id" "$path" "$MOOMOLE_RULE_CODE" "$MOOMOLE_MODULE_SCOPE" "$MOOMOLE_MODULE_CODE" >> "$report"
     done
     return 1
 }
