@@ -182,3 +182,56 @@ test('Mole rule evidence is visible and cancelling a new probe clears previous e
   await expect(dialog.getByText('规则复查未完成', { exact: true })).toBeVisible()
   await expect(dialog.getByText('本次元数据复核未发现变化', { exact: true })).toHaveCount(0)
 })
+
+test('purpose filters explain irreversible log loss and preserve unknown legacy impacts', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '清理', exact: true }).click()
+  const review = page.getByRole('region', { name: 'Mole 清理项目审阅' })
+  await review.getByRole('combobox', { name: '清理项目用途' }).selectOption('logs')
+  await expect(review.locator('.review-item')).toHaveCount(1)
+  await review.locator('.review-detail > summary').click()
+  await expect(
+    review.getByText('历史日志通常不能重新生成；未来日志不能补回过去的记录。'),
+  ).toBeVisible()
+  await review.getByRole('combobox', { name: '清理项目用途' }).selectOption('appCache')
+  await expect(review.locator('.review-item')).toHaveCount(2)
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('legacy'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  await fixture.getByRole('combobox', { name: '清理项目用途' }).selectOption('unknown')
+  await expect(fixture.locator('.review-item')).toHaveCount(3)
+  await fixture.locator('.review-detail > summary').first().click()
+  await expect(
+    fixture.locator('.review-item').first().getByText('用途尚未确认', { exact: true }),
+  ).toBeVisible()
+})
+
+test('open plans expire automatically and disable rule probes without another user action', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-10-15T12:00:00Z') })
+  await page.goto('/')
+  await page.evaluate(async () => (await import('/tests/e2e/fixtures/clean-review.tsx')).mount())
+  const fixture = page.locator('#review-test-fixture')
+  await fixture
+    .getByRole('checkbox', {
+      name: '审阅 /Users/demo/Library/Caches/ExampleApp/Images',
+      exact: true,
+    })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await expect(dialog.getByRole('button', { name: '复查 Mole 规则', exact: true })).toBeEnabled()
+  await expect(dialog.getByText('已记录目录内 3 个子项的元数据', { exact: false })).toBeVisible()
+  await page.clock.fastForward(16 * 60 * 1000)
+  await expect(dialog.getByText('计划已过期', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('此计划已失效，之前的复查结果不再适用。')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: '复查 Mole 规则', exact: true })).toBeDisabled()
+  await expect(fixture.getByRole('button', { name: '保存审阅计划' })).toBeDisabled()
+  await dialog.getByText('用途与影响 · 应用缓存范围', { exact: true }).click()
+  await expect(dialog.getByLabel('用途与影响说明')).toBeVisible()
+  await page.screenshot({ path: 'test-results/impact-plan.png', fullPage: true })
+})

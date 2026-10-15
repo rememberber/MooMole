@@ -104,6 +104,8 @@ export interface ReviewPlan extends ReviewPlanSummary {
     state: string
     reason: string
     moleRule?: { code: string; source: string; reason: string } | null
+    inventoryEntries?: number | null
+    impact?: Impact | null
   }[]
 }
 export interface CleanCandidate {
@@ -116,6 +118,16 @@ export interface CleanCandidate {
   coveredBy: string | null
   isDirectory: boolean
   resolvedPath: string | null
+  impact?: Impact | null
+}
+export interface Impact {
+  version: number
+  kind: 'downloadCache' | 'logs' | 'diagnostics' | 'appCache' | 'unknown'
+  title: string
+  purpose: string
+  consequence: string
+  recovery: string
+  requiresReview: true
 }
 export interface TaskResults {
   analyze: Analysis

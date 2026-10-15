@@ -1915,3 +1915,44 @@ input[type='checkbox'] {
   font-size: 11px;
   color: var(--subtle);
 }
+
+.impact-details {
+  background: var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 13px 15px;
+  margin-block: 13px;
+  color: var(--subtle);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.impact-details > strong {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+.impact-details dl {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 10px 0;
+}
+.impact-details dt {
+  color: var(--muted);
+}
+.impact-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.impact-details > p {
+  font-size: 10px;
+  color: var(--muted);
+}
+.impact-fold {
+  margin-top: 12px;
+  font-size: 11px;
+}
+.impact-fold > summary {
+  cursor: pointer;
+  color: var(--subtle);
+}

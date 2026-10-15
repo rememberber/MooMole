@@ -349,6 +349,9 @@ pub async fn run(
             return Err("清理预览超过大小上限。".into());
         }
         let mut preview = crate::clean_preview::parse(&data)?;
+        for item in &mut preview.items {
+            item.impact = Some(crate::impact::describe(Path::new(&item.path), home));
+        }
         preview.output = plain_terminal_text(&text);
         return serde_json::to_value(preview).map_err(|e| e.to_string());
     }

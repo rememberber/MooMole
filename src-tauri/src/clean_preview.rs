@@ -21,6 +21,8 @@ pub struct Candidate {
     pub covered_by: Option<String>,
     pub is_directory: bool,
     pub resolved_path: Option<String>,
+    #[serde(default)]
+    pub impact: Option<crate::impact::Impact>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -112,6 +114,7 @@ pub fn parse(bytes: &[u8]) -> Result<Preview, String> {
                 .canonicalize()
                 .ok()
                 .and_then(|p| p.to_str().map(String::from)),
+            impact: None,
         });
     }
     let measured_paths: HashSet<&str> = items

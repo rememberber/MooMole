@@ -1,6 +1,24 @@
-import type { Analysis, Bootstrap, Cleanup, CleanPreview, Snapshot } from '../types'
+import type { Analysis, Bootstrap, Cleanup, CleanPreview, Snapshot, Impact } from '../types'
 
 const GB = 1024 ** 3
+const demoCacheImpact: Impact = {
+  version: 1,
+  kind: 'appCache',
+  title: '应用缓存范围',
+  purpose: '位置处于应用缓存范围，但实际内容仍由各应用决定。',
+  consequence: '可能触发重建或重新下载，也可能影响离线使用、会话或数据库状态。',
+  recovery: '无法统一判断可恢复性；重要会话、离线内容和未同步数据应保留。',
+  requiresReview: true,
+}
+const demoLogImpact: Impact = {
+  version: 1,
+  kind: 'logs',
+  title: '应用运行日志',
+  purpose: '该范围通常存放应用运行和排查问题的历史记录。',
+  consequence: '清理可能影响故障追踪、审计或支持人员分析历史问题。',
+  recovery: '历史日志通常不能重新生成；未来日志不能补回过去的记录。',
+  requiresReview: true,
+}
 export const demoCleanPreview: CleanPreview = {
   output: '示例预览日志：本页仅用于展示界面，没有扫描本机文件。',
   dryRun: true,
@@ -18,6 +36,7 @@ export const demoCleanPreview: CleanPreview = {
       coveredBy: null,
       isDirectory: true,
       resolvedPath: '/Users/demo/Library/Caches/ExampleApp',
+      impact: demoCacheImpact,
     },
     {
       id: 'demo-2',
@@ -29,6 +48,7 @@ export const demoCleanPreview: CleanPreview = {
       coveredBy: '/Users/demo/Library/Caches/ExampleApp',
       isDirectory: true,
       resolvedPath: '/Users/demo/Library/Caches/ExampleApp/Images',
+      impact: demoCacheImpact,
     },
     {
       id: 'demo-3',
@@ -40,6 +60,7 @@ export const demoCleanPreview: CleanPreview = {
       coveredBy: null,
       isDirectory: true,
       resolvedPath: '/Users/demo/Library/Logs/ExampleApp',
+      impact: demoLogImpact,
     },
   ],
 }

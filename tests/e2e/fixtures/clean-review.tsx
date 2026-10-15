@@ -11,14 +11,19 @@ const preview = {
   scannedAt: Date.now(),
   expiresAt: Date.now() + 900_000,
 }
+const legacyPreview = {
+  ...preview,
+  items: preview.items.map((item) => ({ ...item, impact: undefined })),
+}
 
 function Fixture({ mode }: { mode: string }) {
+  const fixturePreview = mode === 'legacy' ? legacyPreview : preview
   const [protectedPaths, setProtectedPaths] = useState<string[]>([])
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   return (
     <>
       <CleanReview
-        preview={preview}
+        preview={fixturePreview}
         protectedPaths={protectedPaths}
         home="/Users/demo"
         desktop
@@ -36,7 +41,7 @@ function Fixture({ mode }: { mode: string }) {
             checkedAt: Date.now(),
             readOnly: true,
             requiresMoleRecheck: true,
-            items: preview.items
+            items: fixturePreview.items
               .filter((item) => ids.includes(item.id))
               .map((item) => ({
                 id: item.id,
@@ -45,6 +50,8 @@ function Fixture({ mode }: { mode: string }) {
                 section: item.section,
                 state: 'unchanged',
                 reason: '本次元数据未发现变化。',
+                impact: item.impact,
+                inventoryEntries: item.isDirectory ? 3 : null,
               })),
           })
         }}

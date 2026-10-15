@@ -1,8 +1,10 @@
 mod clean_preview;
 mod db;
 mod engine;
+mod impact;
 mod review;
 mod rules;
+mod tree;
 
 use db::{Settings, TaskRecord};
 use engine::{Job, TaskKind};

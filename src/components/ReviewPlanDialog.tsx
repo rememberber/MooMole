@@ -3,6 +3,8 @@ import { RefreshCw, ShieldCheck } from 'lucide-react'
 import type { ReviewPlan } from '../types'
 import { bytes, dateTime } from '../lib/format'
 import { Modal } from './Modal'
+import { ImpactDetails, unknownImpact } from './ImpactDetails'
+import { useNow } from '../lib/use-now'
 
 const states: Record<string, string> = {
   unchanged: '元数据未发现变化',
@@ -15,6 +17,9 @@ const states: Record<string, string> = {
   active: '使用中或无法确认空闲',
   ruleUnavailable: '规则复查未完成',
   pendingRules: '规则复查中',
+  contentsChanged: '目录内容已变化',
+  inventoryUnavailable: '目录内容无法确认',
+  inventoryMissing: '需要重新生成目录计划',
 }
 
 export function ReviewPlanDialog({
@@ -29,6 +34,8 @@ export function ReviewPlanDialog({
   onCheckRules?: (id: string, signal: AbortSignal) => Promise<ReviewPlan>
 }) {
   const [plan, setPlan] = useState(initialPlan)
+  const now = useNow()
+  const expired = now >= plan.expiresAt || now < plan.createdAt
   const [pending, setPending] = useState<'local' | 'rules' | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const controller = useRef<AbortController | null>(null)
@@ -36,8 +43,16 @@ export function ReviewPlanDialog({
   const [error, setError] = useState('')
   const [onlyProblems, setOnlyProblems] = useState(false)
   const [limit, setLimit] = useState(100)
-  const problems = plan.items.filter((item) => item.state !== 'unchanged').length
-  const items = plan.items.filter((item) => !onlyProblems || item.state !== 'unchanged')
+  const effectiveItems = expired
+    ? plan.items.map((item) => ({
+        ...item,
+        state: 'expired',
+        moleRule: null,
+        reason: '计划已过期或系统时间发生回退，请重新扫描。',
+      }))
+    : plan.items
+  const problems = effectiveItems.filter((item) => item.state !== 'unchanged').length
+  const items = effectiveItems.filter((item) => !onlyProblems || item.state !== 'unchanged')
   async function refresh() {
     setPending('local')
     setError('')
@@ -113,9 +128,11 @@ export function ReviewPlanDialog({
         <br />
         复核于 {dateTime(plan.checkedAt)} · 计划 {plan.id.slice(0, 8)}
         <br />
-        {plan.ruleCheckedAt
-          ? `Mole 路径规则复查于 ${dateTime(plan.ruleCheckedAt)}`
-          : 'Mole 路径规则尚未完成本次复查'}
+        {expired
+          ? '此计划已失效，之前的复查结果不再适用。'
+          : plan.ruleCheckedAt
+            ? `Mole 路径规则复查于 ${dateTime(plan.ruleCheckedAt)}`
+            : 'Mole 路径规则尚未完成本次复查'}
       </p>
       <div className="plan-toolbar">
         <label>
@@ -139,7 +156,7 @@ export function ReviewPlanDialog({
         </button>
         <button
           className="button secondary compact"
-          disabled={pending != null || !onCheckRules}
+          disabled={pending != null || !onCheckRules || expired}
           onClick={() => void checkRules()}
         >
           {pending === 'rules' ? '正在复查 Mole…' : '复查 Mole 规则'}
@@ -173,6 +190,16 @@ export function ReviewPlanDialog({
             </div>
             <p className="mono full-path">{item.path}</p>
             <p>{item.reason}</p>
+            {item.inventoryEntries != null && (
+              <p>
+                已记录目录内 {item.inventoryEntries}{' '}
+                个子项的元数据，用于复核深层内容变化；不读取文件正文。
+              </p>
+            )}
+            <details className="impact-fold">
+              <summary>用途与影响 · {(item.impact ?? unknownImpact).title}</summary>
+              <ImpactDetails impact={item.impact} />
+            </details>
             {item.moleRule && (
               <p className="rule-evidence">
                 {item.moleRule.source}：{item.moleRule.reason}

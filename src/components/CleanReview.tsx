@@ -3,6 +3,8 @@ import { ArrowUpRight, Folder, Search, ShieldCheck } from 'lucide-react'
 import type { CleanPreview } from '../types'
 import { bytes, dateTime, shortPath } from '../lib/format'
 import { previewTotal, protectionFor } from '../lib/clean-preview'
+import { ImpactDetails } from './ImpactDetails'
+import { useNow } from '../lib/use-now'
 
 export function CleanReview({
   preview,
@@ -24,6 +26,8 @@ export function CleanReview({
   const [query, setQuery] = useState('')
   const [section, setSection] = useState('all')
   const [filter, setFilter] = useState('all')
+  const [impactKind, setImpactKind] = useState('all')
+  const now = useNow()
   const [sort, setSort] = useState('size')
   const [selected, setSelected] = useState<string[]>([])
   const [page, setPage] = useState(0)
@@ -51,6 +55,7 @@ export function CleanReview({
       (item) =>
         (section === 'all' || item.section === section) &&
         `${item.path} ${item.section}`.toLowerCase().includes(query.toLowerCase()) &&
+        (impactKind === 'all' || (item.impact?.kind ?? 'unknown') === impactKind) &&
         (filter === 'all' ||
           (filter === 'protected' && item.protections.length > 0) ||
           (filter === 'unknown' && item.size == null) ||
@@ -113,7 +118,9 @@ export function CleanReview({
       {preview.scannedAt && (
         <p className="review-note">
           扫描于 {dateTime(preview.scannedAt)} · 计划需在 {dateTime(preview.expiresAt!)}{' '}
-          前保存与复核。{Date.now() >= preview.expiresAt! && '此扫描已过期，请重新扫描。'}
+          前保存与复核。
+          {(now >= preview.expiresAt! || now < preview.scannedAt) &&
+            '此扫描已过期或系统时间回退，请重新扫描。'}
         </p>
       )}
       <div className="review-filters">
@@ -129,6 +136,21 @@ export function CleanReview({
             }}
           />
         </label>
+        <select
+          aria-label="清理项目用途"
+          value={impactKind}
+          onChange={(e) => {
+            setImpactKind(e.target.value)
+            setPage(0)
+          }}
+        >
+          <option value="all">全部用途</option>
+          <option value="downloadCache">下载缓存</option>
+          <option value="appCache">应用缓存</option>
+          <option value="logs">运行日志</option>
+          <option value="diagnostics">诊断报告</option>
+          <option value="unknown">用途未确认</option>
+        </select>
         <select
           aria-label="清理分类"
           value={section}
@@ -200,7 +222,8 @@ export function CleanReview({
             !chosen.length ||
             chosen.length > 500 ||
             pending != null ||
-            (preview.expiresAt != null && Date.now() >= preview.expiresAt)
+            (preview.expiresAt != null && now >= preview.expiresAt) ||
+            (preview.scannedAt != null && now < preview.scannedAt)
           }
           onClick={() => void savePlan()}
         >
@@ -261,6 +284,7 @@ export function CleanReview({
                       来源：Mole clean dry-run · {item.section} · 引擎记录 {item.itemCount}{' '}
                       项。是否适合清理仍需结合用途确认，正在使用的数据应保留。
                     </p>
+                    <ImpactDetails impact={item.impact} />
                     {item.coveredBy && (
                       <p>
                         完整预览中，大小已计入父目录：<span className="mono">{item.coveredBy}</span>

@@ -79,6 +79,8 @@ pub struct ScanItem {
     pub candidate: Candidate,
     witness: Option<Witness>,
     unavailable: Option<String>,
+    #[serde(default)]
+    tree: Option<crate::tree::TreeWitness>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -127,6 +129,7 @@ pub fn capture(id: String, preview: Preview, now: i64) -> Result<Scan, String> {
                 candidate,
                 witness,
                 unavailable,
+                tree: None,
             }
         })
         .collect();
@@ -194,6 +197,8 @@ pub struct ItemCheck {
     pub state: String,
     pub reason: String,
     pub mole_rule: Option<crate::rules::RuleCheck>,
+    pub inventory_entries: Option<usize>,
+    pub impact: Option<crate::impact::Impact>,
 }
 
 #[derive(Serialize)]
@@ -220,11 +225,16 @@ fn protected(item: &Candidate, rules: &[String]) -> bool {
 }
 
 pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
+    check_internal(plan, rules, now, true)
+}
+
+fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) -> PlanView {
+    let mut budget = crate::tree::Budget::new();
     let items = plan
         .items
         .iter()
         .map(|item| {
-            let (state, reason) =
+            let (mut state, mut reason) =
                 if plan.revision != crate::engine::REVISION || plan.protocol != PROTOCOL {
                     (
                         "versionMismatch",
@@ -254,6 +264,37 @@ pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
                             .unwrap_or("无法确认扫描时的文件身份。".into()),
                     )
                 };
+            if state == "unchanged"
+                && verify_tree
+                && item.witness.as_ref().is_some_and(|w| {
+                    w.nodes
+                        .last()
+                        .is_some_and(|n| n.mode & libc::S_IFMT as u32 == libc::S_IFDIR as u32)
+                })
+            {
+                if let Some(original) = &item.tree {
+                    let target = item.witness.as_ref().unwrap().nodes.last().unwrap();
+                    match crate::tree::inspect(
+                        Path::new(&item.candidate.path),
+                        target.dev,
+                        target.ino,
+                        &mut budget,
+                    ) {
+                        Ok(current) if &current == original => (),
+                        Ok(_) => {
+                            state = "contentsChanged";
+                            reason = "目录深层子项已变化，请重新生成审阅计划。".into();
+                        }
+                        Err(error) => {
+                            state = "inventoryUnavailable";
+                            reason = error;
+                        }
+                    }
+                } else {
+                    state = "inventoryMissing";
+                    reason = "旧计划尚未记录目录内容，请重新生成审阅计划。".into();
+                }
+            }
             ItemCheck {
                 id: item.candidate.id.clone(),
                 path: item.candidate.path.clone(),
@@ -262,6 +303,8 @@ pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
                 state: state.into(),
                 reason,
                 mole_rule: None,
+                inventory_entries: item.tree.as_ref().map(|t| t.entries),
+                impact: item.candidate.impact.clone(),
             }
         })
         .collect();
@@ -300,7 +343,7 @@ pub fn create(scan: &Scan, ids: &[String], rules: &[String], now: i64) -> Result
                 .ok_or("项目不属于这份扫描，请重新扫描。".to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let plan = Plan {
+    let mut plan = Plan {
         id: uuid::Uuid::new_v4().to_string(),
         scan_id: scan.id.clone(),
         created_at: now,
@@ -309,7 +352,7 @@ pub fn create(scan: &Scan, ids: &[String], rules: &[String], now: i64) -> Result
         protocol: scan.protocol,
         items,
     };
-    let view = check(&plan, rules, now);
+    let view = check_internal(&plan, rules, now, false);
     let invalid: Vec<_> = view
         .items
         .iter()
@@ -321,6 +364,35 @@ pub fn create(scan: &Scan, ids: &[String], rules: &[String], now: i64) -> Result
             invalid.len(),
             first.path,
             first.reason
+        ));
+    }
+    let mut budget = crate::tree::Budget::new();
+    for item in &mut plan.items {
+        let target = item
+            .witness
+            .as_ref()
+            .and_then(|w| w.nodes.last())
+            .ok_or("无法确认目标身份。")?;
+        if target.mode & libc::S_IFMT as u32 == libc::S_IFDIR as u32 {
+            item.tree = Some(
+                crate::tree::inspect(
+                    Path::new(&item.candidate.path),
+                    target.dev,
+                    target.ino,
+                    &mut budget,
+                )
+                .map_err(|e| format!("{}：{e}", item.candidate.path))?,
+            );
+        }
+    }
+    if let Some(item) = check(&plan, rules, now)
+        .items
+        .iter()
+        .find(|item| item.state != "unchanged")
+    {
+        return Err(format!(
+            "保存期间目标发生变化：{} {}",
+            item.path, item.reason
         ));
     }
     Ok(plan)
@@ -356,6 +428,26 @@ pub fn apply_rule_checks(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn directory_plans_freeze_deep_contents_and_reject_legacy_unfrozen_plans() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap();
+        std::fs::create_dir(path.join("nested")).unwrap();
+        std::fs::write(path.join("nested/file"), "old").unwrap();
+        let mut plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
+        assert_eq!(check(&plan, &[], 1002).items[0].inventory_entries, Some(2));
+        assert_eq!(check(&plan, &[], 1002).items[0].state, "unchanged");
+        let encoded = serde_json::to_string(&plan).unwrap();
+        let restored: Plan = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(check(&restored, &[], 1002).items[0].state, "unchanged");
+        std::fs::write(path.join("nested/file"), "new content").unwrap();
+        assert_eq!(
+            check(&restored, &[], 1002).items[0].state,
+            "contentsChanged"
+        );
+        plan.items[0].tree = None;
+        assert_eq!(check(&plan, &[], 1002).items[0].state, "inventoryMissing");
+    }
     #[test]
     fn passing_mole_rules_do_not_override_new_client_protection_or_expiry() {
         let scratch = tempfile::tempdir().unwrap();
@@ -399,6 +491,7 @@ mod tests {
             covered_by: None,
             is_directory: path.is_dir(),
             resolved_path: Some(path.to_str().unwrap().into()),
+            impact: None,
         };
         capture(
             "scan-1".into(),
