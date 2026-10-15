@@ -261,6 +261,12 @@ pub fn history(connection: &Connection) -> Result<Vec<TaskRecord>, String> {
         .map_err(|e| e.to_string())
 }
 
+pub fn task(connection: &Connection, id: &str) -> Result<Option<TaskRecord>, String> {
+    connection.query_row("SELECT id, kind, path, state, created_at, finished_at, message FROM tasks WHERE id = ?1", [id], |row| {
+        Ok(TaskRecord { id: row.get(0)?, kind: row.get(1)?, path: row.get(2)?, state: row.get(3)?, created_at: row.get(4)?, finished_at: row.get(5)?, message: row.get(6)? })
+    }).optional().map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

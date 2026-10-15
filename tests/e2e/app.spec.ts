@@ -1,4 +1,43 @@
 import { expect, test } from '@playwright/test'
+import { installTaskMock } from './fixtures/native-task'
+
+test('running tasks reconnect after a WebView reload without starting a duplicate', async ({
+  page,
+}) => {
+  await installTaskMock(page, 'resume')
+  await page.goto('/')
+  await expect(page.getByText('空间分析进行中', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('空间分析进行中', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '操作历史', exact: true }).click()
+  await expect(page.getByText('进行中', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '继续跟踪' })).toBeDisabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('mock-starts'))).toBeNull()
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('已完成', { exact: true })).toBeVisible()
+  await expect(page.getByText('空间分析进行中', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '空间分析', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: '扫描目录' })).toHaveValue('/Users/demo/Projects')
+  expect(await page.evaluate(() => sessionStorage.getItem('mock-starts'))).toBeNull()
+})
+
+test('accepted tasks appear immediately in history and complete even without native events', async ({
+  page,
+}) => {
+  await installTaskMock(page, 'new')
+  await page.goto('/')
+  await expect(page.getByText('系统快照进行中', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '操作历史', exact: true }).click()
+  await expect(page.getByText('进行中', { exact: true })).toBeVisible()
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('已完成', { exact: true })).toBeVisible()
+  const starts = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('mock-starts') ?? '[]'),
+  )
+  expect(starts).toHaveLength(1)
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await expect(page.getByText('示例 Mac', { exact: true })).toBeVisible()
+})
 
 test('browser preview labels its data and cannot execute real tasks', async ({ page }) => {
   const errors: string[] = []

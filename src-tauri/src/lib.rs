@@ -4,8 +4,11 @@ mod engine;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
+#[cfg(test)]
+mod native_trash_tests;
 mod review;
 mod rules;
+mod tasks;
 mod tree;
 
 use db::{Settings, TaskRecord};
@@ -23,6 +26,7 @@ use tauri::{Emitter, Manager};
 struct AppState {
     db: Arc<Mutex<rusqlite::Connection>>,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
+    results: Arc<Mutex<tasks::Results>>,
     engine_root: PathBuf,
     home: PathBuf,
 }
@@ -36,16 +40,6 @@ struct Bootstrap {
     home: String,
     latest_clean_preview: Option<Value>,
     review_plans: Vec<review::PlanSummary>,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TaskEvent {
-    id: String,
-    kind: String,
-    state: String,
-    result: Option<Value>,
-    error: Option<String>,
 }
 
 #[tauri::command]
@@ -81,6 +75,40 @@ fn save_settings(
 #[tauri::command]
 fn get_history(state: tauri::State<'_, AppState>) -> Result<Vec<TaskRecord>, String> {
     db::history(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+fn get_task_snapshot(
+    task_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<tasks::Snapshot, String> {
+    uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
+    if let Some(snapshot) = state
+        .results
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&task_id)
+    {
+        return Ok(snapshot);
+    }
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let record = db::task(&db, &task_id)?.ok_or("任务不存在或已超过保留期限。")?;
+    let active = state
+        .jobs
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&task_id)
+        .is_some_and(|job| job.kind.name() == record.kind);
+    // Completion may have published its result after our first cache lookup.
+    if let Some(snapshot) = state
+        .results
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&task_id)
+    {
+        return Ok(snapshot);
+    }
+    Ok(tasks::from_record(record, active))
 }
 
 #[tauri::command]
@@ -173,16 +201,22 @@ fn start_task(
             .lock()
             .map_err(|e| e.to_string())
             .and_then(|db| db::finish(&db, &task_id, status, message));
-        let event = TaskEvent {
+        let event = tasks::Snapshot {
             id: task_id.clone(),
             kind: kind.name().into(),
             state: status.into(),
             result: payload,
+            result_unavailable: None,
             error: persisted
                 .err()
                 .map(|e| format!("任务已结束，但历史记录写入失败：{e}"))
                 .or(error),
         };
+        // Publish the snapshot before dropping the running handle or emitting.
+        // A late listener can retrieve the same terminal result by task ID.
+        if let Ok(mut results) = state.results.lock() {
+            results.remember(&event);
+        }
         if let Ok(mut jobs) = state.jobs.lock() {
             jobs.remove(&task_id);
         }
@@ -359,6 +393,7 @@ pub fn run() {
             app.manage(AppState {
                 db: Arc::new(Mutex::new(connection)),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
+                results: Arc::new(Mutex::new(tasks::Results::default())),
                 engine_root,
                 home: app.path().home_dir()?,
             });
@@ -368,6 +403,7 @@ pub fn run() {
             bootstrap,
             save_settings,
             get_history,
+            get_task_snapshot,
             list_review_plans,
             create_review_plan,
             get_review_plan,

@@ -1,0 +1,86 @@
+import type { Page } from '@playwright/test'
+import { demoBootstrap, demoSnapshot } from '../../../src/lib/demo'
+
+// Playwright-only transport mock: it never calls a native command or touches files.
+export async function installTaskMock(page: Page, mode: 'resume' | 'new') {
+  await page.addInitScript(
+    ({ initial, snapshot, mode }) => {
+      const readTask = () => JSON.parse(sessionStorage.getItem('mock-task') ?? 'null')
+      const writeTask = (task: unknown) => sessionStorage.setItem('mock-task', JSON.stringify(task))
+      if (mode === 'resume' && !readTask())
+        writeTask({
+          id: '6d048c7d-d222-410c-875d-a6e3cef18003',
+          kind: 'analyze',
+          path: '/Users/demo/Projects',
+          state: 'running',
+          createdAt: Date.now(),
+          finishedAt: null,
+          message: null,
+        })
+      const finished = () => sessionStorage.getItem('mock-done') === 'yes'
+      const history = () => {
+        const task = readTask()
+        return task
+          ? [
+              {
+                ...task,
+                state: finished() ? 'succeeded' : 'running',
+                message: finished() ? '检查完成' : null,
+              },
+            ]
+          : []
+      }
+      Object.assign(window, {
+        isTauri: true,
+        __TAURI_INTERNALS__: {
+          transformCallback: () => 1,
+          invoke: async (command: string, args: { taskId?: string; kind?: string } = {}) => {
+            if (command === 'bootstrap')
+              return {
+                ...initial,
+                history: history(),
+                engine: { ...initial.engine, available: true, version: '1.59.1' },
+              }
+            if (command === 'get_history') return history()
+            if (command === 'list_review_plans') return []
+            if (command === 'plugin:event|listen')
+              throw new Error('Simulated unavailable event channel')
+            if (command === 'start_task') {
+              const starts = JSON.parse(sessionStorage.getItem('mock-starts') ?? '[]')
+              starts.push(args)
+              sessionStorage.setItem('mock-starts', JSON.stringify(starts))
+              if (mode === 'resume') throw new Error('Existing task must not be restarted')
+              writeTask({
+                id: args.taskId,
+                kind: args.kind,
+                path: null,
+                state: 'running',
+                createdAt: Date.now(),
+                finishedAt: null,
+                message: null,
+              })
+              return
+            }
+            if (command === 'get_task_snapshot') {
+              const task = readTask()
+              if (!task || task.id !== args.taskId) throw new Error('Unknown task')
+              return {
+                id: task.id,
+                kind: task.kind,
+                state: finished() ? 'succeeded' : 'running',
+                error: null,
+                result: finished()
+                  ? task.kind === 'status'
+                    ? snapshot
+                    : { path: task.path, scan_status: 'complete', entries: [], total_size: 0 }
+                  : null,
+              }
+            }
+            throw new Error(`Unexpected test command: ${command}`)
+          },
+        },
+      })
+    },
+    { initial: demoBootstrap, snapshot: demoSnapshot, mode },
+  )
+}

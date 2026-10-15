@@ -64,3 +64,23 @@ node scripts/cargo.mjs test execution_sandbox
 ```
 
 该命令只创建和处理自己的临时 fixture，不运行真实 Mole 清理，不修改个人缓存或应用目录。
+
+## 原生废纸篓兼容性检查（2026-10-15）
+
+新增 `native_trash_tests.rs`，同样只在测试中编译。普通测试只在临时目录验证 URL 观察行为；真实废纸篓检查默认忽略，需显式运行：
+
+```bash
+node scripts/cargo.mjs test native_trash_tests::native_trash_round_trip_smoke -- --ignored --exact --nocapture
+```
+
+本机 macOS 27.0.1 / Apple Silicon 已验证：Foundation `NSFileManager.trashItemAtURL` 接收 2 个同名普通文件和 1 个含子文件的目录，返回各自的实际位置；核对设备/inode、类型与内容，使用 Foundation 移动接口恢复原位置。恢复遇到新建的同名文件时返回失败并保留双方，移开该新文件后显式重试成功。所有测试项均已恢复，随后清理自身 fixture 根目录；没有枚举其他废纸篓内容或清空废纸篓。
+
+首次尝试通过 POSIX 描述符打开废纸篓目录后恢复，被系统以 `EPERM` 拒绝；改用 Foundation 移动接口后通过。首次失败的 3 个专用 fixture 也已逐个核对内容并取回。本结果只说明当前机器、账户及测试进程下的兼容性，不证明所有权限环境相同，更不证明正式 App 已具备完整恢复功能。
+
+系统可能调整同名或特殊字符名称，必须使用 API 返回的实际目标，不能推测废纸篓路径。实验收据写入忽略目录 `.cache/native-trash-smoke.json`，失败时保留根目录及收据以便检查；它不接入用户数据库。
+
+两个普通测试还验证：文件引用 URL 可以在同卷改名后继续定位原对象，但也会跟随对象移出原选择的父目录。因此引用 URL **不能单独作为路径范围授权，也没有证明 API 内部不存在名称替换竞态**。真实执行仍需当次 Mole 模块规则、范围/身份/活动状态复核和明确的并发变化策略。
+
+依据：[Apple 文件定位说明](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/AccessingFilesandDirectories/AccessingFilesandDirectories.html)、[移入废纸篓接口](https://developer.apple.com/documentation/foundation/filemanager/trashitem(at:resultingitemurl:))、[移动接口](https://developer.apple.com/documentation/foundation/filemanager/moveitem(at:to:))，并核对本机 Xcode SDK 的 `NSFileManager.h`、`NSURL.h`。Apple 的文件引用说明明确区分进程运行期间的引用与跨启动的持久记录，本实验不将引用 URL 持久化为下次执行凭据。
+
+同卷与当前账户的实验不能替代跨卷、Finder“放回原处”、普通账户/权限拒绝、真实发布包及干净机器验证；这些仍是待办。

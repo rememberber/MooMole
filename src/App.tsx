@@ -57,6 +57,8 @@ import type {
   Settings,
   Snapshot,
   TaskKind,
+  TaskRecord,
+  TaskResults,
   ReviewPlan,
 } from './types'
 
@@ -132,6 +134,8 @@ export default function App() {
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
   const busyRef = useRef(false)
   const autoStatus = useRef(false)
+  const observation = useRef(new AbortController())
+  const historyRequest = useRef(0)
   const [settingsTab, setSettingsTab] = useState<'general' | 'protected' | 'about' | null>(null)
   const [error, setError] = useState('')
   const [accepted, setAccepted] = useState(false)
@@ -146,16 +150,28 @@ export default function App() {
   async function load() {
     try {
       const initial = await api.bootstrap()
+      if (observation.current.signal.aborted) return
+      const active = initial.history.filter(
+        (task) => task.state === 'running' && Object.hasOwn(kindNames, task.kind),
+      )
+      if (api.desktop && active.length) autoStatus.current = true
       setData(initial)
       if (api.desktop && initial.latestCleanPreview) setCleanPreview(initial.latestCleanPreview)
       setPath(initial.home)
       setError('')
+      if (api.desktop && active.length) void followTasks(active)
     } catch (error) {
       setError(String(error))
     }
   }
   useEffect(() => {
     void load()
+    const stop = () => observation.current.abort()
+    window.addEventListener('pagehide', stop)
+    return () => {
+      window.removeEventListener('pagehide', stop)
+      stop()
+    }
   }, [])
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -196,33 +212,86 @@ export default function App() {
     setError('')
     setCancelPending(false)
     try {
-      const result = await api.runTask(kind, target, (id) => setBusy({ id, kind }))
-      if (kind === 'status') setSnapshot(result as Snapshot)
-      if (kind === 'analyze') {
-        const value = result as Analysis
-        setAnalysis(value)
-        setPath(value.path)
-        setQuery('')
-      }
-      if (kind === 'apps') setApps(result as AppEntry[])
-      if (kind === 'cleanup') setCleanup(result as Cleanup)
-      if (kind === 'clean') setCleanPreview(result as CleanPreview)
+      const result = await api.runTask(
+        kind,
+        target,
+        (id) => {
+          setBusy({ id, kind })
+          void refreshRecords().catch((error) => setError(`历史记录无法刷新：${String(error)}`))
+        },
+        observation.current.signal,
+      )
+      applyTaskResult(kind, result)
     } catch (error) {
-      setError(String(error).replace(/^Error: /, ''))
+      if (!observation.current.signal.aborted) setError(String(error).replace(/^Error: /, ''))
     } finally {
+      if (observation.current.signal.aborted) return
       setBusy(null)
       busyRef.current = false
       setCancelPending(false)
       try {
-        const history = await api.history()
-        const reviewPlans = kind === 'clean' ? await api.reviewPlans() : null
-        setData((current) =>
-          current ? { ...current, history, ...(reviewPlans ? { reviewPlans } : {}) } : current,
-        )
+        await refreshRecords(kind === 'clean')
       } catch (error) {
         setError(`历史记录无法刷新：${String(error)}`)
       }
     }
+  }
+
+  function applyTaskResult(kind: TaskKind, result: TaskResults[TaskKind]) {
+    if (kind === 'status') setSnapshot(result as Snapshot)
+    if (kind === 'analyze') {
+      const value = result as Analysis
+      setAnalysis(value)
+      setPath(value.path)
+      setQuery('')
+    }
+    if (kind === 'apps') setApps(result as AppEntry[])
+    if (kind === 'cleanup') setCleanup(result as Cleanup)
+    if (kind === 'clean') setCleanPreview(result as CleanPreview)
+  }
+
+  async function refreshRecords(includePlans = false) {
+    const request = ++historyRequest.current
+    const history = await api.history()
+    if (!observation.current.signal.aborted && request === historyRequest.current)
+      setData((current) => (current ? { ...current, history } : current))
+    if (includePlans) {
+      const reviewPlans = await api.reviewPlans()
+      if (!observation.current.signal.aborted)
+        setData((current) => (current ? { ...current, reviewPlans } : current))
+    }
+  }
+
+  async function followTasks(tasks: TaskRecord[]) {
+    if (busyRef.current || !tasks.length) return
+    busyRef.current = true
+    setCancelPending(false)
+    setError('')
+    const pending = new Map(tasks.map((task) => [task.id, task]))
+    setBusy({ id: tasks[0].id, kind: tasks[0].kind })
+    await Promise.all(
+      tasks.map(async (task) => {
+        try {
+          const result = await api.resumeTask(task.id, task.kind, observation.current.signal)
+          applyTaskResult(task.kind, result)
+        } catch (error) {
+          if (!observation.current.signal.aborted) setError(String(error).replace(/^Error: /, ''))
+        } finally {
+          pending.delete(task.id)
+          if (!observation.current.signal.aborted) {
+            const next = pending.values().next().value
+            setBusy(next ? { id: next.id, kind: next.kind } : null)
+            setCancelPending(false)
+            try {
+              await refreshRecords(task.kind === 'clean')
+            } catch (error) {
+              setError(`历史记录无法刷新：${String(error)}`)
+            }
+          }
+        }
+      }),
+    )
+    busyRef.current = false
   }
 
   async function chooseAndAnalyze() {
@@ -257,8 +326,7 @@ export default function App() {
           }
         : null,
     )
-    const history = await api.history()
-    setData((current) => (current ? { ...current, history } : current))
+    await refreshRecords()
   }
   async function acknowledge() {
     if (!data) return
@@ -1173,6 +1241,17 @@ export default function App() {
                         <span className={`state-tag ${task.state}`}>
                           {stateNames[task.state] ?? task.state}
                         </span>
+                        {api.desktop &&
+                          task.state === 'running' &&
+                          Object.hasOwn(kindNames, task.kind) && (
+                            <button
+                              className="button secondary"
+                              disabled={!!busy}
+                              onClick={() => void followTasks([task])}
+                            >
+                              继续跟踪
+                            </button>
+                          )}
                       </div>
                     ))}
                   </>

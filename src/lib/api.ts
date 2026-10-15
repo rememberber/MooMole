@@ -12,6 +12,7 @@ import type {
   ReviewPlanSummary,
 } from '../types'
 import { demoBootstrap } from './demo'
+import { observeTask, type TaskTransport } from './task-watcher'
 
 export const desktop = isTauri()
 export const bootstrap = (): Promise<Bootstrap> =>
@@ -65,23 +66,36 @@ export async function runTask<K extends TaskKind>(
   kind: K,
   path: string | undefined,
   onStart: (id: string) => void,
+  signal?: AbortSignal,
 ): Promise<TaskResults[K]> {
   if (!desktop) throw new Error('浏览器预览不能读取本机，请运行 npm run desktop。')
   const taskId = crypto.randomUUID()
-  let resolveEvent!: (event: TaskEvent) => void
-  const completed = new Promise<TaskEvent>((resolve) => {
-    resolveEvent = resolve
+  const event = await observeTask(taskTransport, {
+    id: taskId,
+    kind,
+    signal,
+    start: () => invoke('start_task', { taskId, kind, path: path ?? null }),
+    onStart: () => onStart(taskId),
   })
-  const unlisten = await listen<TaskEvent>('task-event', ({ payload }) => {
-    if (payload.id === taskId) resolveEvent(payload)
-  })
-  try {
-    onStart(taskId)
-    await invoke('start_task', { taskId, kind, path: path ?? null })
-    const event = await completed
-    if (event.error || event.state !== 'succeeded') throw new Error(event.error ?? '任务未完成。')
-    return event.result as TaskResults[K]
-  } finally {
-    unlisten()
-  }
+  return taskResult<K>(event)
+}
+
+const taskTransport: TaskTransport = {
+  listen: (receive) => listen<TaskEvent>('task-event', ({ payload }) => receive(payload)),
+  snapshot: (taskId) => invoke<TaskEvent>('get_task_snapshot', { taskId }),
+}
+
+export function taskResult<K extends TaskKind>(event: TaskEvent): TaskResults[K] {
+  if (event.error || event.state !== 'succeeded') throw new Error(event.error ?? '任务未完成。')
+  if (event.result == null) throw new Error(event.resultUnavailable ?? '结果未保留，请重新检查。')
+  return event.result as TaskResults[K]
+}
+
+export async function resumeTask<K extends TaskKind>(
+  taskId: string,
+  kind: K,
+  signal?: AbortSignal,
+): Promise<TaskResults[K]> {
+  if (!desktop) throw new Error('浏览器预览不能跟踪本机任务。')
+  return taskResult<K>(await observeTask(taskTransport, { id: taskId, kind, signal }))
 }

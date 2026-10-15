@@ -142,4 +142,5 @@ export interface TaskEvent {
   state: string
   result: unknown
   error: string | null
+  resultUnavailable?: string | null
 }
