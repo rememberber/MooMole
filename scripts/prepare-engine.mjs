@@ -37,6 +37,10 @@ for (const name of ['analyze', 'status']) {
     source,
   )
 }
+cpSync(
+  resolve(root, 'scripts/mole-clean-preview.sh'),
+  resolve(destination, 'moomole-clean-preview.sh'),
+)
 writeFileSync(
   resolve(destination, 'UPSTREAM.json'),
   JSON.stringify(
@@ -45,6 +49,7 @@ writeFileSync(
       revision,
       platform: process.platform,
       arch: process.arch,
+      cleanProtocol: 1,
     },
     null,
     2,

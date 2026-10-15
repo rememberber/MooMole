@@ -89,6 +89,11 @@ pub fn info(root: &Path) -> EngineInfo {
         if manifest["revision"] != REVISION {
             return Err("引擎版本与应用不匹配，请重新准备引擎。".into());
         }
+        if manifest["cleanProtocol"] != crate::clean_preview::PROTOCOL
+            || !root.join("moomole-clean-preview.sh").is_file()
+        {
+            return Err("清理适配协议未准备，请重新运行 npm run engine:prepare。".into());
+        }
         if manifest["arch"]
             != std::env::consts::ARCH
                 .replace("aarch64", "arm64")
@@ -130,6 +135,28 @@ pub fn directory(raw: &str, home: &Path) -> Result<PathBuf, String> {
         return Err("请选择文件夹。".into());
     }
     Ok(canonical)
+}
+
+pub fn protection_paths(
+    requested: &[String],
+    previous: &[String],
+    home: &Path,
+) -> Result<Vec<String>, String> {
+    let mut paths = requested
+        .iter()
+        .map(|path| {
+            // Already saved canonical rules retain their intent when a disk is
+            // disconnected or a directory disappears. New rules must be accessible.
+            if previous.contains(path) && Path::new(path).is_absolute() {
+                Ok(path.clone())
+            } else {
+                directory(path, home).map(|p| p.to_string_lossy().into_owned())
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
 }
 
 pub async fn output(
@@ -241,6 +268,21 @@ pub async fn run(
     if job.kind == TaskKind::Cleanup {
         return inspect_cleanup(root, home, job, protected).await;
     }
+    // A new private directory for each run prevents stale or shared preview files.
+    let scratch = if job.kind == TaskKind::Clean {
+        Some(
+            tempfile::Builder::new()
+                .prefix("moomole-preview-")
+                .tempdir()
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        None
+    };
+    let report = scratch.as_ref().map(|d| d.path().join("report.nul"));
+    if let Some(report) = &report {
+        std::fs::File::create(report).map_err(|e| e.to_string())?;
+    }
     let mut command = match job.kind {
         TaskKind::Analyze => {
             let mut command = command(&root.join("bin/analyze-go"));
@@ -260,8 +302,14 @@ pub async fn run(
         TaskKind::Clean => {
             let mut command = command(Path::new("/bin/bash"));
             command
-                .arg(root.join("bin/clean.sh"))
-                .arg("--dry-run")
+                .arg(root.join("moomole-clean-preview.sh"))
+                .arg(report.as_ref().ok_or("缺少清理预览工作目录。")?)
+                .env(
+                    "TMPDIR",
+                    scratch.as_ref().ok_or("缺少清理预览工作目录。")?.path(),
+                )
+                .env_remove("MOLE_RESOLVED_TMPDIR")
+                .env_remove("MOLE_TEMP_REGISTRY_FILE")
                 .env("MOLE_DRY_RUN", "1")
                 .env("NO_COLOR", "1")
                 .env("TERM", "dumb");
@@ -284,7 +332,20 @@ pub async fn run(
     .await?;
     if job.kind == TaskKind::Clean {
         let text = String::from_utf8(bytes).map_err(|_| "Mole 清理预览返回了无法解码的文本。")?;
-        return Ok(json!({ "output": plain_terminal_text(&text), "dryRun": true }));
+        let report = report.ok_or("缺少清理预览记录。")?;
+        let mut data = Vec::new();
+        use std::io::Read;
+        std::fs::File::open(report)
+            .map_err(|e| e.to_string())?
+            .take(OUTPUT_LIMIT + 1)
+            .read_to_end(&mut data)
+            .map_err(|e| e.to_string())?;
+        if data.len() as u64 > OUTPUT_LIMIT {
+            return Err("清理预览超过大小上限。".into());
+        }
+        let mut preview = crate::clean_preview::parse(&data)?;
+        preview.output = plain_terminal_text(&text);
+        return serde_json::to_value(preview).map_err(|e| e.to_string());
     }
     let result: Value =
         serde_json::from_slice(&bytes).map_err(|e| format!("Mole 输出格式无法识别：{e}"))?;
@@ -405,6 +466,37 @@ async fn inspect_cleanup(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unavailable_saved_protection_survives_unrelated_settings_changes() {
+        let scratch = tempfile::tempdir().unwrap();
+        let missing = scratch
+            .path()
+            .join("disconnected")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            protection_paths(&[missing.clone()], &[missing.clone()], scratch.path()).unwrap(),
+            vec![missing.clone()]
+        );
+        assert!(protection_paths(&[missing], &[], scratch.path()).is_err());
+    }
+    #[tokio::test]
+    #[ignore = "Explicit local read-only smoke check; requires prepared Mole engine"]
+    async fn real_clean_preview_smoke() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap();
+        let result = run(&root, &home, Arc::new(Job::new(TaskKind::Clean)), None, &[])
+            .await
+            .unwrap();
+        assert_eq!(result["dryRun"], true);
+        assert_eq!(result["protocol"], crate::clean_preview::PROTOCOL);
+        assert!(result["items"].is_array());
+        println!(
+            "Real Mole preview: {} candidate paths, structured protocol accepted.",
+            result["items"].as_array().unwrap().len()
+        );
+    }
     #[test]
     fn terminal_preview_keeps_unicode_and_strips_control_sequences() {
         assert_eq!(

@@ -1,7 +1,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { Bootstrap, Settings, TaskEvent, TaskKind, TaskRecord, TaskResults } from '../types'
+import type {
+  Bootstrap,
+  Settings,
+  TaskEvent,
+  TaskKind,
+  TaskRecord,
+  TaskResults,
+  ReviewPlan,
+  ReviewPlanSummary,
+} from '../types'
 import { demoBootstrap } from './demo'
 
 export const desktop = isTauri()
@@ -20,6 +29,16 @@ export const official = (): Promise<void> =>
     ? invoke('open_official')
     : Promise.resolve(void window.open('https://mole.fit/zh/', '_blank', 'noopener,noreferrer'))
 export const cancelTask = (taskId: string): Promise<void> => invoke('cancel_task', { taskId })
+export const reviewPlans = (): Promise<ReviewPlanSummary[]> =>
+  desktop ? invoke('list_review_plans') : Promise.resolve([])
+export const createReviewPlan = (scanId: string, selectedIds: string[]): Promise<ReviewPlan> =>
+  desktop
+    ? invoke('create_review_plan', { scanId, selectedIds })
+    : Promise.reject(new Error('请在桌面 App 中保存审阅计划。'))
+export const reviewPlan = (planId: string): Promise<ReviewPlan> =>
+  desktop
+    ? invoke('get_review_plan', { planId })
+    : Promise.reject(new Error('请在桌面 App 中复核计划。'))
 export const chooseDirectory = async (): Promise<string | null> => {
   if (!desktop) return null
   const selected = await open({ directory: true, multiple: false, title: '选择要检查的文件夹' })

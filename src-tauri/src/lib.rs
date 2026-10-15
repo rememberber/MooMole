@@ -1,5 +1,7 @@
+mod clean_preview;
 mod db;
 mod engine;
+mod review;
 
 use db::{Settings, TaskRecord};
 use engine::{Job, TaskKind};
@@ -27,6 +29,8 @@ struct Bootstrap {
     history: Vec<TaskRecord>,
     engine: engine::EngineInfo,
     home: String,
+    latest_clean_preview: Option<Value>,
+    review_plans: Vec<review::PlanSummary>,
 }
 
 #[derive(Clone, Serialize)]
@@ -47,6 +51,8 @@ fn bootstrap(state: tauri::State<'_, AppState>) -> Result<Bootstrap, String> {
         history: db::history(&db)?,
         engine: engine::info(&state.engine_root),
         home: state.home.to_string_lossy().into_owned(),
+        latest_clean_preview: db::latest_scan(&db)?,
+        review_plans: db::plans(&db)?,
     })
 }
 
@@ -56,14 +62,14 @@ fn save_settings(
     state: tauri::State<'_, AppState>,
 ) -> Result<Settings, String> {
     let mut settings = settings;
-    settings.protected_paths = settings
-        .protected_paths
-        .iter()
-        .map(|path| engine::directory(path, &state.home).map(|p| p.to_string_lossy().into_owned()))
-        .collect::<Result<Vec<_>, _>>()?;
-    settings.protected_paths.sort();
-    settings.protected_paths.dedup();
-    db::save_settings(&*state.db.lock().map_err(|e| e.to_string())?, &settings)?;
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let previous = db::settings(&db)?;
+    settings.protected_paths = engine::protection_paths(
+        &settings.protected_paths,
+        &previous.protected_paths,
+        &state.home,
+    )?;
+    db::save_settings(&db, &settings)?;
     Ok(settings)
 }
 
@@ -118,6 +124,24 @@ fn start_task(
             &settings.protected_paths,
         )
         .await;
+        let result = if kind == TaskKind::Clean {
+            result.and_then(|mut value| {
+                if job.cancelled.load(Ordering::SeqCst) {
+                    return Err("任务已取消。".into());
+                }
+                let preview = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+                let scan = review::capture(task_id.clone(), preview, db::now())?;
+                let db = state.db.lock().map_err(|e| e.to_string())?;
+                db::save_scan(&db, &scan)?;
+                let stored = scan.preview();
+                for key in ["scanId", "scannedAt", "expiresAt", "items"] {
+                    value[key] = stored[key].clone();
+                }
+                Ok(value)
+            })
+        } else {
+            result
+        };
         let (status, payload, error) = match result {
             Ok(_) if job.cancelled.load(Ordering::SeqCst) => {
                 ("cancelled", None, Some("任务已取消。".to_string()))
@@ -157,6 +181,54 @@ fn start_task(
         let _ = app.emit_to("main", "task-event", event);
     });
     Ok(())
+}
+
+#[tauri::command]
+fn list_review_plans(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<review::PlanSummary>, String> {
+    db::plans(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+async fn create_review_plan(
+    scan_id: String,
+    selected_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<review::PlanView, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (scan, settings) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            (db::scan(&db, &scan_id)?, db::settings(&db)?)
+        };
+        if !settings.acknowledged {
+            return Err("请先阅读首次使用说明。".into());
+        }
+        let now = db::now();
+        let plan = review::create(&scan, &selected_ids, &settings.protected_paths, now)?;
+        db::save_plan(&*state.db.lock().map_err(|e| e.to_string())?, &plan)?;
+        Ok(review::check(&plan, &settings.protected_paths, now))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn get_review_plan(
+    plan_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<review::PlanView, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (plan, settings) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            (db::plan(&db, &plan_id)?, db::settings(&db)?)
+        };
+        Ok(review::check(&plan, &settings.protected_paths, db::now()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -235,6 +307,9 @@ pub fn run() {
             bootstrap,
             save_settings,
             get_history,
+            list_review_plans,
+            create_review_plan,
+            get_review_plan,
             start_task,
             cancel_task,
             reveal_path,

@@ -1,6 +1,48 @@
-import type { Analysis, Bootstrap, Cleanup, Snapshot } from '../types'
+import type { Analysis, Bootstrap, Cleanup, CleanPreview, Snapshot } from '../types'
 
 const GB = 1024 ** 3
+export const demoCleanPreview: CleanPreview = {
+  output: '示例预览日志：本页仅用于展示界面，没有扫描本机文件。',
+  dryRun: true,
+  protocol: 1,
+  revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+  systemIncluded: false,
+  items: [
+    {
+      id: 'demo-1',
+      upstreamIdentity: 'demo-1',
+      path: '/Users/demo/Library/Caches/ExampleApp',
+      section: 'User app cache',
+      size: 1.5 * GB,
+      itemCount: 24,
+      coveredBy: null,
+      isDirectory: true,
+      resolvedPath: '/Users/demo/Library/Caches/ExampleApp',
+    },
+    {
+      id: 'demo-2',
+      upstreamIdentity: 'demo-2',
+      path: '/Users/demo/Library/Caches/ExampleApp/Images',
+      section: 'User app cache',
+      size: 0.5 * GB,
+      itemCount: 12,
+      coveredBy: '/Users/demo/Library/Caches/ExampleApp',
+      isDirectory: true,
+      resolvedPath: '/Users/demo/Library/Caches/ExampleApp/Images',
+    },
+    {
+      id: 'demo-3',
+      upstreamIdentity: 'demo-3',
+      path: '/Users/demo/Library/Logs/ExampleApp',
+      section: 'User logs',
+      size: null,
+      itemCount: 1,
+      coveredBy: null,
+      isDirectory: true,
+      resolvedPath: '/Users/demo/Library/Logs/ExampleApp',
+    },
+  ],
+}
 export const demoBootstrap: Bootstrap = {
   home: '/Users/demo',
   engine: {
@@ -10,6 +52,8 @@ export const demoBootstrap: Bootstrap = {
   },
   settings: { theme: 'system', retentionDays: 30, protectedPaths: [], acknowledged: true },
   history: [],
+  latestCleanPreview: null,
+  reviewPlans: [],
 }
 export const demoSnapshot: Snapshot = {
   collected_at: '2026-10-15T08:00:00Z',

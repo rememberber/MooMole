@@ -118,8 +118,8 @@ export function SettingsModal({
         {tab === 'protected' && (
           <>
             <p className="muted settings-description">
-              保护你想保留的目录。开发缓存检查会跳过与保护目录重叠的项目；完整清理预览目前遵循 Mole
-              自有白名单。
+              保护你想保留的目录。清理审阅中，与保护目录重叠的父子项目均不可勾选；开发缓存检查会跳过这些项目。Mole
+              自有白名单继续生效，客户端不改写其配置。
             </p>
             <div className="setting-group protected-list">
               {settings.protectedPaths.length ? (

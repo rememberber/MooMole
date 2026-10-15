@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import * as api from './lib/api'
-import { demoAnalysis, demoCleanup, demoSnapshot } from './lib/demo'
+import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import {
   bytes,
   dateTime,
@@ -44,6 +44,8 @@ import {
 } from './lib/format'
 import { Modal } from './components/Modal'
 import { SettingsModal } from './components/SettingsModal'
+import { CleanReview } from './components/CleanReview'
+import { ReviewPlanDialog } from './components/ReviewPlanDialog'
 import type {
   Analysis,
   AppEntry,
@@ -54,6 +56,7 @@ import type {
   Settings,
   Snapshot,
   TaskKind,
+  ReviewPlan,
 } from './types'
 
 const navigation = [
@@ -121,7 +124,9 @@ export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(api.desktop ? null : demoSnapshot)
   const [analysis, setAnalysis] = useState<Analysis | null>(api.desktop ? null : demoAnalysis)
   const [cleanup, setCleanup] = useState<Cleanup | null>(api.desktop ? null : demoCleanup)
-  const [cleanPreview, setCleanPreview] = useState<CleanPreview | null>(null)
+  const [cleanPreview, setCleanPreview] = useState<CleanPreview | null>(
+    api.desktop ? null : demoCleanPreview,
+  )
   const [apps, setApps] = useState<AppEntry[] | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
   const busyRef = useRef(false)
@@ -134,11 +139,14 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'size' | 'name'>('size')
   const [cancelPending, setCancelPending] = useState(false)
+  const [plan, setPlan] = useState<ReviewPlan | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
 
   async function load() {
     try {
       const initial = await api.bootstrap()
       setData(initial)
+      if (api.desktop && initial.latestCleanPreview) setCleanPreview(initial.latestCleanPreview)
       setPath(initial.home)
       setError('')
     } catch (error) {
@@ -206,7 +214,10 @@ export default function App() {
       setCancelPending(false)
       try {
         const history = await api.history()
-        setData((current) => (current ? { ...current, history } : current))
+        const reviewPlans = kind === 'clean' ? await api.reviewPlans() : null
+        setData((current) =>
+          current ? { ...current, history, ...(reviewPlans ? { reviewPlans } : {}) } : current,
+        )
       } catch (error) {
         setError(`历史记录无法刷新：${String(error)}`)
       }
@@ -269,6 +280,22 @@ export default function App() {
       })
     } catch (error) {
       setError(String(error))
+    }
+  }
+  async function createPlan(scanId: string, ids: string[]) {
+    const saved = await api.createReviewPlan(scanId, ids)
+    setPlan(saved)
+    const reviewPlans = await api.reviewPlans()
+    setData((current) => (current ? { ...current, reviewPlans } : current))
+  }
+  async function openPlan(id: string) {
+    setPlanLoading(true)
+    try {
+      setPlan(await api.reviewPlan(id))
+    } catch (error) {
+      setError(String(error).replace(/^Error: /, ''))
+    } finally {
+      setPlanLoading(false)
     }
   }
   function reveal(target: string) {
@@ -791,26 +818,26 @@ export default function App() {
                 <ShieldCheck size={18} />
                 <span>
                   通过 Mole CLI 的 dry-run
-                  模式扫描。清理执行接口尚未开放，预览不会删除文件；需要管理员权限的项目会跳过。
+                  模式扫描。当前只提供扫描与审阅，不会删除文件；需要管理员权限的项目会跳过。
                 </span>
               </div>
               {cleanPreview ? (
-                <section className="card clean-preview">
-                  <div className="list-toolbar">
-                    <h2>Mole 清理预览</h2>
-                    <span className="tag">dry-run · 未执行删除</span>
-                  </div>
-                  <pre tabIndex={0} aria-label="Mole 清理预览结果">
-                    {cleanPreview.output || 'Mole 本次未返回预览内容。'}
-                  </pre>
-                </section>
+                <CleanReview
+                  preview={cleanPreview}
+                  protectedPaths={data.settings.protectedPaths}
+                  home={data.home}
+                  desktop={api.desktop}
+                  onProtect={protect}
+                  onReveal={reveal}
+                  onCreatePlan={createPlan}
+                />
               ) : (
                 <section className="card">
                   <Empty icon={Sparkles} title="让命令行能力，更容易使用">
                     <p>
-                      点击“扫描清理预览”，读取 Mole 的完整预览结果。
+                      点击“扫描清理预览”，读取 Mole 的候选项目。
                       <br />
-                      当前先保留原始结果，逐项选择与执行将在结构化适配后开放。
+                      按分类筛选、展开路径、勾选审阅，并保护想保留的目录。
                     </p>
                   </Empty>
                 </section>
@@ -1092,6 +1119,37 @@ export default function App() {
                 </div>
                 <span className="tag">本地保留 {data.settings.retentionDays} 天</span>
               </div>
+              {data.reviewPlans.length > 0 && (
+                <section className="card saved-plans" aria-label="已保存的审阅计划">
+                  <div className="list-toolbar">
+                    <h2>审阅计划</h2>
+                    <span className="muted">仅保存选中范围，尚未执行</span>
+                  </div>
+                  {data.reviewPlans.map((item) => (
+                    <button
+                      className="saved-plan-row"
+                      key={item.id}
+                      disabled={planLoading}
+                      onClick={() => void openPlan(item.id)}
+                    >
+                      <ShieldCheck size={17} />
+                      <span>
+                        <strong>
+                          {item.itemCount} 项 · 计划 {item.id.slice(0, 8)}
+                        </strong>
+                        <small>
+                          保存于 {dateTime(item.createdAt)} ·{' '}
+                          {Date.now() >= item.expiresAt
+                            ? '已过期，需重新扫描'
+                            : `到期 ${dateTime(item.expiresAt)}`}
+                        </small>
+                      </span>
+                      <span>查看并复核</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  ))}
+                </section>
+              )}
               <section className="card">
                 {data.history.length ? (
                   <>
@@ -1138,6 +1196,14 @@ export default function App() {
           </footer>
         </main>
       </div>
+      {plan && (
+        <ReviewPlanDialog
+          key={plan.id}
+          initialPlan={plan}
+          onRefresh={api.reviewPlan}
+          onClose={() => setPlan(null)}
+        />
+      )}
       {busy && (
         <div className="task-toast" role="status">
           <LoaderCircle size={18} className="spin" />

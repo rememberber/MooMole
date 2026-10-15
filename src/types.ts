@@ -21,6 +21,8 @@ export interface Bootstrap {
   history: TaskRecord[]
   engine: { available: boolean; revision: string; reason: string | null }
   home: string
+  latestCleanPreview: CleanPreview | null
+  reviewPlans: ReviewPlanSummary[]
 }
 export interface Entry {
   name: string
@@ -74,6 +76,44 @@ export interface Cleanup {
 export interface CleanPreview {
   output: string
   dryRun: true
+  protocol: 1
+  revision: string
+  systemIncluded: boolean
+  items: CleanCandidate[]
+  scanId?: string
+  scannedAt?: number
+  expiresAt?: number
+}
+export interface ReviewPlanSummary {
+  id: string
+  scanId: string
+  createdAt: number
+  expiresAt: number
+  itemCount: number
+}
+export interface ReviewPlan extends ReviewPlanSummary {
+  checkedAt: number
+  readOnly: true
+  requiresMoleRecheck: true
+  items: {
+    id: string
+    path: string
+    size: number | null
+    section: string
+    state: string
+    reason: string
+  }[]
+}
+export interface CleanCandidate {
+  id: string
+  upstreamIdentity: string
+  path: string
+  section: string
+  size: number | null
+  itemCount: number
+  coveredBy: string | null
+  isDirectory: boolean
+  resolvedPath: string | null
 }
 export interface TaskResults {
   analyze: Analysis

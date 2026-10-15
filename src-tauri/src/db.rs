@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -52,9 +52,12 @@ pub fn open(path: &Path) -> Result<Connection, String> {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    if version > 1 {
+    if version > 2 {
         return Err("数据库来自更新版本，请使用新版 MooMole 打开。".into());
     }
+    connection
+        .pragma_update(None, "foreign_keys", "ON")
+        .map_err(|e| e.to_string())?;
     if version == 0 {
         let migration = connection.transaction().map_err(|e| e.to_string())?;
         migration.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
@@ -62,6 +65,27 @@ pub fn open(path: &Path) -> Result<Connection, String> {
                 created_at INTEGER NOT NULL, finished_at INTEGER, message TEXT);
             CREATE INDEX tasks_created ON tasks(created_at DESC);
             PRAGMA user_version = 1;").map_err(|e| e.to_string())?;
+        migration.commit().map_err(|e| e.to_string())?;
+    }
+    if version == 1 {
+        // VACUUM INTO takes a consistent SQLite snapshot, including WAL content.
+        let backup =
+            path.with_file_name(format!("moomole-before-v2-{}.sqlite", uuid::Uuid::new_v4()));
+        connection
+            .execute(
+                "VACUUM INTO ?1",
+                [backup.to_str().ok_or("数据库备份路径无法编码。")?],
+            )
+            .map_err(|e| format!("升级前备份失败，保留原数据库：{e}"))?;
+    }
+    if version < 2 {
+        let migration = connection.transaction().map_err(|e| e.to_string())?;
+        migration.execute_batch("CREATE TABLE clean_scans (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, body TEXT NOT NULL);
+            CREATE TABLE review_plans (id TEXT PRIMARY KEY, scan_id TEXT NOT NULL REFERENCES clean_scans(id) ON DELETE CASCADE,
+                created_at INTEGER NOT NULL, body TEXT NOT NULL);
+            CREATE INDEX clean_scans_created ON clean_scans(created_at DESC);
+            CREATE INDEX review_plans_created ON review_plans(created_at DESC);
+            PRAGMA user_version = 2;").map_err(|e| e.to_string())?;
         migration.commit().map_err(|e| e.to_string())?;
     }
     connection.execute("UPDATE tasks SET state = 'interrupted', finished_at = ?1, message = '应用退出，任务未完成；需要重新检查。' WHERE state IN ('queued', 'running')", [now()]).map_err(|e| e.to_string())?;
@@ -99,7 +123,103 @@ fn prune(connection: &Connection, days: u32) -> Result<(), String> {
             [now() - i64::from(days) * 86_400_000],
         )
         .map_err(|e| e.to_string())?;
+    connection
+        .execute(
+            "DELETE FROM clean_scans WHERE created_at < ?1",
+            [now() - i64::from(days) * 86_400_000],
+        )
+        .map_err(|e| e.to_string())?;
+    prune_reviews(connection)?;
     Ok(())
+}
+
+fn prune_reviews(connection: &Connection) -> Result<(), String> {
+    connection.execute("DELETE FROM review_plans WHERE id NOT IN (SELECT id FROM review_plans ORDER BY created_at DESC, rowid DESC LIMIT 20)", []).map_err(|e| e.to_string())?;
+    connection.execute("DELETE FROM clean_scans WHERE id NOT IN (SELECT id FROM clean_scans ORDER BY created_at DESC, rowid DESC LIMIT 10)", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn review_body<T: Serialize>(value: &T) -> Result<String, String> {
+    let body = serde_json::to_string(value).map_err(|e| e.to_string())?;
+    if body.len() > 8 * 1024 * 1024 {
+        return Err("审阅数据超过 8 MiB 存储上限。".into());
+    }
+    Ok(body)
+}
+
+pub fn save_scan(connection: &Connection, scan: &crate::review::Scan) -> Result<(), String> {
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    transaction
+        .execute(
+            "INSERT INTO clean_scans VALUES (?1, ?2, ?3)",
+            params![scan.id, scan.created_at, review_body(scan)?],
+        )
+        .map_err(|e| e.to_string())?;
+    prune_reviews(&transaction)?;
+    transaction.commit().map_err(|e| e.to_string())
+}
+
+pub fn scan(connection: &Connection, id: &str) -> Result<crate::review::Scan, String> {
+    let body: String = connection
+        .query_row("SELECT body FROM clean_scans WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .map_err(|_| "这份扫描已不存在或已被回收，请重新扫描。")?;
+    serde_json::from_str(&body).map_err(|e| format!("扫描数据无法读取：{e}"))
+}
+
+pub fn latest_scan(connection: &Connection) -> Result<Option<serde_json::Value>, String> {
+    let id: Option<String> = connection
+        .query_row(
+            "SELECT id FROM clean_scans ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    id.map(|id| scan(connection, &id).map(|scan| scan.preview()))
+        .transpose()
+}
+
+pub fn save_plan(connection: &Connection, plan: &crate::review::Plan) -> Result<(), String> {
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    transaction
+        .execute(
+            "INSERT INTO review_plans VALUES (?1, ?2, ?3, ?4)",
+            params![plan.id, plan.scan_id, plan.created_at, review_body(plan)?],
+        )
+        .map_err(|e| e.to_string())?;
+    prune_reviews(&transaction)?;
+    transaction.commit().map_err(|e| e.to_string())
+}
+
+pub fn plan(connection: &Connection, id: &str) -> Result<crate::review::Plan, String> {
+    let body: String = connection
+        .query_row("SELECT body FROM review_plans WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .map_err(|_| "这份计划已不存在或已被回收。")?;
+    serde_json::from_str(&body).map_err(|e| format!("审阅计划无法读取：{e}"))
+}
+
+pub fn plans(connection: &Connection) -> Result<Vec<crate::review::PlanSummary>, String> {
+    let mut statement = connection
+        .prepare("SELECT body FROM review_plans ORDER BY created_at DESC, rowid DESC LIMIT 20")
+        .map_err(|e| e.to_string())?;
+    let bodies = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    bodies
+        .map(|body| {
+            serde_json::from_str::<crate::review::Plan>(&body.map_err(|e| e.to_string())?)
+                .map(|p| p.summary())
+                .map_err(|e| e.to_string())
+        })
+        .collect()
 }
 
 pub fn start(
@@ -144,6 +264,113 @@ pub fn history(connection: &Connection) -> Result<Vec<TaskRecord>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn v1_migration_backs_up_settings_and_history_before_upgrading() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        {
+            let legacy = Connection::open(&path).unwrap();
+            legacy.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY, value TEXT NOT NULL);
+                CREATE TABLE tasks (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT, state TEXT NOT NULL,
+                    created_at INTEGER NOT NULL, finished_at INTEGER, message TEXT); PRAGMA user_version=1;").unwrap();
+            let settings = Settings {
+                acknowledged: true,
+                ..Settings::default()
+            };
+            legacy
+                .execute(
+                    "INSERT INTO settings VALUES (1, ?1)",
+                    [serde_json::to_string(&settings).unwrap()],
+                )
+                .unwrap();
+            start(&legacy, "legacy-task", "status", None).unwrap();
+            finish(&legacy, "legacy-task", "succeeded", "legacy").unwrap();
+        }
+        let upgraded = open(&path).unwrap();
+        assert!(settings(&upgraded).unwrap().acknowledged);
+        assert_eq!(history(&upgraded).unwrap()[0].id, "legacy-task");
+        assert_eq!(
+            upgraded
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            2
+        );
+        let backups: Vec<_> = std::fs::read_dir(scratch.path())
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("moomole-before-v2-")
+            })
+            .collect();
+        assert_eq!(backups.len(), 1);
+        let backup = Connection::open(&backups[0]).unwrap();
+        assert_eq!(
+            backup
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            history(&backup).unwrap()[0].message.as_deref(),
+            Some("legacy")
+        );
+    }
+
+    #[test]
+    fn saved_scans_and_plans_survive_restart_and_retain_foreign_key_bounds() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        let scan = crate::review::Scan {
+            id: "scan".into(),
+            created_at: now(),
+            expires_at: now() + 900_000,
+            revision: crate::engine::REVISION.into(),
+            protocol: 1,
+            system_included: false,
+            items: vec![],
+        };
+        let plan = crate::review::Plan {
+            id: "plan".into(),
+            scan_id: scan.id.clone(),
+            created_at: now(),
+            expires_at: scan.expires_at,
+            revision: scan.revision.clone(),
+            protocol: 1,
+            items: vec![],
+        };
+        {
+            let db = open(&path).unwrap();
+            assert!(save_plan(&db, &plan).is_err());
+            save_scan(&db, &scan).unwrap();
+            save_plan(&db, &plan).unwrap();
+        }
+        let db = open(&path).unwrap();
+        assert_eq!(plans(&db).unwrap()[0].id, "plan");
+        assert_eq!(latest_scan(&db).unwrap().unwrap()["scanId"], "scan");
+        for i in 0..25 {
+            let mut next = plan.clone();
+            next.id = format!("plan-{i}");
+            next.created_at += i + 1;
+            save_plan(&db, &next).unwrap();
+        }
+        assert_eq!(plans(&db).unwrap().len(), 20);
+        for i in 0..10 {
+            let mut next = scan.clone();
+            next.id = format!("scan-{i}");
+            next.created_at += i + 1;
+            save_scan(&db, &next).unwrap();
+        }
+        assert!(super::scan(&db, "scan").is_err());
+        assert!(plans(&db).unwrap().is_empty());
+        assert_eq!(
+            db.query_row::<i64, _, _>("SELECT count(*) FROM clean_scans", [], |row| row.get(0))
+                .unwrap(),
+            10
+        );
+    }
     #[test]
     fn restart_recovers_running_tasks_without_changing_completed_tasks() {
         let directory = tempfile::tempdir().unwrap();
