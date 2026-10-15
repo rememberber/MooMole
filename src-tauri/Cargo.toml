@@ -1,0 +1,29 @@
+[package]
+name = "moomole"
+version = "0.1.0"
+description = "A local-first desktop research project powered by Mole CLI"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[lib]
+name = "moomole_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.37", features = ["bundled"] }
+tokio = { version = "1", features = ["process", "io-util", "time", "sync", "macros"] }
+uuid = { version = "1", features = ["v4"] }
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

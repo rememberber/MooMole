@@ -1,0 +1,38 @@
+{
+  "name": "moomole",
+  "private": true,
+  "version": "0.1.0",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "node scripts/tauri.mjs",
+    "desktop": "node scripts/tauri.mjs dev",
+    "engine:prepare": "node scripts/prepare-engine.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "format:check": "prettier --check src scripts tests package.json tsconfig.json vite.config.ts playwright.config.ts index.html src-tauri/tauri.conf.json src-tauri/capabilities/default.json",
+    "check:rust": "node scripts/cargo.mjs test"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-dialog": "2.8.3",
+    "lucide-react": "1.57.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@tauri-apps/cli": "2.12.3",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  }
+}

@@ -1,0 +1,257 @@
+mod db;
+mod engine;
+
+use db::{Settings, TaskRecord};
+use engine::{Job, TaskKind};
+use serde::Serialize;
+use serde_json::Value;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{atomic::Ordering, Arc, Mutex},
+};
+use tauri::{Emitter, Manager};
+
+#[derive(Clone)]
+struct AppState {
+    db: Arc<Mutex<rusqlite::Connection>>,
+    jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
+    engine_root: PathBuf,
+    home: PathBuf,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Bootstrap {
+    settings: Settings,
+    history: Vec<TaskRecord>,
+    engine: engine::EngineInfo,
+    home: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskEvent {
+    id: String,
+    kind: String,
+    state: String,
+    result: Option<Value>,
+    error: Option<String>,
+}
+
+#[tauri::command]
+fn bootstrap(state: tauri::State<'_, AppState>) -> Result<Bootstrap, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    Ok(Bootstrap {
+        settings: db::settings(&db)?,
+        history: db::history(&db)?,
+        engine: engine::info(&state.engine_root),
+        home: state.home.to_string_lossy().into_owned(),
+    })
+}
+
+#[tauri::command]
+fn save_settings(
+    settings: Settings,
+    state: tauri::State<'_, AppState>,
+) -> Result<Settings, String> {
+    let mut settings = settings;
+    settings.protected_paths = settings
+        .protected_paths
+        .iter()
+        .map(|path| engine::directory(path, &state.home).map(|p| p.to_string_lossy().into_owned()))
+        .collect::<Result<Vec<_>, _>>()?;
+    settings.protected_paths.sort();
+    settings.protected_paths.dedup();
+    db::save_settings(&*state.db.lock().map_err(|e| e.to_string())?, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+fn get_history(state: tauri::State<'_, AppState>) -> Result<Vec<TaskRecord>, String> {
+    db::history(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+fn start_task(
+    task_id: String,
+    kind: TaskKind,
+    path: Option<String>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let settings = db::settings(&db)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let path = if kind == TaskKind::Analyze {
+        Some(engine::directory(
+            path.as_deref().ok_or("请选择扫描目录。")?,
+            &state.home,
+        )?)
+    } else {
+        None
+    };
+    let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+    if jobs.len() >= 3 || jobs.contains_key(&task_id) || jobs.values().any(|job| job.kind == kind) {
+        return Err("已有同类任务正在运行，请等待或取消。".into());
+    }
+    db::start(
+        &db,
+        &task_id,
+        kind.name(),
+        path.as_ref().and_then(|p| p.to_str()),
+    )?;
+    let job = Arc::new(Job::new(kind));
+    jobs.insert(task_id.clone(), job.clone());
+    drop(jobs);
+    drop(db);
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        let result = engine::run(
+            &state.engine_root,
+            &state.home,
+            job.clone(),
+            path,
+            &settings.protected_paths,
+        )
+        .await;
+        let (status, payload, error) = match result {
+            Ok(_) if job.cancelled.load(Ordering::SeqCst) => {
+                ("cancelled", None, Some("任务已取消。".to_string()))
+            }
+            Ok(value) => ("succeeded", Some(value), None),
+            Err(error) => (
+                if job.cancelled.load(Ordering::SeqCst) {
+                    "cancelled"
+                } else {
+                    "failed"
+                },
+                None,
+                Some(error),
+            ),
+        };
+        let message = error
+            .as_deref()
+            .unwrap_or("只读检查已完成，未删除或修改扫描目标。");
+        let persisted = state
+            .db
+            .lock()
+            .map_err(|e| e.to_string())
+            .and_then(|db| db::finish(&db, &task_id, status, message));
+        let event = TaskEvent {
+            id: task_id.clone(),
+            kind: kind.name().into(),
+            state: status.into(),
+            result: payload,
+            error: persisted
+                .err()
+                .map(|e| format!("任务已结束，但历史记录写入失败：{e}"))
+                .or(error),
+        };
+        if let Ok(mut jobs) = state.jobs.lock() {
+            jobs.remove(&task_id);
+        }
+        let _ = app.emit_to("main", "task-event", event);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_task(task_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    if let Some(job) = state.jobs.lock().map_err(|e| e.to_string())?.get(&task_id) {
+        job.cancel();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn reveal_path(path: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let home = state.home.clone();
+    let path = if path == "~" {
+        home
+    } else if let Some(relative) = path.strip_prefix("~/") {
+        home.join(relative)
+    } else {
+        PathBuf::from(path)
+    };
+    if !path.is_absolute() {
+        return Err("路径无效。".into());
+    }
+    let path = path.canonicalize().map_err(|e| format!("无法访问：{e}"))?;
+    let mut command = tokio::process::Command::new("/usr/bin/open");
+    command.args(["-R", "--"]).arg(path).kill_on_drop(true);
+    let status = tokio::time::timeout(std::time::Duration::from_secs(5), command.status())
+        .await
+        .map_err(|_| "Finder 打开超时。")?
+        .map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err("无法在 Finder 中显示。".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_official() -> Result<(), String> {
+    let status = tokio::process::Command::new("/usr/bin/open")
+        .arg("https://mole.fit/zh/")
+        .status()
+        .await
+        .map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("无法打开官方产品页面。".into())
+    }
+}
+
+pub fn run() {
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let data = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data)?;
+            let connection =
+                db::open(&data.join("moomole.sqlite")).map_err(std::io::Error::other)?;
+            let bundled = app.path().resource_dir()?.join("mole");
+            let engine_root = if bundled.join("UPSTREAM.json").is_file() {
+                bundled
+            } else if cfg!(debug_assertions) {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole")
+            } else {
+                bundled
+            };
+            app.manage(AppState {
+                db: Arc::new(Mutex::new(connection)),
+                jobs: Arc::new(Mutex::new(HashMap::new())),
+                engine_root,
+                home: app.path().home_dir()?,
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            bootstrap,
+            save_settings,
+            get_history,
+            start_task,
+            cancel_task,
+            reveal_path,
+            open_official
+        ])
+        .build(tauri::generate_context!())
+        .expect("无法启动 MooMole");
+    app.run(|app, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            if let Some(state) = app.try_state::<AppState>() {
+                if let Ok(jobs) = state.jobs.lock() {
+                    for job in jobs.values() {
+                        job.cancel();
+                        job.kill_group();
+                    }
+                }
+            }
+        }
+    });
+}
