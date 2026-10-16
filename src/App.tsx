@@ -50,6 +50,7 @@ import { EngineSummary } from './components/EngineSummary'
 import { ExecutionHistory } from './components/ExecutionHistory'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
+import { ApplicationLibrary } from './components/ApplicationLibrary'
 import type {
   Analysis,
   AppEntry,
@@ -261,7 +262,7 @@ export default function App() {
       setPath(value.path)
       setQuery('')
     }
-    if (kind === 'apps') setApps(result as AppEntry[])
+    if (kind === 'apps') setApps([...(result as AppEntry[])])
     if (kind === 'cleanup') setCleanup(result as Cleanup)
     if (kind === 'clean') setCleanPreview(result as CleanPreview)
     if (kind === 'history') setMoleHistory(result as MoleHistory)
@@ -403,13 +404,6 @@ export default function App() {
           sort === 'size' ? b.size - a.size : a.name.localeCompare(b.name, 'zh-CN'),
         ),
     [analysis, query, sort],
-  )
-  const filteredApps = useMemo(
-    () =>
-      (apps ?? []).filter((app) =>
-        `${app.name} ${app.bundle_id}`.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [apps, query],
   )
 
   if (!data)
@@ -1051,51 +1045,16 @@ export default function App() {
               </div>
               <div className="inline-note">
                 <Info size={14} />
-                当前仅展示应用信息，未提供卸载。首次读取可能需要较长时间。
+                列表来自 Mole CLI；仅供查看和对比，不会卸载。首次读取可能需要较长时间。
               </div>
               {apps ? (
-                <section className="card">
-                  <div className="list-toolbar">
-                    <h2>{apps.length} 个应用</h2>
-                    <label className="search-field">
-                      <Search size={14} />
-                      <input
-                        aria-label="搜索应用"
-                        placeholder="搜索应用或 Bundle ID…"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <div className="scroll-list">
-                    {filteredApps.length ? (
-                      filteredApps.map((app) => (
-                        <div className="app-row" key={app.path}>
-                          <span className="app-icon">
-                            <Box size={20} strokeWidth={1.4} />
-                          </span>
-                          <div className="app-info">
-                            <strong>{app.name}</strong>
-                            <small className="mono truncate">{app.bundle_id || app.path}</small>
-                          </div>
-                          <span className="tag">{app.source}</span>
-                          <span className="app-size">{app.size || '未知'}</span>
-                          <button
-                            className="icon-button"
-                            onClick={() => reveal(app.path)}
-                            aria-label={`显示 ${app.name}`}
-                          >
-                            <ExternalLink size={15} />
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <Empty icon={Box} title="未找到应用">
-                        <p>{query ? '试试其他关键词。' : '没有返回可展示的应用。'}</p>
-                      </Empty>
-                    )}
-                  </div>
-                </section>
+                <ApplicationLibrary
+                  apps={apps}
+                  home={data.home}
+                  refreshing={busy?.kind === 'apps'}
+                  canReveal={api.desktop}
+                  onReveal={reveal}
+                />
               ) : (
                 <section className="card">
                   <Empty icon={Box} title="你的应用，一目了然">
