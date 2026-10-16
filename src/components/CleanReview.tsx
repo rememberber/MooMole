@@ -5,6 +5,7 @@ import { bytes, dateTime, shortPath } from '../lib/format'
 import { previewTotal, protectionFor } from '../lib/clean-preview'
 import { ImpactDetails } from './ImpactDetails'
 import { useNow } from '../lib/use-now'
+import { OriginDetails } from './OriginDetails'
 
 export function CleanReview({
   preview,
@@ -84,7 +85,7 @@ export function CleanReview({
     }
   }
   async function savePlan() {
-    if (!preview.scanId || !onCreatePlan) return
+    if (preview.protocol !== 2 || !preview.scanId || !onCreatePlan) return
     setError('')
     setPending('plan')
     try {
@@ -122,6 +123,9 @@ export function CleanReview({
           {(now >= preview.expiresAt! || now < preview.scannedAt) &&
             '此扫描已过期或系统时间回退，请重新扫描。'}
         </p>
+      )}
+      {preview.protocol !== 2 && (
+        <p className="notice warning">此旧扫描没有绑定调用来源，请重新扫描后保存新计划。</p>
       )}
       <div className="review-filters">
         <label className="review-search">
@@ -217,6 +221,7 @@ export function CleanReview({
           className="button secondary compact"
           disabled={
             !desktop ||
+            preview.protocol !== 2 ||
             !preview.scanId ||
             !onCreatePlan ||
             !chosen.length ||
@@ -285,6 +290,7 @@ export function CleanReview({
                       项。是否适合清理仍需结合用途确认，正在使用的数据应保留。
                     </p>
                     <ImpactDetails impact={item.impact} />
+                    <OriginDetails value={item.provenance} />
                     {item.coveredBy && (
                       <p>
                         完整预览中，大小已计入父目录：<span className="mono">{item.coveredBy}</span>

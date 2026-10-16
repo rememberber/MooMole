@@ -8,6 +8,7 @@ mod execution_sandbox;
 mod impact;
 #[cfg(test)]
 mod native_trash_tests;
+mod provenance;
 mod review;
 mod rules;
 mod tasks;
@@ -322,7 +323,19 @@ async fn check_review_rules(
             .items
             .iter()
             .filter(|i| i.state == "unchanged")
-            .map(|i| (i.id.clone(), i.path.clone()))
+            .map(|i| {
+                let candidate = &plan
+                    .items
+                    .iter()
+                    .find(|p| p.candidate.id == i.id)
+                    .unwrap()
+                    .candidate;
+                (
+                    i.id.clone(),
+                    i.path.clone(),
+                    provenance::binding(candidate.provenance.as_ref(), &candidate.path).into(),
+                )
+            })
             .collect();
         if requested.is_empty() {
             return Ok(local);

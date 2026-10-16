@@ -403,7 +403,7 @@ test('module checks show partial coverage and local recheck failure clears all o
   await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).uncheck()
   await dialog.getByText('检查来源与版本', { exact: true }).first().click()
   await expect(
-    dialog.getByText('Mole _user_cache_deno_delete_guard · 规则 v1', { exact: true }),
+    dialog.getByText('Mole _user_cache_deno_delete_guard · 规则 v2', { exact: true }),
   ).toBeVisible()
   await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
   await page.screenshot({
@@ -436,4 +436,57 @@ test('cancelling a repeated module check clears previous module observations', a
   await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
   await expect(dialog.getByText('规则复查未完成', { exact: true })).toBeVisible()
   await expect(dialog.getByLabel('模块规则复查')).toHaveCount(0)
+})
+
+test('recorded callers survive plan creation and mixed sources never imply full module coverage', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('origins'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  await fixture
+    .getByRole('checkbox', { name: '审阅 /Users/demo/Library/Caches/ExampleApp', exact: true })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByText('扫描调用来源 · 2 种', { exact: true }).click()
+  await expect(
+    dialog.getByText(
+      'record_dry_run_cleanup_target → _safe_clean_impl → safe_clean → fixture_other_module',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await expect(
+    dialog.getByText(
+      'record_dry_run_cleanup_target → _safe_clean_impl → safe_clean_guarded → clean_user_essentials',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByText('模块规则尚未适配', { exact: true })).toBeVisible()
+  await expect(
+    dialog.getByText('同一对象存在混合模块来源，不能只按路径选择检查。', { exact: true }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: 'test-results/origin-binding.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
+})
+
+test('old scans stay visible but require rescan before saving a new plan', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('old-scan'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  await expect(
+    fixture.getByText('此旧扫描没有绑定调用来源，请重新扫描后保存新计划。'),
+  ).toBeVisible()
+  await fixture
+    .getByRole('checkbox', { name: '审阅 /Users/demo/Library/Caches/ExampleApp', exact: true })
+    .check()
+  await expect(fixture.getByRole('button', { name: '保存审阅计划' })).toBeDisabled()
 })

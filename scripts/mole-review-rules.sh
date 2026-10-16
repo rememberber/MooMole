@@ -68,8 +68,9 @@ moomole_probe_log_module() {
 }
 
 moomole_probe_module() {
-    local path="$1" state=0 fn
+    local path="$1" binding="${2:-missing}" state=0 fn
     moomole_module_scope "$path"
+    [[ "$binding" == "$MOOMOLE_MODULE_SCOPE" && "$binding" != unsupported ]] || MOOMOLE_MODULE_SCOPE=unsupported
     MOOMOLE_MODULE_CODE=notChecked
     [[ "$MOOMOLE_RULE_CODE" == passed ]] || return 0
     case "$MOOMOLE_MODULE_SCOPE" in
@@ -98,7 +99,7 @@ moomole_probe_module() {
 
 moomole_review_rules() {
     [[ $# -eq 2 && "$MOLE_USER_HOME" == "$HOME" ]] || return 1
-    local request="$1" report="$2" fn header id path count=0
+    local request="$1" report="$2" fn header id path binding count=0
     [[ "$request" == /* && -f "$request" && ! -L "$request" && -O "$request" ]] || return 1
     [[ "$report" == /* && -f "$report" && ! -L "$report" && -O "$report" ]] || return 1
     for fn in should_protect_path is_path_whitelisted holds_compiled_model_cache \
@@ -107,8 +108,8 @@ moomole_review_rules() {
     done
     exec 3< "$request"
     IFS= read -r -d '' header <&3 || return 1
-    [[ "$header" == MooMole.rules.request.v2 ]] || return 1
-    printf '%s\0%s\0%s\0%s\0' 'MooMole.rules.v2' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '1' "$HOME" > "$report"
+    [[ "$header" == MooMole.rules.request.v3 ]] || return 1
+    printf '%s\0%s\0%s\0%s\0' 'MooMole.rules.v3' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '2' "$HOME" > "$report"
     while IFS= read -r -d '' id <&3; do
         if [[ "$id" == complete ]]; then
             # The Rust producer owns framing; reject unexpected trailing bytes.
@@ -118,12 +119,14 @@ moomole_review_rules() {
             return 0
         fi
         IFS= read -r -d '' path <&3 || return 1
+        IFS= read -r -d '' binding <&3 || return 1
+        case "$binding" in userCache|userLogs|missing|mixed|unsupported) ;; *) return 1 ;; esac
         [[ -n "$id" && "$path" == /* ]] || return 1
         count=$((count + 1))
         [[ "$count" -le 500 ]] || return 1
         moomole_probe_rules "$path"
-        moomole_probe_module "$path"
-        printf '%s\0%s\0%s\0%s\0%s\0' "$id" "$path" "$MOOMOLE_RULE_CODE" "$MOOMOLE_MODULE_SCOPE" "$MOOMOLE_MODULE_CODE" >> "$report"
+        moomole_probe_module "$path" "$binding"
+        printf '%s\0%s\0%s\0%s\0%s\0%s\0' "$id" "$path" "$binding" "$MOOMOLE_RULE_CODE" "$MOOMOLE_MODULE_SCOPE" "$MOOMOLE_MODULE_CODE" >> "$report"
     done
     return 1
 }

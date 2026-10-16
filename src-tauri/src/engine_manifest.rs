@@ -271,7 +271,7 @@ pub fn fixture(root: &Path) {
         (*name, serde_json::json!({"size": bytes.len(), "sha256": format!("{:x}", Sha256::digest(bytes)), "executable": mode & 0o111 != 0}))
     }).collect();
     let manifest = serde_json::json!({"schemaVersion":1, "repository":"https://github.com/tw93/Mole", "revision":crate::engine::REVISION,
-        "version":"1.59.1", "platform":"darwin", "arch":architecture(), "cleanProtocol":1,"rulesProtocol":crate::rules::PROTOCOL,
+        "version":"1.59.1", "platform":"darwin", "arch":architecture(), "cleanProtocol":crate::clean_preview::PROTOCOL,"rulesProtocol":crate::rules::PROTOCOL,
         "build":{"recipeVersion":1,"goVersion":"go version go1.26.0 darwin/fixture","goos":"darwin","goarch": if architecture()=="x64" {"amd64"} else {"arm64"}},"files":files});
     std::fs::write(root.join("UPSTREAM.json"), manifest.to_string()).unwrap();
 }
@@ -310,12 +310,18 @@ mod tests {
 
     #[test]
     fn malformed_paths_wrong_binary_headers_and_deep_trees_are_rejected() {
-        for mode in ["path", "header", "deep", "rules-v1"] {
+        for mode in ["path", "header", "deep", "rules-v1", "rules-v2", "clean-v1"] {
             let tmp = tempfile::tempdir().unwrap();
             fixture(tmp.path());
             let manifest_path = tmp.path().join("UPSTREAM.json");
             let mut value: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+            if mode == "clean-v1" {
+                value["cleanProtocol"] = 1.into();
+            }
+            if mode == "rules-v2" {
+                value["rulesProtocol"] = 2.into();
+            }
             if mode == "rules-v1" {
                 value["rulesProtocol"] = 1.into();
             }

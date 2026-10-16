@@ -8,8 +8,8 @@ use std::{
     time::Duration,
 };
 
-pub const PROTOCOL: u64 = 2;
-pub const MODULE_VERSION: u64 = 1;
+pub const PROTOCOL: u64 = 3;
+pub const MODULE_VERSION: u64 = 2;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +24,7 @@ pub struct RuleCheck {
 #[serde(rename_all = "camelCase")]
 pub struct ModuleCheck {
     pub version: u64,
+    pub binding: String,
     pub scope: String,
     pub code: String,
     pub source: String,
@@ -31,7 +32,13 @@ pub struct ModuleCheck {
 }
 
 impl ModuleCheck {
-    pub fn from_codes(scope: &str, code: &str) -> Result<Self, String> {
+    pub fn from_codes(scope: &str, code: &str, binding: &str) -> Result<Self, String> {
+        if !["userCache", "userLogs", "missing", "mixed", "unsupported"].contains(&binding) {
+            return Err("未知扫描来源绑定。".into());
+        }
+        if scope != "unsupported" && scope != binding {
+            return Err("扫描来源与模块范围不一致。".into());
+        }
         let source = match scope {
             "userCache" => "Mole clean_user_essentials / _user_cache_deno_delete_guard",
             "userLogs" => "Mole _clean_user_log_directory / _user_log_delete_guard",
@@ -40,7 +47,12 @@ impl ModuleCheck {
         };
         let reason = match (scope, code) {
             (_, "notChecked") => "路径级检查未满足条件，未继续模块检查。",
-            ("unsupported", "unsupported") => "此路径的模块规则尚未适配，路径检查通过仍需保留审阅。",
+            ("unsupported", "unsupported") => match binding {
+                "missing" => "这份候选缺少结构化调用来源，请重新扫描；不能仅凭路径选择模块规则。",
+                "mixed" => "同一对象存在混合模块或别名来源，不能仅按其中一个模块检查。",
+                "unsupported" => "扫描观察到的调用来源尚未适配，路径检查通过仍需保留审阅。",
+                _ => "扫描来源与当前路径范围不匹配，需要重新扫描。",
+            },
             ("userCache", "checked") => "已复查当前 Deno 数据根目录的保留约束，未要求保留此项；其他模块条件仍需单独核对。",
             ("userLogs", "checked") => "已复查用户日志根目录及适用的诊断报告目录身份；不代表日志未被使用或其他模块条件已满足。",
             ("userLogs", "preserveRoot") => "Mole 保留 DiagnosticReports 目录本身，只检查其中的单个报告；请重新选择具体项目。",
@@ -50,6 +62,7 @@ impl ModuleCheck {
         };
         Ok(Self {
             version: MODULE_VERSION,
+            binding: binding.into(),
             scope: scope.into(),
             code: code.into(),
             source: source.into(),
@@ -122,7 +135,7 @@ impl RuleCheck {
 
 pub fn parse(
     bytes: &[u8],
-    requested: &[(String, String)],
+    requested: &[(String, String, String)],
     home: &Path,
 ) -> Result<HashMap<String, RuleCheck>, String> {
     let invalid = || "Mole 规则报告不完整或与请求不匹配。".to_string();
@@ -132,38 +145,43 @@ pub fn parse(
     let text = std::str::from_utf8(bytes).map_err(|_| invalid())?;
     let mut fields: Vec<_> = text.split_terminator('\0').collect();
     if fields.len() < 5
-        || fields[0] != "MooMole.rules.v2"
+        || fields[0] != "MooMole.rules.v3"
         || fields[1] != engine::REVISION
         || fields[2] != MODULE_VERSION.to_string()
         || Some(fields[3]) != home.to_str()
         || fields.pop() != Some("complete")
-        || (fields.len() - 4) % 5 != 0
+        || (fields.len() - 4) % 6 != 0
     {
         return Err(invalid());
     }
     let expected: HashMap<_, _> = requested
         .iter()
-        .map(|(id, path)| (id.as_str(), path.as_str()))
+        .map(|(id, path, binding)| (id.as_str(), (path.as_str(), binding.as_str())))
         .collect();
     if expected.len() != requested.len() {
         return Err(invalid());
     }
     let mut checks = HashMap::new();
-    for row in fields[4..].chunks_exact(5) {
-        if expected.get(row[0]) != Some(&row[1]) || checks.contains_key(row[0]) {
+    for row in fields[4..].chunks_exact(6) {
+        if expected.get(row[0]) != Some(&(row[1], row[2])) || checks.contains_key(row[0]) {
             return Err(invalid());
         }
-        let scope = module_scope(Path::new(row[1]), home);
-        if row[3] != scope
-            || (row[2] != "passed") != (row[4] == "notChecked")
-            || (row[4] == "preserveRoot"
+        let path_scope = module_scope(Path::new(row[1]), home);
+        let scope = if row[2] == path_scope && row[2] != "unsupported" {
+            path_scope
+        } else {
+            "unsupported"
+        };
+        if row[4] != scope
+            || (row[3] != "passed") != (row[5] == "notChecked")
+            || (row[5] == "preserveRoot"
                 && Path::new(row[1]) != home.join("Library/Logs/DiagnosticReports"))
         {
             return Err(invalid());
         }
         checks.insert(
             row[0].into(),
-            RuleCheck::from_code(row[2], ModuleCheck::from_codes(row[3], row[4])?)?,
+            RuleCheck::from_code(row[3], ModuleCheck::from_codes(row[4], row[5], row[2])?)?,
         );
     }
     if checks.len() != expected.len() {
@@ -175,7 +193,7 @@ pub fn parse(
 pub async fn run(
     root: &Path,
     home: &Path,
-    requested: &[(String, String)],
+    requested: &[(String, String, String)],
     job: Arc<Job>,
 ) -> Result<HashMap<String, RuleCheck>, String> {
     if !home.is_absolute()
@@ -186,7 +204,7 @@ pub async fn run(
         return Err("规则复查范围无效。".into());
     }
     let mut seen = HashSet::new();
-    for (id, path) in requested {
+    for (id, path, binding) in requested {
         if id.is_empty()
             || id == "complete"
             || id.contains('\0')
@@ -195,6 +213,8 @@ pub async fn run(
             || Path::new(path)
                 .components()
                 .any(|c| matches!(c, Component::ParentDir | Component::CurDir))
+            || !["userCache", "userLogs", "missing", "mixed", "unsupported"]
+                .contains(&binding.as_str())
             || !seen.insert(id)
         {
             return Err("规则复查项目无效。".into());
@@ -210,9 +230,9 @@ pub async fn run(
         .map_err(|e| e.to_string())?;
     let request = scratch.path().join("request.nul");
     let report = scratch.path().join("report.nul");
-    let mut fields = vec!["MooMole.rules.request.v2"];
-    for (id, path) in requested {
-        fields.extend([id.as_str(), path.as_str()]);
+    let mut fields = vec!["MooMole.rules.request.v3"];
+    for (id, path, binding) in requested {
+        fields.extend([id.as_str(), path.as_str(), binding.as_str()]);
     }
     fields.push("complete");
     std::fs::write(&request, fields.join("\0") + "\0").map_err(|e| e.to_string())?;
@@ -269,7 +289,7 @@ mod tests {
             run(
                 root,
                 root,
-                &[("id".into(), "/tmp/fixture".into())],
+                &[("id".into(), "/tmp/fixture".into(), "missing".into())],
                 job.clone(),
             ),
         )
@@ -280,139 +300,144 @@ mod tests {
         assert_eq!(job.pid.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
     fn report(fields: &[&str]) -> Vec<u8> {
-        let mut all = vec!["MooMole.rules.v2", engine::REVISION, "1", "/Users/fixture"];
+        let mut all = vec!["MooMole.rules.v3", engine::REVISION, "2", "/Users/fixture"];
         all.extend_from_slice(fields);
         all.push("complete");
         (all.join("\0") + "\0").into_bytes()
     }
     #[test]
-    fn rules_bind_paths_home_module_scope_version_and_complete_results() {
+    fn reports_bind_identity_path_source_home_version_and_all_states() {
         let home = Path::new("/Users/fixture");
-        let requested = vec![("id".into(), "/tmp/缓存\n[*]".into())];
-        let valid = report(&[
-            "id",
-            "/tmp/缓存\n[*]",
-            "whitelist",
-            "unsupported",
-            "notChecked",
-        ]);
+        let path = "/Users/fixture/Library/Caches/app";
+        let requested = vec![("id".into(), path.into(), "userCache".into())];
+        let valid = report(&["id", path, "userCache", "passed", "userCache", "checked"]);
         assert_eq!(
-            parse(&valid, &requested, home).unwrap()["id"].code,
-            "whitelist"
+            parse(&valid, &requested, home).unwrap()["id"]
+                .module
+                .binding,
+            "userCache"
         );
         for n in 0..valid.len() {
             assert!(parse(&valid[..n], &requested, home).is_err());
         }
         for fields in [
             vec![],
+            vec!["other", path, "userCache", "passed", "userCache", "checked"],
             vec![
-                "other",
-                "/tmp/缓存\n[*]",
+                "id",
+                "/tmp/other",
+                "userCache",
                 "passed",
-                "unsupported",
-                "unsupported",
+                "userCache",
+                "checked",
             ],
-            vec!["id", "/tmp/other", "passed", "unsupported", "unsupported"],
+            vec!["id", path, "missing", "passed", "userCache", "checked"],
+            vec!["id", path, "userCache", "passed", "userLogs", "checked"],
+            vec!["id", path, "userCache", "whitelist", "userCache", "checked"],
+            vec!["id", path, "userCache", "passed", "userCache", "notChecked"],
+            vec!["id", path, "userCache", "passed", "userCache", "unknown"],
             vec![
                 "id",
-                "/tmp/缓存\n[*]",
-                "unknown",
-                "unsupported",
-                "notChecked",
-            ],
-            vec!["id", "/tmp/缓存\n[*]", "passed", "userCache", "checked"],
-            vec!["id", "/tmp/缓存\n[*]", "passed", "unsupported", "checked"],
-            vec![
-                "id",
-                "/tmp/缓存\n[*]",
-                "whitelist",
-                "unsupported",
-                "unsupported",
-            ],
-            vec![
-                "id",
-                "/tmp/缓存\n[*]",
+                path,
+                "userCache",
                 "passed",
-                "unsupported",
-                "unsupported",
+                "userCache",
+                "checked",
                 "id",
-                "/tmp/缓存\n[*]",
+                path,
+                "userCache",
                 "passed",
-                "unsupported",
-                "unsupported",
+                "userCache",
+                "checked",
             ],
         ] {
             assert!(parse(&report(&fields), &requested, home).is_err());
         }
         assert!(parse(&valid, &requested, Path::new("/Users/other")).is_err());
-        for old in ["MooMole.rules.v1", "MooMole.rules.v3"] {
+        for (old, new) in [
+            ("MooMole.rules.v3", "MooMole.rules.v2"),
+            ("\x002\0", "\x009\0"),
+        ] {
             assert!(parse(
                 &String::from_utf8(valid.clone())
                     .unwrap()
-                    .replace("MooMole.rules.v2", old)
+                    .replace(&old, &new)
                     .into_bytes(),
                 &requested,
                 home
             )
             .is_err());
         }
-        assert!(parse(
-            &String::from_utf8(valid)
-                .unwrap()
-                .replace("\x001\0", "\x009\0")
-                .into_bytes(),
-            &requested,
-            home
-        )
-        .is_err());
     }
     #[test]
-    fn module_coverage_is_exact_and_unknown_or_inconsistent_states_are_refused() {
+    fn only_bound_and_exact_scopes_can_run_supported_module_checks() {
         let home = Path::new("/Users/fixture");
-        for (path, scope, code) in [
-            ("Library/Caches/app", "userCache", "checked"),
-            ("Library/Caches/deno", "userCache", "retainOrUnknown"),
-            ("Library/Logs/app.log", "userLogs", "checked"),
-            ("Library/Logs/DiagnosticReports", "userLogs", "preserveRoot"),
+        for (path, binding, scope, code) in [
+            ("Library/Caches/app", "userCache", "userCache", "checked"),
+            ("Library/Logs/report", "userLogs", "userLogs", "checked"),
+            (
+                "Library/Logs/DiagnosticReports",
+                "userLogs",
+                "userLogs",
+                "preserveRoot",
+            ),
             (
                 "Library/Logs/DiagnosticReports/report.ips",
                 "userLogs",
+                "userLogs",
                 "checked",
             ),
-            ("Library/Logs/deep/other", "unsupported", "unsupported"),
-            ("Library/Caches/.hidden", "unsupported", "unsupported"),
-            ("Library/CachesOther/app", "unsupported", "unsupported"),
-            ("Library/Caches/app/child", "unsupported", "unsupported"),
+            ("Library/Caches/app", "mixed", "unsupported", "unsupported"),
             (
-                "Library/Logs/DiagnosticReports/.hidden",
+                "Library/Caches/app",
+                "missing",
+                "unsupported",
+                "unsupported",
+            ),
+            (
+                "Library/Caches/app",
+                "unsupported",
+                "unsupported",
+                "unsupported",
+            ),
+            (
+                "Library/Caches/app",
+                "userLogs",
+                "unsupported",
+                "unsupported",
+            ),
+            (
+                "Library/Caches/app/child",
+                "userCache",
+                "unsupported",
+                "unsupported",
+            ),
+            (
+                "Library/Caches/.hidden",
+                "userCache",
+                "unsupported",
+                "unsupported",
+            ),
+            (
+                "Library/CachesOther/app",
+                "userCache",
                 "unsupported",
                 "unsupported",
             ),
         ] {
             let path = home.join(path).to_str().unwrap().to_owned();
-            let request = vec![("id".into(), path.clone())];
-            let parsed = parse(
-                &report(&["id", &path, "passed", scope, code]),
-                &request,
-                home,
-            )
-            .unwrap();
-            assert_eq!(parsed["id"].module.code, code);
-            assert_eq!(parsed["id"].module.version, MODULE_VERSION);
-        }
-        let path = "/Users/fixture/Library/Logs/app.log";
-        for (scope, code) in [
-            ("userLogs", "preserveRoot"),
-            ("userLogs", "unsupported"),
-            ("userLogs", "unknown"),
-            ("unknown", "checked"),
-        ] {
-            assert!(parse(
-                &report(&["id", path, "passed", scope, code]),
-                &[("id".into(), path.into())],
-                home
-            )
-            .is_err());
+            let request = vec![("id".into(), path.clone(), binding.into())];
+            assert_eq!(
+                parse(
+                    &report(&["id", &path, binding, "passed", scope, code]),
+                    &request,
+                    home
+                )
+                .unwrap()["id"]
+                    .module
+                    .code,
+                code
+            );
         }
     }
 }

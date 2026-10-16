@@ -22,7 +22,7 @@ const demoLogImpact: Impact = {
 export const demoCleanPreview: CleanPreview = {
   output: '示例预览日志：本页仅用于展示界面，没有扫描本机文件。',
   dryRun: true,
-  protocol: 1,
+  protocol: 2,
   revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
   systemIncluded: false,
   items: [
@@ -37,6 +37,22 @@ export const demoCleanPreview: CleanPreview = {
       isDirectory: true,
       resolvedPath: '/Users/demo/Library/Caches/ExampleApp',
       impact: demoCacheImpact,
+      provenance: {
+        version: 1,
+        observations: [
+          {
+            path: '/Users/demo/Library/Caches/ExampleApp',
+            functions: [
+              'record_dry_run_cleanup_target',
+              '_safe_clean_impl',
+              'safe_clean_guarded',
+              'clean_user_essentials',
+            ],
+            deleteGuard: '_user_cache_deno_delete_guard',
+            finalGuard: '_user_cache_deno_delete_guard',
+          },
+        ],
+      },
     },
     {
       id: 'demo-2',

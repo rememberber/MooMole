@@ -35,6 +35,7 @@ impl Fixture {
                     is_directory: false,
                     resolved_path: None,
                     impact: None,
+                    provenance: None,
                 }
             })
             .collect();

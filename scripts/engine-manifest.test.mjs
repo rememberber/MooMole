@@ -43,7 +43,16 @@ function fixture(folder, content = 'fixture') {
 }
 
 test('manifest detects equal-size corruption, unexpected files, missing files, links and old schemas', () => {
-  for (const failure of ['changed', 'extra', 'missing', 'link', 'old', 'rules-v1']) {
+  for (const failure of [
+    'changed',
+    'extra',
+    'missing',
+    'link',
+    'old',
+    'rules-v1',
+    'rules-v2',
+    'clean-v1',
+  ]) {
     const folder = work()
     fixture(folder)
     assert.equal(verifyPrepared(folder).version, '1.59.1')
@@ -58,6 +67,11 @@ test('manifest detects equal-size corruption, unexpected files, missing files, l
     if (failure === 'old') writeFileSync(join(folder, 'UPSTREAM.json'), '{}')
     if (failure === 'rules-v1') {
       manifest.rulesProtocol = 1
+      writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
+    }
+    if (failure === 'rules-v2' || failure === 'clean-v1') {
+      manifest[failure === 'clean-v1' ? 'cleanProtocol' : 'rulesProtocol'] =
+        failure === 'clean-v1' ? 1 : 2
       writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
     }
     assert.throws(() => verifyPrepared(folder), undefined, failure)

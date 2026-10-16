@@ -2111,3 +2111,22 @@ input[type='checkbox'] {
 .module-evidence summary {
   cursor: pointer;
 }
+
+.origin-details,
+.origin-missing {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--subtle);
+}
+.origin-details summary {
+  cursor: pointer;
+}
+.origin-details ol {
+  padding-left: 22px;
+}
+.origin-details p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

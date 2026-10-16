@@ -5,6 +5,7 @@ import { bytes, dateTime } from '../lib/format'
 import { Modal } from './Modal'
 import { ImpactDetails, unknownImpact } from './ImpactDetails'
 import { useNow } from '../lib/use-now'
+import { OriginDetails } from './OriginDetails'
 
 const states: Record<string, string> = {
   unchanged: '元数据未发现变化',
@@ -218,6 +219,7 @@ export function ReviewPlanDialog({
                 个子项的元数据，用于复核深层内容变化；不读取文件正文。
               </p>
             )}
+            <OriginDetails value={item.provenance} />
             <details className="impact-fold">
               <summary>用途与影响 · {(item.impact ?? unknownImpact).title}</summary>
               <ImpactDetails impact={item.impact} />

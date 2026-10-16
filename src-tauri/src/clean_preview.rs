@@ -2,11 +2,11 @@
 //! filesystem identity evidence and must never be used as an execution plan.
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Component, Path},
 };
 
-pub const PROTOCOL: u64 = 1;
+pub const PROTOCOL: u64 = 2;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -23,6 +23,8 @@ pub struct Candidate {
     pub resolved_path: Option<String>,
     #[serde(default)]
     pub impact: Option<crate::impact::Impact>,
+    #[serde(default)]
+    pub provenance: Option<crate::provenance::Provenance>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -63,11 +65,24 @@ pub fn parse(bytes: &[u8]) -> Result<Preview, String> {
         std::str::from_utf8(bytes).map_err(|_| "清理路径不是有效 UTF-8，已停止读取预览。")?;
     let mut fields: Vec<&str> = text.split_terminator('\0').collect();
     if fields.len() < 4
-        || fields[0] != "MooMole.clean.v1"
+        || fields[0] != "MooMole.clean.v2"
         || fields[1] != crate::engine::REVISION
         || !["true", "false"].contains(&fields[2])
         || fields.pop() != Some("complete")
-        || (fields.len() - 3) % 7 != 0
+    {
+        return Err(invalid());
+    }
+    let ledger_marker = (3..fields.len())
+        .step_by(7)
+        .find(|&i| fields[i] == "ledger")
+        .ok_or_else(invalid)?;
+    let marker = (ledger_marker + 1..fields.len())
+        .step_by(6)
+        .find(|&i| fields[i] == "origins")
+        .ok_or_else(invalid)?;
+    if (fields.len() - marker - 1) % 5 != 0
+        || (fields.len() - marker - 1) / 5 > 20_000
+        || (marker - ledger_marker - 1) / 6 > 20_000
     {
         return Err(invalid());
     }
@@ -75,7 +90,7 @@ pub fn parse(bytes: &[u8]) -> Result<Preview, String> {
     let mut identities = HashSet::new();
     let mut paths = HashSet::new();
     let mut items = Vec::new();
-    for (index, row) in fields[3..].chunks_exact(7).enumerate() {
+    for (index, row) in fields[3..ledger_marker].chunks_exact(7).enumerate() {
         let [identity, size_kb, count, known, section, path, covered_by] = row else {
             unreachable!()
         };
@@ -115,7 +130,71 @@ pub fn parse(bytes: &[u8]) -> Result<Preview, String> {
                 .ok()
                 .and_then(|p| p.to_str().map(String::from)),
             impact: None,
+            provenance: Some(crate::provenance::Provenance {
+                version: crate::provenance::VERSION,
+                observations: vec![],
+            }),
         });
+    }
+    let lookup: HashMap<String, usize> = items
+        .iter()
+        .enumerate()
+        .map(|(i, item)| (item.upstream_identity.clone(), i))
+        .collect();
+    // A duplicate raw append whose origin was lost must not be hidden by an older observation.
+    let specs: HashMap<&str, &[&str]> = fields[3..ledger_marker]
+        .chunks_exact(7)
+        .map(|row| (row[0], &row[..6]))
+        .collect();
+    let mut raw_seen = HashSet::new();
+    let mut occurrences: HashMap<(&str, &str), usize> = HashMap::new();
+    for row in fields[ledger_marker + 1..marker].chunks_exact(6) {
+        let expected = specs.get(row[0]).ok_or_else(invalid)?;
+        if row[4].is_empty()
+            || !absolute_path(row[5])
+            || !["true", "false"].contains(&row[3])
+            || number(row[1]).is_err()
+            || number(row[2])? == 0
+        {
+            return Err(invalid());
+        }
+        if raw_seen.insert(row[0]) && *expected != row {
+            return Err(invalid());
+        }
+        *occurrences.entry((row[0], row[5])).or_default() += 1;
+    }
+    if raw_seen.len() != items.len() {
+        return Err(invalid());
+    }
+    for row in fields[marker + 1..].chunks_exact(5) {
+        let index = *lookup.get(row[0]).ok_or_else(invalid)?;
+        let count = occurrences.get_mut(&(row[0], row[1])).ok_or_else(invalid)?;
+        *count = count.checked_sub(1).ok_or_else(invalid)?;
+        if !absolute_path(row[1]) {
+            return Err(invalid());
+        }
+        let origin = crate::provenance::Origin::from_fields(row[1], row[2], row[3], row[4])?;
+        let observations = &mut items[index].provenance.as_mut().unwrap().observations;
+        if !observations.contains(&origin) {
+            observations.push(origin);
+        }
+        if observations.len() > 16 {
+            return Err("单项调用来源超过 16 种，请缩小扫描范围。".into());
+        }
+    }
+    if occurrences.values().any(|&n| n != 0) {
+        return Err("原始候选与调用来源数量不一致，请重新扫描。".into());
+    }
+    if items.iter().any(|item| {
+        !item
+            .provenance
+            .as_ref()
+            .unwrap()
+            .observations
+            .iter()
+            .any(|o| o.path == item.path)
+    }) {
+        return Err("候选缺少对应路径的扫描来源，请重新扫描。".into());
     }
     let measured_paths: HashSet<&str> = items
         .iter()
@@ -146,9 +225,17 @@ pub fn parse(bytes: &[u8]) -> Result<Preview, String> {
 mod tests {
     use super::*;
     fn report(rows: &[&[&str; 7]]) -> Vec<u8> {
-        let mut fields = vec!["MooMole.clean.v1", crate::engine::REVISION, "false"];
+        let mut fields = vec!["MooMole.clean.v2", crate::engine::REVISION, "false"];
         for row in rows {
             fields.extend_from_slice(*row);
+        }
+        fields.push("ledger");
+        for row in rows {
+            fields.extend_from_slice(&row[..6]);
+        }
+        fields.push("origins");
+        for row in rows {
+            fields.extend_from_slice(&[row[0], row[5], "fixture_module", "", ""]);
         }
         fields.push("complete");
         (fields.join("\0") + "\0").into_bytes()
@@ -206,7 +293,7 @@ mod tests {
         assert!(parse(
             &String::from_utf8(valid)
                 .unwrap()
-                .replace("clean.v1", "clean.v2")
+                .replace("clean.v2", "clean.v1")
                 .into_bytes()
         )
         .is_err());
@@ -217,5 +304,92 @@ mod tests {
         assert!(parse(&report(&[&parent, &parent])).is_err());
         let sibling = ["2", "1", "1", "true", "Apps", "/tmp/ab", "/tmp/a"];
         assert!(parse(&report(&[&parent, &sibling])).is_err());
+    }
+    #[test]
+    fn provenance_requires_exact_candidates_and_preserves_mixed_alias_observations() {
+        let raw = report(&[&["1", "1", "1", "true", "Apps", "/fixture/cache", ""]]);
+        let prefix = String::from_utf8(raw)
+            .unwrap()
+            .split("ledger\0")
+            .next()
+            .unwrap()
+            .to_owned()
+            + "ledger\0";
+        let encoded = |rows: Vec<Vec<String>>| {
+            let raw_rows = rows
+                .iter()
+                .flat_map(|row| {
+                    [
+                        row[0].clone(),
+                        "1".into(),
+                        "1".into(),
+                        "true".into(),
+                        "Apps".into(),
+                        row[1].clone(),
+                    ]
+                })
+                .collect::<Vec<_>>()
+                .join("\0");
+            (prefix.clone()
+                + &raw_rows
+                + "\0origins\0"
+                + &rows.into_iter().flatten().collect::<Vec<_>>().join("\0")
+                + "\0complete\0")
+                .into_bytes()
+        };
+        let known=vec!["1","/fixture/cache","record_dry_run_cleanup_target,_safe_clean_impl,safe_clean_guarded,clean_user_essentials","_user_cache_deno_delete_guard","_user_cache_deno_delete_guard"].into_iter().map(String::from).collect::<Vec<_>>();
+        let mut other = known.clone();
+        other[2] = "fixture_other_module".into();
+        other[3].clear();
+        other[4].clear();
+        let parsed = parse(&encoded(vec![known.clone(), known.clone(), other.clone()])).unwrap();
+        let p = parsed.items[0].provenance.as_ref().unwrap();
+        assert_eq!(p.observations.len(), 2);
+        assert_eq!(p.binding("/fixture/cache"), "mixed");
+        // A later duplicate raw append without its matching origin is incomplete.
+        let lost = String::from_utf8(encoded(vec![known.clone()]))
+            .unwrap()
+            .replace(
+                "origins\0",
+                "1\x001\x001\0true\0Apps\0/fixture/cache\0origins\0",
+            );
+        assert!(parse(lost.as_bytes()).is_err());
+        let restored: Preview =
+            serde_json::from_str(&serde_json::to_string(&parsed).unwrap()).unwrap();
+        assert_eq!(
+            restored.items[0]
+                .provenance
+                .as_ref()
+                .unwrap()
+                .binding("/fixture/cache"),
+            "mixed"
+        );
+        let mut alias = known.clone();
+        alias[1] = "/fixture/alias".into();
+        assert_eq!(
+            parse(&encoded(vec![known.clone(), alias.clone()]))
+                .unwrap()
+                .items[0]
+                .provenance
+                .as_ref()
+                .unwrap()
+                .binding("/fixture/cache"),
+            "mixed"
+        );
+        assert!(parse(&encoded(vec![alias])).is_err());
+        for (index, value) in [(0, "foreign"), (2, ""), (3, "bad;call")] {
+            let mut bad = known.clone();
+            bad[index] = value.into();
+            assert!(parse(&encoded(vec![bad])).is_err());
+        }
+        let many = (0..17)
+            .map(|i| {
+                let mut row = other.clone();
+                row[2] = format!("fixture_{i}");
+                row
+            })
+            .collect();
+        assert!(parse(&encoded(many)).is_err());
+        assert!(parse(&(prefix + "complete\0").into_bytes()).is_err());
     }
 }

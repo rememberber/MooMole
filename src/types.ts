@@ -77,7 +77,7 @@ export interface Cleanup {
 export interface CleanPreview {
   output: string
   dryRun: true
-  protocol: 1
+  protocol: 1 | 2
   revision: string
   systemIncluded: boolean
   items: CleanCandidate[]
@@ -105,6 +105,7 @@ export interface ReviewPlan extends ReviewPlanSummary {
     state: string
     reason: string
     moleRule?: { code: string; source: string; reason: string; module?: ModuleCheck } | null
+    provenance?: Provenance | null
     inventoryEntries?: number | null
     impact?: Impact | null
   }[]
@@ -120,6 +121,7 @@ export interface CleanCandidate {
   isDirectory: boolean
   resolvedPath: string | null
   impact?: Impact | null
+  provenance?: Provenance | null
 }
 export interface Impact {
   version: number
@@ -185,8 +187,14 @@ export interface ExecutionDetail extends ExecutionSummary {
 
 export interface ModuleCheck {
   version: number
+  binding: string
   scope: string
   code: string
   source: string
   reason: string
+}
+
+export interface Provenance {
+  version: number
+  observations: { path: string; functions: string[]; deleteGuard: string; finalGuard: string }[]
 }

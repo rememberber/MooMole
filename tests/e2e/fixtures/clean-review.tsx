@@ -17,8 +17,38 @@ const legacyPreview = {
 }
 
 function Fixture({ mode }: { mode: string }) {
-  const fixturePreview = mode === 'legacy' ? legacyPreview : preview
+  const fixturePreview =
+    mode === 'old-scan'
+      ? { ...legacyPreview, protocol: 1 as const }
+      : mode === 'legacy'
+        ? legacyPreview
+        : { ...preview }
   const [protectedPaths, setProtectedPaths] = useState<string[]>([])
+  if (mode === 'origins')
+    fixturePreview.items = fixturePreview.items.map((item, index) =>
+      index === 0
+        ? {
+            ...item,
+            provenance: {
+              version: 1,
+              observations: [
+                ...item.provenance!.observations,
+                {
+                  path: item.path,
+                  functions: [
+                    'record_dry_run_cleanup_target',
+                    '_safe_clean_impl',
+                    'safe_clean',
+                    'fixture_other_module',
+                  ],
+                  deleteGuard: '',
+                  finalGuard: '',
+                },
+              ],
+            },
+          }
+        : item,
+    )
   const attempts = useRef(0)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   return (
@@ -52,6 +82,7 @@ function Fixture({ mode }: { mode: string }) {
                 state: 'unchanged',
                 reason: '本次元数据未发现变化。',
                 impact: item.impact,
+                provenance: item.provenance,
                 inventoryEntries: item.isDirectory ? 3 : null,
               })),
           })
@@ -81,6 +112,29 @@ function Fixture({ mode }: { mode: string }) {
                   once: true,
                 }),
               )
+            if (mode === 'origins')
+              return {
+                ...plan,
+                ruleCheckedAt: Date.now(),
+                items: plan.items.map((item) => ({
+                  ...item,
+                  state: 'moduleUnsupported',
+                  reason: '同一对象存在混合模块来源。',
+                  moleRule: {
+                    code: 'passed',
+                    source: 'Mole 路径级保护检查',
+                    reason: '本次路径级检查未要求保留。',
+                    module: {
+                      version: 2,
+                      binding: 'mixed',
+                      scope: 'unsupported',
+                      code: 'unsupported',
+                      source: '尚未适配的调用来源',
+                      reason: '同一对象存在混合模块来源，不能只按路径选择检查。',
+                    },
+                  },
+                })),
+              }
             if (mode === 'modules' || mode === 'module-cancel')
               return {
                 ...plan,
@@ -104,7 +158,8 @@ function Fixture({ mode }: { mode: string }) {
                     source: 'Mole 路径级保护检查',
                     reason: '路径级检查未要求保留。',
                     module: {
-                      version: 1,
+                      version: 2,
+                      binding: index === 0 ? 'userCache' : index === 1 ? 'mixed' : 'userLogs',
                       scope: index === 0 ? 'userCache' : index === 1 ? 'unsupported' : 'userLogs',
                       code:
                         index === 0 ? 'checked' : index === 1 ? 'unsupported' : 'retainOrUnknown',

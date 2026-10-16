@@ -197,6 +197,7 @@ pub struct ItemCheck {
     pub state: String,
     pub reason: String,
     pub mole_rule: Option<crate::rules::RuleCheck>,
+    pub provenance: Option<crate::provenance::Provenance>,
     pub inventory_entries: Option<usize>,
     pub impact: Option<crate::impact::Impact>,
 }
@@ -303,6 +304,7 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                 state: state.into(),
                 reason,
                 mole_rule: None,
+                provenance: item.candidate.provenance.clone(),
                 inventory_entries: item.tree.as_ref().map(|t| t.entries),
                 impact: item.candidate.impact.clone(),
             }
@@ -471,13 +473,17 @@ mod tests {
         let path = scratch.path().canonicalize().unwrap().join("file");
         std::fs::write(&path, "fixture").unwrap();
         let plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
+        let mut legacy = plan.clone();
+        legacy.protocol = 1;
+        assert_eq!(check(&legacy, &[], 1002).items[0].state, "versionMismatch");
         let checks = HashMap::from([(
             "scan-1:0".into(),
             crate::rules::RuleCheck {
                 code: "passed".into(),
                 source: "fixture".into(),
                 reason: "fixture".into(),
-                module: crate::rules::ModuleCheck::from_codes("userCache", "checked").unwrap(),
+                module: crate::rules::ModuleCheck::from_codes("userCache", "checked", "userCache")
+                    .unwrap(),
             },
         )]);
         assert_eq!(
@@ -516,7 +522,7 @@ mod tests {
                     code: "passed".into(),
                     source: "fixture".into(),
                     reason: "fixture".into(),
-                    module: crate::rules::ModuleCheck::from_codes(scope, code).unwrap(),
+                    module: crate::rules::ModuleCheck::from_codes(scope, code, scope).unwrap(),
                 },
             )]);
             let view = apply_rule_checks(check(&plan, &[], 1002), &checks, 1002);
@@ -547,6 +553,7 @@ mod tests {
             is_directory: path.is_dir(),
             resolved_path: Some(path.to_str().unwrap().into()),
             impact: None,
+            provenance: None,
         };
         capture(
             "scan-1".into(),

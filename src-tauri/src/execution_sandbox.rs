@@ -166,6 +166,7 @@ impl Sandbox {
                     is_directory: meta.is_dir(),
                     resolved_path: None,
                     impact: None,
+                    provenance: None,
                 }
             })
             .collect();
