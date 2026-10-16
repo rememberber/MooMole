@@ -51,6 +51,7 @@ test('manifest detects equal-size corruption, unexpected files, missing files, l
     'old',
     'rules-v1',
     'rules-v2',
+    'rules-v3',
     'clean-v1',
   ]) {
     const folder = work()
@@ -69,9 +70,9 @@ test('manifest detects equal-size corruption, unexpected files, missing files, l
       manifest.rulesProtocol = 1
       writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
     }
-    if (failure === 'rules-v2' || failure === 'clean-v1') {
+    if (failure === 'rules-v2' || failure === 'rules-v3' || failure === 'clean-v1') {
       manifest[failure === 'clean-v1' ? 'cleanProtocol' : 'rulesProtocol'] =
-        failure === 'clean-v1' ? 1 : 2
+        failure === 'clean-v1' ? 1 : failure === 'rules-v3' ? 3 : 2
       writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
     }
     assert.throws(() => verifyPrepared(folder), undefined, failure)

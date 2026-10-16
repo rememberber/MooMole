@@ -310,7 +310,9 @@ mod tests {
 
     #[test]
     fn malformed_paths_wrong_binary_headers_and_deep_trees_are_rejected() {
-        for mode in ["path", "header", "deep", "rules-v1", "rules-v2", "clean-v1"] {
+        for mode in [
+            "path", "header", "deep", "rules-v1", "rules-v2", "rules-v3", "clean-v1",
+        ] {
             let tmp = tempfile::tempdir().unwrap();
             fixture(tmp.path());
             let manifest_path = tmp.path().join("UPSTREAM.json");
@@ -318,6 +320,9 @@ mod tests {
                 serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
             if mode == "clean-v1" {
                 value["cleanProtocol"] = 1.into();
+            }
+            if mode == "rules-v3" {
+                value["rulesProtocol"] = 3.into();
             }
             if mode == "rules-v2" {
                 value["rulesProtocol"] = 2.into();

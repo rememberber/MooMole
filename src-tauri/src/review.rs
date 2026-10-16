@@ -390,6 +390,23 @@ pub fn apply_rule_checks(
                     }
                 }
             }
+            if item.state == "unchanged" {
+                match check.activity.code.as_str() {
+                    "noOpenHandles" => (),
+                    "busy" => {
+                        item.state = "activityBusy".into();
+                        item.reason = check.activity.reason.clone();
+                    }
+                    "unknown" | "budgetExhausted" => {
+                        item.state = "activityUnknown".into();
+                        item.reason = check.activity.reason.clone();
+                    }
+                    _ => {
+                        item.state = "activityUnavailable".into();
+                        item.reason = check.activity.reason.clone();
+                    }
+                }
+            }
             item.mole_rule = Some(check.clone());
         }
     }
@@ -463,6 +480,7 @@ mod tests {
                 code: "passed".into(),
                 source: "fixture".into(),
                 reason: "fixture".into(),
+                activity: crate::rules::ActivityCheck::from_code("noOpenHandles").unwrap(),
                 module: crate::rules::ModuleCheck::from_codes("userCache", "checked", "userCache")
                     .unwrap(),
             },
@@ -490,12 +508,26 @@ mod tests {
         let path = scratch.path().canonicalize().unwrap().join("file");
         std::fs::write(&path, "fixture").unwrap();
         let plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
-        for (scope, code, state) in [
-            ("userCache", "checked", "unchanged"),
-            ("userCache", "retainOrUnknown", "moduleRetained"),
-            ("userLogs", "preserveRoot", "moduleRetained"),
-            ("userLogs", "checkFailed", "ruleUnavailable"),
-            ("unsupported", "unsupported", "moduleUnsupported"),
+        for (scope, code, activity, state) in [
+            ("userCache", "checked", "noOpenHandles", "unchanged"),
+            ("userLogs", "checked", "busy", "activityBusy"),
+            ("userLogs", "checked", "unknown", "activityUnknown"),
+            ("userCache", "checked", "budgetExhausted", "activityUnknown"),
+            ("userCache", "checked", "checkFailed", "activityUnavailable"),
+            (
+                "userCache",
+                "retainOrUnknown",
+                "notChecked",
+                "moduleRetained",
+            ),
+            ("userLogs", "preserveRoot", "notChecked", "moduleRetained"),
+            ("userLogs", "checkFailed", "notChecked", "ruleUnavailable"),
+            (
+                "unsupported",
+                "unsupported",
+                "notChecked",
+                "moduleUnsupported",
+            ),
         ] {
             let checks = HashMap::from([(
                 "scan-1:0".into(),
@@ -503,12 +535,25 @@ mod tests {
                     code: "passed".into(),
                     source: "fixture".into(),
                     reason: "fixture".into(),
+                    activity: crate::rules::ActivityCheck::from_code(activity).unwrap(),
                     module: crate::rules::ModuleCheck::from_codes(scope, code, scope).unwrap(),
                 },
             )]);
             let view = apply_rule_checks(check(&plan, &[], 1002), &checks, 1002);
             assert_eq!(view.items[0].state, state);
             assert!(view.read_only && view.requires_mole_recheck);
+            assert_eq!(
+                apply_rule_checks(check(&plan, &[], plan.expires_at), &checks, plan.expires_at)
+                    .items[0]
+                    .state,
+                "expired"
+            );
+            let mut changed = check(&plan, &[], 1002);
+            changed.items[0].state = "changed".into();
+            assert_eq!(
+                apply_rule_checks(changed, &checks, 1002).items[0].state,
+                "changed"
+            );
             assert_eq!(
                 apply_rule_checks(
                     check(&plan, &[path.to_str().unwrap().into()], 1002),

@@ -104,7 +104,13 @@ export interface ReviewPlan extends ReviewPlanSummary {
     section: string
     state: string
     reason: string
-    moleRule?: { code: string; source: string; reason: string; module?: ModuleCheck } | null
+    moleRule?: {
+      code: string
+      source: string
+      reason: string
+      module?: ModuleCheck
+      activity?: ActivityCheck | null
+    } | null
     provenance?: Provenance | null
     inventoryEntries?: number | null
     impact?: Impact | null
@@ -122,6 +128,12 @@ export interface CleanCandidate {
   resolvedPath: string | null
   impact?: Impact | null
   provenance?: Provenance | null
+}
+export interface ActivityCheck {
+  version: number
+  code: string
+  source: string
+  reason: string
 }
 export interface Impact {
   version: number

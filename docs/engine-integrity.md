@@ -34,7 +34,7 @@ npm run test:engine
 `UPSTREAM.json` schema 1 包含：
 
 - 仓库、固定提交、CLI 版本、平台、架构。
-- `cleanProtocol=2`、`rulesProtocol=3` 和 `build.recipeVersion=1`。
+- `cleanProtocol=2`、`rulesProtocol=4` 和 `build.recipeVersion=1`。
 - 实际 Go 版本、构建 GOOS/GOARCH；不保存临时绝对路径或完整进程环境。
 - 每个相对资源路径的字节数、SHA-256 和执行位；清单自身不递归计算摘要。
 

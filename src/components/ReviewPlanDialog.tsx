@@ -21,6 +21,9 @@ const states: Record<string, string> = {
   pendingLocal: '本地复核中',
   moduleRetained: '模块要求保留或重新确认',
   moduleUnsupported: '模块规则尚未适配',
+  activityBusy: '发现文件占用',
+  activityUnknown: '文件占用尚未确认',
+  activityUnavailable: '附加占用检查未完成',
   contentsChanged: '目录内容已变化',
   inventoryUnavailable: '目录内容无法确认',
   inventoryMissing: '需要重新生成目录计划',
@@ -139,7 +142,7 @@ export function ReviewPlanDialog({
         <ShieldCheck size={18} />
         <span>
           复查包含 Mole 路径保护，以及已适配范围的用户缓存 Deno
-          约束、用户日志目录约束。其他模块条件仍需单独核对；当前未开放执行。
+          约束、用户日志目录约束，并对条件满足的项目附加占用观察。其他模块条件仍需单独核对；当前未开放执行。
         </span>
       </div>
       <div className="plan-summary">
@@ -246,6 +249,30 @@ export function ReviewPlanDialog({
                       <summary>检查来源与版本</summary>
                       <p>
                         {item.moleRule.module.source} · 规则 v{item.moleRule.module.version}
+                      </p>
+                    </details>
+                  )}
+                </div>
+                <div className="module-evidence" aria-label="附加占用检查">
+                  <strong>附加占用检查</strong>
+                  <p>
+                    {item.moleRule.activity?.version === 1 &&
+                    [
+                      'busy',
+                      'noOpenHandles',
+                      'unknown',
+                      'budgetExhausted',
+                      'checkFailed',
+                      'notChecked',
+                    ].includes(item.moleRule.activity.code)
+                      ? item.moleRule.activity.reason
+                      : '这份结果缺少可识别的占用证据，请重新复查；不能视为空闲。'}
+                  </p>
+                  {item.moleRule.activity && (
+                    <details>
+                      <summary>观察来源与版本</summary>
+                      <p>
+                        {item.moleRule.activity.source} · 观察 v{item.moleRule.activity.version}
                       </p>
                     </details>
                   )}

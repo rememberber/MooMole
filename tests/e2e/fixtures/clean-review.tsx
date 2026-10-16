@@ -106,12 +106,59 @@ function Fixture({ mode }: { mode: string }) {
           }}
           onCheckRules={async (_, signal) => {
             attempts.current++
-            if (mode === 'cancel' || (mode === 'module-cancel' && attempts.current > 1))
+            if (
+              mode === 'cancel' ||
+              (['module-cancel', 'activity'].includes(mode) && attempts.current > 1)
+            )
               await new Promise((_, reject) =>
                 signal.addEventListener('abort', () => reject(new Error('规则复查已取消。')), {
                   once: true,
                 }),
               )
+            if (mode === 'activity' || mode === 'activity-budget')
+              return {
+                ...plan,
+                ruleCheckedAt: Date.now(),
+                items: plan.items.map((item, index) => ({
+                  ...item,
+                  state:
+                    index === 0 ? 'unchanged' : index === 1 ? 'activityBusy' : 'activityUnknown',
+                  reason: index === 0 ? '本次元数据复核未发现变化。' : '附加占用观察要求重新确认。',
+                  moleRule: {
+                    code: 'passed',
+                    source: 'Mole 路径级保护检查',
+                    reason: '本次路径级检查未要求保留。',
+                    module: {
+                      version: 2,
+                      binding: 'userCache',
+                      scope: 'userCache',
+                      code: 'checked',
+                      source: 'fixture module',
+                      reason: '仅适用模块条件已复查。',
+                    },
+                    activity: {
+                      version: 1,
+                      code:
+                        index === 0
+                          ? 'noOpenHandles'
+                          : index === 1
+                            ? 'busy'
+                            : mode === 'activity-budget'
+                              ? 'budgetExhausted'
+                              : 'unknown',
+                      source: '客户端附加观察 · Mole _mole_container_cache_has_open_handle',
+                      reason:
+                        index === 0
+                          ? '本次未发现打开句柄；不是持续空闲保证，也不是执行许可。'
+                          : index === 1
+                            ? '发现所选目录后代有打开句柄，应保留；不自动关闭任何应用。'
+                            : mode === 'activity-budget'
+                              ? '本批附加占用检查的 5 秒预算已用完，此项尚未确认；请缩小选择后复查。'
+                              : '进程视图不完整，无法可靠确认占用，应保留。',
+                    },
+                  },
+                })),
+              }
             if (mode === 'origins')
               return {
                 ...plan,

@@ -97,9 +97,54 @@ moomole_probe_module() {
     esac
 }
 
+# Extra client observation, not a new claim about the generic log/cache module.
+# Reuse Mole's complete-view, recursive/exact handle probe and identity checks.
+moomole_probe_activity() {
+    MOOMOLE_ACTIVITY_CODE=notChecked
+    [[ "$MOOMOLE_RULE_CODE" == passed && "$MOOMOLE_MODULE_CODE" == checked ]] || return 0
+    local fn state=0
+    for fn in _mole_container_cache_has_open_handle _mole_timeout_with_deadline mole_rc_timeout_or_signal _mole_snapshot_path_identity _mole_path_matches_identity; do
+        declare -F "$fn" > /dev/null || { MOOMOLE_ACTIVITY_CODE=checkFailed; return 0; }
+    done
+    # Start lazily and fix our own budget; upstream timeout overrides must not
+    # expand the client batch budget. Bash SECONDS is the upstream clock here.
+    [[ -n "${MOOMOLE_ACTIVITY_DEADLINE:-}" ]] || MOOMOLE_ACTIVITY_DEADLINE=$((SECONDS + 5))
+    local _MOLE_CONTAINER_CACHE_PROBE_DEADLINE="$MOOMOLE_ACTIVITY_DEADLINE"
+    if ! _mole_timeout_with_deadline "$MOLE_TIMEOUT_QUICK_DETECT_SEC" "$_MOLE_CONTAINER_CACHE_PROBE_DEADLINE" > /dev/null; then
+        MOOMOLE_ACTIVITY_CODE=budgetExhausted
+        return 0
+    fi
+    # Upstream also returns 1 for an already-missing target. Do not label that
+    # early return as an idle observation; bind our own target around the call.
+    if ! _mole_snapshot_path_identity "$1"; then
+        MOOMOLE_ACTIVITY_CODE=unknown
+        return 0
+    fi
+    local parent="$_MOLE_PATH_SNAPSHOT_PARENT" parent_id="$_MOLE_PATH_SNAPSHOT_PARENT_ID" target_id="$_MOLE_PATH_SNAPSHOT_TARGET_ID"
+    _mole_container_cache_has_open_handle "$1" >&2 || state=$?
+    MOOMOLE_ACTIVITY_DEADLINE="$_MOLE_CONTAINER_CACHE_PROBE_DEADLINE"
+    case "$state" in
+        0) MOOMOLE_ACTIVITY_CODE=busy ;;
+        1)
+            MOOMOLE_ACTIVITY_CODE=unknown
+            if _mole_path_matches_identity "$1" "$parent" "$parent_id" "$target_id"; then
+                MOOMOLE_ACTIVITY_CODE=noOpenHandles
+            fi
+            ;;
+        2) MOOMOLE_ACTIVITY_CODE=unknown ;;
+        *)
+            if mole_rc_timeout_or_signal "$state"; then return "$state"; fi
+            MOOMOLE_ACTIVITY_CODE=checkFailed
+            ;;
+    esac
+}
+
 moomole_review_rules() {
     [[ $# -eq 2 && "$MOLE_USER_HOME" == "$HOME" ]] || return 1
     local request="$1" report="$2" fn header id path binding count=0
+    local MOOMOLE_ACTIVITY_DEADLINE=""
+    # No inherited privilege/visibility conclusion or interactive authorization.
+    local MOLE_TEST_NO_AUTH=1 _MOLE_COMPLETE_LSOF_MODE=""
     [[ "$request" == /* && -f "$request" && ! -L "$request" && -O "$request" ]] || return 1
     [[ "$report" == /* && -f "$report" && ! -L "$report" && -O "$report" ]] || return 1
     for fn in should_protect_path is_path_whitelisted holds_compiled_model_cache \
@@ -108,8 +153,8 @@ moomole_review_rules() {
     done
     exec 3< "$request"
     IFS= read -r -d '' header <&3 || return 1
-    [[ "$header" == MooMole.rules.request.v3 ]] || return 1
-    printf '%s\0%s\0%s\0%s\0' 'MooMole.rules.v3' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '2' "$HOME" > "$report"
+    [[ "$header" == MooMole.rules.request.v4 ]] || return 1
+    printf '%s\0%s\0%s\0%s\0%s\0' 'MooMole.rules.v4' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '2' '1' "$HOME" > "$report"
     while IFS= read -r -d '' id <&3; do
         if [[ "$id" == complete ]]; then
             # The Rust producer owns framing; reject unexpected trailing bytes.
@@ -126,7 +171,8 @@ moomole_review_rules() {
         [[ "$count" -le 500 ]] || return 1
         moomole_probe_rules "$path"
         moomole_probe_module "$path" "$binding"
-        printf '%s\0%s\0%s\0%s\0%s\0%s\0' "$id" "$path" "$binding" "$MOOMOLE_RULE_CODE" "$MOOMOLE_MODULE_SCOPE" "$MOOMOLE_MODULE_CODE" >> "$report"
+        moomole_probe_activity "$path" || return $?
+        printf '%s\0%s\0%s\0%s\0%s\0%s\0%s\0' "$id" "$path" "$binding" "$MOOMOLE_RULE_CODE" "$MOOMOLE_MODULE_SCOPE" "$MOOMOLE_MODULE_CODE" "$MOOMOLE_ACTIVITY_CODE" >> "$report"
     done
     return 1
 }

@@ -1,6 +1,6 @@
 # Mole 模块条件的分步接入
 
-2026-10-16。固定基线仍为 Mole `1.59.1` / `ba3a0f57f78e4c22818fda701219cc3dd4d6953f`。模块观察规则版本为 `2`，NUL rules 协议为 `3`。
+2026-10-16。固定基线仍为 Mole `1.59.1` / `ba3a0f57f78e4c22818fda701219cc3dd4d6953f`。模块观察规则版本为 `2`，NUL rules 协议为 `4`。
 
 ## 当前能力
 
@@ -27,13 +27,13 @@ Mole 日志模块保留 `DiagnosticReports` 目录本身，只生成其中的候
 
 Rust 使用应用提供的 HOME 运行适配器，移除继承的 `SUDO_USER`；Shell 要求 `MOLE_USER_HOME == HOME`。报告回传 HOME，Rust 核对它与应用上下文一致，避免检查另一个账户的白名单或范围。`DENO_DIR` 遵循本次子进程的有效环境，不是对所有终端、应用或未来时刻配置的证明。
 
-- 请求：`MooMole.rules.request.v3 NUL [id NUL path NUL binding NUL]* complete NUL`。
-- 响应：`MooMole.rules.v3 NUL revision NUL moduleVersion NUL home NUL [id NUL path NUL binding NUL pathCode NUL scope NUL moduleCode NUL]* complete NUL`。
+- 请求：`MooMole.rules.request.v4 NUL [id NUL path NUL binding NUL]* complete NUL`。
+- 响应：`MooMole.rules.v4 NUL revision NUL moduleVersion NUL activityVersion NUL home NUL [id NUL path NUL binding NUL pathCode NUL scope NUL moduleCode NUL activityCode NUL]* complete NUL`。
 - `binding`：来自保存候选的 `userCache / userLogs / unsupported / mixed / missing`，报告必须与请求一致，前端不能提供。
 - `scope`：`userCache / userLogs / unsupported`；Rust 独立重算准确层级并核对。
 - `moduleCode`：`checked / retainOrUnknown / preserveRoot / checkFailed / unsupported / notChecked`。
 
-路径未通过时必须为 `notChecked`；路径通过时不能是 `notChecked`。`checked` 只适用于已支持范围；`preserveRoot` 只适用于准确的诊断报告根。旧协议、模块版本不匹配、HOME/范围不匹配、未知组合、缺项、重复、截断均报错。资源清单的 `rulesProtocol=3` 随 App 升级；旧资源要求重新准备，不能默默兼容缺少模块证据的旧响应。
+路径未通过时必须为 `notChecked`；路径通过时不能是 `notChecked`。`checked` 只适用于已支持范围；`preserveRoot` 只适用于准确的诊断报告根。旧协议、模块版本不匹配、HOME/范围不匹配、未知组合、缺项、重复、截断均报错。资源清单的 `rulesProtocol=4` 随 App 升级；旧资源要求重新准备，不能默默兼容缺少模块证据的旧响应。
 
 当前 `RuleCheck` 分开保留路径结果和 `module`（version/binding/scope/code/source/reason）。模块保留显示 `moduleRetained`，未适配显示 `moduleUnsupported`，错误显示 `ruleUnavailable`；不覆盖本地过期、变化或客户端保护。`checked` 仍只有“元数据未发现变化”，不新增可执行标记。
 
@@ -43,6 +43,8 @@ Rust 使用应用提供的 HOME 运行适配器，移除继承的 `SUDO_USER`；
 
 隔离 HOME 的 Shell fixture 调用真实上游函数，验证默认/自定义/非法 Deno 根、包含自定义根的父目录、普通日志/诊断报告、诊断根保留、根目录在快照后替换、诊断目录换成链接、深层/隐藏/兄弟范围、缺失函数/异常返回、白名单、SQLite 占用、NUL 特殊字符和旧请求拒绝。仅在测试临时目录替换 fixture 目录，原始日志与报告正文保留。
 
-Rust 验证协议绑定、旧协议/模块版本、范围与状态组合，以及模块结果不覆盖客户端保护/过期；Node/Rust 引擎检查拒绝旧 `cleanProtocol=1` / `rulesProtocol=1/2` 清单。浏览器验证部分覆盖、未知范围、原因/来源版本、筛选、重复检查取消及本地重查失败后不保留旧证据。
+Rust 验证协议绑定、旧协议/模块版本、范围与状态组合，以及模块结果不覆盖客户端保护/过期；Node/Rust 引擎检查拒绝旧 `cleanProtocol=1` / `rulesProtocol=1/2/3` 清单。浏览器验证部分覆盖、未知范围、原因/来源版本、筛选、重复检查取消及本地重查失败后不保留旧证据。
 
 后续需要补齐：更多来源契约与其他模块条件及其数据归属、活动状态与锁语义、每个目录后代的保护、用户确认与影响绑定、最后检查和实际操作之间的源/父目录/内容竞态策略、权限/卷/真实进程故障矩阵，再连接原生处理和执行记录。两个已接入判断不是通用执行端。
+
+附加占用观察 v1 与模块判断分开展示，只有路径及适用模块均满足才运行；未知/预算不足均不能视为空闲，详见 [附加占用观察](activity-checks.md)。

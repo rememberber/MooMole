@@ -8,8 +8,9 @@ use std::{
     time::Duration,
 };
 
-pub const PROTOCOL: u64 = 3;
+pub const PROTOCOL: u64 = 4;
 pub const MODULE_VERSION: u64 = 2;
+pub const ACTIVITY_VERSION: u64 = 1;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,6 +19,39 @@ pub struct RuleCheck {
     pub source: String,
     pub reason: String,
     pub module: ModuleCheck,
+    pub activity: ActivityCheck,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityCheck {
+    pub version: u64,
+    pub code: String,
+    pub source: String,
+    pub reason: String,
+}
+impl ActivityCheck {
+    pub fn from_code(code: &str) -> Result<Self, String> {
+        let reason = match code {
+            "busy" => "发现所选文件或目录后代有打开句柄，应保留；不自动关闭任何应用。",
+            "noOpenHandles" => {
+                "本次完整进程视图及路径身份核对后未发现打开句柄；不是持续空闲保证，也不是执行许可。"
+            }
+            "unknown" => "进程视图不完整、超时、权限限制或路径变化，无法可靠确认占用，应保留。",
+            "budgetExhausted" => {
+                "本批附加占用检查的 5 秒预算已用完，此项尚未确认；请缩小选择后复查。"
+            }
+            "checkFailed" => "附加占用检查未可靠完成，缺少函数或异常返回不能作为空闲证据。",
+            "notChecked" => "路径或模块条件未满足，未运行附加占用检查。",
+            _ => return Err("未知附加占用状态。".into()),
+        };
+        Ok(Self {
+            version: ACTIVITY_VERSION,
+            code: code.into(),
+            source: "客户端附加观察 · Mole _mole_container_cache_has_open_handle".into(),
+            reason: reason.into(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -94,7 +128,7 @@ fn module_scope(path: &Path, home: &Path) -> &'static str {
 }
 
 impl RuleCheck {
-    fn from_code(code: &str, module: ModuleCheck) -> Result<Self, String> {
+    fn from_code(code: &str, module: ModuleCheck, activity: ActivityCheck) -> Result<Self, String> {
         let (source, reason) = match code {
             "passed" => (
                 "Mole 路径级保护检查",
@@ -129,6 +163,7 @@ impl RuleCheck {
             source: source.into(),
             reason: reason.into(),
             module,
+            activity,
         })
     }
 }
@@ -144,13 +179,14 @@ pub fn parse(
     }
     let text = std::str::from_utf8(bytes).map_err(|_| invalid())?;
     let mut fields: Vec<_> = text.split_terminator('\0').collect();
-    if fields.len() < 5
-        || fields[0] != "MooMole.rules.v3"
+    if fields.len() < 6
+        || fields[0] != "MooMole.rules.v4"
         || fields[1] != engine::REVISION
         || fields[2] != MODULE_VERSION.to_string()
-        || Some(fields[3]) != home.to_str()
+        || fields[3] != ACTIVITY_VERSION.to_string()
+        || Some(fields[4]) != home.to_str()
         || fields.pop() != Some("complete")
-        || (fields.len() - 4) % 6 != 0
+        || (fields.len() - 5) % 7 != 0
     {
         return Err(invalid());
     }
@@ -162,7 +198,7 @@ pub fn parse(
         return Err(invalid());
     }
     let mut checks = HashMap::new();
-    for row in fields[4..].chunks_exact(6) {
+    for row in fields[5..].chunks_exact(7) {
         if expected.get(row[0]) != Some(&(row[1], row[2])) || checks.contains_key(row[0]) {
             return Err(invalid());
         }
@@ -176,12 +212,17 @@ pub fn parse(
             || (row[3] != "passed") != (row[5] == "notChecked")
             || (row[5] == "preserveRoot"
                 && Path::new(row[1]) != home.join("Library/Logs/DiagnosticReports"))
+            || ((row[3] == "passed" && row[5] == "checked") == (row[6] == "notChecked"))
         {
             return Err(invalid());
         }
         checks.insert(
             row[0].into(),
-            RuleCheck::from_code(row[3], ModuleCheck::from_codes(row[4], row[5], row[2])?)?,
+            RuleCheck::from_code(
+                row[3],
+                ModuleCheck::from_codes(row[4], row[5], row[2])?,
+                ActivityCheck::from_code(row[6])?,
+            )?,
         );
     }
     if checks.len() != expected.len() {
@@ -230,7 +271,7 @@ pub async fn run(
         .map_err(|e| e.to_string())?;
     let request = scratch.path().join("request.nul");
     let report = scratch.path().join("report.nul");
-    let mut fields = vec!["MooMole.rules.request.v3"];
+    let mut fields = vec!["MooMole.rules.request.v4"];
     for (id, path, binding) in requested {
         fields.extend([id.as_str(), path.as_str(), binding.as_str()]);
     }
@@ -300,8 +341,23 @@ mod tests {
         assert_eq!(job.process_id(), None);
     }
     fn report(fields: &[&str]) -> Vec<u8> {
-        let mut all = vec!["MooMole.rules.v3", engine::REVISION, "2", "/Users/fixture"];
-        all.extend_from_slice(fields);
+        let mut all = vec![
+            "MooMole.rules.v4",
+            engine::REVISION,
+            "2",
+            "1",
+            "/Users/fixture",
+        ];
+        for row in fields.chunks(6) {
+            all.extend_from_slice(row);
+            all.push(
+                if row.len() == 6 && row[3] == "passed" && row[5] == "checked" {
+                    "noOpenHandles"
+                } else {
+                    "notChecked"
+                },
+            );
+        }
         all.push("complete");
         (all.join("\0") + "\0").into_bytes()
     }
@@ -355,7 +411,7 @@ mod tests {
         }
         assert!(parse(&valid, &requested, Path::new("/Users/other")).is_err());
         for (old, new) in [
-            ("MooMole.rules.v3", "MooMole.rules.v2"),
+            ("MooMole.rules.v4", "MooMole.rules.v3"),
             ("\x002\0", "\x009\0"),
         ] {
             assert!(parse(
@@ -369,6 +425,51 @@ mod tests {
             .is_err());
         }
     }
+    #[test]
+    fn activity_reports_require_known_version_states_and_matching_preconditions() {
+        let home = Path::new("/Users/fixture");
+        let path = "/Users/fixture/Library/Logs/fixture.log";
+        let requested = vec![("id".into(), path.into(), "userLogs".into())];
+        let valid = String::from_utf8(report(&[
+            "id", path, "userLogs", "passed", "userLogs", "checked",
+        ]))
+        .unwrap();
+        for code in [
+            "busy",
+            "noOpenHandles",
+            "unknown",
+            "budgetExhausted",
+            "checkFailed",
+        ] {
+            let bytes = valid.replace("noOpenHandles", code).into_bytes();
+            let check = &parse(&bytes, &requested, home).unwrap()["id"];
+            assert_eq!(check.activity.code, code);
+            assert_eq!(check.activity.version, 1);
+        }
+        for bad in [
+            valid.replace("noOpenHandles", "notChecked"),
+            valid.replace("noOpenHandles", "idle"),
+            valid.replace("\x001\0/Users/fixture", "\x002\0/Users/fixture"),
+            valid.replace("noOpenHandles\0", ""),
+            valid.replace("checked\0", "retainOrUnknown\0"),
+            valid
+                .replace("passed\0", "whitelist\0")
+                .replace("checked\0", "notChecked\0"),
+        ] {
+            assert!(parse(bad.as_bytes(), &requested, home).is_err(), "{bad:?}");
+        }
+        let blocked = valid
+            .replace("passed\0", "whitelist\0")
+            .replace("checked\0", "notChecked\0")
+            .replace("noOpenHandles\0", "notChecked\0");
+        assert_eq!(
+            parse(blocked.as_bytes(), &requested, home).unwrap()["id"]
+                .activity
+                .code,
+            "notChecked"
+        );
+    }
+
     #[test]
     fn only_bound_and_exact_scopes_can_run_supported_module_checks() {
         let home = Path::new("/Users/fixture");

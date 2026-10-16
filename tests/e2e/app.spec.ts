@@ -490,3 +490,77 @@ test('old scans stay visible but require rescan before saving a new plan', async
     .check()
   await expect(fixture.getByRole('button', { name: '保存审阅计划' })).toBeDisabled()
 })
+
+test('additional activity observations distinguish busy and unknown and clear on cancellation', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('activity'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  const checks = fixture.getByRole('checkbox', { name: /^审阅 / })
+  for (let i = 0; i < (await checks.count()); i++) await checks.nth(i).check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('附加占用检查')).toHaveCount(3)
+  await expect(dialog.getByText('发现文件占用', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('文件占用尚未确认', { exact: true })).toBeVisible()
+  await expect(
+    dialog.getByText('本次未发现打开句柄；不是持续空闲保证，也不是执行许可。'),
+  ).toBeVisible()
+  await expect(dialog.getByText('2 项需要重新确认', { exact: true })).toBeVisible()
+  await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).check()
+  await expect(dialog.getByLabel('附加占用检查')).toHaveCount(2)
+  await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).uncheck()
+  await dialog.getByText('观察来源与版本', { exact: true }).first().click()
+  await expect(
+    dialog
+      .getByText('客户端附加观察 · Mole _mole_container_cache_has_open_handle · 观察 v1', {
+        exact: true,
+      })
+      .first(),
+  ).toBeVisible()
+  await page.screenshot({
+    path: 'test-results/activity-checks.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('附加占用检查')).toHaveCount(0)
+  await dialog.getByRole('button', { name: '取消复查', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
+  await expect(dialog.getByLabel('附加占用检查')).toHaveCount(0)
+  await expect(dialog.getByText('规则复查未完成', { exact: true })).toHaveCount(3)
+})
+
+test('activity budget exhaustion and missing legacy evidence never imply idle', async ({
+  page,
+}) => {
+  for (const mode of ['activity-budget', 'modules']) {
+    await page.goto('/')
+    await page.evaluate(
+      async (mode) => (await import('/tests/e2e/fixtures/clean-review.tsx')).mount(mode),
+      mode,
+    )
+    const fixture = page.locator('#review-test-fixture')
+    const checks = fixture.getByRole('checkbox', { name: /^审阅 / })
+    for (let i = 0; i < (await checks.count()); i++) await checks.nth(i).check()
+    await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+    const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+    await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+    if (mode === 'activity-budget')
+      await expect(
+        dialog.getByText('本批附加占用检查的 5 秒预算已用完，此项尚未确认；请缩小选择后复查。'),
+      ).toBeVisible()
+    else {
+      await expect(
+        dialog.getByText('这份结果缺少可识别的占用证据，请重新复查；不能视为空闲。'),
+      ).toHaveCount(3)
+      await dialog.getByRole('button', { name: '重新复核', exact: true }).click()
+      await expect(dialog.getByLabel('附加占用检查')).toHaveCount(0)
+    }
+    await expect(dialog.getByRole('button', { name: /执行清理|关闭应用|提权/ })).toHaveCount(0)
+  }
+})

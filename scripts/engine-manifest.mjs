@@ -97,7 +97,7 @@ export function writeManifest(root, goVersion, arch = process.arch) {
     platform: 'darwin',
     arch,
     cleanProtocol: 2,
-    rulesProtocol: 3,
+    rulesProtocol: 4,
     build: { recipeVersion: 1, goVersion, goos: 'darwin', goarch: arch === 'x64' ? 'amd64' : arch },
     files: inventory(root),
   }
@@ -114,7 +114,7 @@ export function verifyPrepared(root) {
     manifest.platform !== 'darwin' ||
     !['arm64', 'x64'].includes(manifest.arch) ||
     manifest.cleanProtocol !== 2 ||
-    manifest.rulesProtocol !== 3 ||
+    manifest.rulesProtocol !== 4 ||
     manifest.build?.recipeVersion !== 1 ||
     manifest.build.goos !== 'darwin' ||
     manifest.build.goarch !== (manifest.arch === 'x64' ? 'amd64' : 'arm64') ||
