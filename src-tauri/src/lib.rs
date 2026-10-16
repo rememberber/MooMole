@@ -12,6 +12,7 @@ mod mole_history;
 #[cfg(test)]
 mod native_trash_tests;
 mod observation;
+mod permissions;
 mod process;
 mod provenance;
 mod review;

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { clearPermissions } from './permission-observation'
 import { CleanReview } from '../../../src/components/CleanReview'
 import { demoCleanPreview } from '../../../src/lib/demo'
 import { ReviewPlanDialog } from '../../../src/components/ReviewPlanDialog'
@@ -81,6 +82,7 @@ function Fixture({ mode }: { mode: string }) {
                 section: item.section,
                 state: 'unchanged',
                 reason: '本次元数据未发现变化。',
+                permissions: clearPermissions,
                 impact: item.impact,
                 provenance: item.provenance,
                 inventoryEntries: item.isDirectory ? 3 : null,
@@ -100,6 +102,12 @@ function Fixture({ mode }: { mode: string }) {
               items: plan.items.map((item) => ({
                 ...item,
                 state: 'changed',
+                permissions: {
+                  version: 1,
+                  code: 'notChecked',
+                  reason: 'fixture：目标变化，本次未检查权限。',
+                  findings: [],
+                },
                 reason: '文件身份已变化，需要重新扫描。',
               })),
             }

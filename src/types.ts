@@ -122,6 +122,18 @@ export interface ReviewPlan extends ReviewPlanSummary {
     provenance?: Provenance | null
     inventoryEntries?: number | null
     impact?: Impact | null
+    permissions?: PermissionObservation | null
+  }[]
+}
+export interface PermissionObservation {
+  version: number
+  code: string
+  reason: string
+  findings: {
+    kind: string
+    state: string
+    reason: string
+    osError?: number | null
   }[]
 }
 export interface CleanCandidate {

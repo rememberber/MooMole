@@ -6,6 +6,7 @@ import { Modal } from './Modal'
 import { ImpactDetails, unknownImpact } from './ImpactDetails'
 import { useNow } from '../lib/use-now'
 import { OriginDetails } from './OriginDetails'
+import { PermissionEvidence, hasPermissionProblem } from './PermissionEvidence'
 
 const states: Record<string, string> = {
   unchanged: '元数据未发现变化',
@@ -58,11 +59,14 @@ export function ReviewPlanDialog({
         state: 'expired',
         moleRule: null,
         descendantRules: null,
+        permissions: null,
         reason: '计划已过期或系统时间发生回退，请重新扫描。',
       }))
     : plan.items
-  const problems = effectiveItems.filter((item) => item.state !== 'unchanged').length
-  const items = effectiveItems.filter((item) => !onlyProblems || item.state !== 'unchanged')
+  const needsReview = (item: ReviewPlan['items'][number]) =>
+    item.state !== 'unchanged' || hasPermissionProblem(item.permissions)
+  const problems = effectiveItems.filter(needsReview).length
+  const items = effectiveItems.filter((item) => !onlyProblems || needsReview(item))
   async function refresh() {
     setPending('local')
     setError('')
@@ -73,6 +77,7 @@ export function ReviewPlanDialog({
         ...item,
         moleRule: null,
         descendantRules: null,
+        permissions: null,
         state: 'pendingLocal',
         reason: '正在重新读取本地身份与保护，之前的规则结果不再适用。',
       })),
@@ -87,6 +92,7 @@ export function ReviewPlanDialog({
           ...item,
           moleRule: null,
           descendantRules: null,
+          permissions: null,
           state: 'unavailable',
           reason: '本次本地复核未完成，请重新检查；之前的规则结果不再适用。',
         })),
@@ -109,6 +115,7 @@ export function ReviewPlanDialog({
         ...item,
         moleRule: null,
         descendantRules: null,
+        permissions: null,
         state: 'pendingRules',
         reason: 'Mole 规则复查进行中，结果尚未确认。',
       })),
@@ -222,6 +229,7 @@ export function ReviewPlanDialog({
             </div>
             <p className="mono full-path">{item.path}</p>
             <p>{item.reason}</p>
+            <PermissionEvidence value={item.permissions} />
             {item.inventoryEntries != null && (
               <p>
                 已记录目录内 {item.inventoryEntries}{' '}

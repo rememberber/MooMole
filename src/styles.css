@@ -2159,6 +2159,14 @@ input[type='checkbox'] {
   font-size: 11px;
   line-height: 1.8;
 }
+.permission-finding {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.permission-finding p {
+  margin: 4px 0;
+}
 .module-evidence p {
   margin: 6px 0;
   overflow-wrap: anywhere;

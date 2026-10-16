@@ -212,6 +212,11 @@ impl AnchoredPath {
         &self.handles.last().unwrap().file
     }
 
+    pub fn parent(&self) -> &File {
+        // open() requires a non-root path, so a parent handle always exists.
+        &self.handles[self.handles.len() - 2].file
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         for (index, handle) in self.handles.iter().enumerate() {
             let current = handle.file.metadata().map_err(|e| e.to_string())?;

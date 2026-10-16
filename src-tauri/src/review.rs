@@ -2,7 +2,7 @@
 //! an authorization to delete; execution still needs Mole rules and secure I/O.
 use crate::{
     clean_preview::{Candidate, Preview, PROTOCOL},
-    observation::{witness, Witness},
+    observation::{witness, AnchoredPath, Witness},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -140,6 +140,7 @@ pub struct ItemCheck {
     pub provenance: Option<crate::provenance::Provenance>,
     pub inventory_entries: Option<usize>,
     pub impact: Option<crate::impact::Impact>,
+    pub permissions: crate::permissions::Check,
 }
 
 #[derive(Serialize)]
@@ -171,10 +172,14 @@ pub fn check(plan: &Plan, rules: &[String], now: i64) -> PlanView {
 
 fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) -> PlanView {
     let mut budget = crate::tree::Budget::new();
+    let permission_budget = crate::permissions::Budget::new();
     let items = plan
         .items
         .iter()
         .map(|item| {
+            let mut permissions = crate::permissions::Check::not_checked(
+                "未满足当前版本、身份、保护与有效期条件，本次未检查权限。",
+            );
             let (mut state, mut reason) =
                 if plan.revision != crate::engine::REVISION || plan.protocol != PROTOCOL {
                     (
@@ -195,11 +200,20 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                         "这份扫描使用旧版路径观察，请重新扫描。".into(),
                     )
                 } else if let Some(original) = &item.witness {
-                    match witness(Path::new(&item.candidate.path)) {
-                        Ok(current) if &current == original => (
-                            "unchanged",
-                            "本次本地元数据复核未发现变化；仍需复查 Mole 规则和操作影响。".into(),
-                        ),
+                    match AnchoredPath::open(Path::new(&item.candidate.path)) {
+                        Ok(current) if &current.witness == original => {
+                            match crate::permissions::observe(&current, &permission_budget) {
+                                Ok(check) => {
+                                    permissions = check;
+                                    (
+                                    "unchanged",
+                                    "本次本地元数据复核未发现变化；仍需复查 Mole 规则和操作影响。"
+                                        .into(),
+                                )
+                                }
+                                Err(reason) => ("unavailable", reason),
+                            }
+                        }
                         Ok(_) => (
                             "changed",
                             "文件或祖先目录的身份、属性已变化，需要重新扫描。".into(),
@@ -261,6 +275,7 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                 provenance: item.candidate.provenance.clone(),
                 inventory_entries: item.tree.as_ref().map(|t| t.entries),
                 impact: item.candidate.impact.clone(),
+                permissions,
             }
         })
         .collect();
@@ -418,7 +433,50 @@ pub fn apply_rule_checks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::MetadataExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    #[test]
+    fn permission_observations_are_fresh_separate_and_never_persisted_as_authority() {
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path().canonicalize().unwrap();
+        let parent = root.join("parent");
+        std::fs::create_dir(&parent).unwrap();
+        let path = parent.join("file.log");
+        std::fs::write(&path, "fixture").unwrap();
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let snapshot = scan(&path);
+        let plan = create(&snapshot, &["scan-1:0".into()], &[], 1001).unwrap();
+        let view = check(&plan, &[], 1002);
+        // A permission limitation does not prevent saving a READ-ONLY review.
+        assert_eq!(view.items[0].state, "unchanged");
+        assert!(view.read_only && view.requires_mole_recheck);
+        if unsafe { libc::geteuid() } != 0 {
+            assert_eq!(
+                view.items[0].permissions.code,
+                crate::permissions::Code::Restricted
+            );
+        }
+        let stored = serde_json::to_value(&plan).unwrap();
+        assert!(stored["items"][0].get("permissions").is_none());
+        let protected = check(&plan, &[path.to_str().unwrap().into()], 1002);
+        assert_eq!(protected.items[0].state, "protected");
+        assert_eq!(
+            protected.items[0].permissions.code,
+            crate::permissions::Code::NotChecked
+        );
+        let expired = check(&plan, &[], plan.expires_at);
+        assert_eq!(
+            expired.items[0].permissions.code,
+            crate::permissions::Code::NotChecked
+        );
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let changed = check(&plan, &[], 1003);
+        assert_eq!(changed.items[0].state, "changed");
+        assert_eq!(
+            changed.items[0].permissions.code,
+            crate::permissions::Code::NotChecked
+        );
+    }
     #[test]
     fn legacy_path_observations_stay_readable_but_require_rescanning() {
         let scratch = tempfile::tempdir().unwrap();
