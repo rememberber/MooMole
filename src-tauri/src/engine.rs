@@ -2,17 +2,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     path::{Path, PathBuf},
-    process::Stdio,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        Arc,
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
     },
     time::Duration,
 };
-use tokio::{io::AsyncReadExt, process::Command};
+use tokio::process::Command;
 
 pub const REVISION: &str = "ba3a0f57f78e4c22818fda701219cc3dd4d6953f";
-const OUTPUT_LIMIT: u64 = 32 * 1024 * 1024;
+pub(crate) const OUTPUT_LIMIT: u64 = 32 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -41,7 +40,11 @@ impl TaskKind {
 pub struct Job {
     pub kind: TaskKind,
     pub cancelled: AtomicBool,
-    pub pid: AtomicU32,
+    process: Mutex<Option<OwnedProcess>>,
+}
+struct OwnedProcess {
+    pid: u32,
+    lease: Arc<()>,
 }
 
 impl Job {
@@ -49,27 +52,66 @@ impl Job {
         Self {
             kind,
             cancelled: AtomicBool::new(false),
-            pid: AtomicU32::new(0),
+            process: Mutex::new(None),
         }
     }
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
     }
     pub fn kill_group(&self) {
-        let pid = self.pid.swap(0, Ordering::SeqCst);
-        if pid > 0 {
-            // Each child is started in its own process group. Never signal the app's group.
+        let mut current = self.process.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(process) = current.take() {
+            // The runner cannot reap until it has acquired this same lock and
+            // released its registration. Signal while holding that ownership.
             unsafe {
-                libc::kill(-(pid as i32), libc::SIGKILL);
+                libc::kill(-(process.pid as i32), libc::SIGKILL);
             }
         }
     }
-}
-
-struct ProcessGuard(Arc<Job>);
-impl Drop for ProcessGuard {
-    fn drop(&mut self) {
-        self.0.kill_group();
+    pub(crate) fn register(&self, pid: u32) -> Result<Arc<()>, String> {
+        let mut current = self.process.lock().unwrap_or_else(|e| e.into_inner());
+        if current.is_some() {
+            return Err("同一任务已有运行中的进程。".into());
+        }
+        let lease = Arc::new(());
+        *current = Some(OwnedProcess {
+            pid,
+            lease: lease.clone(),
+        });
+        Ok(lease)
+    }
+    pub(crate) fn signal(&self, pid: u32, lease: &Arc<()>, signal: i32) {
+        let current = self.process.lock().unwrap_or_else(|e| e.into_inner());
+        if current
+            .as_ref()
+            .is_some_and(|p| p.pid == pid && Arc::ptr_eq(&p.lease, lease))
+        {
+            unsafe {
+                libc::kill(-(pid as i32), signal);
+            }
+        }
+    }
+    pub(crate) fn release(&self, pid: u32, lease: &Arc<()>, signal: Option<i32>) {
+        let mut current = self.process.lock().unwrap_or_else(|e| e.into_inner());
+        if current
+            .as_ref()
+            .is_some_and(|p| p.pid == pid && Arc::ptr_eq(&p.lease, lease))
+        {
+            if let Some(signal) = signal {
+                unsafe {
+                    libc::kill(-(pid as i32), signal);
+                }
+            }
+            *current = None;
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn process_id(&self) -> Option<u32> {
+        self.process
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|p| p.pid)
     }
 }
 
@@ -168,88 +210,8 @@ pub fn protection_paths(
     Ok(paths)
 }
 
-pub async fn output(
-    mut command: Command,
-    job: Arc<Job>,
-    timeout: Duration,
-) -> Result<Vec<u8>, String> {
-    if job.cancelled.load(Ordering::SeqCst) {
-        return Err("任务已取消。".into());
-    }
-    use std::os::unix::process::CommandExt;
-    command.as_std_mut().process_group(0);
-    command
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command.spawn().map_err(|e| format!("无法启动 Mole：{e}"))?;
-    job.pid
-        .store(child.id().ok_or("无法取得任务进程。")?, Ordering::SeqCst);
-    let guard = ProcessGuard(job.clone());
-    let stdout = child.stdout.take().ok_or("无法读取任务输出。")?;
-    let stderr = child.stderr.take().ok_or("无法读取任务诊断。")?;
-    let out = tokio::spawn(async move {
-        let mut data = vec![];
-        stdout
-            .take(OUTPUT_LIMIT + 1)
-            .read_to_end(&mut data)
-            .await
-            .map(|_| data)
-    });
-    let err = tokio::spawn(async move {
-        let mut data = vec![];
-        stderr
-            .take(OUTPUT_LIMIT + 1)
-            .read_to_end(&mut data)
-            .await
-            .map(|_| data)
-    });
-    let started = tokio::time::Instant::now();
-    let mut tick = tokio::time::interval(Duration::from_millis(100));
-    let mut interrupted = None;
-    let status = loop {
-        tokio::select! {
-            status = child.wait() => break status,
-            _ = tick.tick() => {
-                if job.cancelled.load(Ordering::SeqCst) { interrupted = Some("任务已取消。"); }
-                else if started.elapsed() >= timeout { interrupted = Some("任务超时，已停止进程；可缩小扫描范围后重试。"); }
-                if interrupted.is_some() { job.kill_group(); break child.wait().await; }
-            }
-        }
-    };
-    drop(guard);
-    let stdout = out
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
-    let stderr = err
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
-    if let Some(message) = interrupted {
-        return Err(message.into());
-    }
-    if stdout.len() as u64 > OUTPUT_LIMIT || stderr.len() as u64 > OUTPUT_LIMIT {
-        return Err("任务输出超过上限，请缩小扫描目录。".into());
-    }
-    if !status.map_err(|e| e.to_string())?.success() {
-        let source = if stderr.is_empty() { &stdout } else { &stderr };
-        let diagnostic: String = plain_terminal_text(&String::from_utf8_lossy(source))
-            .chars()
-            .rev()
-            .take(1600)
-            .collect::<String>()
-            .chars()
-            .rev()
-            .collect();
-        return Err(if diagnostic.trim().is_empty() {
-            "Mole 未能完成任务。".into()
-        } else {
-            diagnostic
-        });
-    }
-    Ok(stdout)
+pub async fn output(command: Command, job: Arc<Job>, timeout: Duration) -> Result<Vec<u8>, String> {
+    crate::process::output(command, job, timeout).await
 }
 
 pub(crate) fn command(program: &Path) -> Command {
@@ -380,7 +342,7 @@ pub async fn run(
     Ok(result)
 }
 
-fn plain_terminal_text(text: &str) -> String {
+pub(crate) fn plain_terminal_text(text: &str) -> String {
     let mut output = String::new();
     let mut state = 0;
     for c in text.chars() {
@@ -597,13 +559,13 @@ mod tests {
         let mut command = Command::new("/bin/sh");
         command.args(["-c", "sleep 30 & wait"]);
         let result = tokio::time::timeout(
-            Duration::from_secs(3),
+            Duration::from_secs(6),
             output(command, job.clone(), Duration::from_secs(60)),
         )
         .await
         .unwrap();
         assert!(result.unwrap_err().contains("取消"));
-        assert_eq!(job.pid.load(Ordering::SeqCst), 0);
+        assert_eq!(job.process_id(), None);
     }
 
     #[tokio::test]
@@ -615,6 +577,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(error.contains("超时"));
-        assert_eq!(job.pid.load(Ordering::SeqCst), 0);
+        assert_eq!(job.process_id(), None);
     }
 }

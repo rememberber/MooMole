@@ -9,6 +9,7 @@ mod impact;
 #[cfg(test)]
 mod native_trash_tests;
 mod observation;
+mod process;
 mod provenance;
 mod review;
 mod rules;
@@ -22,7 +23,11 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
 };
 use tauri::{Emitter, Manager};
 
@@ -33,6 +38,8 @@ struct AppState {
     results: Arc<Mutex<tasks::Results>>,
     engine_root: PathBuf,
     home: PathBuf,
+    // 0 accepts tasks, 1 drains cancellations, 2 permits the final exit.
+    shutdown: Arc<AtomicU8>,
 }
 
 #[derive(Serialize)]
@@ -156,6 +163,9 @@ fn start_task(
         None
     };
     let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+    if state.shutdown.load(Ordering::SeqCst) != 0 {
+        return Err("应用正在退出，请重新打开后再开始检查。".into());
+    }
     if jobs.len() >= 3 || jobs.contains_key(&task_id) || jobs.values().any(|job| job.kind == kind) {
         return Err("已有同类任务正在运行，请等待或取消。".into());
     }
@@ -303,6 +313,9 @@ async fn check_review_rules(
     let job = Arc::new(Job::new(TaskKind::Review));
     {
         let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+        if state.shutdown.load(Ordering::SeqCst) != 0 {
+            return Err("应用正在退出，请重新打开后再开始检查。".into());
+        }
         if jobs.len() >= 3
             || jobs.contains_key(&request_id)
             || jobs.values().any(|j| j.kind == TaskKind::Review)
@@ -427,6 +440,7 @@ pub fn run() {
                 results: Arc::new(Mutex::new(tasks::Results::default())),
                 engine_root,
                 home: app.path().home_dir()?,
+                shutdown: Arc::new(AtomicU8::new(0)),
             });
             Ok(())
         })
@@ -449,13 +463,90 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("无法启动 MooMole");
     app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
+            if let Some(state) = app.try_state::<AppState>() {
+                if state.shutdown.load(Ordering::SeqCst) != 2 {
+                    let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
+                    if jobs.is_empty() {
+                        state.shutdown.store(2, Ordering::SeqCst);
+                    } else {
+                        let first = state.shutdown.compare_exchange(
+                            0,
+                            1,
+                            Ordering::SeqCst,
+                            Ordering::SeqCst,
+                        );
+                        if first != Err(2) {
+                            api.prevent_exit();
+                        }
+                        if first.is_ok() {
+                            for job in jobs.values() {
+                                job.cancel();
+                            }
+                            let state = state.inner().clone();
+                            let handle = app.clone();
+                            let code = code.unwrap_or(0);
+                            tauri::async_runtime::spawn(async move {
+                                let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
+                                loop {
+                                    let done = {
+                                        let jobs =
+                                            state.jobs.lock().unwrap_or_else(|e| e.into_inner());
+                                        if tokio::time::Instant::now() >= deadline {
+                                            for job in jobs.values() {
+                                                job.kill_group();
+                                            }
+                                            true
+                                        } else {
+                                            jobs.is_empty()
+                                        }
+                                    };
+                                    if done {
+                                        break;
+                                    }
+                                    tokio::time::sleep(Duration::from_millis(50)).await;
+                                }
+                                state.shutdown.store(2, Ordering::SeqCst);
+                                handle.exit(code);
+                            });
+                        }
+                    }
+                }
+            }
+        }
         if matches!(event, tauri::RunEvent::Exit) {
             if let Some(state) = app.try_state::<AppState>() {
-                if let Ok(jobs) = state.jobs.lock() {
-                    for job in jobs.values() {
-                        job.cancel();
-                        job.kill_group();
+                // macOS's native Quit selector can deliver Exit directly,
+                // bypassing ExitRequested. Cocoa has committed to termination,
+                // so give the independent async runtime the same bounded drain
+                // here before returning from applicationWillTerminate.
+                if state.shutdown.load(Ordering::SeqCst) != 2 {
+                    {
+                        let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
+                        state.shutdown.store(1, Ordering::SeqCst);
+                        for job in jobs.values() {
+                            job.cancel();
+                        }
                     }
+                    let deadline = std::time::Instant::now() + Duration::from_secs(6);
+                    loop {
+                        let done = {
+                            let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
+                            if std::time::Instant::now() >= deadline {
+                                for job in jobs.values() {
+                                    job.kill_group();
+                                }
+                                true
+                            } else {
+                                jobs.is_empty()
+                            }
+                        };
+                        if done {
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                    state.shutdown.store(2, Ordering::SeqCst);
                 }
             }
         }

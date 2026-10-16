@@ -285,7 +285,7 @@ mod tests {
             cancel.cancel();
         });
         let error = tokio::time::timeout(
-            Duration::from_secs(3),
+            Duration::from_secs(6),
             run(
                 root,
                 root,
@@ -297,7 +297,7 @@ mod tests {
         .unwrap()
         .unwrap_err();
         assert!(error.contains("取消"));
-        assert_eq!(job.pid.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(job.process_id(), None);
     }
     fn report(fields: &[&str]) -> Vec<u8> {
         let mut all = vec!["MooMole.rules.v3", engine::REVISION, "2", "/Users/fixture"];
