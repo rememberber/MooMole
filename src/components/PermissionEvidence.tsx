@@ -47,6 +47,14 @@ function current(value: PermissionObservation | null | undefined): value is Perm
 export const hasPermissionProblem = (value: PermissionObservation | null | undefined) =>
   !current(value) || value.code !== 'noRestrictionObserved'
 
+export function permissionSummary(value: PermissionObservation | null | undefined) {
+  const known = current(value)
+  return {
+    problem: hasPermissionProblem(value),
+    label: known && value.code === 'restricted' ? '文件访问受限' : '权限待确认',
+  }
+}
+
 export function PermissionEvidence({ value }: { value: PermissionObservation | null | undefined }) {
   const known = current(value)
   return (

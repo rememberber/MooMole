@@ -1,5 +1,11 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
+
+async function expandPlanDetails(dialog: Locator) {
+  for (const detail of await dialog.locator('.plan-item-details').all())
+    if ((await detail.getAttribute('open')) === null)
+      await detail.locator('summary').first().click()
+}
 
 test('running tasks reconnect after a WebView reload without starting a duplicate', async ({
   page,
@@ -226,6 +232,7 @@ test('Mole rule evidence is visible and cancelling a new probe clears previous e
   const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
   await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
   await expect(dialog.getByText('Mole 规则保护', { exact: true })).toBeVisible()
+  await expandPlanDetails(dialog)
   await expect(dialog.getByText('Mole 有效白名单：路径与当前有效规则匹配，应保留。')).toBeVisible()
   await page.screenshot({ path: 'test-results/mole-rules.png', fullPage: true })
   await page.goto('/')
@@ -243,7 +250,7 @@ test('Mole rule evidence is visible and cancelling a new probe clears previous e
   await dialog.getByRole('button', { name: '取消复查', exact: true }).click()
   await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
   await expect(dialog.getByText('规则复查未完成', { exact: true })).toBeVisible()
-  await expect(dialog.getByText('本次元数据复核未发现变化', { exact: true })).toHaveCount(0)
+  await expect(dialog.getByText('本次文件信息未见变化', { exact: true })).toHaveCount(0)
 })
 
 test('purpose filters explain irreversible log loss and preserve unknown legacy impacts', async ({
@@ -288,13 +295,13 @@ test('open plans expire automatically and disable rule probes without another us
   await fixture.getByRole('button', { name: '保存审阅计划' }).click()
   const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
   await expect(dialog.getByRole('button', { name: '复查 Mole 规则', exact: true })).toBeEnabled()
+  await expandPlanDetails(dialog)
   await expect(dialog.getByText('已记录目录内 3 个子项的元数据', { exact: false })).toBeVisible()
   await page.clock.fastForward(16 * 60 * 1000)
   await expect(dialog.getByText('计划已过期', { exact: true })).toBeVisible()
   await expect(dialog.getByText('此计划已失效，之前的复查结果不再适用。')).toBeVisible()
   await expect(dialog.getByRole('button', { name: '复查 Mole 规则', exact: true })).toBeDisabled()
   await expect(fixture.getByRole('button', { name: '保存审阅计划' })).toBeDisabled()
-  await dialog.getByText('用途与影响 · 应用缓存范围', { exact: true }).click()
   await expect(dialog.getByLabel('用途与影响说明')).toBeVisible()
   await page.screenshot({ path: 'test-results/impact-plan.png', fullPage: true })
 })
@@ -392,6 +399,7 @@ test('module checks show partial coverage and local recheck failure clears all o
   await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
   await expect(dialog.getByText('模块规则尚未适配', { exact: true })).toBeVisible()
   await expect(dialog.getByText('模块要求保留或重新确认', { exact: true })).toBeVisible()
+  await expandPlanDetails(dialog)
   await expect(
     dialog.getByText('仅 Deno 约束已复查，其他模块仍需单独核对。', { exact: true }),
   ).toBeVisible()
@@ -401,6 +409,7 @@ test('module checks show partial coverage and local recheck failure clears all o
     dialog.getByText('仅 Deno 约束已复查，其他模块仍需单独核对。', { exact: true }),
   ).toHaveCount(0)
   await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).uncheck()
+  await expandPlanDetails(dialog)
   await dialog.getByText('检查来源与版本', { exact: true }).first().click()
   await expect(
     dialog.getByText('Mole _user_cache_deno_delete_guard · 规则 v2', { exact: true }),
@@ -451,6 +460,7 @@ test('recorded callers survive plan creation and mixed sources never imply full 
     .check()
   await fixture.getByRole('button', { name: '保存审阅计划' }).click()
   const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await expandPlanDetails(dialog)
   await dialog.getByText('扫描调用来源 · 2 种', { exact: true }).click()
   await expect(
     dialog.getByText(
@@ -507,6 +517,7 @@ test('additional activity observations distinguish busy and unknown and clear on
   await expect(dialog.getByLabel('附加占用检查')).toHaveCount(3)
   await expect(dialog.getByText('发现文件占用', { exact: true })).toBeVisible()
   await expect(dialog.getByText('文件占用尚未确认', { exact: true })).toBeVisible()
+  await expandPlanDetails(dialog)
   await expect(
     dialog.getByText('本次未发现打开句柄；不是持续空闲保证，也不是执行许可。'),
   ).toBeVisible()
@@ -514,6 +525,7 @@ test('additional activity observations distinguish busy and unknown and clear on
   await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).check()
   await expect(dialog.getByLabel('附加占用检查')).toHaveCount(2)
   await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).uncheck()
+  await expandPlanDetails(dialog)
   await dialog.getByText('观察来源与版本', { exact: true }).first().click()
   await expect(
     dialog
@@ -550,6 +562,7 @@ test('activity budget exhaustion and missing legacy evidence never imply idle', 
     await fixture.getByRole('button', { name: '保存审阅计划' }).click()
     const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
     await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+    await expandPlanDetails(dialog)
     if (mode === 'activity-budget')
       await expect(
         dialog.getByText('本批附加占用检查的 5 秒预算已用完，此项尚未确认；请缩小选择后复查。'),
@@ -581,6 +594,7 @@ test('descendant path protection explains blocked children, bounded scope and cl
   await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(3)
   await expect(dialog.getByText('目录后代受保护', { exact: true })).toBeVisible()
   await expect(dialog.getByText('目录后代保护尚未确认', { exact: true })).toBeVisible()
+  await expandPlanDetails(dialog)
   await expect(
     dialog.getByText('/Users/demo/Library/Caches/ExampleApp/deep/保留 中文\n[*].log', {
       exact: true,

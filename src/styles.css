@@ -79,6 +79,11 @@ select:focus-visible {
   outline: 2px solid #9c8bce;
   outline-offset: 3px;
 }
+.review-plan-modal summary:focus-visible {
+  outline: 2px solid #9c8bce;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
 button {
   border: 0;
   background: transparent;
@@ -1873,6 +1878,39 @@ input[type='checkbox'] {
   gap: 12px;
   margin-block: 20px 9px;
   font-weight: 500;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.plan-summary strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+.plan-summary > span {
+  color: var(--subtle);
+  font-size: 12px;
+}
+.plan-next {
+  color: var(--subtle);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.plan-info,
+.plan-item-details {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.plan-info summary,
+.plan-item-details > summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.plan-info p,
+.plan-item-details > p {
+  color: var(--subtle);
+  font-size: 11px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
 }
 .plan-toolbar {
   display: flex;
@@ -1895,15 +1933,28 @@ input[type='checkbox'] {
   padding: 16px 0;
   border-bottom: 1px solid var(--border);
 }
-.plan-item > div {
+.plan-item-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
 }
-.plan-item > div strong {
+.plan-item-heading h3 {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.plan-item-heading strong {
+  flex-shrink: 0;
   font-weight: 500;
   font-size: 12px;
+}
+.plan-item-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 .plan-item > p {
   font-size: 11px;
@@ -1914,6 +1965,12 @@ input[type='checkbox'] {
 }
 .plan-item .full-path {
   background: var(--soft);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.plan-item > .plan-item-reason,
+.plan-item > .plan-item-impact {
   color: var(--text);
 }
 .plan-problem {
@@ -2149,7 +2206,7 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
 }
 
-.plan-item > .module-evidence {
+.plan-item .module-evidence {
   display: block;
   margin-top: 12px;
   padding: 12px 14px;
