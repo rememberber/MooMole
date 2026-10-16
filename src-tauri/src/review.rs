@@ -1,78 +1,17 @@
 //! Persisted read-only review plans. Metadata observations are deliberately not
 //! an authorization to delete; execution still needs Mole rules and secure I/O.
-use crate::clean_preview::{Candidate, Preview, PROTOCOL};
+use crate::{
+    clean_preview::{Candidate, Preview, PROTOCOL},
+    observation::{witness, Witness},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    os::unix::fs::MetadataExt,
-    path::{Component, Path, PathBuf},
+    path::Path,
 };
 
 pub const LIFETIME_MS: i64 = 15 * 60 * 1000;
 pub const MAX_SELECTION: usize = 500;
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-struct Node {
-    path: PathBuf,
-    dev: u64,
-    ino: u64,
-    mode: u32,
-    uid: u32,
-    gid: u32,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-struct Witness {
-    nodes: Vec<Node>,
-    size: u64,
-    mtime: i64,
-    mtime_ns: i64,
-    ctime: i64,
-    ctime_ns: i64,
-}
-
-fn witness(path: &Path) -> Result<Witness, String> {
-    if !path.is_absolute()
-        || path == Path::new("/")
-        || path
-            .components()
-            .any(|c| matches!(c, Component::ParentDir | Component::CurDir))
-    {
-        return Err("路径范围无效，需要重新扫描。".into());
-    }
-    let mut nodes = Vec::new();
-    let mut current = PathBuf::new();
-    let mut target = None;
-    for component in path.components() {
-        current.push(component);
-        let metadata =
-            std::fs::symlink_metadata(&current).map_err(|_| "路径已不存在或无法读取。")?;
-        if metadata.file_type().is_symlink() {
-            return Err("路径或祖先目录包含符号链接，需要重新确认。".into());
-        }
-        if !metadata.is_file() && !metadata.is_dir() {
-            return Err("不是普通文件或目录，无法纳入审阅计划。".into());
-        }
-        nodes.push(Node {
-            path: current.clone(),
-            dev: metadata.dev(),
-            ino: metadata.ino(),
-            mode: metadata.mode(),
-            uid: metadata.uid(),
-            gid: metadata.gid(),
-        });
-        target = Some(metadata);
-    }
-    let target = target.ok_or("没有可复核的目标。")?;
-    Ok(Witness {
-        nodes,
-        size: target.size(),
-        mtime: target.mtime(),
-        mtime_ns: target.mtime_nsec(),
-        ctime: target.ctime(),
-        ctime_ns: target.ctime_nsec(),
-    })
-}
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ScanItem {
@@ -245,6 +184,15 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                     ("expired", "计划已过期或系统时间回退，需要重新扫描。".into())
                 } else if protected(&item.candidate, rules) {
                     ("protected", "与当前客户端保护目录重叠，已排除。".into())
+                } else if item
+                    .witness
+                    .as_ref()
+                    .is_some_and(|w| w.version != crate::observation::VERSION)
+                {
+                    (
+                        "versionMismatch",
+                        "这份扫描使用旧版路径观察，请重新扫描。".into(),
+                    )
                 } else if let Some(original) = &item.witness {
                     match witness(Path::new(&item.candidate.path)) {
                         Ok(current) if &current == original => (
@@ -273,7 +221,11 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                         .is_some_and(|n| n.mode & libc::S_IFMT as u32 == libc::S_IFDIR as u32)
                 })
             {
-                if let Some(original) = &item.tree {
+                if let Some(original) = item
+                    .tree
+                    .as_ref()
+                    .filter(|t| t.version == crate::tree::VERSION)
+                {
                     let target = item.witness.as_ref().unwrap().nodes.last().unwrap();
                     match crate::tree::inspect(
                         Path::new(&item.candidate.path),
@@ -293,7 +245,7 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                     }
                 } else {
                     state = "inventoryMissing";
-                    reason = "旧计划尚未记录目录内容，请重新生成审阅计划。".into();
+                    reason = "缺少当前版本的目录内容记录，请重新生成审阅计划。".into();
                 }
             }
             ItemCheck {
@@ -447,6 +399,32 @@ pub fn apply_rule_checks(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::MetadataExt;
+    #[test]
+    fn legacy_path_observations_stay_readable_but_require_rescanning() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap().join("file");
+        std::fs::write(&path, "fixture").unwrap();
+        let scan = scan(&path);
+        let plan = create(&scan, &["scan-1:0".into()], &[], 1001).unwrap();
+        let mut json = serde_json::to_value(&plan).unwrap();
+        json["items"][0]["witness"]
+            .as_object_mut()
+            .unwrap()
+            .remove("version");
+        json["items"][0]["witness"]
+            .as_object_mut()
+            .unwrap()
+            .remove("links");
+        let old: Plan = serde_json::from_value(json).unwrap();
+        assert_eq!(check(&old, &[], 1002).items[0].state, "versionMismatch");
+        let mut old_scan = scan.clone();
+        old_scan.items = old.items;
+        assert!(create(&old_scan, &["scan-1:0".into()], &[], 1002)
+            .err()
+            .unwrap()
+            .contains("旧版路径观察"));
+    }
     #[test]
     fn directory_plans_freeze_deep_contents_and_reject_legacy_unfrozen_plans() {
         let scratch = tempfile::tempdir().unwrap();
@@ -459,6 +437,9 @@ mod tests {
         let encoded = serde_json::to_string(&plan).unwrap();
         let restored: Plan = serde_json::from_str(&encoded).unwrap();
         assert_eq!(check(&restored, &[], 1002).items[0].state, "unchanged");
+        let mut legacy = restored.clone();
+        legacy.items[0].tree.as_mut().unwrap().version = 1;
+        assert_eq!(check(&legacy, &[], 1002).items[0].state, "inventoryMissing");
         std::fs::write(path.join("nested/file"), "new content").unwrap();
         assert_eq!(
             check(&restored, &[], 1002).items[0].state,
@@ -612,7 +593,9 @@ mod tests {
         let plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();
         std::fs::rename(&parent, root.join("old")).unwrap();
         std::fs::create_dir(&parent).unwrap();
-        std::fs::hard_link(root.join("old/fixture"), &path).unwrap();
+        // Preserve the same single-link file at its old absolute path while
+        // replacing its ancestor.
+        std::fs::rename(root.join("old/fixture"), &path).unwrap();
         assert_eq!(check(&plan, &[], 1002).items[0].state, "changed");
         std::fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(root.join("old/fixture"), &path).unwrap();

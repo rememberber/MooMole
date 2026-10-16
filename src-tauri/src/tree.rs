@@ -7,16 +7,21 @@ use std::{
     ffi::{CStr, CString},
     fs::File,
     mem::MaybeUninit,
-    os::{
-        fd::{AsRawFd, FromRawFd, IntoRawFd},
-        unix::ffi::OsStrExt,
-    },
-    path::{Component, Path},
+    os::fd::{AsRawFd, FromRawFd, IntoRawFd},
+    path::Path,
     time::{Duration, Instant},
 };
 
 pub const MAX_ENTRIES: usize = 10_000;
+pub const VERSION: u32 = 2;
 const MAX_DEPTH: usize = 64;
+
+#[derive(Clone, Copy)]
+enum Checkpoint<'a> {
+    Opened,
+    Entry(#[allow(dead_code)] &'a CStr),
+    Finished,
+}
 
 pub struct Budget {
     remaining: usize,
@@ -168,6 +173,7 @@ fn walk(
     digest: &mut Sha256,
     budget: &mut Budget,
     count: &mut usize,
+    hook: &mut impl FnMut(Checkpoint<'_>),
 ) -> Result<(), String> {
     if depth > MAX_DEPTH {
         return Err("目录层级超过 64 层限制，请缩小选择。".into());
@@ -197,7 +203,15 @@ fn walk(
             if stamp(&stat_fd(&child)?) != stamp(&stat) {
                 return Err("子目录身份已变化，需要重新扫描。".into());
             }
-            walk(&child, device, depth + 1, digest, budget, count)?;
+            hook(Checkpoint::Entry(&name));
+            walk(&child, device, depth + 1, digest, budget, count, hook)?;
+        } else {
+            hook(Checkpoint::Entry(&name));
+        }
+        // A held child directory can be detached or replaced while walking it.
+        // Recheck the parent's name, as well as the held directory's stamp.
+        if stamp(&stat_entry(directory, &name)?) != stamp(&stat) {
+            return Err("检查期间目录子项发生变化，需要重新扫描。".into());
         }
     }
     budget.check_time()?;
@@ -214,33 +228,44 @@ pub fn inspect(
     ino: u64,
     budget: &mut Budget,
 ) -> Result<TreeWitness, String> {
-    if !path.is_absolute() || path == Path::new("/") {
-        return Err("目录范围无效。".into());
+    inspect_with(path, dev, ino, budget, |_| {})
+}
+
+fn inspect_with(
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
+    mut hook: impl FnMut(Checkpoint<'_>),
+) -> Result<TreeWitness, String> {
+    budget.check_time()?;
+    let anchor = crate::observation::AnchoredPath::open(path)?;
+    let directory = anchor.target();
+    let root = stat_fd(directory)?;
+    if root.st_mode & libc::S_IFMT != libc::S_IFDIR {
+        return Err("目标不是目录，请重新扫描。".into());
     }
-    let mut directory = File::open("/").map_err(|e| e.to_string())?;
-    for part in path.components() {
-        budget.check_time()?;
-        match part {
-            Component::RootDir => (),
-            Component::Normal(name) => {
-                directory = open_directory(
-                    &directory,
-                    &CString::new(name.as_bytes()).map_err(|_| "目录名称无法编码。")?,
-                )?
-            }
-            _ => return Err("目录范围无效。".into()),
-        }
-    }
-    let root = stat_fd(&directory)?;
     if root.st_dev as u64 != dev || root.st_ino != ino {
         return Err("目录身份与计划不一致，需要重新扫描。".into());
     }
     budget.tick()?;
+    hook(Checkpoint::Opened);
     let mut digest = Sha256::new();
     let mut count = 0;
-    walk(&directory, dev, 0, &mut digest, budget, &mut count)?;
+    walk(
+        directory,
+        dev,
+        0,
+        &mut digest,
+        budget,
+        &mut count,
+        &mut hook,
+    )?;
+    hook(Checkpoint::Finished);
+    anchor.validate()?;
+    budget.check_time()?;
     Ok(TreeWitness {
-        version: 1,
+        version: VERSION,
         digest: format!("{:x}", digest.finalize()),
         entries: count,
     })
@@ -249,10 +274,105 @@ pub fn inspect(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::{symlink, MetadataExt};
+    use std::os::unix::{
+        ffi::OsStrExt,
+        fs::{symlink, MetadataExt},
+    };
     fn inspect_fixture(path: &Path) -> Result<TreeWitness, String> {
         let m = std::fs::metadata(path).unwrap();
         inspect(path, m.dev(), m.ino(), &mut Budget::new())
+    }
+    #[test]
+    fn detached_roots_and_ancestors_cannot_publish_a_matching_inventory() {
+        for mode in ["root", "ancestor", "late-root", "late-content"] {
+            let scratch = tempfile::tempdir().unwrap();
+            let base = scratch.path().canonicalize().unwrap();
+            let parent = base.join("parent");
+            let path = parent.join("selected");
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(path.join("file"), "original").unwrap();
+            let m = std::fs::metadata(&path).unwrap();
+            let mut changed = false;
+            let result = inspect_with(&path, m.dev(), m.ino(), &mut Budget::new(), |at| {
+                let should_change = match at {
+                    Checkpoint::Opened => mode == "root" || mode == "ancestor",
+                    Checkpoint::Finished => mode.starts_with("late-"),
+                    _ => false,
+                };
+                if !should_change || changed {
+                    return;
+                }
+                changed = true;
+                match mode {
+                    "root" | "late-root" => {
+                        std::fs::rename(&path, parent.join("detached")).unwrap();
+                        std::fs::create_dir(&path).unwrap();
+                        std::fs::write(path.join("file"), "replacement").unwrap();
+                    }
+                    "ancestor" => {
+                        std::fs::rename(&parent, base.join("detached")).unwrap();
+                        std::fs::create_dir_all(&path).unwrap();
+                    }
+                    "late-content" => std::fs::write(path.join("new-file"), "late").unwrap(),
+                    _ => unreachable!(),
+                }
+            });
+            assert!(changed);
+            assert!(result.is_err(), "{mode}");
+        }
+    }
+
+    #[test]
+    fn child_replacement_and_leaf_mutation_during_walk_are_refused() {
+        for mode in ["directory", "file", "hardlink"] {
+            let scratch = tempfile::tempdir().unwrap();
+            let path = scratch.path().canonicalize().unwrap();
+            std::fs::create_dir(path.join("nested")).unwrap();
+            std::fs::write(path.join("nested/file"), "original").unwrap();
+            let m = std::fs::metadata(&path).unwrap();
+            let mut changed = false;
+            let result = inspect_with(&path, m.dev(), m.ino(), &mut Budget::new(), |at| {
+                let Checkpoint::Entry(name) = at else {
+                    return;
+                };
+                if changed {
+                    return;
+                }
+                if mode == "directory" && name.to_bytes() == b"nested" {
+                    changed = true;
+                    std::fs::rename(path.join("nested"), path.join("detached")).unwrap();
+                    symlink("/", path.join("nested")).unwrap();
+                } else if mode != "directory" && name.to_bytes() == b"file" {
+                    changed = true;
+                    if mode == "file" {
+                        std::fs::write(path.join("nested/file"), "changed").unwrap();
+                    } else {
+                        std::fs::hard_link(path.join("nested/file"), path.join("shared")).unwrap();
+                    }
+                }
+            });
+            assert!(changed);
+            assert!(result.is_err(), "{mode}");
+        }
+    }
+    #[test]
+    fn late_deep_mutation_demonstrates_that_inventory_is_not_an_atomic_snapshot() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap();
+        std::fs::create_dir(path.join("nested")).unwrap();
+        let file = path.join("nested/file");
+        std::fs::write(&file, "original").unwrap();
+        let before = inspect_fixture(&path).unwrap();
+        let m = std::fs::metadata(&path).unwrap();
+        let observed = inspect_with(&path, m.dev(), m.ino(), &mut Budget::new(), |at| {
+            if matches!(at, Checkpoint::Finished) {
+                // This does not change either parent directory's metadata.
+                std::fs::write(&file, "modified after walking this descendant").unwrap();
+            }
+        })
+        .unwrap();
+        assert_eq!(before, observed);
+        assert_ne!(observed, inspect_fixture(&path).unwrap());
     }
     #[test]
     fn deep_changes_are_detected_even_when_root_metadata_does_not_change() {

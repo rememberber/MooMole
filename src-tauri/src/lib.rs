@@ -8,6 +8,7 @@ mod execution_sandbox;
 mod impact;
 #[cfg(test)]
 mod native_trash_tests;
+mod observation;
 mod provenance;
 mod review;
 mod rules;
