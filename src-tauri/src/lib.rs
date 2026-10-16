@@ -45,6 +45,12 @@ struct AppState {
     shutdown: Arc<AtomicU8>,
 }
 
+// A startup issue has no database or task handles. Its message also backs the
+// loading window while the native sheet explains why this instance must close.
+struct StartupIssue {
+    message: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Bootstrap {
@@ -58,7 +64,13 @@ struct Bootstrap {
 }
 
 #[tauri::command]
-fn bootstrap(state: tauri::State<'_, AppState>) -> Result<Bootstrap, String> {
+fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
+    if let Some(issue) = app.try_state::<StartupIssue>() {
+        return Err(issue.message.clone());
+    }
+    let state = app
+        .try_state::<AppState>()
+        .ok_or("本机工作区尚未初始化。")?;
     let db = state.db.lock().map_err(|e| e.to_string())?;
     Ok(Bootstrap {
         settings: db::settings(&db)?,
@@ -438,25 +450,33 @@ pub fn run() {
                 Ok(connection) => connection,
                 Err(error) => {
                     let busy = matches!(error, db::OpenError::Instance(instance::Error::Busy));
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.hide();
-                    }
+                    let title = if busy {
+                        "MooMole 已在运行"
+                    } else {
+                        "无法打开 MooMole 本机数据"
+                    };
+                    let message = error.to_string();
+                    app.manage(StartupIssue {
+                        message: message.clone(),
+                    });
                     let handle = app.handle().clone();
                     // DialogExt::show is nonblocking; blocking_show must not run
                     // on Tauri's main thread. No AppState or tasks are admitted.
-                    app.dialog()
-                        .message(error.to_string())
-                        .title(if busy {
-                            "MooMole 已在运行"
-                        } else {
-                            "无法打开 MooMole 本机数据"
-                        })
-                        .kind(if busy {
-                            tauri_plugin_dialog::MessageDialogKind::Info
-                        } else {
-                            tauri_plugin_dialog::MessageDialogKind::Error
-                        })
-                        .show(move |_| handle.exit(if busy { 0 } else { 1 }));
+                    let mut dialog = app.dialog().message(message).title(title).kind(if busy {
+                        tauri_plugin_dialog::MessageDialogKind::Info
+                    } else {
+                        tauri_plugin_dialog::MessageDialogKind::Error
+                    });
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.set_title(title);
+                        // A parentless macOS dialog is a system-hosted alert.
+                        // Keep the inert startup window visible and attach an
+                        // accessible sheet instead of hiding its only window.
+                        dialog = dialog.parent(&window);
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    dialog.show(move |_| handle.exit(if busy { 0 } else { 1 }));
                     return Ok(());
                 }
             };
