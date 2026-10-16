@@ -1,16 +1,17 @@
 import type { Page } from '@playwright/test'
 import { demoBootstrap, demoSnapshot } from '../../../src/lib/demo'
-import type { AppEntry, MoleHistory } from '../../../src/types'
+import type { Analysis, AppEntry, MoleHistory } from '../../../src/types'
 
 // Playwright-only transport mock: it never calls a native command or touches files.
 export async function installTaskMock(
   page: Page,
-  mode: 'resume' | 'new' | 'history' | 'apps',
+  mode: 'resume' | 'new' | 'history' | 'apps' | 'analyze',
   moleHistory?: MoleHistory,
   applications?: AppEntry[],
+  analysis?: Analysis,
 ) {
   await page.addInitScript(
-    ({ initial, snapshot, mode, moleHistory, applications }) => {
+    ({ initial, snapshot, mode, moleHistory, applications, analysis }) => {
       const readTask = () => JSON.parse(sessionStorage.getItem('mock-task') ?? 'null')
       const writeTask = (task: unknown) => sessionStorage.setItem('mock-task', JSON.stringify(task))
       if (mode === 'resume' && !readTask())
@@ -62,6 +63,8 @@ export async function installTaskMock(
               starts.push(args)
               sessionStorage.setItem('mock-starts', JSON.stringify(starts))
               if (mode === 'resume') throw new Error('Existing task must not be restarted')
+              if (mode === 'analyze' && args.kind === 'analyze')
+                sessionStorage.removeItem('mock-done')
               if (mode === 'apps' && args.kind === 'apps') sessionStorage.removeItem('mock-done')
               if (mode === 'history' && args.kind === 'history') {
                 sessionStorage.removeItem('mock-done')
@@ -97,7 +100,12 @@ export async function installTaskMock(
                         ? applications
                         : task.kind === 'history'
                           ? moleHistory
-                          : { path: task.path, scan_status: 'complete', entries: [], total_size: 0 }
+                          : (analysis ?? {
+                              path: task.path,
+                              scan_status: 'complete',
+                              entries: [],
+                              total_size: 0,
+                            })
                     : null,
               }
             }
@@ -111,6 +119,6 @@ export async function installTaskMock(
         },
       })
     },
-    { initial: demoBootstrap, snapshot: demoSnapshot, mode, moleHistory, applications },
+    { initial: demoBootstrap, snapshot: demoSnapshot, mode, moleHistory, applications, analysis },
   )
 }

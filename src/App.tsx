@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Activity,
-  ArrowDown,
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Box,
@@ -11,8 +9,6 @@ import {
   Clock3,
   Code2,
   Cpu,
-  ExternalLink,
-  File,
   Folder,
   FolderOpen,
   HardDrive,
@@ -51,6 +47,7 @@ import { ExecutionHistory } from './components/ExecutionHistory'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
+import { AnalysisExplorer } from './components/AnalysisExplorer'
 import type {
   Analysis,
   AppEntry,
@@ -147,8 +144,6 @@ export default function App() {
   const [accepted, setAccepted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [path, setPath] = useState('')
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<'size' | 'name'>('size')
   const [cancelPending, setCancelPending] = useState(false)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
@@ -258,9 +253,8 @@ export default function App() {
     if (kind === 'status') setSnapshot(result as Snapshot)
     if (kind === 'analyze') {
       const value = result as Analysis
-      setAnalysis(value)
+      setAnalysis({ ...value })
       setPath(value.path)
-      setQuery('')
     }
     if (kind === 'apps') setApps([...(result as AppEntry[])])
     if (kind === 'cleanup') setCleanup(result as Cleanup)
@@ -393,18 +387,7 @@ export default function App() {
   }
   function changePage(next: Page) {
     setPage(next)
-    setQuery('')
   }
-
-  const entries = useMemo(
-    () =>
-      [...(analysis?.entries ?? [])]
-        .filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
-        .sort((a, b) =>
-          sort === 'size' ? b.size - a.size : a.name.localeCompare(b.name, 'zh-CN'),
-        ),
-    [analysis, query, sort],
-  )
 
   if (!data)
     return (
@@ -742,127 +725,16 @@ export default function App() {
                 </button>
               </form>
               {analysis ? (
-                <>
-                  <div className="analysis-summary">
-                    <div>
-                      <span className="section-label">已测量占用</span>
-                      <strong>{measuredBytes(analysis.total_size, analysis.scan_status)}</strong>
-                    </div>
-                    <div>
-                      <span>{shortPath(analysis.path, data.home)}</span>
-                      <small>
-                        {analysis.entries.length} 个直接子项 ·{' '}
-                        {analysis.scan_status === 'complete'
-                          ? '扫描完成'
-                          : analysis.scan_status === 'partial'
-                            ? '部分目录未完整测量'
-                            : '无法测量'}
-                      </small>
-                    </div>
-                    <button
-                      className="button text"
-                      disabled={!canRun || analysis.path === '/'}
-                      onClick={() =>
-                        void execute(
-                          'analyze',
-                          analysis.path.substring(0, analysis.path.lastIndexOf('/')) || '/',
-                        )
-                      }
-                    >
-                      <ArrowLeft size={14} />
-                      上一级
-                    </button>
-                  </div>
-                  {analysis.scan_status !== 'complete' && (
-                    <div className="inline-note">
-                      <Info size={14} />带 “+” 的数值只包含已测量部分；无法读取不代表目录为空。
-                    </div>
-                  )}
-                  <section className="card file-list">
-                    <div className="list-toolbar">
-                      <h2>目录内容</h2>
-                      <label className="search-field">
-                        <Search size={14} />
-                        <input
-                          aria-label="筛选目录内容"
-                          placeholder="筛选名称…"
-                          value={query}
-                          onChange={(event) => setQuery(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                    <div className="table-header">
-                      <button onClick={() => setSort('name')}>名称</button>
-                      <button onClick={() => setSort('size')}>
-                        占用空间
-                        <ArrowDown size={12} />
-                      </button>
-                      <span>操作</span>
-                    </div>
-                    <div className="scroll-list">
-                      {entries.length ? (
-                        entries.slice(0, 200).map((entry, index) => (
-                          <div className="file-row" key={entry.path}>
-                            <button
-                              className="file-name"
-                              disabled={!canRun || !entry.is_dir}
-                              onClick={() => void execute('analyze', entry.path)}
-                              title={entry.path}
-                            >
-                              <span className={`file-icon color-${index % 4}`}>
-                                {entry.is_dir ? <Folder size={19} /> : <File size={18} />}
-                              </span>
-                              <span className="truncate">
-                                {entry.name}
-                                <small>
-                                  {entry.scan_status === 'unavailable'
-                                    ? '无法访问'
-                                    : entry.is_dir
-                                      ? '文件夹'
-                                      : '文件'}
-                                </small>
-                              </span>
-                            </button>
-                            <div className="file-size">
-                              <strong>{measuredBytes(entry.size, entry.scan_status)}</strong>
-                              <div className="meter">
-                                <div
-                                  className={`color-${index % 4}`}
-                                  style={{
-                                    width: `${analysis.total_size ? Math.min(100, (entry.size / analysis.total_size) * 100) : 0}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <button
-                              className="icon-button"
-                              disabled={!api.desktop}
-                              onClick={() => reveal(entry.path)}
-                              aria-label={`在 Finder 中显示 ${entry.name}`}
-                            >
-                              <ExternalLink size={15} />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <Empty title={query ? '没有匹配的项目' : '没有可展示的子项'}>
-                          <p>
-                            {query
-                              ? '试试其他关键词。'
-                              : analysis.scan_status === 'complete'
-                                ? '此范围内没有扫描到子项。'
-                                : '部分内容无法读取，请检查目录权限。'}
-                          </p>
-                        </Empty>
-                      )}
-                    </div>
-                    {entries.length > 200 && (
-                      <div className="list-limit">
-                        显示前 200 项，共 {entries.length} 项。请按名称筛选或缩小目录范围。
-                      </div>
-                    )}
-                  </section>
-                </>
+                <AnalysisExplorer
+                  key={analysis.path}
+                  analysis={analysis}
+                  home={data.home}
+                  canAnalyze={canRun}
+                  canReveal={api.desktop}
+                  refreshing={busy?.kind === 'analyze'}
+                  onAnalyze={(target) => void execute('analyze', target)}
+                  onReveal={reveal}
+                />
               ) : (
                 <section className="card">
                   <Empty title="先选择一个文件夹">
