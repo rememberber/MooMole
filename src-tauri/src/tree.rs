@@ -8,6 +8,7 @@ use std::{
     fs::File,
     mem::MaybeUninit,
     os::fd::{AsRawFd, FromRawFd, IntoRawFd},
+    os::unix::ffi::OsStrExt,
     path::Path,
     time::{Duration, Instant},
 };
@@ -168,12 +169,14 @@ fn names(directory: &File, budget: &mut Budget) -> Result<Vec<CString>, String> 
 
 fn walk(
     directory: &File,
+    path: &Path,
     device: u64,
     depth: usize,
     digest: &mut Sha256,
     budget: &mut Budget,
     count: &mut usize,
     hook: &mut impl FnMut(Checkpoint<'_>),
+    visit: &mut impl FnMut(&Path) -> Result<(), String>,
 ) -> Result<(), String> {
     if depth > MAX_DEPTH {
         return Err("目录层级超过 64 层限制，请缩小选择。".into());
@@ -198,13 +201,25 @@ fn walk(
         digest.update(name.to_bytes());
         digest.update(stamp(&stat));
         *count += 1;
+        let child_path = path.join(std::ffi::OsStr::from_bytes(name.to_bytes()));
+        visit(&child_path)?;
         if kind == libc::S_IFDIR {
             let child = open_directory(directory, &name)?;
             if stamp(&stat_fd(&child)?) != stamp(&stat) {
                 return Err("子目录身份已变化，需要重新扫描。".into());
             }
             hook(Checkpoint::Entry(&name));
-            walk(&child, device, depth + 1, digest, budget, count, hook)?;
+            walk(
+                &child,
+                &child_path,
+                device,
+                depth + 1,
+                digest,
+                budget,
+                count,
+                hook,
+                visit,
+            )?;
         } else {
             hook(Checkpoint::Entry(&name));
         }
@@ -236,7 +251,52 @@ fn inspect_with(
     dev: u64,
     ino: u64,
     budget: &mut Budget,
+    hook: impl FnMut(Checkpoint<'_>),
+) -> Result<TreeWitness, String> {
+    inspect_observed(path, dev, ino, budget, hook, |_| Ok(()))
+}
+
+// Paths come from the same no-follow walk as the digest, never a second glob.
+// They are temporary probe inputs, not added to the persisted witness.
+fn probe_path(entry: &Path) -> Result<String, String> {
+    entry
+        .to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| "后代路径含无法传递给 Mole 的字符，本次未完成检查。".into())
+}
+
+pub fn inspect_paths(
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
+    limit: usize,
+) -> Result<(TreeWitness, Vec<String>), String> {
+    let mut paths = Vec::new();
+    let tree = inspect_observed(
+        path,
+        dev,
+        ino,
+        budget,
+        |_| {},
+        |entry| {
+            if paths.len() >= limit {
+                return Err("后代路径超过本批规则检查的剩余额度；本次未完成后代保护检查。".into());
+            }
+            paths.push(probe_path(entry)?);
+            Ok(())
+        },
+    )?;
+    Ok((tree, paths))
+}
+
+fn inspect_observed(
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
     mut hook: impl FnMut(Checkpoint<'_>),
+    mut visit: impl FnMut(&Path) -> Result<(), String>,
 ) -> Result<TreeWitness, String> {
     budget.check_time()?;
     let anchor = crate::observation::AnchoredPath::open(path)?;
@@ -254,12 +314,14 @@ fn inspect_with(
     let mut count = 0;
     walk(
         directory,
+        path,
         dev,
         0,
         &mut digest,
         budget,
         &mut count,
         &mut hook,
+        &mut visit,
     )?;
     hook(Checkpoint::Finished);
     anchor.validate()?;
@@ -281,6 +343,35 @@ mod tests {
     fn inspect_fixture(path: &Path) -> Result<TreeWitness, String> {
         let m = std::fs::metadata(path).unwrap();
         inspect(path, m.dev(), m.ino(), &mut Budget::new())
+    }
+    #[test]
+    fn probe_paths_share_the_digest_and_reject_truncation_and_unrepresentable_names() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().canonicalize().unwrap();
+        std::fs::create_dir(path.join("nested")).unwrap();
+        std::fs::write(path.join("nested/中文\n[*]"), "fixture").unwrap();
+        let m = std::fs::metadata(&path).unwrap();
+        let (listed, paths) =
+            inspect_paths(&path, m.dev(), m.ino(), &mut Budget::new(), 2).unwrap();
+        assert_eq!(listed, inspect_fixture(&path).unwrap());
+        assert_eq!(
+            paths,
+            vec![
+                path.join("nested").to_str().unwrap(),
+                path.join("nested/中文\n[*]").to_str().unwrap()
+            ]
+        );
+        assert!(
+            inspect_paths(&path, m.dev(), m.ino(), &mut Budget::new(), 1)
+                .unwrap_err()
+                .contains("额度")
+        );
+        let invalid = std::ffi::OsStr::from_bytes(b"invalid-\xff");
+        // APFS may reject creating this name with EILSEQ. Validate the exact
+        // conversion boundary without depending on a volume accepting it.
+        assert!(probe_path(&path.join(invalid))
+            .unwrap_err()
+            .contains("字符"));
     }
     #[test]
     fn detached_roots_and_ancestors_cannot_publish_a_matching_inventory() {

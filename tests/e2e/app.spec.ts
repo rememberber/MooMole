@@ -564,3 +564,79 @@ test('activity budget exhaustion and missing legacy evidence never imply idle', 
     await expect(dialog.getByRole('button', { name: /执行清理|关闭应用|提权/ })).toHaveCount(0)
   }
 })
+
+test('descendant path protection explains blocked children, bounded scope and clears on cancellation', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('descendants'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  const checks = fixture.getByRole('checkbox', { name: /^审阅 / })
+  for (let i = 0; i < (await checks.count()); i++) await checks.nth(i).check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(3)
+  await expect(dialog.getByText('目录后代受保护', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('目录后代保护尚未确认', { exact: true })).toBeVisible()
+  await expect(
+    dialog.getByText('/Users/demo/Library/Caches/ExampleApp/deep/保留 中文\n[*].log', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    dialog.getByText('后代路径超过本批规则检查的剩余额度；本次未完成后代保护检查。'),
+  ).toBeVisible()
+  await expect(dialog.getByText('2 项需要重新确认', { exact: true })).toBeVisible()
+  await dialog.getByText('检查范围与来源', { exact: true }).first().click()
+  await expect(dialog.getByText('已核对 2 项后代路径结果 · 观察 v1')).toBeVisible()
+  await expect(dialog.getByText('Mole 有效白名单', { exact: true })).toBeVisible()
+  await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).check()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(2)
+  await page.screenshot({
+    path: 'test-results/descendant-rules.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(0)
+  await dialog.getByRole('button', { name: '取消复查', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('规则复查已取消。')
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(0)
+})
+
+test('local refresh and expiry discard descendant evidence', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-16T12:00:00Z') })
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('descendants'),
+  )
+  const fixture = page.locator('#review-test-fixture')
+  await fixture
+    .getByRole('checkbox', { name: '审阅 /Users/demo/Library/Caches/ExampleApp', exact: true })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  const dialog = page.getByRole('dialog', { name: '审阅计划', exact: true })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(1)
+  await dialog.getByRole('button', { name: '重新复核', exact: true }).click()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(0)
+  await expect(dialog.getByText('目标已变化', { exact: true })).toBeVisible()
+  // A fresh fixture starts a separate plan; old evidence must also vanish when
+  // the still-open dialog reaches its expiry, without a further user action.
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/clean-review.tsx')).mount('descendants'),
+  )
+  await fixture
+    .getByRole('checkbox', { name: '审阅 /Users/demo/Library/Caches/ExampleApp', exact: true })
+    .check()
+  await fixture.getByRole('button', { name: '保存审阅计划' }).click()
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(1)
+  await page.clock.fastForward(16 * 60 * 1000)
+  await expect(dialog.getByLabel('目录后代路径保护')).toHaveCount(0)
+  await expect(dialog.getByText('计划已过期', { exact: true })).toBeVisible()
+})

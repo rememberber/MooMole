@@ -1,5 +1,6 @@
 mod clean_preview;
 mod db;
+mod descendant_rules;
 mod engine;
 mod engine_manifest;
 mod execution;
@@ -332,36 +333,43 @@ async fn check_review_rules(
         if !settings.acknowledged {
             return Err("请先阅读首次使用说明。".into());
         }
-        let local = review::check(&plan, &settings.protected_paths, db::now());
-        let requested: Vec<_> = local
-            .items
-            .iter()
-            .filter(|i| i.state == "unchanged")
-            .map(|i| {
-                let candidate = &plan
-                    .items
-                    .iter()
-                    .find(|p| p.candidate.id == i.id)
-                    .unwrap()
-                    .candidate;
-                (
-                    i.id.clone(),
-                    i.path.clone(),
-                    provenance::binding(candidate.provenance.as_ref(), &candidate.path).into(),
-                )
-            })
-            .collect();
-        if requested.is_empty() {
+        let prepare_plan = plan.clone();
+        let home = state.home.clone();
+        let (local, batch) = tauri::async_runtime::spawn_blocking(move || {
+            let local = review::check(&prepare_plan, &settings.protected_paths, db::now());
+            let batch = descendant_rules::prepare(&prepare_plan, &local, &home);
+            (local, batch)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        if batch.requested.is_empty() {
             return Ok(local);
         }
-        let checks = rules::run(&state.engine_root, &state.home, &requested, job.clone()).await?;
-        let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
-        // Re-read local identities, expiry and client protection after the probes.
-        let view = review::check(&plan, &settings.protected_paths, db::now());
         if job.cancelled.load(Ordering::SeqCst) {
             return Err("规则复查已取消。".into());
         }
-        Ok(review::apply_rule_checks(view, &checks, db::now()))
+        let checks = rules::run(
+            &state.engine_root,
+            &state.home,
+            &batch.requested,
+            job.clone(),
+        )
+        .await?;
+        let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+        // Re-read local identities, expiry and client protection after the probes.
+        let view = tauri::async_runtime::spawn_blocking(move || {
+            review::check(&plan, &settings.protected_paths, db::now())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        if job.cancelled.load(Ordering::SeqCst) {
+            return Err("规则复查已取消。".into());
+        }
+        Ok(descendant_rules::apply(
+            review::apply_rule_checks(view, &checks, db::now()),
+            &batch,
+            &checks,
+        ))
     }
     .await;
     if let Ok(mut jobs) = state.jobs.lock() {

@@ -111,6 +111,14 @@ export interface ReviewPlan extends ReviewPlanSummary {
       module?: ModuleCheck
       activity?: ActivityCheck | null
     } | null
+    descendantRules?: {
+      version: number
+      code: string
+      checkedEntries: number
+      path?: string | null
+      source?: string | null
+      reason: string
+    } | null
     provenance?: Provenance | null
     inventoryEntries?: number | null
     impact?: Impact | null

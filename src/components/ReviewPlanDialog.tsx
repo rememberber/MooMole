@@ -24,6 +24,8 @@ const states: Record<string, string> = {
   activityBusy: '发现文件占用',
   activityUnknown: '文件占用尚未确认',
   activityUnavailable: '附加占用检查未完成',
+  descendantProtected: '目录后代受保护',
+  descendantUnavailable: '目录后代保护尚未确认',
   contentsChanged: '目录内容已变化',
   inventoryUnavailable: '目录内容无法确认',
   inventoryMissing: '需要重新生成目录计划',
@@ -55,6 +57,7 @@ export function ReviewPlanDialog({
         ...item,
         state: 'expired',
         moleRule: null,
+        descendantRules: null,
         reason: '计划已过期或系统时间发生回退，请重新扫描。',
       }))
     : plan.items
@@ -69,6 +72,7 @@ export function ReviewPlanDialog({
       items: current.items.map((item) => ({
         ...item,
         moleRule: null,
+        descendantRules: null,
         state: 'pendingLocal',
         reason: '正在重新读取本地身份与保护，之前的规则结果不再适用。',
       })),
@@ -82,6 +86,7 @@ export function ReviewPlanDialog({
         items: current.items.map((item) => ({
           ...item,
           moleRule: null,
+          descendantRules: null,
           state: 'unavailable',
           reason: '本次本地复核未完成，请重新检查；之前的规则结果不再适用。',
         })),
@@ -103,6 +108,7 @@ export function ReviewPlanDialog({
       items: current.items.map((item) => ({
         ...item,
         moleRule: null,
+        descendantRules: null,
         state: 'pendingRules',
         reason: 'Mole 规则复查进行中，结果尚未确认。',
       })),
@@ -142,7 +148,7 @@ export function ReviewPlanDialog({
         <ShieldCheck size={18} />
         <span>
           复查包含 Mole 路径保护，以及已适配范围的用户缓存 Deno
-          约束、用户日志目录约束，并对条件满足的项目附加占用观察。其他模块条件仍需单独核对；当前未开放执行。
+          约束、用户日志目录约束，并补充占用观察及有界的目录后代路径保护检查。其他模块条件仍需单独核对；当前未开放执行。
         </span>
       </div>
       <div className="plan-summary">
@@ -278,6 +284,34 @@ export function ReviewPlanDialog({
                   )}
                 </div>
               </>
+            )}
+            {item.descendantRules && (
+              <div className="module-evidence" aria-label="目录后代路径保护">
+                <strong>目录后代路径保护</strong>
+                <p>
+                  {item.descendantRules.version === 1 &&
+                  ['checked', 'protected', 'unavailable', 'notChecked', 'notApplicable'].includes(
+                    item.descendantRules.code,
+                  )
+                    ? item.descendantRules.reason
+                    : '缺少可识别的后代路径保护证据，请重新复查。'}
+                </p>
+                {item.descendantRules.path && (
+                  <p className="mono full-path">{item.descendantRules.path}</p>
+                )}
+                <details>
+                  <summary>检查范围与来源</summary>
+                  <p>
+                    已核对 {item.descendantRules.checkedEntries} 项后代路径结果 · 观察 v
+                    {item.descendantRules.version}
+                  </p>
+                  <p>{item.descendantRules.source ?? '客户端有界枚举 · Mole 路径级规则'}</p>
+                  <p>
+                    根项目和后代共用最多 500
+                    条规则输入；后代不作为新候选，不表示全部模块条件已覆盖。
+                  </p>
+                </details>
+              </div>
             )}
           </article>
         ))}

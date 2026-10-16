@@ -107,3 +107,5 @@ node scripts/cargo.mjs test real_clean_preview_smoke -- --ignored --nocapture
 ```
 
 附加占用观察 v1 与模块判断分开展示，只有路径及适用模块均满足才运行；未知/预算不足均不能视为空闲，详见 [附加占用观察](activity-checks.md)。
+
+目录计划复查会将根项目和有界后代放在同一次 rules v4 请求中（共最多 500 条）；后代使用内部 ID 与 unsupported 模块绑定，仅聚合路径级结果。新增临时 `descendantRules` 证据不写持久计划，规则/数据库版本保持；详见 [目录后代路径保护](descendant-protection.md)。

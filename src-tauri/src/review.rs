@@ -16,10 +16,10 @@ pub const MAX_SELECTION: usize = 500;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ScanItem {
     pub candidate: Candidate,
-    witness: Option<Witness>,
+    pub(crate) witness: Option<Witness>,
     unavailable: Option<String>,
     #[serde(default)]
-    tree: Option<crate::tree::TreeWitness>,
+    pub(crate) tree: Option<crate::tree::TreeWitness>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -136,6 +136,7 @@ pub struct ItemCheck {
     pub state: String,
     pub reason: String,
     pub mole_rule: Option<crate::rules::RuleCheck>,
+    pub descendant_rules: Option<crate::descendant_rules::Check>,
     pub provenance: Option<crate::provenance::Provenance>,
     pub inventory_entries: Option<usize>,
     pub impact: Option<crate::impact::Impact>,
@@ -256,6 +257,7 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
                 state: state.into(),
                 reason,
                 mole_rule: None,
+                descendant_rules: None,
                 provenance: item.candidate.provenance.clone(),
                 inventory_entries: item.tree.as_ref().map(|t| t.entries),
                 impact: item.candidate.impact.clone(),

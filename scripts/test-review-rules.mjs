@@ -231,6 +231,35 @@ try {
     closeSync(openLog)
     closeSync(openNested)
   }
+  // Exact child paths are already propagated to parents by upstream. A glob
+  // above the candidate may instead match only a deep descendant. Probe both
+  // through the SAME unchanged v4 adapter; do not reimplement glob matching.
+  const originalRequest = readFileSync(request)
+  writeFileSync(
+    request,
+    [
+      'MooMole.rules.request.v4',
+      'parent',
+      resolve(cache, 'app'),
+      'userCache',
+      'descendant:parent:0',
+      nested,
+      'unsupported',
+      'complete',
+      '',
+    ].join('\0'),
+  )
+  run(
+    prefix +
+      'WHITELIST_PATTERNS=("$HOME/Library/Caches/*/deep/open.*"); moomole_review_rules "$2" "$3"',
+    [engine, request, report],
+  )
+  const guarded = readFileSync(report, 'utf8').split('\0')
+  assert.equal(guarded[8], 'passed')
+  assert.equal(guarded[15], 'whitelist')
+  assert.equal(guarded[17], 'notChecked')
+  assert.equal(guarded[18], 'notChecked')
+  writeFileSync(request, originalRequest)
   // Deterministic empty results still run the original identity and lsof-status
   // handling; warning prose, partial field records and timeouts stay distinct.
   for (const [probe, code] of [

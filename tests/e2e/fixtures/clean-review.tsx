@@ -108,7 +108,7 @@ function Fixture({ mode }: { mode: string }) {
             attempts.current++
             if (
               mode === 'cancel' ||
-              (['module-cancel', 'activity'].includes(mode) && attempts.current > 1)
+              (['module-cancel', 'activity', 'descendants'].includes(mode) && attempts.current > 1)
             )
               await new Promise((_, reject) =>
                 signal.addEventListener('abort', () => reject(new Error('规则复查已取消。')), {
@@ -156,6 +156,39 @@ function Fixture({ mode }: { mode: string }) {
                               ? '本批附加占用检查的 5 秒预算已用完，此项尚未确认；请缩小选择后复查。'
                               : '进程视图不完整，无法可靠确认占用，应保留。',
                     },
+                  },
+                })),
+              }
+            if (mode === 'descendants')
+              return {
+                ...plan,
+                ruleCheckedAt: Date.now(),
+                items: plan.items.map((item, index) => ({
+                  ...item,
+                  state:
+                    index === 0
+                      ? 'descendantProtected'
+                      : index === 1
+                        ? 'descendantUnavailable'
+                        : 'unchanged',
+                  reason:
+                    index === 0
+                      ? '目录后代要求保留。'
+                      : index === 1
+                        ? '后代检查未完成。'
+                        : '本次元数据复核未发现变化。',
+                  descendantRules: {
+                    version: 1,
+                    code: index === 0 ? 'protected' : index === 1 ? 'unavailable' : 'checked',
+                    checkedEntries: index === 0 ? 2 : index === 1 ? 0 : 3,
+                    path: index === 0 ? item.path + '/deep/保留 中文\n[*].log' : null,
+                    source: index === 0 ? 'Mole 有效白名单' : null,
+                    reason:
+                      index === 0
+                        ? '目录后代要求保留或未能确认：路径与当前 Mole 白名单匹配，应保留。'
+                        : index === 1
+                          ? '后代路径超过本批规则检查的剩余额度；本次未完成后代保护检查。'
+                          : '本次已逐项复查后代路径保护；不包含全部后代模块规则，也不是执行许可。',
                   },
                 })),
               }

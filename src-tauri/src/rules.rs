@@ -11,6 +11,7 @@ use std::{
 pub const PROTOCOL: u64 = 4;
 pub const MODULE_VERSION: u64 = 2;
 pub const ACTIVITY_VERSION: u64 = 1;
+pub const MAX_RECORDS: usize = 500;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -107,7 +108,7 @@ impl ModuleCheck {
 
 // Deliberately mirrors only the exact non-hidden entries covered by the two
 // upstream module globs. This is coverage selection, never cleanup eligibility.
-fn module_scope(path: &Path, home: &Path) -> &'static str {
+pub(crate) fn module_scope(path: &Path, home: &Path) -> &'static str {
     if path
         .file_name()
         .and_then(|p| p.to_str())
@@ -240,7 +241,7 @@ pub async fn run(
     if !home.is_absolute()
         || home.to_str().is_none()
         || requested.is_empty()
-        || requested.len() > crate::review::MAX_SELECTION
+        || requested.len() > MAX_RECORDS
     {
         return Err("规则复查范围无效。".into());
     }
