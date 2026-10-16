@@ -4,7 +4,7 @@ import type { ExecutionDetail } from '../../../src/types'
 
 // Browser-only journal data. Never inserted into the user's SQLite database.
 const at = 1792080000000
-const interrupted: ExecutionDetail = {
+export const interrupted: ExecutionDetail = {
   id: '6d048c7d-d222-410c-875d-a6e3cef18001',
   planId: '6d048c7d-d222-410c-875d-a6e3cef18002',
   method: 'trash',
@@ -50,7 +50,7 @@ const interrupted: ExecutionDetail = {
     },
   ],
 }
-const cancelled: ExecutionDetail = {
+export const cancelled: ExecutionDetail = {
   ...interrupted,
   id: '6d048c7d-d222-410c-875d-a6e3cef18003',
   state: 'cancelled',

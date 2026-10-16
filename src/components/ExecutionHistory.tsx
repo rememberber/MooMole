@@ -26,10 +26,12 @@ export function ExecutionHistory({
   initialRecords,
   loadRecords,
   loadDetail,
+  onRecordsChange,
 }: {
   initialRecords: ExecutionSummary[]
   loadRecords: () => Promise<ExecutionSummary[]>
   loadDetail: (id: string) => Promise<ExecutionDetail>
+  onRecordsChange?: (records: ExecutionSummary[]) => void
 }) {
   const [records, setRecords] = useState(initialRecords)
   const [refreshing, setRefreshing] = useState(false)
@@ -39,6 +41,7 @@ export function ExecutionHistory({
   const [detailError, setDetailError] = useState('')
   const refreshRequest = useRef(0)
   const detailRequest = useRef(0)
+  useEffect(() => setRecords(initialRecords), [initialRecords])
   useEffect(
     () => () => {
       refreshRequest.current++
@@ -52,7 +55,10 @@ export function ExecutionHistory({
     setError('')
     try {
       const next = await loadRecords()
-      if (request === refreshRequest.current) setRecords(next)
+      if (request === refreshRequest.current) {
+        setRecords(next)
+        onRecordsChange?.(next)
+      }
     } catch (error) {
       if (request === refreshRequest.current) setError(errorText(error))
     } finally {
@@ -79,7 +85,12 @@ export function ExecutionHistory({
   }
   return (
     <>
-      <section className="card saved-plans execution-history" aria-label="执行记录">
+      <section
+        id="execution-records"
+        tabIndex={-1}
+        className="card saved-plans execution-history"
+        aria-label="执行记录"
+      >
         <div className="list-toolbar">
           <h2>执行记录</h2>
           <button

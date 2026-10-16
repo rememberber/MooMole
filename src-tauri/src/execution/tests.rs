@@ -3,7 +3,9 @@ use crate::{
     clean_preview::{Candidate, Preview, PROTOCOL},
     db, review,
 };
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+mod crash;
 
 struct Fixture {
     _root: tempfile::TempDir,
@@ -16,6 +18,7 @@ impl Fixture {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().canonicalize().unwrap();
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
         std::fs::create_dir(root.join("source")).unwrap();
         std::fs::create_dir(root.join("recovery")).unwrap();
         let items = ["中文\ncache *", "second", "unselected"]

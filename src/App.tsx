@@ -48,6 +48,7 @@ import { CleanReview } from './components/CleanReview'
 import { ReviewPlanDialog } from './components/ReviewPlanDialog'
 import { EngineSummary } from './components/EngineSummary'
 import { ExecutionHistory } from './components/ExecutionHistory'
+import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import type {
   Analysis,
@@ -150,6 +151,17 @@ export default function App() {
   const [cancelPending, setCancelPending] = useState(false)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
+  const [recoveryNavigation, setRecoveryNavigation] = useState(0)
+  const handledRecoveryNavigation = useRef(0)
+
+  useEffect(() => {
+    if (page !== 'history' || recoveryNavigation === handledRecoveryNavigation.current) return
+    const section = document.getElementById('execution-records')
+    if (!section) return
+    handledRecoveryNavigation.current = recoveryNavigation
+    section?.focus({ preventScroll: true })
+    section?.scrollIntoView({ block: 'start' })
+  }, [page, recoveryNavigation])
 
   async function load() {
     try {
@@ -525,6 +537,13 @@ export default function App() {
           </div>
         </header>
         <main className="main-content">
+          <ExecutionRecoveryNotice
+            records={data.executions}
+            onReview={() => {
+              changePage('history')
+              setRecoveryNavigation((value) => value + 1)
+            }}
+          />
           {!api.desktop && (
             <div className="preview-banner">
               <Info size={15} />
@@ -1235,6 +1254,9 @@ export default function App() {
                 initialRecords={data.executions}
                 loadRecords={api.executions}
                 loadDetail={api.execution}
+                onRecordsChange={(executions) =>
+                  setData((current) => (current ? { ...current, executions } : current))
+                }
               />
               <section className="card">
                 <div className="list-toolbar">

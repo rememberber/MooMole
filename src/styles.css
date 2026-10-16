@@ -2004,6 +2004,31 @@ input[type='checkbox'] {
 .execution-modal {
   width: min(900px, calc(100vw - 48px));
 }
+.execution-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.execution-recovery > div {
+  flex: 1;
+  min-width: min(100%, 260px);
+}
+.execution-recovery h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.execution-recovery p {
+  margin: 0;
+  line-height: 1.7;
+}
+#execution-records {
+  scroll-margin-top: 20px;
+}
+#execution-records:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
 .execution-metadata {
   margin: 18px 0;
   font-size: 12px;
