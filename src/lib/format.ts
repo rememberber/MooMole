@@ -33,6 +33,7 @@ export const kindNames = {
   apps: '应用列表',
   cleanup: '开发缓存检查',
   clean: '清理预览',
+  history: 'Mole 历史读取',
 }
 export const stateNames: Record<string, string> = {
   running: '进行中',

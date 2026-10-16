@@ -1,10 +1,15 @@
 import type { Page } from '@playwright/test'
 import { demoBootstrap, demoSnapshot } from '../../../src/lib/demo'
+import type { MoleHistory } from '../../../src/types'
 
 // Playwright-only transport mock: it never calls a native command or touches files.
-export async function installTaskMock(page: Page, mode: 'resume' | 'new') {
+export async function installTaskMock(
+  page: Page,
+  mode: 'resume' | 'new' | 'history',
+  moleHistory?: MoleHistory,
+) {
   await page.addInitScript(
-    ({ initial, snapshot, mode }) => {
+    ({ initial, snapshot, mode, moleHistory }) => {
       const readTask = () => JSON.parse(sessionStorage.getItem('mock-task') ?? 'null')
       const writeTask = (task: unknown) => sessionStorage.setItem('mock-task', JSON.stringify(task))
       if (mode === 'resume' && !readTask())
@@ -18,13 +23,19 @@ export async function installTaskMock(page: Page, mode: 'resume' | 'new') {
           message: null,
         })
       const finished = () => sessionStorage.getItem('mock-done') === 'yes'
+      const finalState = () =>
+        sessionStorage.getItem('mock-history-cancelled') === 'yes'
+          ? 'cancelled'
+          : sessionStorage.getItem('mock-history-error')
+            ? 'failed'
+            : 'succeeded'
       const history = () => {
         const task = readTask()
         return task
           ? [
               {
                 ...task,
-                state: finished() ? 'succeeded' : 'running',
+                state: finished() ? finalState() : 'running',
                 message: finished() ? '检查完成' : null,
               },
             ]
@@ -50,6 +61,10 @@ export async function installTaskMock(page: Page, mode: 'resume' | 'new') {
               starts.push(args)
               sessionStorage.setItem('mock-starts', JSON.stringify(starts))
               if (mode === 'resume') throw new Error('Existing task must not be restarted')
+              if (mode === 'history' && args.kind === 'history') {
+                sessionStorage.removeItem('mock-done')
+                sessionStorage.removeItem('mock-history-cancelled')
+              }
               writeTask({
                 id: args.taskId,
                 kind: args.kind,
@@ -67,20 +82,31 @@ export async function installTaskMock(page: Page, mode: 'resume' | 'new') {
               return {
                 id: task.id,
                 kind: task.kind,
-                state: finished() ? 'succeeded' : 'running',
-                error: null,
-                result: finished()
-                  ? task.kind === 'status'
-                    ? snapshot
-                    : { path: task.path, scan_status: 'complete', entries: [], total_size: 0 }
-                  : null,
+                state: finished() ? finalState() : 'running',
+                error:
+                  finished() && finalState() !== 'succeeded'
+                    ? (sessionStorage.getItem('mock-history-error') ?? '任务已取消。')
+                    : null,
+                result:
+                  finished() && finalState() === 'succeeded'
+                    ? task.kind === 'status'
+                      ? snapshot
+                      : task.kind === 'history'
+                        ? moleHistory
+                        : { path: task.path, scan_status: 'complete', entries: [], total_size: 0 }
+                    : null,
               }
+            }
+            if (command === 'cancel_task') {
+              sessionStorage.setItem('mock-history-cancelled', 'yes')
+              sessionStorage.setItem('mock-done', 'yes')
+              return
             }
             throw new Error(`Unexpected test command: ${command}`)
           },
         },
       })
     },
-    { initial: demoBootstrap, snapshot: demoSnapshot, mode },
+    { initial: demoBootstrap, snapshot: demoSnapshot, mode, moleHistory },
   )
 }

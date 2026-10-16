@@ -2090,6 +2090,40 @@ input[type='checkbox'] {
   color: var(--peach-ink);
 }
 
+.mole-history {
+  padding: 20px 22px;
+  margin-bottom: 22px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.mole-history .list-toolbar {
+  padding: 0;
+  flex-wrap: wrap;
+}
+.mole-history .list-toolbar h3 {
+  margin: 0;
+}
+.mole-history-intro {
+  margin-bottom: 12px;
+}
+.mole-history-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.mole-history select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--soft);
+}
+.mole-history-path,
+.mole-history-detail {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .plan-item > .module-evidence {
   display: block;
   margin-top: 12px;

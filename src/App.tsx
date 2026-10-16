@@ -48,6 +48,7 @@ import { CleanReview } from './components/CleanReview'
 import { ReviewPlanDialog } from './components/ReviewPlanDialog'
 import { EngineSummary } from './components/EngineSummary'
 import { ExecutionHistory } from './components/ExecutionHistory'
+import { MoleHistoryView } from './components/MoleHistoryView'
 import type {
   Analysis,
   AppEntry,
@@ -61,6 +62,7 @@ import type {
   TaskRecord,
   TaskResults,
   ReviewPlan,
+  MoleHistory,
 } from './types'
 
 const navigation = [
@@ -132,6 +134,7 @@ export default function App() {
     api.desktop ? null : demoCleanPreview,
   )
   const [apps, setApps] = useState<AppEntry[] | null>(null)
+  const [moleHistory, setMoleHistory] = useState<MoleHistory | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
   const busyRef = useRef(false)
   const autoStatus = useRef(false)
@@ -249,6 +252,7 @@ export default function App() {
     if (kind === 'apps') setApps(result as AppEntry[])
     if (kind === 'cleanup') setCleanup(result as Cleanup)
     if (kind === 'clean') setCleanPreview(result as CleanPreview)
+    if (kind === 'history') setMoleHistory(result as MoleHistory)
   }
 
   async function refreshRecords(includePlans = false) {
@@ -1186,10 +1190,16 @@ export default function App() {
                 <div>
                   <div className="eyebrow">ACTIVITY LOG</div>
                   <h1>操作历史</h1>
-                  <p>每一次检查都有记录，任务中断也会如实保留。</p>
+                  <p>查看客户端任务与 Mole CLI 原始历史，分别保留来源。</p>
                 </div>
-                <span className="tag">本地保留 {data.settings.retentionDays} 天</span>
+                <span className="tag">客户端任务保留 {data.settings.retentionDays} 天</span>
               </div>
+              <MoleHistoryView
+                report={moleHistory}
+                disabled={!!busy || !api.desktop || !data.engine.available}
+                reading={busy?.kind === 'history'}
+                onRead={() => void execute('history')}
+              />
               {data.reviewPlans.length > 0 && (
                 <section className="card saved-plans" aria-label="已保存的审阅计划">
                   <div className="list-toolbar">
@@ -1227,6 +1237,9 @@ export default function App() {
                 loadDetail={api.execution}
               />
               <section className="card">
+                <div className="list-toolbar">
+                  <h2>客户端检查任务</h2>
+                </div>
                 {data.history.length ? (
                   <>
                     {data.history.map((task) => (

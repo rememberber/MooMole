@@ -8,6 +8,7 @@ mod execution;
 mod execution_sandbox;
 mod impact;
 mod instance;
+mod mole_history;
 #[cfg(test)]
 mod native_trash_tests;
 mod observation;

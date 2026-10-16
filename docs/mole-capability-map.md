@@ -75,8 +75,8 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `purge --debug`、`--help` | 全局诊断/模块说明替代；该解析分支没有 `-h` 别名 | 同上 |
 | `installer --dry-run|-n` | 安装包结构化预览待接入 | `bin/installer.sh:main` |
 | `installer --debug`、`--help|-h` | 全局诊断/模块说明替代；实际处理待受限执行协议 | 同上 |
-| `history --json --limit N`（1–200） | Mole 原始操作历史待接入；现有 SQLite 任务不冒充引擎历史 | `mole:mole_dispatch_history_early`；`bin/history.sh:main` |
-| `history --help|-h` | 来源说明/筛选界面替代，待随引擎历史接入完善 | 同上 |
+| `history --json --limit N`（1–200） | 已接入原版 JSON，固定每类最多 200 条，分批展示与搜索/筛选；会话保留 run_id/归属，删除日志独立，不与客户端执行记录混合。仅默认位置当前日志，见 [历史读取](mole-history.md) | `mole:mole_dispatch_history_early`；`bin/history.sh:main` |
+| `history --help|-h` | 已用日志来源、范围与归属说明及筛选界面替代 | 同上 |
 
 此表面向用户可调用入口，不穷举每个内部 Shell 函数、环境变量或外部工具参数。`MO_ANALYZE_PATH` 等环境变量不作为前端任意配置入口；按次管理员授权也不能绕过文件隐私权限。
 

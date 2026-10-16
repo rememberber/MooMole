@@ -1,5 +1,5 @@
 export type Page = 'overview' | 'analyze' | 'cleanup' | 'apps' | 'status' | 'history'
-export type TaskKind = 'analyze' | 'status' | 'apps' | 'cleanup' | 'clean'
+export type TaskKind = 'analyze' | 'status' | 'apps' | 'cleanup' | 'clean' | 'history'
 export type ScanState = 'complete' | 'partial' | 'unavailable'
 export interface Settings {
   theme: 'light' | 'dark' | 'system'
@@ -158,6 +158,7 @@ export interface TaskResults {
   apps: AppEntry[]
   cleanup: Cleanup
   clean: CleanPreview
+  history: MoleHistory
 }
 export interface TaskEvent {
   id: string
@@ -217,4 +218,45 @@ export interface ModuleCheck {
 export interface Provenance {
   version: number
   observations: { path: string; functions: string[]; deleteGuard: string; finalGuard: string }[]
+}
+
+export interface MoleHistory {
+  version: 1
+  revision: string
+  collectedAt: number
+  limit: number
+  operationsSource: MoleHistorySource
+  deletionsSource: MoleHistorySource
+  sessions: {
+    command: string
+    run_id: string
+    attribution: 'run' | 'command' | 'ambiguous'
+    started_at: string
+    ended_at: string
+    items: number
+    size: string
+    operation_count: number
+    failed_tasks: number
+    actions: {
+      removed: number
+      trashed: number
+      skipped: number
+      failed: number
+      rebuilt: number
+      other: number
+    }
+  }[]
+  deletions: {
+    timestamp: string
+    mode: string
+    status: string
+    size_kb: number | null
+    path: string
+  }[]
+}
+
+export interface MoleHistorySource {
+  path: string
+  state: 'ready' | 'missing' | 'unavailable'
+  reason: string | null
 }

@@ -22,6 +22,7 @@ pub enum TaskKind {
     Cleanup,
     Clean,
     Review,
+    History,
 }
 
 impl TaskKind {
@@ -33,6 +34,7 @@ impl TaskKind {
             Self::Cleanup => "cleanup",
             Self::Clean => "clean",
             Self::Review => "review",
+            Self::History => "history",
         }
     }
 }
@@ -240,6 +242,9 @@ pub async fn run(
     if job.kind == TaskKind::Cleanup {
         return inspect_cleanup(root, home, job, protected).await;
     }
+    if job.kind == TaskKind::History {
+        return crate::mole_history::run(root, home, job).await;
+    }
     // A new private directory for each run prevents stale or shared preview files.
     let scratch = if job.kind == TaskKind::Clean {
         Some(
@@ -287,7 +292,9 @@ pub async fn run(
                 .env("TERM", "dumb");
             command
         }
-        TaskKind::Cleanup | TaskKind::Review => return Err("请使用对应的专用任务入口。".into()),
+        TaskKind::Cleanup | TaskKind::Review | TaskKind::History => {
+            return Err("请使用对应的专用任务入口。".into())
+        }
     };
     command.current_dir(root);
     let bytes = output(
@@ -335,6 +342,7 @@ pub async fn run(
         TaskKind::Cleanup => false,
         TaskKind::Clean => false,
         TaskKind::Review => false,
+        TaskKind::History => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
