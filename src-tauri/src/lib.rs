@@ -7,6 +7,7 @@ mod execution;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
+mod instance;
 #[cfg(test)]
 mod native_trash_tests;
 mod observation;
@@ -31,10 +32,11 @@ use std::{
     time::Duration,
 };
 use tauri::{Emitter, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone)]
 struct AppState {
-    db: Arc<Mutex<rusqlite::Connection>>,
+    db: Arc<Mutex<db::Database>>,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     results: Arc<Mutex<tasks::Results>>,
     engine_root: PathBuf,
@@ -432,8 +434,32 @@ pub fn run() {
         .setup(|app| {
             let data = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data)?;
-            let connection =
-                db::open(&data.join("moomole.sqlite")).map_err(std::io::Error::other)?;
+            let connection = match db::open_owned(&data.join("moomole.sqlite")) {
+                Ok(connection) => connection,
+                Err(error) => {
+                    let busy = matches!(error, db::OpenError::Instance(instance::Error::Busy));
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.hide();
+                    }
+                    let handle = app.handle().clone();
+                    // DialogExt::show is nonblocking; blocking_show must not run
+                    // on Tauri's main thread. No AppState or tasks are admitted.
+                    app.dialog()
+                        .message(error.to_string())
+                        .title(if busy {
+                            "MooMole 已在运行"
+                        } else {
+                            "无法打开 MooMole 本机数据"
+                        })
+                        .kind(if busy {
+                            tauri_plugin_dialog::MessageDialogKind::Info
+                        } else {
+                            tauri_plugin_dialog::MessageDialogKind::Error
+                        })
+                        .show(move |_| handle.exit(if busy { 0 } else { 1 }));
+                    return Ok(());
+                }
+            };
             let bundled = app.path().resource_dir()?.join("mole");
             let engine_root = if bundled.join("UPSTREAM.json").is_file() {
                 bundled

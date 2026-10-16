@@ -63,7 +63,7 @@ impl Fixture {
             at,
         )
         .unwrap();
-        let db = db::open(&root.join("app.sqlite")).unwrap();
+        let db = db::open_fixture(&root.join("app.sqlite")).unwrap();
         db::save_scan(&db, &scan).unwrap();
         db::save_plan(&db, &plan).unwrap();
         Self {
@@ -125,7 +125,7 @@ fn selected_fixture_moves_persist_with_receipts_after_plan_pruning_and_restart()
     assert!(db::plans(&f.db).unwrap().is_empty());
     // Even a very old successful move retains its evidence beyond normal history.
     prune(&f.db, f.at + 100_000).unwrap();
-    f.db = db::open(&f.root.join("app.sqlite")).unwrap();
+    f.db = db::open_fixture(&f.root.join("app.sqlite")).unwrap();
     let d = detail(&f.db, &run).unwrap();
     assert_eq!(d.summary.state, "partial");
     assert_eq!(d.summary.moved_count, 1);
@@ -152,7 +152,7 @@ fn startup_reconciles_committed_intent_and_preserves_completed_receipt_idempoten
     let destination = f.root.join("recovery/second");
     // Simulate loss after an OS change but before recording its completion.
     std::fs::rename(&source, &destination).unwrap();
-    f.db = db::open(&f.root.join("app.sqlite")).unwrap();
+    f.db = db::open_fixture(&f.root.join("app.sqlite")).unwrap();
     let first = serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap();
     assert_eq!(first["state"], "interrupted");
     assert_eq!(first["items"][0]["state"], "moved");
@@ -160,7 +160,7 @@ fn startup_reconciles_committed_intent_and_preserves_completed_receipt_idempoten
     assert_eq!(first["uncertainCount"], 1);
     assert!(destination.is_file());
     assert!(!source.exists()); // Reconciliation performs no target IO/replay.
-    f.db = db::open(&f.root.join("app.sqlite")).unwrap();
+    f.db = db::open_fixture(&f.root.join("app.sqlite")).unwrap();
     assert_eq!(
         serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap(),
         first
@@ -390,4 +390,29 @@ fn invalid_inputs_capacity_retention_and_snapshot_corruption_fail_closed() {
     }
     next.id = uuid::Uuid::new_v4().to_string();
     assert!(begin(&mut f.db, &next, f.at).unwrap_err().contains("容量"));
+}
+
+#[test]
+fn second_owned_startup_cannot_reconcile_a_live_execution_intent() {
+    let f = Fixture::new();
+    let path = f.root.join("app.sqlite");
+    let mut owner = db::open_owned(&path).unwrap();
+    let run = begin(&mut owner, &f.plan, f.at).unwrap();
+    intent(&mut owner, &run, &f.item(0), f.at + 1).unwrap();
+    assert!(matches!(
+        db::open_owned(&path),
+        Err(db::OpenError::Instance(crate::instance::Error::Busy))
+    ));
+    let live = detail(&owner, &run).unwrap();
+    assert_eq!(live.summary.state, "running");
+    assert_eq!(live.items[0].state, "intent");
+    assert_eq!(live.items[1].state, "pending");
+    drop(owner);
+    let next = db::open_owned(&path).unwrap();
+    let recovered = detail(&next, &run).unwrap();
+    assert_eq!(recovered.summary.state, "interrupted");
+    assert_eq!(recovered.items[0].state, "uncertain");
+    assert_eq!(recovered.items[1].state, "notStarted");
+    assert!(f.root.join("source/second").is_file());
+    assert!(f.root.join("source/中文\ncache *").is_file());
 }

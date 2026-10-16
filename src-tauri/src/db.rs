@@ -2,6 +2,52 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+// Field order matters: close SQLite before releasing directory ownership.
+// AppState clones hold the whole handle, including during task shutdown.
+#[derive(Debug)]
+pub struct Database {
+    connection: Connection,
+    _owner: crate::instance::Lease,
+}
+impl std::ops::Deref for Database {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        &self.connection
+    }
+}
+impl std::ops::DerefMut for Database {
+    fn deref_mut(&mut self) -> &mut Connection {
+        &mut self.connection
+    }
+}
+
+#[derive(Debug)]
+pub enum OpenError {
+    Instance(crate::instance::Error),
+    Database(String),
+}
+impl std::fmt::Display for OpenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Instance(error) => error.fmt(f),
+            Self::Database(error) => f.write_str(error),
+        }
+    }
+}
+
+pub fn open_owned(path: &Path) -> Result<Database, OpenError> {
+    let directory = path
+        .parent()
+        .filter(|p| p.is_absolute())
+        .ok_or_else(|| OpenError::Database("应用数据路径必须是绝对路径。".into()))?;
+    let owner = crate::instance::acquire(directory).map_err(OpenError::Instance)?;
+    let connection = open(path).map_err(OpenError::Database)?;
+    Ok(Database {
+        connection,
+        _owner: owner,
+    })
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
@@ -41,7 +87,9 @@ pub fn now() -> i64 {
         .as_millis() as i64
 }
 
-pub fn open(path: &Path) -> Result<Connection, String> {
+// Raw initialization is private: production callers must own the data directory
+// BEFORE opening SQLite, backing up, migrating, reconciling or pruning records.
+fn open(path: &Path) -> Result<Connection, String> {
     let mut connection = Connection::open(path).map_err(|e| e.to_string())?;
     connection
         .busy_timeout(std::time::Duration::from_secs(5))
@@ -102,6 +150,13 @@ pub fn open(path: &Path) -> Result<Connection, String> {
     connection.execute("UPDATE tasks SET state = 'interrupted', finished_at = ?1, message = '应用退出，任务未完成；需要重新检查。' WHERE state IN ('queued', 'running')", [now()]).map_err(|e| e.to_string())?;
     prune(&connection, settings(&connection)?.retention_days)?;
     Ok(connection)
+}
+
+// Fault-injection and independent-connection fixtures deliberately bypass the
+// application instance boundary. This API is absent from production builds.
+#[cfg(test)]
+pub(crate) fn open_fixture(path: &Path) -> Result<Connection, String> {
+    open(path)
 }
 
 pub fn settings(connection: &Connection) -> Result<Settings, String> {
@@ -507,6 +562,68 @@ mod tests {
             10
         );
     }
+    #[test]
+    fn owned_startup_refuses_before_open_and_releases_on_initialization_error() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("app.sqlite");
+        let owner = crate::instance::acquire(directory.path()).unwrap();
+        assert!(matches!(
+            open_owned(&path),
+            Err(OpenError::Instance(crate::instance::Error::Busy))
+        ));
+        assert!(!path.exists(), "busy startup must not even create SQLite");
+        drop(owner);
+        let future = Connection::open(&path).unwrap();
+        future.pragma_update(None, "user_version", 99).unwrap();
+        drop(future);
+        assert!(
+            matches!(open_owned(&path), Err(OpenError::Database(message)) if message.contains("新版"))
+        );
+        let next = crate::instance::acquire(directory.path())
+            .expect("failed SQLite initialization must release ownership");
+        assert!(open_owned(Path::new("relative.sqlite")).is_err());
+        drop(next);
+    }
+
+    #[test]
+    fn shared_database_handle_keeps_live_tasks_owned_until_all_workers_drop() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("app.sqlite");
+        let app = std::sync::Arc::new(std::sync::Mutex::new(open_owned(&path).unwrap()));
+        {
+            let db = app.lock().unwrap();
+            start(&db, "running", "clean", None).unwrap();
+            start(&db, "completed", "status", None).unwrap();
+            finish(&db, "completed", "succeeded", "done").unwrap();
+        }
+        let worker = app.clone();
+        drop(app);
+        assert!(matches!(
+            open_owned(&path),
+            Err(OpenError::Instance(crate::instance::Error::Busy))
+        ));
+        assert_eq!(
+            history(&worker.lock().unwrap())
+                .unwrap()
+                .iter()
+                .find(|t| t.id == "running")
+                .unwrap()
+                .state,
+            "running"
+        );
+        drop(worker);
+        let next = open_owned(&path).unwrap();
+        let tasks = history(&next).unwrap();
+        assert_eq!(
+            tasks.iter().find(|t| t.id == "running").unwrap().state,
+            "interrupted"
+        );
+        assert_eq!(
+            tasks.iter().find(|t| t.id == "completed").unwrap().state,
+            "succeeded"
+        );
+    }
+
     #[test]
     fn restart_recovers_running_tasks_without_changing_completed_tasks() {
         let directory = tempfile::tempdir().unwrap();
