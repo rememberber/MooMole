@@ -8,6 +8,7 @@ import {
   downloadUpdate,
   cancelUpdateDownload,
   revealUpdateDownload,
+  installUpdate,
 } from '../lib/api'
 import { bytes } from '../lib/format'
 import type { UpdateCheckResult, UpdateSnapshot } from '../types'
@@ -20,13 +21,17 @@ const idle: UpdateSnapshot['download'] = {
   error: null,
 }
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error))
-export function UpdateCheck() {
+export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const [result, setResult] = useState<UpdateCheckResult | null>(null)
   const [download, setDownload] = useState(idle)
   const [pending, setPending] = useState(false)
-  const [action, setAction] = useState(false)
+  const [action, setAction] = useState<'download' | 'cancel' | 'reveal' | 'install' | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const [confirmInstall, setConfirmInstall] = useState(false)
+  const acting = useRef(false)
   const [error, setError] = useState('')
   const [openError, setOpenError] = useState('')
+  const [installError, setInstallError] = useState<string | null>(null)
   const [observationError, setObservationError] = useState('')
   const [loaded, setLoaded] = useState(!desktop)
   const active = useRef(true)
@@ -35,6 +40,9 @@ export function UpdateCheck() {
   function apply(snapshot: UpdateSnapshot) {
     setResult(snapshot.check)
     setDownload(snapshot.download)
+    setInstalling(snapshot.installing)
+    setInstallError(snapshot.installError)
+    if (snapshot.download.state !== 'ready') setConfirmInstall(false)
     setLoaded(true)
     setObservationError('')
   }
@@ -60,12 +68,16 @@ export function UpdateCheck() {
     }
   }, [])
   const running = ['downloading', 'verifying', 'cancelling'].includes(download.state)
+  const preparing = installing || action === 'install'
   async function check() {
-    if (checking.current) return
+    if (checking.current || acting.current || preparing) return
+    setConfirmInstall(false)
     checking.current = true
     generation.current += 1
     setPending(true)
     setError('')
+    setOpenError('')
+    setInstallError(null)
     setResult(null)
     setDownload(idle)
     try {
@@ -78,9 +90,12 @@ export function UpdateCheck() {
       if (active.current) setPending(false)
     }
   }
-  async function perform(kind: 'download' | 'cancel' | 'reveal') {
+  async function perform(kind: 'download' | 'cancel' | 'reveal' | 'install') {
+    if (acting.current) return
+    acting.current = true
+    setConfirmInstall(false)
     generation.current += 1
-    setAction(true)
+    setAction(kind)
     setOpenError('')
     try {
       if (kind === 'download') {
@@ -89,40 +104,48 @@ export function UpdateCheck() {
       } else if (kind === 'cancel') {
         await cancelUpdateDownload()
         if (active.current) setDownload((previous) => ({ ...previous, state: 'cancelling' }))
-      } else await revealUpdateDownload()
+      } else if (kind === 'install') await installUpdate()
+      else await revealUpdateDownload()
     } catch (error) {
-      if (active.current) setOpenError(errorText(error))
+      if (active.current) {
+        setOpenError(errorText(error))
+        if (kind === 'install') setInstalling(false)
+      }
     } finally {
-      if (active.current) setAction(false)
+      acting.current = false
+      if (active.current) setAction(null)
     }
   }
+  const operationError = download.error || openError || installError
   const message = pending
     ? '正在检查更新…'
     : observationError
       ? '更新状态尚未确认'
       : !loaded
         ? '正在读取更新状态…'
-        : download.state === 'downloading'
-          ? '正在下载更新包'
-          : download.state === 'verifying'
-            ? '正在校验已保存的更新包…'
-            : download.state === 'cancelling'
-              ? '正在取消并清理临时文件…'
-              : download.state === 'ready'
-                ? '更新包已下载并校验'
-                : download.state === 'cancelled'
-                  ? '下载已取消'
-                  : download.state === 'failed'
-                    ? '下载未完成'
-                    : result?.status === 'available'
-                      ? `发现新版本 ${result.latestVersion}`
-                      : result?.status === 'current'
-                        ? '当前版本无需更新'
-                        : result?.status === 'unpublished'
-                          ? '尚未发布可检查的版本'
-                          : desktop
-                            ? '手动检查 MooMole 客户端更新'
-                            : '请在桌面 App 中检查更新'
+        : preparing
+          ? '正在复核并打开安装包…'
+          : download.state === 'downloading'
+            ? '正在下载更新包'
+            : download.state === 'verifying'
+              ? '正在校验已保存的更新包…'
+              : download.state === 'cancelling'
+                ? '正在取消并清理临时文件…'
+                : download.state === 'ready'
+                  ? '更新包已下载并校验'
+                  : download.state === 'cancelled'
+                    ? '下载已取消'
+                    : download.state === 'failed'
+                      ? '下载未完成'
+                      : result?.status === 'available'
+                        ? `发现新版本 ${result.latestVersion}`
+                        : result?.status === 'current'
+                          ? '当前版本无需更新'
+                          : result?.status === 'unpublished'
+                            ? '尚未发布可检查的版本'
+                            : desktop
+                              ? '手动检查 MooMole 客户端更新'
+                              : '请在桌面 App 中检查更新'
   return (
     <section className="setting-group update-check" aria-label="MooMole 更新">
       <div className="setting-row">
@@ -139,7 +162,7 @@ export function UpdateCheck() {
         </span>
         <button
           className="button secondary"
-          disabled={!desktop || !loaded || pending || running || action}
+          disabled={!desktop || !loaded || pending || running || !!action || preparing}
           onClick={() => void check()}
         >
           <RefreshCw size={14} />
@@ -151,19 +174,14 @@ export function UpdateCheck() {
           {error}
         </p>
       )}
-      {openError && openError !== download.error && (
+      {operationError && (
         <p className="error-text" role="alert">
-          {openError}
+          {operationError}
         </p>
       )}
       {observationError && (
         <p className="error-text" role="alert">
           {observationError}
-        </p>
-      )}
-      {download.error && (
-        <p className="error-text" role="alert">
-          {download.error}
         </p>
       )}
       {download.fileName && <p className="muted update-file">{download.fileName}</p>}
@@ -179,7 +197,7 @@ export function UpdateCheck() {
           </p>
           <button
             className="button secondary"
-            disabled={action || download.state === 'cancelling'}
+            disabled={!!action || download.state === 'cancelling'}
             onClick={() => void perform('cancel')}
           >
             取消下载
@@ -191,23 +209,57 @@ export function UpdateCheck() {
         <>
           {download.state === 'ready' ? (
             <>
-              <p className="muted">
-                请在 Finder 中打开 DMG，手动将应用拖入“应用程序”。首次打开请按系统提示确认。
-              </p>
-              <button
-                className="button secondary"
-                disabled={action || !!observationError}
-                onClick={() => void perform('reveal')}
-              >
-                {action ? '正在复核文件…' : '在 Finder 中查看'}
-              </button>
+              {confirmInstall ? (
+                <div role="group" aria-label="确认安装更新">
+                  <p className="muted">
+                    即将打开安装包并退出 MooMole。设置与历史会保留，请按系统提示手动替换应用。
+                  </p>
+                  <div className="update-actions">
+                    <button
+                      className="button primary"
+                      disabled={!!action || preparing || saving || !!observationError}
+                      onClick={() => void perform('install')}
+                    >
+                      打开并退出
+                    </button>
+                    <button className="button secondary" onClick={() => setConfirmInstall(false)}>
+                      暂不安装
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="muted">
+                    安装时打开 DMG 并退出 MooMole，再由你手动将应用拖入“应用程序”替换。
+                  </p>
+                  <div className="update-actions">
+                    <button
+                      className="button primary"
+                      disabled={!!action || preparing || saving || !!observationError}
+                      onClick={() => {
+                        setOpenError('')
+                        setConfirmInstall(true)
+                      }}
+                    >
+                      {preparing ? '正在准备安装…' : '打开 DMG 安装'}
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={!!action || preparing || !!observationError}
+                      onClick={() => void perform('reveal')}
+                    >
+                      {action === 'reveal' ? '正在复核文件…' : '在 Finder 中查看'}
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : !running && result.asset ? (
             <>
               <p className="muted">下载后校验大小和 SHA-512，再由你手动安装。</p>
               <button
                 className="button secondary"
-                disabled={action || !!observationError || !loaded}
+                disabled={!!action || preparing || !!observationError || !loaded}
                 onClick={() => void perform('download')}
               >
                 {download.state === 'failed' ? '重新下载' : '下载更新包'}

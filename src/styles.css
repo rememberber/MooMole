@@ -1819,6 +1819,17 @@ select {
 .update-check .setting-row > button {
   flex-shrink: 0;
 }
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.update-check [aria-label='确认安装更新'] > p {
+  font-size: 11px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
 .update-notes {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

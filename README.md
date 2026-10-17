@@ -44,7 +44,7 @@ Mole CLI 的非官方 macOS 可视化客户端学习项目，在 CLI 能力之�
 
 客户端保护列表会禁止勾选与保护目录重叠的清理项目，并跳过补充的开发缓存检查；完整 dry-run 继续遵循 Mole 自有白名单，客户端不改写它。未保存的勾选在离开页面后清空；可另存审阅计划，但元数据复核通过仍不代表可执行。后续实际清理接口必须在执行端统一验证两者的保护约束。
 
-正式发行按无付费 Apple 开发者证书方案推进：架构专用 DMG、ad-hoc 签名、GitHub Releases 下载，用户打开 DMG 手动替换 App。该流程参考 MooTool Electron，仍由 Tauri/Rust 实现。首次打开可能需要用户按 macOS 提示确认，Developer ID 和公证不作为发布前提。设置 → 关于支持手动检查、下载、进度、取消和大小/SHA-512 校验，完成后可在 Finder 查看；专属更新缓存会自动清理过期包并保护当前下载和待安装文件；直接打开安装及重启恢复仍待完成，详见 [更新检查](docs/update-check.md) 与 [安装升级方案](docs/distribution.md)。
+正式发行按无付费 Apple 开发者证书方案推进：架构专用 DMG、ad-hoc 签名、GitHub Releases 下载，用户打开 DMG 手动替换 App。该流程参考 MooTool Electron，仍由 Tauri/Rust 实现。首次打开可能需要用户按 macOS 提示确认，Developer ID 和公证不作为发布前提。设置 → 关于支持手动检查、下载、进度、取消和大小/SHA-512 校验，完成后可打开 DMG 安装或在 Finder 查看；确认打开并退出后，后台任务与数据保存检查通过才请求系统打开并退出，由用户手动替换 App。专属更新缓存会自动清理过期包并保护当前下载和待安装文件；重启恢复及真实安装升级验收仍待完成，详见 [更新检查](docs/update-check.md) 与 [安装升级方案](docs/distribution.md)。
 
 ## 环境
 

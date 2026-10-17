@@ -54,6 +54,7 @@ export const updateSnapshot = (): Promise<UpdateSnapshot> => invoke('get_update_
 export const downloadUpdate = (): Promise<UpdateSnapshot> => invoke('download_update')
 export const cancelUpdateDownload = (): Promise<void> => invoke('cancel_update_download')
 export const revealUpdateDownload = (): Promise<void> => invoke('reveal_update_download')
+export const installUpdate = (): Promise<void> => invoke('install_update')
 export const openUpdateReleases = (): Promise<void> =>
   desktop
     ? invoke('open_update_releases')

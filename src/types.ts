@@ -315,6 +315,8 @@ export interface UpdateCheckResult {
   } | null
 }
 export interface UpdateSnapshot {
+  installing: boolean
+  installError: string | null
   check: UpdateCheckResult | null
   download: {
     state: 'idle' | 'downloading' | 'verifying' | 'cancelling' | 'cancelled' | 'failed' | 'ready'

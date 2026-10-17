@@ -21,6 +21,7 @@ mod rules;
 mod tasks;
 mod tree;
 mod update_download;
+mod update_install;
 mod update_quarantine;
 mod updates;
 
@@ -95,6 +96,7 @@ fn save_settings(
     settings: Settings,
     state: tauri::State<'_, AppState>,
 ) -> Result<Settings, String> {
+    let _operation = state.updates.installation.enter()?;
     let mut settings = settings;
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let previous = db::settings(&db)?;
@@ -124,7 +126,12 @@ fn prepare_task_diagnostic(
 }
 
 #[tauri::command]
-async fn save_task_diagnostic(report: String, app: tauri::AppHandle) -> Result<bool, String> {
+async fn save_task_diagnostic(
+    report: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    let operation = state.updates.installation.enter()?;
     diagnostics::validate(&report)?;
     let (sender, receiver) = tokio::sync::oneshot::channel();
     app.dialog()
@@ -139,9 +146,12 @@ async fn save_task_diagnostic(report: String, app: tauri::AppHandle) -> Result<b
         return Ok(false);
     };
     let path = path.into_path().map_err(|_| "请选择本机文件路径。")?;
-    tauri::async_runtime::spawn_blocking(move || diagnostics::save(&path, &report))
-        .await
-        .map_err(|e| e.to_string())??;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = operation;
+        diagnostics::save(&path, &report)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     Ok(true)
 }
 
@@ -200,6 +210,7 @@ fn start_task(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let operation = state.updates.installation.enter()?;
     if kind == TaskKind::Review {
         return Err("请从审阅计划启动规则复查。".into());
     }
@@ -236,6 +247,7 @@ fn start_task(
     drop(db);
     let state = state.inner().clone();
     tauri::async_runtime::spawn(async move {
+        let _operation = operation;
         let result = engine::run(
             &state.engine_root,
             &state.home,
@@ -322,8 +334,10 @@ async fn create_review_plan(
     selected_ids: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<review::PlanView, String> {
+    let operation = state.updates.installation.enter()?;
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _operation = operation;
         let (scan, settings) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             (db::scan(&db, &scan_id)?, db::settings(&db)?)
@@ -363,6 +377,7 @@ async fn check_review_rules(
     request_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<review::PlanView, String> {
+    let _operation = state.updates.installation.enter()?;
     uuid::Uuid::parse_str(&request_id).map_err(|_| "复查任务 ID 无效。")?;
     let state = state.inner().clone();
     let job = Arc::new(Job::new(TaskKind::Review));
@@ -482,6 +497,7 @@ async fn open_official() -> Result<(), String> {
 
 #[tauri::command]
 async fn check_updates(state: tauri::State<'_, AppState>) -> Result<updates::Check, String> {
+    let _operation = state.updates.installation.enter()?;
     state.updates.check().await
 }
 
@@ -494,6 +510,7 @@ fn download_update(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<updates::Snapshot, String> {
+    let _operation = state.updates.installation.enter()?;
     let root = app
         .path()
         .app_cache_dir()
@@ -507,6 +524,7 @@ fn cancel_update_download(state: tauri::State<'_, AppState>) -> Result<(), Strin
 }
 #[tauri::command]
 async fn reveal_update_download(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let _operation = state.updates.installation.enter()?;
     let path = state.updates.ready_path().await?;
     let mut command = tokio::process::Command::new("/usr/bin/open");
     command.args(["-R", "--"]).arg(path).kill_on_drop(true);
@@ -519,6 +537,34 @@ async fn reveal_update_download(state: tauri::State<'_, AppState>) -> Result<(),
     } else {
         Err("无法打开 Finder，请重试。".into())
     }
+}
+
+#[tauri::command]
+async fn install_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let state = state.inner().clone();
+    // Remains owned by the backend even if the settings panel is closed.
+    tauri::async_runtime::spawn(async move {
+        state
+            .updates
+            .install(
+                || async {
+                    tauri::async_runtime::spawn_blocking(move || {
+                        let db = state.db.lock().map_err(|_| "无法确认本机数据保存状态。")?;
+                        update_install::prepare_data(&db)
+                    })
+                    .await
+                    .map_err(|_| "本机数据保存检查未完成。")?
+                },
+                update_install::open_dmg,
+                || app.exit(0),
+            )
+            .await
+    })
+    .await
+    .map_err(|_| "安装准备未完成，应用保持运行。")?
 }
 
 #[tauri::command]
@@ -621,6 +667,7 @@ pub fn run() {
             download_update,
             cancel_update_download,
             reveal_update_download,
+            install_update,
             open_update_releases
         ])
         .build(tauri::generate_context!())

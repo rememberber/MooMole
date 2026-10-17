@@ -28,6 +28,7 @@ impl Drop for Reset<'_> {
 
 #[derive(Default)]
 pub struct Checker {
+    pub installation: Arc<crate::update_install::Gate>,
     busy: AtomicBool,
     maintaining: AtomicBool,
     session: Mutex<Session>,
@@ -41,6 +42,7 @@ struct Session {
     control: Option<Arc<Control>>,
     ready: Option<Ready>,
     closing: bool,
+    install_error: Option<String>,
 }
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +56,8 @@ pub struct Download {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    installing: bool,
+    install_error: Option<String>,
     check: Option<Check>,
     download: Download,
 }
@@ -299,7 +303,7 @@ impl Checker {
         let _busy = Reset(&self.busy);
         let protected = {
             let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
-            if s.closing || s.control.is_some() {
+            if s.closing || s.control.is_some() || self.installation.active() {
                 return Ok(());
             }
             self.maintaining.store(true, Ordering::SeqCst);
@@ -318,6 +322,8 @@ impl Checker {
             download.state = "idle";
         }
         Ok(Snapshot {
+            installing: self.installation.active(),
+            install_error: s.install_error.clone(),
             check: s.check.clone(),
             download,
         })
@@ -341,6 +347,7 @@ impl Checker {
             .and_then(|c| c.asset.clone())
             .ok_or("请先检查更新，确认有匹配的安装包。")?;
         let control = Arc::new(Control::default());
+        s.install_error = None;
         s.download = Download {
             state: "downloading",
             file_name: Some(asset.file_name.clone()),
@@ -432,17 +439,24 @@ impl Checker {
                 .unwrap_or(true)
     }
     pub async fn ready_path(self: &Arc<Self>) -> Result<std::path::PathBuf, String> {
+        self.with_ready(|path| async { Ok(path) }).await
+    }
+    async fn with_ready<T, F, Fut>(self: &Arc<Self>, use_file: F) -> Result<T, String>
+    where
+        F: FnOnce(std::path::PathBuf) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
         if self.busy.swap(true, Ordering::SeqCst) {
-            return Err("已有更新操作正在进行。".into());
+            return Err("已有更新操作正在进行，请稍候。".into());
         }
         let _reset = Reset(&self.busy);
-        let ready = self
-            .session
-            .lock()
-            .map_err(|_| "无法读取更新状态。")?
-            .ready
-            .clone()
-            .ok_or("没有已验证的更新包。")?;
+        let ready = {
+            let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if s.closing || s.control.is_some() {
+                return Err("应用正在退出或下载尚未结束。".into());
+            }
+            s.ready.clone().ok_or("没有已验证的更新包。")?
+        };
         let result = tokio::task::spawn_blocking(move || ready.verified_path())
             .await
             .map_err(|_| "更新文件复核未完成。")?;
@@ -452,11 +466,71 @@ impl Checker {
             s.download.state = "failed";
             s.download.error = Some("更新文件已变化，请重新下载。".into());
         }
+        let path = result?;
+        if self
+            .session
+            .lock()
+            .map_err(|_| "无法读取更新状态。")?
+            .closing
+        {
+            return Err("应用正在退出，已停止安装准备。".into());
+        }
+        use_file(path).await
+    }
+    pub async fn install<P, PF, O, OF, E>(
+        self: &Arc<Self>,
+        prepare: P,
+        open: O,
+        exit: E,
+    ) -> Result<(), String>
+    where
+        P: FnOnce() -> PF,
+        PF: std::future::Future<Output = Result<(), String>>,
+        O: FnOnce(std::path::PathBuf) -> OF,
+        OF: std::future::Future<Output = Result<(), String>>,
+        E: FnOnce(),
+    {
+        let installation = match self.installation.begin() {
+            Ok(installation) => installation,
+            Err(error) => {
+                // A rejected duplicate must not overwrite the running attempt.
+                if !self.installation.active() {
+                    if let Ok(mut s) = self.session.lock() {
+                        s.install_error = Some(error.clone());
+                    }
+                }
+                return Err(error);
+            }
+        };
+        let result = async {
+            {
+                let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+                s.install_error = None;
+                if s.closing || s.control.is_some() || s.ready.is_none() {
+                    return Err("没有可安装的已验证更新包。".into());
+                }
+            }
+            prepare().await?;
+            self.with_ready(|path| async move {
+                open(path).await?;
+                installation.commit();
+                self.shutdown();
+                exit();
+                Ok(())
+            })
+            .await
+        }
+        .await;
+        if let Err(error) = &result {
+            if let Ok(mut s) = self.session.lock() {
+                s.install_error = Some(error.clone());
+            }
+        }
         result
     }
     pub async fn check(&self) -> Result<Check, String> {
         if self.busy.swap(true, Ordering::SeqCst) {
-            return Err("正在检查更新，请稍候。".into());
+            return Err("已有更新操作正在进行，请稍候。".into());
         }
         let _reset = Reset(&self.busy);
         {
@@ -464,6 +538,7 @@ impl Checker {
             if s.closing || s.control.is_some() {
                 return Err("请等待当前下载结束，或先取消下载。".into());
             }
+            s.install_error = None;
             s.check = None;
             s.checked_at = None;
             s.ready = None;
@@ -511,6 +586,184 @@ mod tests {
     }
     fn parse(value: Value, current: &str, arch: &str) -> Result<Check, String> {
         select(&serde_json::to_vec(&value).unwrap(), current, arch)
+    }
+
+    async fn installer() -> (tempfile::TempDir, Arc<Checker>, std::path::PathBuf) {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let path = ready.verified_path().unwrap();
+        let checker = Arc::new(Checker::default());
+        {
+            let mut s = checker.session.lock().unwrap();
+            s.download.state = "ready";
+            s.ready = Some(ready);
+        }
+        (temp, checker, path)
+    }
+    #[tokio::test]
+    async fn installation_opens_only_after_data_and_file_checks_then_closes_admission_before_exit()
+    {
+        let (_temp, checker, path) = installer().await;
+        let order = Mutex::new(Vec::new());
+        checker
+            .install(
+                || async {
+                    order.lock().unwrap().push("saved");
+                    Ok(())
+                },
+                |actual| {
+                    assert_eq!(actual, path);
+                    async {
+                        assert!(checker.snapshot().unwrap().installing);
+                        assert!(checker.installation.enter().is_err());
+                        assert!(checker.ready_path().await.is_err());
+                        assert!(checker.check().await.is_err());
+                        order.lock().unwrap().push("open");
+                        Ok(())
+                    }
+                },
+                || {
+                    assert!(checker.session.lock().unwrap().closing);
+                    assert!(checker.installation.enter().is_err());
+                    order.lock().unwrap().push("exit");
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(*order.lock().unwrap(), vec!["saved", "open", "exit"]);
+        assert!(path.is_file());
+        assert!(checker.snapshot().unwrap().installing);
+        assert!(checker.installation.enter().is_err());
+    }
+    #[tokio::test]
+    async fn installation_refuses_active_work_missing_package_and_failed_save_without_opening_or_exit(
+    ) {
+        let (_temp, checker, _path) = installer().await;
+        let held = checker.installation.enter().unwrap();
+        assert!(checker
+            .install(
+                || async { panic!("prepare while busy") },
+                |_| async { panic!("open") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
+        assert!(checker
+            .snapshot()
+            .unwrap()
+            .install_error
+            .unwrap()
+            .contains("检查"));
+        drop(held);
+        assert!(checker
+            .install(
+                || async { Err("save fixture failed".into()) },
+                |_| async { panic!("open") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
+        assert!(checker.session.lock().unwrap().ready.is_some());
+        assert!(!checker.session.lock().unwrap().closing);
+        assert_eq!(
+            checker.snapshot().unwrap().install_error.as_deref(),
+            Some("save fixture failed")
+        );
+        assert!(checker.installation.enter().is_ok());
+        let empty = Arc::new(Checker::default());
+        assert!(empty
+            .install(
+                || async { panic!("prepare without a package") },
+                |_| async { panic!("open") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
+    }
+    #[tokio::test]
+    async fn installation_survives_observer_loss_rejects_duplicates_and_retries_open_failure() {
+        let (_temp, checker, path) = installer().await;
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        let worker = checker.clone();
+        let signal = entered.clone();
+        let wait = release.clone();
+        let (completed, outcome) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            let result = worker
+                .install(
+                    || async { Ok(()) },
+                    |_| async {
+                        signal.notify_one();
+                        wait.notified().await;
+                        Err("open fixture failed".into())
+                    },
+                    || panic!("exit on failure"),
+                )
+                .await;
+            let _ = completed.send(result);
+        });
+        entered.notified().await;
+        drop(task); // Losing the UI observer does not abort the owned backend task.
+        assert!(checker.snapshot().unwrap().installing);
+        assert!(checker.installation.enter().is_err());
+        assert!(checker
+            .install(
+                || async { panic!("duplicate prepare") },
+                |_| async { panic!("open") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
+        release.notify_one();
+        assert!(outcome.await.unwrap().is_err());
+        assert!(!checker.snapshot().unwrap().installing);
+        assert_eq!(
+            checker.snapshot().unwrap().install_error.as_deref(),
+            Some("open fixture failed")
+        );
+        assert!(!checker.session.lock().unwrap().closing);
+        assert_eq!(checker.ready_path().await.unwrap(), path);
+        let exited = AtomicBool::new(false);
+        checker
+            .install(
+                || async { Ok(()) },
+                |_| async { Ok(()) },
+                || {
+                    exited.store(true, Ordering::SeqCst);
+                },
+            )
+            .await
+            .unwrap();
+        assert!(exited.load(Ordering::SeqCst));
+        assert!(checker.snapshot().unwrap().install_error.is_none());
+    }
+    #[tokio::test]
+    async fn installation_invalidates_tampered_file_and_respects_shutdown_before_open() {
+        let (_temp, checker, path) = installer().await;
+        std::fs::write(path, b"tampered installer fixture").unwrap();
+        assert!(checker
+            .install(
+                || async { Ok(()) },
+                |_| async { panic!("open a changed file") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
+        assert!(checker.session.lock().unwrap().ready.is_none());
+        assert_eq!(checker.snapshot().unwrap().download.state, "failed");
+        assert!(checker.installation.enter().is_ok());
+        let (_temp, checker, _) = installer().await;
+        assert!(checker
+            .install(
+                || async {
+                    checker.shutdown();
+                    Ok(())
+                },
+                |_| async { panic!("open after shutdown") },
+                || panic!("exit")
+            )
+            .await
+            .is_err());
     }
 
     #[test]

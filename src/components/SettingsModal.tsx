@@ -168,7 +168,7 @@ export function SettingsModal({
                 <p className="muted">{appVersion} · 学习研究版</p>
               </div>
             </div>
-            <UpdateCheck />
+            <UpdateCheck saving={pending} />
             <div className="setting-group about-copy">
               <p>
                 本项目仅供学习和研究使用，是独立的非官方项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。

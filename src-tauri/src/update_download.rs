@@ -401,7 +401,7 @@ async fn transfer(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::{
         io::{Read, Write},
@@ -472,6 +472,21 @@ mod tests {
         let result = transfer(&http(), &url, a, cache, control, |_, _| {}).await;
         task.join().unwrap();
         result
+    }
+    pub(crate) async fn installation_fixture() -> (tempfile::TempDir, Ready) {
+        let temp = tempfile::tempdir().unwrap();
+        let cache = Cache::open(&temp.path().join("cache")).unwrap();
+        let body = b"isolated installer fixture".to_vec();
+        let ready = receive(
+            body.clone(),
+            asset(&body),
+            cache,
+            Arc::new(Control::default()),
+            None,
+        )
+        .await
+        .unwrap();
+        (temp, ready)
     }
     #[tokio::test]
     async fn download_roundtrip_retains_private_permissions_quarantine_and_rechecks_changed_file() {

@@ -13,6 +13,12 @@ async function setup(page: Page) {
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
     internal.invoke = async (command, args) => {
+      if (command === 'save_settings') {
+        sessionStorage.setItem('update-save-started', 'yes')
+        while (sessionStorage.getItem('update-save-pending'))
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        return args?.settings
+      }
       if (command === 'check_updates') {
         sessionStorage.setItem(
           'update-checks',
@@ -30,6 +36,8 @@ async function setup(page: Page) {
       if (command === 'get_update_snapshot') {
         if (sessionStorage.getItem('update-snapshot-error')) throw new Error('state unavailable')
         return {
+          installing: sessionStorage.getItem('update-installing') === 'yes',
+          installError: sessionStorage.getItem('update-install-error'),
           check: JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null'),
           download: JSON.parse(
             sessionStorage.getItem('update-download') ??
@@ -66,6 +74,37 @@ async function setup(page: Page) {
           sessionStorage.setItem('update-download', JSON.stringify(download))
           throw new Error('更新文件已变化，请重新下载。')
         }
+        return
+      }
+      if (command === 'install_update') {
+        sessionStorage.setItem('install-update-args', JSON.stringify(args))
+        sessionStorage.setItem(
+          'install-calls',
+          String(Number(sessionStorage.getItem('install-calls') ?? 0) + 1),
+        )
+        sessionStorage.setItem('update-installing', 'yes')
+        sessionStorage.removeItem('update-install-error')
+        while (sessionStorage.getItem('install-mode') === 'pending')
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        const mode = sessionStorage.getItem('install-mode')
+        if (mode === 'busy' || mode === 'error' || mode === 'changed') {
+          const message =
+            mode === 'busy'
+              ? '还有检查或数据保存正在进行，请等待完成或先取消任务，再安装。'
+              : mode === 'changed'
+                ? '更新文件已变化，请重新下载。'
+                : '无法打开安装包，应用保持运行；请重试。'
+          sessionStorage.removeItem('update-installing')
+          sessionStorage.setItem('update-install-error', message)
+          if (mode === 'changed') {
+            const download = JSON.parse(sessionStorage.getItem('update-download')!)
+            download.state = 'failed'
+            download.error = message
+            sessionStorage.setItem('update-download', JSON.stringify(download))
+          }
+          throw new Error(message)
+        }
+        sessionStorage.setItem('update-exit-requested', 'yes')
         return
       }
       if (command === 'open_update_releases') {
@@ -314,4 +353,127 @@ test('download progress survives closing settings, cancellation waits for confir
     0,
   )
   expect(await page.evaluate(() => sessionStorage.getItem('cancel-download-args'))).toBe('{}')
+})
+
+async function readyUpdate(page: Page) {
+  const updates = await setup(page)
+  await page.evaluate(
+    (result) => {
+      sessionStorage.setItem('update-cached-check', JSON.stringify(result))
+      sessionStorage.setItem(
+        'update-download',
+        JSON.stringify({
+          state: 'ready',
+          fileName: 'MooMole-0.2.0-mac-arm64.dmg',
+          transferred: 1000,
+          total: 1000,
+          error: null,
+        }),
+      )
+    },
+    {
+      ...base,
+      status: 'available',
+      latestVersion: '0.2.0',
+      asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+    },
+  )
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeVisible()
+  return updates
+}
+
+test('install requires explicit open-and-quit confirmation, retains ready package on active work or open failure and retries', async ({
+  page,
+}) => {
+  const updates = await readyUpdate(page)
+  await updates.getByRole('button', { name: '打开 DMG 安装', exact: true }).click()
+  await expect(updates.getByRole('group', { name: '确认安装更新' })).toContainText('退出 MooMole')
+  expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBeNull()
+  await updates.getByRole('button', { name: '暂不安装', exact: true }).click()
+  await expect(updates.getByRole('group', { name: '确认安装更新' })).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.setItem('install-mode', 'busy'))
+  await updates.getByRole('button', { name: '打开 DMG 安装', exact: true }).click()
+  await updates.getByRole('button', { name: '打开并退出', exact: true }).click()
+  await expect(updates.getByRole('alert')).toContainText('还有检查或数据保存')
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-exit-requested'))).toBeNull()
+  await page.evaluate(() => sessionStorage.setItem('install-mode', 'error'))
+  await updates.getByRole('button', { name: '打开 DMG 安装', exact: true }).click()
+  await updates.getByRole('button', { name: '打开并退出', exact: true }).click()
+  await expect(updates.getByRole('alert')).toContainText('应用保持运行')
+  await expect(updates.getByRole('status')).toContainText('更新包已下载并校验')
+  await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toBeEnabled()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: '设置', exact: true })
+    .getByRole('button', { name: '关于', exact: true })
+    .click()
+  await expect(updates.getByRole('alert')).toContainText('应用保持运行')
+  await page.evaluate(() => sessionStorage.removeItem('install-mode'))
+  await updates.getByRole('button', { name: '打开 DMG 安装', exact: true }).click()
+  await updates.getByRole('button', { name: '打开并退出', exact: true }).click()
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('update-exit-requested')))
+    .toBe('yes')
+  expect(await page.evaluate(() => sessionStorage.getItem('install-update-args'))).toBe('{}')
+})
+
+test('installation preparation survives closing settings, blocks duplicate actions and revokes a changed package', async ({
+  page,
+}) => {
+  const updates = await readyUpdate(page)
+  await page.setViewportSize({ width: 960, height: 780 })
+  await updates.getByRole('button', { name: '打开 DMG 安装', exact: true }).click()
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    await updates.scrollIntoViewIfNeeded()
+    expect(await updates.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/update-install-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('install-mode', 'pending'))
+  await updates.getByRole('button', { name: '打开并退出', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在复核并打开安装包')
+  await expect(updates.getByRole('button', { name: '正在准备安装…', exact: true })).toBeDisabled()
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: '设置', exact: true })
+    .getByRole('button', { name: '关于', exact: true })
+    .click()
+  await expect(updates.getByRole('status')).toContainText('正在复核并打开安装包')
+  await expect(
+    updates.getByRole('button', { name: '在 Finder 中查看', exact: true }),
+  ).toBeDisabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBe('1')
+  await page.evaluate(() => sessionStorage.setItem('install-mode', 'changed'))
+  await expect(updates.getByRole('status')).toContainText('下载未完成')
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toHaveCount(0)
+  await expect(updates.getByRole('button', { name: '重新下载', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-exit-requested'))).toBeNull()
+})
+
+test('pending settings save prevents confirming installation until the save completes', async ({
+  page,
+}) => {
+  const updates = await readyUpdate(page)
+  const settings = page.getByRole('dialog', { name: '设置', exact: true })
+  await settings.getByRole('button', { name: '通用', exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('update-save-pending', 'yes'))
+  await settings.getByLabel('主题', { exact: true }).selectOption('dark')
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('update-save-started')))
+    .toBe('yes')
+  await settings.getByRole('button', { name: '关于', exact: true }).click()
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeDisabled()
+  await expect(settings.getByText('正在保存…', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBeNull()
+  await page.evaluate(() => sessionStorage.removeItem('update-save-pending'))
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
 })
