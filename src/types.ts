@@ -296,3 +296,21 @@ export interface MoleHistorySource {
   state: 'ready' | 'missing' | 'unavailable'
   reason: string | null
 }
+export interface UpdateCheckResult {
+  status: 'unpublished' | 'current' | 'available'
+  currentVersion: string
+  latestVersion: string | null
+  channel: 'stable' | 'preview'
+  architecture: 'arm64' | 'x64'
+  notes: string
+  notesTruncated: boolean
+  asset: {
+    platform: 'darwin'
+    architecture: 'arm64' | 'x64'
+    packageType: 'dmg'
+    fileName: string
+    url: string
+    size: number
+    sha512: string
+  } | null
+}

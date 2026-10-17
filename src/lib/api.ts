@@ -12,6 +12,7 @@ import type {
   ReviewPlanSummary,
   ExecutionSummary,
   ExecutionDetail,
+  UpdateCheckResult,
 } from '../types'
 import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
@@ -46,6 +47,18 @@ export const official = (): Promise<void> =>
   desktop
     ? invoke('open_official')
     : Promise.resolve(void window.open('https://mole.fit/zh/', '_blank', 'noopener,noreferrer'))
+export const checkUpdates = (): Promise<UpdateCheckResult> =>
+  desktop ? invoke('check_updates') : Promise.reject(new Error('请在桌面 App 中检查更新。'))
+export const openUpdateReleases = (): Promise<void> =>
+  desktop
+    ? invoke('open_update_releases')
+    : Promise.resolve(
+        void window.open(
+          'https://github.com/rememberber/MooMole/releases',
+          '_blank',
+          'noopener,noreferrer',
+        ),
+      )
 export const cancelTask = (taskId: string): Promise<void> => invoke('cancel_task', { taskId })
 export const reviewPlans = (): Promise<ReviewPlanSummary[]> =>
   desktop ? invoke('list_review_plans') : Promise.resolve([])

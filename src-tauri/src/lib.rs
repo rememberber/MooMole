@@ -20,6 +20,7 @@ mod review;
 mod rules;
 mod tasks;
 mod tree;
+mod updates;
 
 use db::{Settings, TaskRecord};
 use engine::{Job, TaskKind};
@@ -476,8 +477,31 @@ async fn open_official() -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn check_updates(
+    checker: tauri::State<'_, updates::Checker>,
+) -> Result<updates::Check, String> {
+    checker.check().await
+}
+
+#[tauri::command]
+async fn open_update_releases() -> Result<(), String> {
+    let mut command = tokio::process::Command::new("/usr/bin/open");
+    command.arg(updates::RELEASES).kill_on_drop(true);
+    let status = tokio::time::timeout(Duration::from_secs(5), command.status())
+        .await
+        .map_err(|_| "发布页打开超时，请重试。")?
+        .map_err(|_| "无法打开发布页，请稍后重试。")?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("无法打开发布页，请稍后重试。".into())
+    }
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
+        .manage(updates::Checker::default())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data = app.path().app_data_dir()?;
@@ -550,7 +574,9 @@ pub fn run() {
             start_task,
             cancel_task,
             reveal_path,
-            open_official
+            open_official,
+            check_updates,
+            open_update_releases
         ])
         .build(tauri::generate_context!())
         .expect("无法启动 MooMole");

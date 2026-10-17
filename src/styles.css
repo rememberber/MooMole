@@ -1801,6 +1801,32 @@ select {
 .about-copy {
   padding: 20px;
 }
+.update-check {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+}
+.update-check > p,
+.update-check details {
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.update-check .setting-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.update-check .setting-row > button {
+  flex-shrink: 0;
+}
+.update-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
 .about-copy p {
   line-height: 1.9;
   font-size: 11px;
