@@ -13,6 +13,7 @@ import type {
   ExecutionSummary,
   ExecutionDetail,
   UpdateCheckResult,
+  UpdateSnapshot,
 } from '../types'
 import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
@@ -49,6 +50,10 @@ export const official = (): Promise<void> =>
     : Promise.resolve(void window.open('https://mole.fit/zh/', '_blank', 'noopener,noreferrer'))
 export const checkUpdates = (): Promise<UpdateCheckResult> =>
   desktop ? invoke('check_updates') : Promise.reject(new Error('请在桌面 App 中检查更新。'))
+export const updateSnapshot = (): Promise<UpdateSnapshot> => invoke('get_update_snapshot')
+export const downloadUpdate = (): Promise<UpdateSnapshot> => invoke('download_update')
+export const cancelUpdateDownload = (): Promise<void> => invoke('cancel_update_download')
+export const revealUpdateDownload = (): Promise<void> => invoke('reveal_update_download')
 export const openUpdateReleases = (): Promise<void> =>
   desktop
     ? invoke('open_update_releases')

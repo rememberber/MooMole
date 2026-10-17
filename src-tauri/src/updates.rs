@@ -1,10 +1,14 @@
+use crate::update_download::{Cache, Control, Ready};
 use reqwest::{redirect::Policy, Client, StatusCode};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
-    sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
 pub const PRODUCT: &str = "io.github.rememberber.moomole";
@@ -15,9 +19,42 @@ const MAX_BYTES: usize = 512 * 1024;
 const MAX_RELEASES: usize = 64;
 const MAX_PACKAGE: u64 = 1024 * 1024 * 1024;
 
+struct Reset<'a>(&'a AtomicBool);
+impl Drop for Reset<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
 #[derive(Default)]
 pub struct Checker {
     busy: AtomicBool,
+    session: Mutex<Session>,
+}
+
+#[derive(Default)]
+struct Session {
+    check: Option<Check>,
+    checked_at: Option<Instant>,
+    download: Download,
+    control: Option<Arc<Control>>,
+    ready: Option<Ready>,
+    closing: bool,
+}
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Download {
+    pub state: &'static str,
+    file_name: Option<String>,
+    transferred: u64,
+    total: u64,
+    error: Option<String>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Snapshot {
+    check: Option<Check>,
+    download: Download,
 }
 
 #[derive(Deserialize)]
@@ -37,19 +74,19 @@ struct Release {
     assets: Vec<Asset>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Asset {
     platform: String,
     architecture: String,
     package_type: String,
-    file_name: String,
-    url: String,
-    size: u64,
-    sha512: String,
+    pub(crate) file_name: String,
+    pub(crate) url: String,
+    pub(crate) size: u64,
+    pub(crate) sha512: String,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Status {
     Unpublished,
@@ -57,7 +94,7 @@ pub enum Status {
     Available,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Check {
     pub status: Status,
@@ -235,17 +272,162 @@ async fn fetch(client: &Client, url: &str) -> Result<Option<Vec<u8>>, String> {
 }
 
 impl Checker {
+    pub fn snapshot(&self) -> Result<Snapshot, String> {
+        let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+        let mut download = s.download.clone();
+        if download.state.is_empty() {
+            download.state = "idle";
+        }
+        Ok(Snapshot {
+            check: s.check.clone(),
+            download,
+        })
+    }
+    pub fn start(self: &Arc<Self>, path: std::path::PathBuf) -> Result<Snapshot, String> {
+        let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+        if s.closing || self.busy.load(Ordering::SeqCst) || s.control.is_some() {
+            return Err("已有更新操作正在进行，请稍候。".into());
+        }
+        if s.ready.is_some() {
+            return Err("更新包已经下载，请在 Finder 中查看。".into());
+        }
+        if s.checked_at
+            .is_none_or(|t| t.elapsed() > Duration::from_secs(15 * 60))
+        {
+            return Err("更新检查已过期，请重新检查后下载。".into());
+        }
+        let asset = s
+            .check
+            .as_ref()
+            .and_then(|c| c.asset.clone())
+            .ok_or("请先检查更新，确认有匹配的安装包。")?;
+        let control = Arc::new(Control::default());
+        s.download = Download {
+            state: "downloading",
+            file_name: Some(asset.file_name.clone()),
+            transferred: 0,
+            total: asset.size,
+            error: None,
+        };
+        s.control = Some(control.clone());
+        let owner = self.clone();
+        tauri::async_runtime::spawn(async move {
+            let result = match Cache::open(&path) {
+                Ok(cache) => {
+                    crate::update_download::download(
+                        asset,
+                        cache,
+                        control.clone(),
+                        |bytes, verifying| {
+                            if let Ok(mut s) = owner.session.lock() {
+                                s.download.transferred = bytes;
+                                if s.download.state != "cancelling" {
+                                    s.download.state = if verifying {
+                                        "verifying"
+                                    } else {
+                                        "downloading"
+                                    };
+                                }
+                            }
+                        },
+                    )
+                    .await
+                }
+                Err(e) => Err(e),
+            };
+            let mut s = owner.session.lock().unwrap_or_else(|e| e.into_inner());
+            match result {
+                Ok(ready) if !control.cancelled() => {
+                    s.ready = Some(ready);
+                    s.download.state = "ready";
+                }
+                Ok(ready) => {
+                    let outcome = ready.discard();
+                    s.download.state = if outcome.is_ok() {
+                        "cancelled"
+                    } else {
+                        "failed"
+                    };
+                    s.download.error = outcome.err();
+                }
+                Err(e) => {
+                    s.download.state = if control.cancelled() && e == "下载已取消。" {
+                        "cancelled"
+                    } else {
+                        "failed"
+                    };
+                    s.download.error = if s.download.state == "failed" {
+                        Some(e)
+                    } else {
+                        None
+                    };
+                }
+            }
+            s.control = None;
+        });
+        drop(s);
+        self.snapshot()
+    }
+    pub fn cancel(&self) -> Result<(), String> {
+        let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+        if let Some(control) = &s.control {
+            control.cancel();
+            s.download.state = "cancelling";
+        }
+        Ok(())
+    }
+    pub fn shutdown(&self) {
+        let mut s = self.session.lock().unwrap_or_else(|e| e.into_inner());
+        s.closing = true;
+        if let Some(control) = &s.control {
+            control.cancel();
+            s.download.state = "cancelling";
+        }
+    }
+    pub fn active(&self) -> bool {
+        self.session
+            .lock()
+            .map(|s| s.control.is_some())
+            .unwrap_or(true)
+    }
+    pub async fn ready_path(self: &Arc<Self>) -> Result<std::path::PathBuf, String> {
+        if self.busy.swap(true, Ordering::SeqCst) {
+            return Err("已有更新操作正在进行。".into());
+        }
+        let _reset = Reset(&self.busy);
+        let ready = self
+            .session
+            .lock()
+            .map_err(|_| "无法读取更新状态。")?
+            .ready
+            .clone()
+            .ok_or("没有已验证的更新包。")?;
+        let result = tokio::task::spawn_blocking(move || ready.verified_path())
+            .await
+            .map_err(|_| "更新文件复核未完成。")?;
+        if result.is_err() {
+            let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            s.ready = None;
+            s.download.state = "failed";
+            s.download.error = Some("更新文件已变化，请重新下载。".into());
+        }
+        result
+    }
     pub async fn check(&self) -> Result<Check, String> {
         if self.busy.swap(true, Ordering::SeqCst) {
             return Err("正在检查更新，请稍候。".into());
         }
-        struct Reset<'a>(&'a AtomicBool);
-        impl Drop for Reset<'_> {
-            fn drop(&mut self) {
-                self.0.store(false, Ordering::SeqCst);
-            }
-        }
         let _reset = Reset(&self.busy);
+        {
+            let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if s.closing || s.control.is_some() {
+                return Err("请等待当前下载结束，或先取消下载。".into());
+            }
+            s.check = None;
+            s.checked_at = None;
+            s.ready = None;
+            s.download = Download::default();
+        }
         let current = env!("CARGO_PKG_VERSION");
         if std::env::consts::OS != "macos" {
             return Err("当前系统尚未支持应用更新，请查看发布页。".into());
@@ -263,7 +445,11 @@ impl Checker {
         })
         .await
         .map_err(|_| "检查更新超时，请稍后重试。")?;
-        result
+        let result = result?;
+        let mut s = self.session.lock().map_err(|_| "无法保存更新检查。")?;
+        s.check = Some(result.clone());
+        s.checked_at = Some(Instant::now());
+        Ok(result)
     }
 }
 
@@ -454,6 +640,38 @@ mod tests {
         assert!(parse(manifest(vec![r]), "0.1.0", "arm64").is_err());
     }
 
+    #[tokio::test]
+    async fn download_commands_require_fresh_backend_selection_and_respect_cancel_shutdown() {
+        let checker = Arc::new(Checker::default());
+        let temp = tempfile::tempdir().unwrap();
+        assert!(checker.start(temp.path().join("cache")).is_err());
+        assert!(checker.ready_path().await.is_err());
+        {
+            let mut s = checker.session.lock().unwrap();
+            s.check =
+                Some(parse(manifest(vec![release("0.2.0", "arm64")]), "0.1.0", "arm64").unwrap());
+            s.checked_at = Some(Instant::now() - Duration::from_secs(901));
+        }
+        assert!(checker.start(temp.path().join("cache")).is_err());
+        let control = Arc::new(Control::default());
+        {
+            let mut s = checker.session.lock().unwrap();
+            s.checked_at = Some(Instant::now());
+            s.control = Some(control.clone());
+            s.download.state = "downloading";
+        }
+        assert!(checker.start(temp.path().join("cache")).is_err());
+        assert!(checker.check().await.is_err());
+        checker.cancel().unwrap();
+        assert!(control.cancelled());
+        assert_eq!(checker.snapshot().unwrap().download.state, "cancelling");
+        checker.shutdown();
+        checker.session.lock().unwrap().control = None;
+        assert!(!checker.active());
+        assert!(checker.start(temp.path().join("cache")).is_err());
+        assert!(checker.check().await.is_err());
+    }
+
     fn serve(response: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
@@ -462,14 +680,21 @@ mod tests {
             let deadline = std::time::Instant::now() + Duration::from_secs(3);
             while std::time::Instant::now() < deadline {
                 if let Ok((mut socket, _)) = listener.accept() {
+                    socket.set_nonblocking(false).unwrap();
                     socket
                         .set_read_timeout(Some(Duration::from_secs(2)))
                         .unwrap();
                     socket
                         .set_write_timeout(Some(Duration::from_secs(2)))
                         .unwrap();
-                    let mut request = [0; 4096];
-                    let _ = socket.read(&mut request);
+                    let mut request = Vec::new();
+                    let mut buffer = [0; 4096];
+                    while !request.ends_with(b"\r\n\r\n") && request.len() < 8192 {
+                        match socket.read(&mut buffer) {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => request.extend_from_slice(&buffer[..n]),
+                        }
+                    }
                     let _ = socket.write_all(&response);
                     return;
                 }

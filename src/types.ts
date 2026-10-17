@@ -314,3 +314,13 @@ export interface UpdateCheckResult {
     sha512: string
   } | null
 }
+export interface UpdateSnapshot {
+  check: UpdateCheckResult | null
+  download: {
+    state: 'idle' | 'downloading' | 'verifying' | 'cancelling' | 'cancelled' | 'failed' | 'ready'
+    fileName: string | null
+    transferred: number
+    total: number
+    error: string | null
+  }
+}

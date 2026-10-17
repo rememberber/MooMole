@@ -23,7 +23,50 @@ async function setup(page: Page) {
           await new Promise((resolve) => setTimeout(resolve, 20))
         if (sessionStorage.getItem('update-mode') === 'error')
           throw new Error('检查更新失败，请重试。')
-        return JSON.parse(sessionStorage.getItem('update-result') ?? '{}')
+        const result = JSON.parse(sessionStorage.getItem('update-result') ?? '{}')
+        sessionStorage.setItem('update-cached-check', JSON.stringify(result))
+        return result
+      }
+      if (command === 'get_update_snapshot') {
+        if (sessionStorage.getItem('update-snapshot-error')) throw new Error('state unavailable')
+        return {
+          check: JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null'),
+          download: JSON.parse(
+            sessionStorage.getItem('update-download') ??
+              '{"state":"idle","fileName":null,"transferred":0,"total":0,"error":null}',
+          ),
+        }
+      }
+      if (command === 'download_update') {
+        sessionStorage.setItem('download-args', JSON.stringify(args))
+        const check = JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null')
+        const download = {
+          state: 'downloading',
+          fileName: check.asset.fileName,
+          transferred: 0,
+          total: 1000,
+          error: null,
+        }
+        sessionStorage.setItem('update-download', JSON.stringify(download))
+        return { check, download }
+      }
+      if (command === 'cancel_update_download') {
+        sessionStorage.setItem('cancel-download-args', JSON.stringify(args))
+        const download = JSON.parse(sessionStorage.getItem('update-download')!)
+        download.state = 'cancelling'
+        sessionStorage.setItem('update-download', JSON.stringify(download))
+        return
+      }
+      if (command === 'reveal_update_download') {
+        sessionStorage.setItem('reveal-download-args', JSON.stringify(args))
+        if (sessionStorage.getItem('reveal-download-error')) {
+          const download = JSON.parse(sessionStorage.getItem('update-download')!)
+          download.state = 'failed'
+          download.error = '更新文件已变化，请重新下载。'
+          sessionStorage.setItem('update-download', JSON.stringify(download))
+          throw new Error('更新文件已变化，请重新下载。')
+        }
+        return
       }
       if (command === 'open_update_releases') {
         sessionStorage.setItem('update-release-args', JSON.stringify(args ?? null))
@@ -97,8 +140,10 @@ test('offers matching package release notes as plain text, clears stale results 
   await updates.getByRole('button', { name: '检查更新', exact: true }).click()
   await expect(updates.getByRole('status')).toContainText('发现新版本 0.2.0')
   await expect(updates.getByRole('status')).toContainText('测试版通道')
-  await expect(updates).toContainText('应用内下载尚未开放')
-  await expect(updates.getByRole('button', { name: /下载|安装/ })).toHaveCount(0)
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeVisible()
+  await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toHaveCount(
+    0,
+  )
   await updates.getByText('更新内容', { exact: true }).click()
   await expect(updates.locator('pre')).toContainText(
     '<script>window.untrustedUpdate = true</script>',
@@ -142,7 +187,7 @@ test('offers matching package release notes as plain text, clears stale results 
   await expect(updates.getByRole('alert')).toHaveCount(0)
 })
 
-test('closing a pending check does not inject its result into a reopened panel', async ({
+test('reopening observes the backend check without starting another network request', async ({
   page,
 }) => {
   const updates = await setup(page)
@@ -162,8 +207,8 @@ test('closing a pending check does not inject its result into a reopened panel',
     .getByRole('button', { name: '关于', exact: true })
     .click()
   await page.evaluate(() => sessionStorage.removeItem('update-mode'))
-  await expect(updates.getByRole('status')).toContainText('手动检查 MooMole 客户端更新')
-  await expect(updates).not.toContainText('9.0.0')
+  await expect(updates.getByRole('status')).toContainText('发现新版本 9.0.0')
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('1')
 })
 
 test('browser preview never checks the network', async ({ page }) => {
@@ -176,4 +221,97 @@ test('browser preview never checks the network', async ({ page }) => {
   const updates = page.getByRole('region', { name: 'MooMole 更新' })
   await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
   await expect(updates.getByRole('status')).toContainText('请在桌面 App 中检查更新')
+})
+
+test('download progress survives closing settings, cancellation waits for confirmation, failures retry and only verified downloads reveal', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  await page.evaluate((result) => sessionStorage.setItem('update-result', JSON.stringify(result)), {
+    ...base,
+    status: 'available',
+    latestVersion: '0.2.0',
+    asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+  })
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await updates.getByRole('button', { name: '下载更新包', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在下载更新包')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.transferred = 500
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('progressbar')).toHaveAttribute('value', '500')
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    await updates.scrollIntoViewIfNeeded()
+    expect(await updates.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/update-download-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: '设置', exact: true })
+    .getByRole('button', { name: '关于', exact: true })
+    .click()
+  await expect(updates.getByRole('progressbar')).toHaveAttribute('value', '500')
+  expect(await page.evaluate(() => sessionStorage.getItem('download-args'))).toBe('{}')
+  await updates.getByRole('button', { name: '取消下载', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在取消并清理临时文件')
+  await expect(updates.getByRole('button', { name: '取消下载', exact: true })).toBeDisabled()
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.state = 'cancelled'
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('status')).toContainText('下载已取消')
+  await updates.getByRole('button', { name: '下载更新包', exact: true }).click()
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.transferred = 1000
+    d.state = 'verifying'
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('status')).toContainText('正在校验已保存')
+  await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toHaveCount(
+    0,
+  )
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.state = 'failed'
+    d.error = '更新包大小或 SHA-512 校验失败。'
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('alert')).toContainText('SHA-512')
+  await updates.getByRole('button', { name: '重新下载', exact: true }).click()
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.transferred = 1000
+    d.state = 'ready'
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('status')).toContainText('更新包已下载并校验')
+  await page.evaluate(() => sessionStorage.setItem('update-snapshot-error', 'yes'))
+  await expect(updates.getByRole('status')).toContainText('更新状态尚未确认')
+  await expect(
+    updates.getByRole('button', { name: '在 Finder 中查看', exact: true }),
+  ).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('update-snapshot-error'))
+  await expect(updates.getByRole('status')).toContainText('更新包已下载并校验')
+  await updates.getByRole('button', { name: '在 Finder 中查看', exact: true }).click()
+  expect(await page.evaluate(() => sessionStorage.getItem('reveal-download-args'))).toBe('{}')
+  await page.evaluate(() => sessionStorage.setItem('reveal-download-error', 'yes'))
+  await updates.getByRole('button', { name: '在 Finder 中查看', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('下载未完成')
+  await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toHaveCount(
+    0,
+  )
+  expect(await page.evaluate(() => sessionStorage.getItem('cancel-download-args'))).toBe('{}')
 })

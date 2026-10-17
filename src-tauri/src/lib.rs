@@ -20,6 +20,8 @@ mod review;
 mod rules;
 mod tasks;
 mod tree;
+mod update_download;
+mod update_quarantine;
 mod updates;
 
 use db::{Settings, TaskRecord};
@@ -47,6 +49,7 @@ struct AppState {
     home: PathBuf,
     // 0 accepts tasks, 1 drains cancellations, 2 permits the final exit.
     shutdown: Arc<AtomicU8>,
+    updates: Arc<updates::Checker>,
 }
 
 // A startup issue has no database or task handles. Its message also backs the
@@ -478,10 +481,44 @@ async fn open_official() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn check_updates(
-    checker: tauri::State<'_, updates::Checker>,
-) -> Result<updates::Check, String> {
-    checker.check().await
+async fn check_updates(state: tauri::State<'_, AppState>) -> Result<updates::Check, String> {
+    state.updates.check().await
+}
+
+#[tauri::command]
+fn get_update_snapshot(state: tauri::State<'_, AppState>) -> Result<updates::Snapshot, String> {
+    state.updates.snapshot()
+}
+#[tauri::command]
+fn download_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<updates::Snapshot, String> {
+    let root = app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| "无法定位应用缓存。")?;
+    std::fs::create_dir_all(&root).map_err(|_| "无法创建应用缓存。")?;
+    state.updates.start(root.join("pending-updates"))
+}
+#[tauri::command]
+fn cancel_update_download(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.updates.cancel()
+}
+#[tauri::command]
+async fn reveal_update_download(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let path = state.updates.ready_path().await?;
+    let mut command = tokio::process::Command::new("/usr/bin/open");
+    command.args(["-R", "--"]).arg(path).kill_on_drop(true);
+    let result = tokio::time::timeout(Duration::from_secs(5), command.status())
+        .await
+        .map_err(|_| "Finder 打开超时。")?
+        .map_err(|_| "无法打开 Finder。")?;
+    if result.success() {
+        Ok(())
+    } else {
+        Err("无法打开 Finder，请重试。".into())
+    }
 }
 
 #[tauri::command]
@@ -501,7 +538,6 @@ async fn open_update_releases() -> Result<(), String> {
 
 pub fn run() {
     let app = tauri::Builder::default()
-        .manage(updates::Checker::default())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data = app.path().app_data_dir()?;
@@ -555,6 +591,7 @@ pub fn run() {
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(AtomicU8::new(0)),
+                updates: Arc::new(updates::Checker::default()),
             });
             Ok(())
         })
@@ -576,6 +613,10 @@ pub fn run() {
             reveal_path,
             open_official,
             check_updates,
+            get_update_snapshot,
+            download_update,
+            cancel_update_download,
+            reveal_update_download,
             open_update_releases
         ])
         .build(tauri::generate_context!())
@@ -585,7 +626,8 @@ pub fn run() {
             if let Some(state) = app.try_state::<AppState>() {
                 if state.shutdown.load(Ordering::SeqCst) != 2 {
                     let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
-                    if jobs.is_empty() {
+                    state.updates.shutdown();
+                    if jobs.is_empty() && !state.updates.active() {
                         state.shutdown.store(2, Ordering::SeqCst);
                     } else {
                         let first = state.shutdown.compare_exchange(
@@ -616,7 +658,7 @@ pub fn run() {
                                             }
                                             true
                                         } else {
-                                            jobs.is_empty()
+                                            jobs.is_empty() && !state.updates.active()
                                         }
                                     };
                                     if done {
@@ -642,6 +684,7 @@ pub fn run() {
                     {
                         let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
                         state.shutdown.store(1, Ordering::SeqCst);
+                        state.updates.shutdown();
                         for job in jobs.values() {
                             job.cancel();
                         }
@@ -656,7 +699,7 @@ pub fn run() {
                                 }
                                 true
                             } else {
-                                jobs.is_empty()
+                                jobs.is_empty() && !state.updates.active()
                             }
                         };
                         if done {

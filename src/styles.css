@@ -1827,6 +1827,18 @@ select {
   overflow-y: auto;
   margin-top: 10px;
 }
+.update-progress progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  accent-color: var(--text);
+  margin: 12px 0;
+}
+.update-progress p {
+  font-size: 11px;
+  line-height: 1.8;
+  margin-bottom: 10px;
+}
 .about-copy p {
   line-height: 1.9;
   font-size: 11px;

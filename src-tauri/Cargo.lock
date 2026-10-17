@@ -1898,6 +1898,7 @@ dependencies = [
 name = "moomole"
 version = "0.1.0"
 dependencies = [
+ "core-foundation-sys",
  "libc",
  "objc2",
  "objc2-foundation",
