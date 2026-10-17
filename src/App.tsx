@@ -48,6 +48,12 @@ import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
+import { AnalysisNavigation } from './components/AnalysisNavigation'
+import {
+  recordAnalysisVisit,
+  type AnalysisHistoryTarget,
+  type AnalysisNavigationHistory,
+} from './lib/analysis-navigation'
 import type {
   Analysis,
   AppEntry,
@@ -128,6 +134,10 @@ export default function App() {
   const [page, setPage] = useState<Page>('overview')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(api.desktop ? null : demoSnapshot)
   const [analysis, setAnalysis] = useState<Analysis | null>(api.desktop ? null : demoAnalysis)
+  const [analysisNavigation, setAnalysisNavigation] = useState<AnalysisNavigationHistory>(() => ({
+    paths: api.desktop ? [] : [demoAnalysis.path],
+    index: api.desktop ? -1 : 0,
+  }))
   const [cleanup, setCleanup] = useState<Cleanup | null>(api.desktop ? null : demoCleanup)
   const [cleanPreview, setCleanPreview] = useState<CleanPreview | null>(
     api.desktop ? null : demoCleanPreview,
@@ -218,7 +228,11 @@ export default function App() {
     }
   }, [data?.settings.acknowledged, data?.engine.available])
 
-  async function execute<K extends TaskKind>(kind: K, target?: string) {
+  async function execute<K extends TaskKind>(
+    kind: K,
+    target?: string,
+    analysisTarget?: AnalysisHistoryTarget,
+  ) {
     if (busyRef.current) return
     busyRef.current = true
     setError('')
@@ -233,7 +247,7 @@ export default function App() {
         },
         observation.current.signal,
       )
-      applyTaskResult(kind, result)
+      applyTaskResult(kind, result, analysisTarget)
     } catch (error) {
       if (!observation.current.signal.aborted) setError(String(error).replace(/^Error: /, ''))
     } finally {
@@ -249,12 +263,17 @@ export default function App() {
     }
   }
 
-  function applyTaskResult(kind: TaskKind, result: TaskResults[TaskKind]) {
+  function applyTaskResult(
+    kind: TaskKind,
+    result: TaskResults[TaskKind],
+    analysisTarget?: AnalysisHistoryTarget,
+  ) {
     if (kind === 'status') setSnapshot(result as Snapshot)
     if (kind === 'analyze') {
       const value = result as Analysis
       setAnalysis({ ...value })
       setPath(value.path)
+      setAnalysisNavigation((current) => recordAnalysisVisit(current, value.path, analysisTarget))
     }
     if (kind === 'apps') setApps([...(result as AppEntry[])])
     if (kind === 'cleanup') setCleanup(result as Cleanup)
@@ -317,6 +336,11 @@ export default function App() {
     } catch (error) {
       setError(String(error))
     }
+  }
+  function visitAnalysis(index: number) {
+    const target = analysisNavigation.paths[index]
+    if (target == null || index < 0 || !Number.isInteger(index)) return
+    void execute('analyze', target, { index, path: target })
   }
   async function updateSettings(settings: Settings) {
     const saved = await api.saveSettings(settings)
@@ -724,6 +748,15 @@ export default function App() {
                   开始分析
                 </button>
               </form>
+              {analysis && (
+                <AnalysisNavigation
+                  path={analysis.path}
+                  history={analysisNavigation}
+                  disabled={!canRun}
+                  onVisit={visitAnalysis}
+                  onAnalyze={(target) => void execute('analyze', target)}
+                />
+              )}
               {analysis ? (
                 <AnalysisExplorer
                   key={analysis.path}

@@ -5,7 +5,7 @@ import type { Analysis, AppEntry, MoleHistory } from '../../../src/types'
 // Playwright-only transport mock: it never calls a native command or touches files.
 export async function installTaskMock(
   page: Page,
-  mode: 'resume' | 'new' | 'history' | 'apps' | 'analyze',
+  mode: 'resume' | 'new' | 'history' | 'apps' | 'analyze' | 'navigation',
   moleHistory?: MoleHistory,
   applications?: AppEntry[],
   analysis?: Analysis,
@@ -47,7 +47,10 @@ export async function installTaskMock(
         isTauri: true,
         __TAURI_INTERNALS__: {
           transformCallback: () => 1,
-          invoke: async (command: string, args: { taskId?: string; kind?: string } = {}) => {
+          invoke: async (
+            command: string,
+            args: { taskId?: string; kind?: string; path?: string } = {},
+          ) => {
             if (command === 'bootstrap')
               return {
                 ...initial,
@@ -63,6 +66,10 @@ export async function installTaskMock(
               starts.push(args)
               sessionStorage.setItem('mock-starts', JSON.stringify(starts))
               if (mode === 'resume') throw new Error('Existing task must not be restarted')
+              if (mode === 'navigation' && args.kind === 'analyze') {
+                sessionStorage.removeItem('mock-done')
+                sessionStorage.removeItem('mock-history-cancelled')
+              }
               if (mode === 'analyze' && args.kind === 'analyze')
                 sessionStorage.removeItem('mock-done')
               if (mode === 'apps' && args.kind === 'apps') sessionStorage.removeItem('mock-done')
@@ -73,7 +80,7 @@ export async function installTaskMock(
               writeTask({
                 id: args.taskId,
                 kind: args.kind,
-                path: null,
+                path: mode === 'navigation' ? (args.path ?? null) : null,
                 state: 'running',
                 createdAt: Date.now(),
                 finishedAt: null,
@@ -100,12 +107,28 @@ export async function installTaskMock(
                         ? applications
                         : task.kind === 'history'
                           ? moleHistory
-                          : (analysis ?? {
-                              path: task.path,
-                              scan_status: 'complete',
-                              entries: [],
-                              total_size: 0,
-                            })
+                          : mode === 'navigation'
+                            ? {
+                                path:
+                                  task.path === '/fixture/alias' ? '/fixture/canonical' : task.path,
+                                scan_status: 'complete',
+                                total_size: 1024,
+                                entries: [
+                                  {
+                                    name: 'child',
+                                    path: `${task.path}/child`,
+                                    size: 1024,
+                                    scan_status: 'complete',
+                                    is_dir: true,
+                                  },
+                                ],
+                              }
+                            : (analysis ?? {
+                                path: task.path,
+                                scan_status: 'complete',
+                                entries: [],
+                                total_size: 0,
+                              })
                     : null,
               }
             }

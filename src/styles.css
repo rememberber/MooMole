@@ -962,6 +962,67 @@ h3 {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+.analysis-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: flex-start;
+  margin: 20px 0;
+}
+.analysis-history-buttons {
+  display: flex;
+  gap: 8px;
+}
+.analysis-navigation nav {
+  flex: 1;
+  min-width: 0;
+}
+.analysis-navigation ol {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  gap: 5px 2px;
+  margin: 0;
+  padding: 0;
+}
+.analysis-navigation li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 2px;
+}
+.analysis-navigation li > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.analysis-crumb,
+.analysis-navigation [aria-current] {
+  max-width: 180px;
+  min-width: 0;
+  padding: 7px;
+  font-size: 11px;
+  border-radius: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.analysis-crumb {
+  color: var(--subtle);
+}
+.analysis-crumb:not(:disabled):hover {
+  color: var(--text);
+  background: var(--soft);
+}
+.analysis-navigation [aria-current] {
+  background: var(--soft);
+}
+.analysis-navigation > p {
+  flex-basis: 100%;
+  color: var(--subtle);
+  font-size: 10px;
+  line-height: 1.8;
+}
 .analysis-filters {
   flex-wrap: wrap;
 }
