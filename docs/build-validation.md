@@ -55,3 +55,5 @@ git diff
 版本脚本的 5 组隔离测试覆盖 SemVer、各镜像漂移、标签不符、依赖/注释/排版保留、重复/未知布局和写入前整体校验。另以真实编译出的 Cargo build script 在自建临时目录中分别注入 package/Tauri 版本漂移，均在原生构建开始前拒绝。
 
 本机对应检查与 debug 构建结果见开发记录第三十六阶段。工作流已通过 actionlint 静态检查；尚未推送或触发远端运行，不把配置矩阵当成 Intel/旧系统已验证，也不标记完整 CI/RC 验收完成。首次远端运行、配额/权限/runner 差异、完整安装升级及发布产物验证仍见 [发布路线图](release-roadmap.md)。
+
+后续已增加 [本地优化 App/免费签名验收](local-app-build.md) 的独立入口；CI 的前端/原生 job 已加入产物测试，Linux 跳过仅 macOS 可运行的签名 fixture。CI 当前仍保存 debug 包，没有自动调用本地优化产物入口或公开发布。

@@ -858,3 +858,27 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 ### 后续边界
 
 工作流尚未推送或触发远端首次运行，Intel、旧系统、干净 runner、网络/配额差异仍待实际验证；完整 CI 条目保持待办。系统镜像、SDK/Xcode 与 npm 尚非完全固定，release 构建、签名后摘要、更新清单/资产命名、源码材料、免费 DMG 安装升级和最终发布流程仍需继续完成。
+
+## 2026-10-17 · 第三十七阶段：本地优化 App 与免费签名验收
+
+接续构建基础，验证无需付费证书的 App 签名与最终资源摘要顺序；保持 Mole CLI 可视化及现有紧凑界面，不增加清理执行权限。
+
+### 已实现
+
+- 新增 `build:local-app`：检查版本与生产 CSP，重新从固定源码准备引擎，按 Cargo --locked 的 release profile 构建 Tauri 未签中间 App；只在新建的独立副本中完成最终签名，不覆盖旧产物或改动项目原始引擎。支持有完整缓存时的 --offline；记录实际工具链，而非承诺跨机器位级一致。
+- 先以 ad-hoc 签两个已知 Mole Mach-O，重建副本清单中的签名后摘要，再签外层 App；不使用 --deep 批量签未知代码。逐项严格核对 ad-hoc/标识/无自定义 entitlements，并执行外层 deep/strict 验证。布局拒绝未知本机代码、链接、共享文件及错误架构/版本，有条目/深度/字节预算。
+- 输出本地 App、ditto ZIP 及 validation.json；ZIP 解压到自身临时目录后再次校验，流式记录大小和十六进制 SHA-512。报告包含真实 Git 提交/dirty、版本/架构、引擎来源和工具链，并将安装/Gatekeeper 标记 pending；不创建标签、DMG、Release 或更新清单。Tauri 中间步骤显式 --no-sign，子进程去除 Apple 认证/证书变量，最终只使用系统 ad-hoc 签名。
+- 正式 csp 仅允许本地资源与 Tauri IPC，开发服务器 HTTP/WebSocket 移入 devCsp；优化构建前检查生产连接和脚本来源。没有增加本机命令权限或远程内容。CI 加入新产物测试，原生测试不在 Linux 假运行。约定和来源见 [本地 App 验收](local-app-build.md)。
+
+### 验证证据
+
+- 新增产物 5 组测试通过：CSP/开发与远端来源边界、流式大小与 SHA-512、真实隔离 Mach-O 内外签名/源不变/签名后摘要及 ZIP 解压、原生字节/普通资源/重新伪造引擎清单的外层封装拒绝，以及未知代码、链接、架构/版本与重复目标拒绝。fixture 为 cc 编译的最小程序，不运行其代码或用户目录；不能作为真实 Mole 行为证据。
+- 版本脚本 5 组、前端单元 39 项、浏览器全量 77 项（48.7 秒）、Rust --locked 102 项通过（5 项既有显式测试忽略）。引擎 fixture 5 组、两组 Shell 适配 fixture 通过。Prettier、diff、工作流 actionlint v1.7.12 均通过；Tauri 实际接受 devCsp 与当前 CLI --no-sign 参数。
+- 本机两次 --offline 构建成功；首次优化编译约 38 秒，原始 App 约 26.93 MiB。最终副本位于 `local-artifacts/MooMole-0.1.0-mac-arm64-mfZKHb/`，完整文件字节数 28,102,270；ZIP 11,340,683 字节，三处均为 ad-hoc、无自定义 entitlements。报告记录 Node v24.21.0、npm 11.19.0、Rust 1.99.0、Go 1.26.0、SDK 27.0 / macOS 27.0.1，源码 d8dce86 且 dirty=true，如实标明未从冻结发布提交构建。
+- 旧 debug 包的链接器签名在 codesign 外层严格验证时报告缺少资源封装；没有把此前“可启动”当作完整 App 签名验证。最终副本外层及两个内嵌程序分别通过严格验证和解压后重验。62 份引擎资源中，只有 analyze-go/status-go 的摘要因签名改变，其他资源不变；运行后再次校验仍通过。
+- 正常退出旧 debug App 后，按最终副本路径启动，进程路径确认为 local-artifacts 内的 moomole。首页 Mole CLI v1.59.1 / 引擎就绪，真实启动系统快照 ee5f64e4 成功。输入专用 `.cache/large-files-ui-8d7c566e` 并回车，任务 6930679c 成功，显示 3 个直接子项、6.5 MB、约 0.1 秒；缓存使用仍未知，不将快速读取描述为全量新测量。
+- 原生运行后验证 ZIP 大小/摘要与报告一致，App 签名及引擎清单仍通过。验收目录 5 个总条目的内容、inode、权限和大小与基线一致；用户数据库 schema v3、执行批次数 0、任务数 120，仅增加本次启动状态和分析任务。没有清理/恢复、管理员授权、证书导入、公证、移除安全属性或更改 Gatekeeper。
+
+### 后续边界
+
+只验证当前薄 arm64 App 与本机已有数据，不代表浏览器下载、干净机器、Intel/最低系统、隐私授权继承或正式安装升级通过。ad-hoc 与同源摘要不提供 Apple/维护者身份认证；源码/许可证材料、完全可重复工具链、Universal/framework/helper 扩展、DMG、更新与正式 Release 仍按路线图推进。生产 CSP 配置已收紧，完整命令权限/来源及开发热重载验收仍未宣称完成。

@@ -48,7 +48,7 @@ npm run test:engine
 
 本次 debug App 中包内资源和清单检查通过。将来 ad-hoc 签名可能改变 Mach-O 字节，不能继续使用签名前的可执行文件摘要：发布流水线应先完成内嵌程序最终签名，再生成对应资源清单，最后签名/封装 App，并对最终产物重新校验。不得在已经签名的 App 中直接改清单后宣称签名仍有效。
 
-此阶段未完成上述 release 签名顺序、Intel、干净机器或 DMG 安装验证；不需要购买 Apple 开发者账户。后续约束见 [distribution.md](distribution.md)。
+2026-10-17：本地优化 App 配方已接入“内嵌程序签名 → 更新副本清单 → 外层 App 签名 → 最终及解压校验”，并在本机 arm64 原生启动/读取通过；开发用资源与原始中间 App 保持不变。见 [本地 App 验收](local-app-build.md)。Intel、干净机器、DMG 和真正发布物的完整验证仍待完成，不需要购买 Apple 开发者账户。后续约束见 [distribution.md](distribution.md)。
 
 ## 验证记录
 

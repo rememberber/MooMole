@@ -43,6 +43,7 @@ jobs:
         run: npm run version:check -- --tag "$RELEASE_TAG"
       - run: npm run format:check
       - run: npm run test:version
+      - run: npm run test:app-artifact
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -92,6 +93,7 @@ jobs:
       - name: Prepare pinned Mole engine from source
         run: npm run engine:prepare
       - run: npm run test:engine
+      - run: npm run test:app-artifact
       - run: npm run test:adapter
       - name: Rust tests with locked dependencies
         run: npm run check:rust -- --locked

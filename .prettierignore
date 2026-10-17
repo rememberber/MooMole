@@ -2,6 +2,7 @@ node_modules/
 dist/
 .cache/
 ci-artifacts/
+local-artifacts/
 src-tauri/target/
 src-tauri/gen/
 src-tauri/resources/

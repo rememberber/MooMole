@@ -9,6 +9,7 @@ src-tauri/resources/.mole-*/
 playwright-report/
 test-results/
 ci-artifacts/
+local-artifacts/
 *.tsbuildinfo
 
 # Local editor and OS state

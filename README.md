@@ -71,9 +71,14 @@ npm run dev
 
 # 本地应用包（当前尚未完成正式 DMG 发行与安装升级验证）
 npm run tauri -- build --bundles app
+
+# 本地优化/免费签名验收包：App、ZIP 及大小/SHA-512 报告，不创建 Release
+npm run build:local-app
 ```
 
 浏览器预览与桌面端有清楚标记；真实扫描、Finder 和目录选择仅在桌面端可用。若引擎未准备，界面会显示具体原因。
+
+`build:local-app` 先签内嵌程序、更新副本摘要再封装外层 App，并验证最终及解压后的产物；输出到新的 `local-artifacts/` 目录。它不使用付费证书或公证，不代表已完成 DMG/Gatekeeper 验收；说明见 [本地 App 验收](docs/local-app-build.md)。
 
 ## 检查
 
@@ -82,6 +87,7 @@ npm run tauri -- build --bundles app
 ```bash
 npm run version:check
 npm run test:version
+npm run test:app-artifact
 npm test
 npm run build
 npm run check:rust

@@ -19,7 +19,9 @@
     "check:rust": "node scripts/cargo.mjs test",
     "version:check": "node scripts/version.mjs check",
     "version:sync": "node scripts/version.mjs sync",
-    "test:version": "node --test scripts/version.test.mjs"
+    "test:version": "node --test scripts/version.test.mjs",
+    "build:local-app": "node scripts/build-local-app.mjs",
+    "test:app-artifact": "node --test scripts/app-artifact.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
