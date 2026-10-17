@@ -71,8 +71,9 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
       })
     }
   }
-  await page.getByRole('button', { name: '关于与使用说明', exact: true }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   const about = page.getByRole('dialog', { name: '设置' })
+  await about.getByRole('button', { name: '关于', exact: true }).click()
   await expect(about).toContainText('学习研究')
   await expect(about).toContainText('风险')
   await expect(about.getByRole('button', { name: '访问 Mole 官方产品', exact: true })).toBeVisible()

@@ -489,15 +489,7 @@ export default function App() {
         <div className="sidebar-bottom">
           <button className="sidebar-settings" onClick={() => setSettingsTab('general')}>
             <Settings2 size={17} />
-            设置<span>⌘ ,</span>
-          </button>
-          <button
-            className="sidebar-about"
-            aria-label="关于与使用说明"
-            onClick={() => setSettingsTab('about')}
-          >
-            <Info size={17} />
-            关于 MooMole <span>v0.1.0</span>
+            设置
           </button>
           <button className="sidebar-official" onClick={official}>
             Mole 官方产品

@@ -193,22 +193,6 @@ button svg {
 .sidebar-settings:hover {
   background: var(--selected);
 }
-.sidebar-settings > span {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 10px;
-}
-.sidebar-about {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.sidebar-about > svg {
-  display: none;
-}
 .workspace {
   flex: 1;
   margin-left: 176px;
@@ -254,7 +238,6 @@ button svg {
   font-size: 10px;
   color: var(--subtle);
 }
-.sidebar-about:hover,
 .sidebar-official:hover {
   color: var(--text);
 }
@@ -1778,9 +1761,7 @@ input[type='checkbox'] {
   }
   .brand > div:nth-child(2),
   .main-nav button span,
-  .sidebar-official,
-  .sidebar-about > span,
-  .sidebar-settings span {
+  .sidebar-official {
     display: none;
   }
   .main-nav button {
@@ -1791,14 +1772,6 @@ input[type='checkbox'] {
     justify-content: center;
     font-size: 0;
     padding: 12px 0;
-  }
-  .sidebar-about {
-    justify-content: center;
-    font-size: 0;
-    padding: 12px 0;
-  }
-  .sidebar-about > svg {
-    display: block;
   }
   .workspace {
     margin-left: 70px;
