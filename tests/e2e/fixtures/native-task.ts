@@ -82,7 +82,7 @@ export async function installTaskMock(
               writeTask({
                 id: args.taskId,
                 kind: args.kind,
-                path: mode === 'navigation' ? (args.path ?? null) : null,
+                path: args.path ?? null,
                 state: 'running',
                 createdAt: Date.now(),
                 finishedAt: null,
@@ -91,6 +91,8 @@ export async function installTaskMock(
               return
             }
             if (command === 'get_task_snapshot') {
+              if (sessionStorage.getItem('mock-snapshot-error'))
+                throw new Error('fixture snapshot unavailable')
               const task = readTask()
               if (!task || task.id !== args.taskId) throw new Error('Unknown task')
               return {
@@ -140,6 +142,15 @@ export async function installTaskMock(
               }
             }
             if (command === 'cancel_task') {
+              const mode = sessionStorage.getItem('mock-cancel-mode')
+              if (mode === 'defer') return
+              if (mode === 'reject') throw new Error('fixture cancel request rejected')
+              if (mode === 'late-reject') {
+                while (sessionStorage.getItem('mock-cancel-release') !== 'yes')
+                  await new Promise((resolve) => setTimeout(resolve, 25))
+                sessionStorage.setItem('mock-cancel-rejected', 'yes')
+                throw new Error('fixture old cancel request rejected')
+              }
               sessionStorage.setItem('mock-history-cancelled', 'yes')
               sessionStorage.setItem('mock-done', 'yes')
               return

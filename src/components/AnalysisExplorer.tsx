@@ -231,11 +231,6 @@ export function AnalysisExplorer({
           </p>
         )}
       </div>
-      {refreshing && (
-        <p className="inline-note" role="status">
-          正在分析，当前显示上次结果。完成后会更新此页。
-        </p>
-      )}
       {analysis.scan_status !== 'complete' && (
         <div className="inline-note">
           <Info size={14} />带 “+” 的数值只包含已测量部分；无法读取不代表目录为空。

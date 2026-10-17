@@ -47,6 +47,8 @@ import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
+import { AnalysisTaskNotice } from './components/AnalysisTaskNotice'
+import { analysisTaskActive, failedAnalysisTask, type AnalysisTask } from './lib/analysis-task'
 import { AnalysisContexts, type AnalysisExplorerHandle } from './lib/analysis-context'
 import {
   recordAnalysisVisit,
@@ -156,6 +158,8 @@ export default function App() {
   const [apps, setApps] = useState<AppEntry[] | null>(null)
   const [moleHistory, setMoleHistory] = useState<MoleHistory | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
+  const [analysisTask, setAnalysisTask] = useState<AnalysisTask | null>(null)
+  const cancelRequest = useRef(0)
   const busyRef = useRef(false)
   const autoStatus = useRef(false)
   const observation = useRef(new AbortController())
@@ -246,24 +250,40 @@ export default function App() {
   ) {
     if (busyRef.current) return
     busyRef.current = true
+    ++cancelRequest.current
     setError('')
     setCancelPending(false)
+    let trackedAnalysis: AnalysisTask = {
+      id: null,
+      path: target ?? null,
+      historyTarget: analysisTarget,
+      state: 'starting',
+    }
+    if (kind === 'analyze') setAnalysisTask(trackedAnalysis)
     try {
       const result = await api.runTask(
         kind,
         target,
         (id) => {
           setBusy({ id, kind })
+          if (kind === 'analyze') {
+            trackedAnalysis = { ...trackedAnalysis, id, state: 'running' }
+            setAnalysisTask(trackedAnalysis)
+          }
           void refreshRecords().catch((error) => setError(`历史记录无法刷新：${String(error)}`))
         },
         observation.current.signal,
       )
       applyTaskResult(kind, result, analysisTarget)
     } catch (error) {
-      if (!observation.current.signal.aborted) setError(String(error).replace(/^Error: /, ''))
+      if (!observation.current.signal.aborted) {
+        if (kind === 'analyze') setAnalysisTask(failedAnalysisTask(trackedAnalysis, error))
+        else setError(String(error).replace(/^(?:TaskResultError|Error): /, ''))
+      }
     } finally {
       if (observation.current.signal.aborted) return
       setBusy(null)
+      ++cancelRequest.current
       busyRef.current = false
       setCancelPending(false)
       try {
@@ -281,6 +301,7 @@ export default function App() {
   ) {
     if (kind === 'status') setSnapshot(result as Snapshot)
     if (kind === 'analyze') {
+      setAnalysisTask(null)
       const value = result as Analysis
       rememberAnalysisContext()
       setAnalysis({ ...value })
@@ -310,6 +331,10 @@ export default function App() {
     busyRef.current = true
     setCancelPending(false)
     setError('')
+    ++cancelRequest.current
+    const analysisRecord = tasks.find((task) => task.kind === 'analyze')
+    if (analysisRecord)
+      setAnalysisTask({ id: analysisRecord.id, path: analysisRecord.path, state: 'running' })
     const pending = new Map(tasks.map((task) => [task.id, task]))
     setBusy({ id: tasks[0].id, kind: tasks[0].kind })
     await Promise.all(
@@ -318,13 +343,20 @@ export default function App() {
           const result = await api.resumeTask(task.id, task.kind, observation.current.signal)
           applyTaskResult(task.kind, result)
         } catch (error) {
-          if (!observation.current.signal.aborted) setError(String(error).replace(/^Error: /, ''))
+          if (!observation.current.signal.aborted) {
+            if (task.kind === 'analyze')
+              setAnalysisTask(
+                failedAnalysisTask({ id: task.id, path: task.path, state: 'running' }, error),
+              )
+            else setError(String(error).replace(/^(?:TaskResultError|Error): /, ''))
+          }
         } finally {
           pending.delete(task.id)
           if (!observation.current.signal.aborted) {
             const next = pending.values().next().value
             setBusy(next ? { id: next.id, kind: next.kind } : null)
             setCancelPending(false)
+            ++cancelRequest.current
             try {
               await refreshRecords(task.kind === 'clean')
             } catch (error) {
@@ -335,6 +367,28 @@ export default function App() {
       }),
     )
     busyRef.current = false
+  }
+
+  function cancelCurrentTask() {
+    if (!busy || cancelPending) return
+    const request = ++cancelRequest.current
+    const id = busy.id
+    setCancelPending(true)
+    if (busy.kind === 'analyze')
+      setAnalysisTask((current) =>
+        current?.id === id ? { ...current, state: 'cancelling', cancelError: undefined } : current,
+      )
+    void api.cancelTask(id).catch((error) => {
+      if (request !== cancelRequest.current || observation.current.signal.aborted) return
+      setCancelPending(false)
+      if (busy.kind === 'analyze')
+        setAnalysisTask((current) =>
+          current?.id === id && current.state === 'cancelling'
+            ? { ...current, state: 'running', cancelError: String(error) }
+            : current,
+        )
+      else setError(String(error))
+    })
   }
 
   async function chooseAndAnalyze() {
@@ -453,7 +507,7 @@ export default function App() {
       </div>
     )
 
-  const canRun = api.desktop && data.engine.available && !busy
+  const canRun = api.desktop && data.engine.available && !busy && analysisTask?.state !== 'starting'
   const disk =
     snapshot?.disks?.find((disk) => disk.mount === '/') ??
     snapshot?.disks?.find((disk) => !disk.external)
@@ -552,6 +606,16 @@ export default function App() {
                 >
                   <FolderOpen size={17} />
                 </button>
+                {busy?.kind === 'analyze' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={cancelPending}
+                    onClick={cancelCurrentTask}
+                  >
+                    <Square size={11} />
+                    {cancelPending ? '正在取消…' : '取消'}
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -639,6 +703,23 @@ export default function App() {
                 <X size={15} />
               </button>
             </div>
+          )}
+          {analysisTask && (page === 'analyze' || !analysisTaskActive(analysisTask)) && (
+            <AnalysisTaskNotice
+              task={analysisTask}
+              hasResult={!!analysis}
+              canRetry={canRun}
+              showResults={page !== 'analyze'}
+              onRetry={() => {
+                if (analysisTask.path) {
+                  changePage('analyze')
+                  void execute('analyze', analysisTask.path, analysisTask.historyTarget)
+                }
+              }}
+              onHistory={() => changePage('history')}
+              onResults={() => changePage('analyze')}
+              onDismiss={() => setAnalysisTask(null)}
+            />
           )}
 
           {page === 'overview' && (
@@ -730,7 +811,7 @@ export default function App() {
                   onAnalyze={(target) => void execute('analyze', target)}
                   onReveal={reveal}
                 />
-              ) : (
+              ) : analysisTaskActive(analysisTask) ? null : (
                 <section className="card">
                   <Empty title="先选择一个文件夹">
                     <p>
@@ -1067,7 +1148,7 @@ export default function App() {
           onClose={() => setPlan(null)}
         />
       )}
-      {busy && (
+      {busy && !(busy.kind === 'analyze' && page === 'analyze') && (
         <div className="task-toast" role="status">
           <LoaderCircle size={18} className="spin" />
           <div>
@@ -1079,13 +1160,7 @@ export default function App() {
           <button
             className="button secondary compact"
             disabled={cancelPending}
-            onClick={() => {
-              setCancelPending(true)
-              void api.cancelTask(busy.id).catch((error) => {
-                setCancelPending(false)
-                setError(String(error))
-              })
-            }}
+            onClick={cancelCurrentTask}
           >
             <Square size={11} />
             取消

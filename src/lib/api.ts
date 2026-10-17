@@ -15,6 +15,7 @@ import type {
 } from '../types'
 import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
+import { taskResult } from './task-result'
 
 export const desktop = isTauri()
 export const bootstrap = (): Promise<Bootstrap> =>
@@ -91,12 +92,6 @@ export async function runTask<K extends TaskKind>(
 const taskTransport: TaskTransport = {
   listen: (receive) => listen<TaskEvent>('task-event', ({ payload }) => receive(payload)),
   snapshot: (taskId) => invoke<TaskEvent>('get_task_snapshot', { taskId }),
-}
-
-export function taskResult<K extends TaskKind>(event: TaskEvent): TaskResults[K] {
-  if (event.error || event.state !== 'succeeded') throw new Error(event.error ?? '任务未完成。')
-  if (event.result == null) throw new Error(event.resultUnavailable ?? '结果未保留，请重新检查。')
-  return event.result as TaskResults[K]
 }
 
 export async function resumeTask<K extends TaskKind>(

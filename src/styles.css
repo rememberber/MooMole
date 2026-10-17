@@ -587,6 +587,37 @@ h3 {
 .notice.warning {
   color: #9c7a3e;
 }
+.analysis-task {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.analysis-task-body {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.analysis-task strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.analysis-task-path {
+  white-space: pre-wrap;
+  margin: 5px 0;
+}
+.analysis-task progress {
+  display: block;
+  width: min(100%, 360px);
+  height: 6px;
+  margin-top: 9px;
+  accent-color: var(--lavender-ink);
+}
+.analysis-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
 .inline-note {
   display: flex;
   align-items: center;

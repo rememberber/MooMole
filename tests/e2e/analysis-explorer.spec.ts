@@ -154,7 +154,9 @@ test('native task results drive the map and folder navigation uses the selected 
     JSON.parse(sessionStorage.getItem('mock-starts') ?? '[]'),
   )
   expect(starts.at(-1).path).toBe('/fixture/analysis/Projects')
-  await expect(explorer.getByText('正在分析，当前显示上次结果。完成后会更新此页。')).toBeVisible()
+  await expect(page.getByRole('region', { name: '空间分析任务' })).toContainText(
+    '上次成功结果仍保留',
+  )
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(explorer.getByRole('region', { name: '选中项目详情' })).toHaveCount(0)
 })
