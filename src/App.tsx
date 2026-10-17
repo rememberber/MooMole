@@ -44,6 +44,7 @@ import { ExecutionHistory } from './components/ExecutionHistory'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
+import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
 import { AnalysisContexts, type AnalysisExplorerHandle } from './lib/analysis-context'
@@ -942,29 +943,7 @@ export default function App() {
                       icon={Clock3}
                     />
                   </div>
-                  <section className="card">
-                    <div className="list-toolbar">
-                      <h2>进程快照</h2>
-                      <span className="muted">
-                        {snapshot.process_stale ? '复用的较早样本' : '按 CPU 占用展示'}
-                      </span>
-                    </div>
-                    {snapshot.top_processes?.length ? (
-                      snapshot.top_processes.slice(0, 12).map((process) => (
-                        <div className="process-row" key={process.pid}>
-                          <span className="process-icon">
-                            <Activity size={15} />
-                          </span>
-                          <strong>{process.name}</strong>
-                          <span className="mono">PID {process.pid}</span>
-                          <span>{percent(process.cpu)}</span>
-                          <span>{bytes(process.memory_bytes)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="empty-inline">当前没有可用的进程数据</div>
-                    )}
-                  </section>
+                  <ProcessSnapshot snapshot={snapshot} refreshing={busy?.kind === 'status'} />
                 </>
               ) : (
                 <section className="card">

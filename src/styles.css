@@ -723,7 +723,6 @@ h3 {
 }
 .file-row:last-child,
 .app-row:last-child,
-.process-row:last-child,
 .history-row:last-child {
   border-bottom: 0;
 }
@@ -1363,31 +1362,78 @@ h3 {
   display: grid;
   place-items: center;
 }
-.process-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid var(--border);
-  padding: 16px 22px;
-  font-size: 11px;
+.process-toolbar {
+  flex-wrap: wrap;
 }
-.process-icon {
-  color: var(--muted);
-}
-.process-row strong {
-  font-weight: 500;
+.process-toolbar .search-field {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 140px;
+  max-width: 320px;
+  margin-left: auto;
 }
-.process-row > span:not(:first-child) {
-  width: 80px;
-  text-align: right;
+.process-toolbar select {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 11px;
+  max-width: 100%;
+}
+.process-summary,
+.process-scope {
+  padding: 12px 21px;
   color: var(--subtle);
+  font-size: 11px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
 }
-.process-row .mono {
+.process-summary [role='status'] {
+  color: var(--text);
+}
+.process-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.process-table th,
+.process-table td {
+  padding: 13px 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+}
+.process-table th:first-child {
+  text-align: left;
+  padding-left: 21px;
+}
+.process-table th:last-child,
+.process-table td:last-child {
+  padding-right: 21px;
+}
+.process-table thead {
+  color: var(--subtle);
+  background: var(--soft);
   font-size: 10px;
+}
+.process-table thead th:nth-child(2),
+.process-table thead th:nth-child(3) {
+  width: 85px;
+}
+.process-table thead th:last-child {
+  width: 110px;
+}
+.process-scope summary {
+  cursor: pointer;
+}
+.process-scope p {
+  margin-top: 8px;
+}
+.process-snapshot .empty-inline .button {
+  margin-top: 10px;
 }
 .history-row {
   display: flex;

@@ -66,8 +66,15 @@ export interface Snapshot {
   cpu?: { usage?: number; logical_cpu?: number }
   memory?: { total?: number; used?: number; used_percent?: number; pressure?: string }
   disks?: { mount: string; total: number; used: number; used_percent: number; external: boolean }[]
-  top_processes?: { pid: number; name: string; cpu: number; memory_bytes?: number }[]
-  process_stale?: boolean
+  top_processes?: ProcessSample[] | null
+  process_collected_at?: string | null
+  process_stale?: boolean | null
+}
+export interface ProcessSample {
+  pid: number
+  name: string
+  cpu?: number | null
+  memory_bytes?: number | null
 }
 export interface AppEntry {
   name: string

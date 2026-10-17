@@ -104,7 +104,8 @@ export async function installTaskMock(
                 result:
                   finished() && finalState() === 'succeeded'
                     ? task.kind === 'status'
-                      ? snapshot
+                      ? JSON.parse(sessionStorage.getItem('mock-status-result') ?? 'null') ||
+                        snapshot
                       : task.kind === 'apps'
                         ? applications
                         : task.kind === 'history'
