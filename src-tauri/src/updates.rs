@@ -43,11 +43,14 @@ struct Session {
     ready: Option<Ready>,
     closing: bool,
     install_error: Option<String>,
+    recovering: bool,
+    recovery_error: Option<String>,
 }
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Download {
     pub state: &'static str,
+    restored: bool,
     file_name: Option<String>,
     transferred: u64,
     total: u64,
@@ -56,6 +59,8 @@ pub struct Download {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    recovering: bool,
+    recovery_error: Option<String>,
     installing: bool,
     install_error: Option<String>,
     check: Option<Check>,
@@ -322,6 +327,8 @@ impl Checker {
             download.state = "idle";
         }
         Ok(Snapshot {
+            recovering: s.recovering,
+            recovery_error: s.recovery_error.clone(),
             installing: self.installation.active(),
             install_error: s.install_error.clone(),
             check: s.check.clone(),
@@ -348,8 +355,10 @@ impl Checker {
             .ok_or("请先检查更新，确认有匹配的安装包。")?;
         let control = Arc::new(Control::default());
         s.install_error = None;
+        s.recovery_error = None;
         s.download = Download {
             state: "downloading",
+            restored: false,
             file_name: Some(asset.file_name.clone()),
             transferred: 0,
             total: asset.size,
@@ -418,7 +427,9 @@ impl Checker {
         let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
         if let Some(control) = &s.control {
             control.cancel();
-            s.download.state = "cancelling";
+            if !s.recovering {
+                s.download.state = "cancelling";
+            }
         }
         Ok(())
     }
@@ -427,7 +438,9 @@ impl Checker {
         s.closing = true;
         if let Some(control) = &s.control {
             control.cancel();
-            s.download.state = "cancelling";
+            if !s.recovering {
+                s.download.state = "cancelling";
+            }
         }
     }
     pub fn active(&self) -> bool {
@@ -528,7 +541,7 @@ impl Checker {
         }
         result
     }
-    pub async fn check(&self) -> Result<Check, String> {
+    pub async fn check(&self, cache: Option<std::path::PathBuf>) -> Result<Check, String> {
         if self.busy.swap(true, Ordering::SeqCst) {
             return Err("已有更新操作正在进行，请稍候。".into());
         }
@@ -539,6 +552,7 @@ impl Checker {
                 return Err("请等待当前下载结束，或先取消下载。".into());
             }
             s.install_error = None;
+            s.recovery_error = None;
             s.check = None;
             s.checked_at = None;
             s.ready = None;
@@ -561,11 +575,63 @@ impl Checker {
         })
         .await
         .map_err(|_| "检查更新超时，请稍后重试。")?;
-        let result = result?;
-        let mut s = self.session.lock().map_err(|_| "无法保存更新检查。")?;
-        s.check = Some(result.clone());
-        s.checked_at = Some(Instant::now());
+        self.accept_check(result?, cache).await
+    }
+    async fn accept_check(
+        &self,
+        result: Check,
+        cache: Option<std::path::PathBuf>,
+    ) -> Result<Check, String> {
+        {
+            let mut s = self.session.lock().map_err(|_| "无法保存更新检查。")?;
+            if s.closing {
+                return Err("应用正在退出，更新检查已停止。".into());
+            }
+            s.check = Some(result.clone());
+            s.checked_at = Some(Instant::now());
+        }
+        if let (Some(asset), Some(path)) = (result.asset.clone(), cache) {
+            self.restore_selected(asset, path).await?;
+        }
         Ok(result)
+    }
+    async fn restore_selected(&self, asset: Asset, path: std::path::PathBuf) -> Result<(), String> {
+        let control = Arc::new(Control::default());
+        {
+            let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if s.closing {
+                return Err("应用正在退出，本地复核已停止。".into());
+            }
+            s.recovering = true;
+            s.control = Some(control.clone());
+        }
+        let ctl = control.clone();
+        let result =
+            tokio::task::spawn_blocking(move || Cache::recover_existing(&path, &asset, &ctl))
+                .await
+                .unwrap_or_else(|_| Err("本地更新包未能复用，请重新下载。".into()));
+        let mut s = self.session.lock().map_err(|_| "无法保存更新状态。")?;
+        s.recovering = false;
+        s.control = None;
+        if s.closing || control.cancelled() {
+            return Err("本地更新包复核已停止。".into());
+        }
+        match result {
+            Ok(Some(ready)) => {
+                s.download = Download {
+                    state: "ready",
+                    restored: true,
+                    file_name: Some(ready.asset.file_name.clone()),
+                    transferred: ready.asset.size,
+                    total: ready.asset.size,
+                    error: None,
+                };
+                s.ready = Some(ready);
+            }
+            Ok(None) => (),
+            Err(error) => s.recovery_error = Some(error),
+        }
+        Ok(())
     }
 }
 
@@ -586,6 +652,96 @@ mod tests {
     }
     fn parse(value: Value, current: &str, arch: &str) -> Result<Check, String> {
         select(&serde_json::to_vec(&value).unwrap(), current, arch)
+    }
+
+    fn selection(asset: &Asset, current: &str, arch: &str) -> Check {
+        let mut value = release("0.2.0", "arm64");
+        value["assets"][0] = serde_json::to_value(asset).unwrap();
+        parse(manifest(vec![value]), current, arch).unwrap()
+    }
+    #[tokio::test]
+    async fn fresh_selection_restores_in_new_session_and_protects_the_verified_package() {
+        let (_temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let asset = ready.asset.clone();
+        let path = ready.verified_path().unwrap();
+        let cache = path.parent().unwrap().to_owned();
+        drop(ready);
+        let checker = Arc::new(Checker::default());
+        assert!(checker.session.lock().unwrap().ready.is_none());
+        let result = checker
+            .accept_check(selection(&asset, "0.1.0", "arm64"), Some(cache.clone()))
+            .await
+            .unwrap();
+        assert_eq!(result.status, Status::Available);
+        let snapshot = checker.snapshot().unwrap();
+        assert_eq!(snapshot.download.state, "ready");
+        assert!(snapshot.download.restored);
+        assert!(!snapshot.recovering);
+        assert!(snapshot.recovery_error.is_none());
+        assert!(!checker.active());
+        assert_eq!(checker.ready_path().await.unwrap(), path);
+        assert!(checker.start(cache.clone()).is_err());
+        std::fs::File::open(&path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - Duration::from_secs(30 * 86400))
+            .unwrap();
+        checker.maintain(&cache).unwrap();
+        assert!(path.is_file());
+    }
+    #[tokio::test]
+    async fn only_a_fresh_matching_upgrade_can_restore_and_local_failure_keeps_download_selection()
+    {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let asset = ready.asset.clone();
+        let path = ready.verified_path().unwrap();
+        let cache = path.parent().unwrap().to_owned();
+        drop(ready);
+        let invalid_cache = temp.path().join("not-a-directory");
+        std::fs::write(&invalid_cache, b"unchanged").unwrap();
+        for selected in [
+            selection(&asset, "0.2.0", "arm64"),
+            selection(&asset, "0.1.0", "x64"),
+            parse(manifest(vec![]), "0.1.0", "arm64").unwrap(),
+        ] {
+            let checker = Checker::default();
+            checker
+                .accept_check(selected, Some(invalid_cache.clone()))
+                .await
+                .unwrap();
+            let snapshot = checker.snapshot().unwrap();
+            assert_eq!(snapshot.download.state, "idle");
+            assert!(snapshot.recovery_error.is_none());
+            assert!(checker.session.lock().unwrap().ready.is_none());
+        }
+        std::fs::write(&path, b"tampered installer fixture").unwrap();
+        let checker = Checker::default();
+        checker
+            .accept_check(selection(&asset, "0.1.0", "arm64"), Some(cache.clone()))
+            .await
+            .unwrap();
+        let snapshot = checker.snapshot().unwrap();
+        assert_eq!(snapshot.check.unwrap().status, Status::Available);
+        assert_eq!(snapshot.download.state, "idle");
+        assert!(snapshot.recovery_error.is_some());
+        assert!(!snapshot.recovering);
+        assert!(checker
+            .session
+            .lock()
+            .unwrap()
+            .check
+            .as_ref()
+            .unwrap()
+            .asset
+            .is_some());
+        assert!(checker.session.lock().unwrap().checked_at.is_some());
+        let closing = Checker::default();
+        closing.shutdown();
+        assert!(closing
+            .accept_check(selection(&asset, "0.1.0", "arm64"), Some(cache))
+            .await
+            .is_err());
+        assert!(path.is_file());
+        assert_eq!(std::fs::read(&invalid_cache).unwrap(), b"unchanged");
     }
 
     async fn installer() -> (tempfile::TempDir, Arc<Checker>, std::path::PathBuf) {
@@ -616,7 +772,7 @@ mod tests {
                         assert!(checker.snapshot().unwrap().installing);
                         assert!(checker.installation.enter().is_err());
                         assert!(checker.ready_path().await.is_err());
-                        assert!(checker.check().await.is_err());
+                        assert!(checker.check(None).await.is_err());
                         order.lock().unwrap().push("open");
                         Ok(())
                     }
@@ -995,7 +1151,7 @@ mod tests {
             s.download.state = "downloading";
         }
         assert!(checker.start(temp.path().join("cache")).is_err());
-        assert!(checker.check().await.is_err());
+        assert!(checker.check(None).await.is_err());
         checker.cancel().unwrap();
         assert!(control.cancelled());
         assert_eq!(checker.snapshot().unwrap().download.state, "cancelling");
@@ -1003,7 +1159,7 @@ mod tests {
         checker.session.lock().unwrap().control = None;
         assert!(!checker.active());
         assert!(checker.start(temp.path().join("cache")).is_err());
-        assert!(checker.check().await.is_err());
+        assert!(checker.check(None).await.is_err());
     }
 
     fn serve(response: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
@@ -1072,7 +1228,7 @@ mod tests {
     async fn duplicate_checks_are_rejected_before_network() {
         let checker = Checker::default();
         checker.busy.store(true, Ordering::SeqCst);
-        assert!(checker.check().await.is_err());
+        assert!(checker.check(None).await.is_err());
         assert!(checker.busy.load(Ordering::SeqCst));
     }
 }

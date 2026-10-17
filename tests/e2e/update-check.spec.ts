@@ -12,6 +12,17 @@ async function setup(page: Page) {
       }
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
+    const snapshot = () => ({
+      recovering: sessionStorage.getItem('update-recovering') === 'yes',
+      recoveryError: sessionStorage.getItem('update-recovery-error'),
+      installing: sessionStorage.getItem('update-installing') === 'yes',
+      installError: sessionStorage.getItem('update-install-error'),
+      check: JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null'),
+      download: JSON.parse(
+        sessionStorage.getItem('update-download') ??
+          '{"state":"idle","restored":false,"fileName":null,"transferred":0,"total":0,"error":null}',
+      ),
+    })
     internal.invoke = async (command, args) => {
       if (command === 'save_settings') {
         sessionStorage.setItem('update-save-started', 'yes')
@@ -25,38 +36,56 @@ async function setup(page: Page) {
           String(Number(sessionStorage.getItem('update-checks') ?? 0) + 1),
         )
         sessionStorage.setItem('update-args', JSON.stringify(args ?? null))
+        sessionStorage.removeItem('update-cached-check')
+        sessionStorage.removeItem('update-download')
+        sessionStorage.removeItem('update-recovery-error')
         while (sessionStorage.getItem('update-mode') === 'pending')
           await new Promise((resolve) => setTimeout(resolve, 20))
         if (sessionStorage.getItem('update-mode') === 'error')
           throw new Error('检查更新失败，请重试。')
         const result = JSON.parse(sessionStorage.getItem('update-result') ?? '{}')
         sessionStorage.setItem('update-cached-check', JSON.stringify(result))
-        return result
+        if (sessionStorage.getItem('update-mode') === 'restore-pending') {
+          sessionStorage.setItem('update-recovering', 'yes')
+          while (sessionStorage.getItem('update-mode') === 'restore-pending')
+            await new Promise((resolve) => setTimeout(resolve, 20))
+        }
+        if (sessionStorage.getItem('update-mode') === 'restore-ready') {
+          sessionStorage.setItem(
+            'update-download',
+            JSON.stringify({
+              state: 'ready',
+              restored: true,
+              fileName: result.asset.fileName,
+              transferred: 1000,
+              total: 1000,
+              error: null,
+            }),
+          )
+        }
+        if (sessionStorage.getItem('update-mode') === 'restore-error')
+          sessionStorage.setItem('update-recovery-error', '本地更新包未能复用，请重新下载。')
+        sessionStorage.removeItem('update-recovering')
+        return snapshot()
       }
       if (command === 'get_update_snapshot') {
         if (sessionStorage.getItem('update-snapshot-error')) throw new Error('state unavailable')
-        return {
-          installing: sessionStorage.getItem('update-installing') === 'yes',
-          installError: sessionStorage.getItem('update-install-error'),
-          check: JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null'),
-          download: JSON.parse(
-            sessionStorage.getItem('update-download') ??
-              '{"state":"idle","fileName":null,"transferred":0,"total":0,"error":null}',
-          ),
-        }
+        return snapshot()
       }
       if (command === 'download_update') {
         sessionStorage.setItem('download-args', JSON.stringify(args))
         const check = JSON.parse(sessionStorage.getItem('update-cached-check') ?? 'null')
         const download = {
           state: 'downloading',
+          restored: false,
           fileName: check.asset.fileName,
           transferred: 0,
           total: 1000,
           error: null,
         }
         sessionStorage.setItem('update-download', JSON.stringify(download))
-        return { check, download }
+        sessionStorage.removeItem('update-recovery-error')
+        return snapshot()
       }
       if (command === 'cancel_update_download') {
         sessionStorage.setItem('cancel-download-args', JSON.stringify(args))
@@ -476,4 +505,85 @@ test('pending settings save prevents confirming installation until the save comp
   expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBeNull()
   await page.evaluate(() => sessionStorage.removeItem('update-save-pending'))
   await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
+})
+
+test('fresh manual check revalidates a saved package without downloading, survives closing and reports restored readiness', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  await page.evaluate(
+    (result) => {
+      sessionStorage.setItem('update-result', JSON.stringify(result))
+      sessionStorage.setItem('update-mode', 'restore-pending')
+    },
+    {
+      ...base,
+      status: 'available',
+      latestVersion: '0.2.0',
+      asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+    },
+  )
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在复核本地更新包')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
+  await expect(updates.getByRole('progressbar')).toHaveCount(0)
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: '设置', exact: true })
+    .getByRole('button', { name: '关于', exact: true })
+    .click()
+  await expect(updates.getByRole('status')).toContainText('正在复核本地更新包')
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeDisabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('1')
+  await page.evaluate(() => sessionStorage.setItem('update-snapshot-error', 'yes'))
+  await expect(updates.getByRole('status')).toContainText('更新状态尚未确认')
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('update-snapshot-error'))
+  await expect(updates.getByRole('status')).toContainText('正在复核本地更新包')
+  await page.evaluate(() => sessionStorage.setItem('update-mode', 'restore-ready'))
+  await expect(updates.getByRole('status')).toContainText('已找到并校验本地更新包')
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
+  await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toBeEnabled()
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => sessionStorage.getItem('download-args'))).toBeNull()
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    await updates.scrollIntoViewIfNeeded()
+    expect(await updates.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/update-recovery-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+})
+
+test('local recovery failure keeps the fresh release result and starting a new download clears the warning', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  await page.evaluate(
+    (result) => {
+      sessionStorage.setItem('update-result', JSON.stringify(result))
+      sessionStorage.setItem('update-mode', 'restore-error')
+    },
+    {
+      ...base,
+      status: 'available',
+      latestVersion: '0.2.0',
+      asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+    },
+  )
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('发现新版本 0.2.0')
+  await expect(updates.getByRole('alert')).toHaveText('本地更新包未能复用，请重新下载。')
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeEnabled()
+  await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toHaveCount(0)
+  await updates.getByRole('button', { name: '下载更新包', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在下载更新包')
+  await expect(updates.getByRole('alert')).toHaveCount(0)
 })

@@ -12,7 +12,6 @@ import type {
   ReviewPlanSummary,
   ExecutionSummary,
   ExecutionDetail,
-  UpdateCheckResult,
   UpdateSnapshot,
 } from '../types'
 import { demoBootstrap } from './demo'
@@ -48,7 +47,7 @@ export const official = (): Promise<void> =>
   desktop
     ? invoke('open_official')
     : Promise.resolve(void window.open('https://mole.fit/zh/', '_blank', 'noopener,noreferrer'))
-export const checkUpdates = (): Promise<UpdateCheckResult> =>
+export const checkUpdates = (): Promise<UpdateSnapshot> =>
   desktop ? invoke('check_updates') : Promise.reject(new Error('请在桌面 App 中检查更新。'))
 export const updateSnapshot = (): Promise<UpdateSnapshot> => invoke('get_update_snapshot')
 export const downloadUpdate = (): Promise<UpdateSnapshot> => invoke('download_update')

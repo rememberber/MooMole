@@ -496,9 +496,24 @@ async fn open_official() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn check_updates(state: tauri::State<'_, AppState>) -> Result<updates::Check, String> {
-    let _operation = state.updates.installation.enter()?;
-    state.updates.check().await
+async fn check_updates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<updates::Snapshot, String> {
+    let operation = state.updates.installation.enter()?;
+    let path = app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| "无法定位本地更新缓存。")?
+        .join("pending-updates");
+    let checker = state.updates.clone();
+    tauri::async_runtime::spawn(async move {
+        let _operation = operation;
+        checker.check(Some(path)).await?;
+        checker.snapshot()
+    })
+    .await
+    .map_err(|_| "更新检查未完成，请重试。")?
 }
 
 #[tauri::command]

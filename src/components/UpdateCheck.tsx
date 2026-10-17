@@ -15,6 +15,7 @@ import type { UpdateCheckResult, UpdateSnapshot } from '../types'
 
 const idle: UpdateSnapshot['download'] = {
   state: 'idle',
+  restored: false,
   fileName: null,
   transferred: 0,
   total: 0,
@@ -25,6 +26,8 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const [result, setResult] = useState<UpdateCheckResult | null>(null)
   const [download, setDownload] = useState(idle)
   const [pending, setPending] = useState(false)
+  const [recovering, setRecovering] = useState(false)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [action, setAction] = useState<'download' | 'cancel' | 'reveal' | 'install' | null>(null)
   const [installing, setInstalling] = useState(false)
   const [confirmInstall, setConfirmInstall] = useState(false)
@@ -38,6 +41,8 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const checking = useRef(false)
   const generation = useRef(0)
   function apply(snapshot: UpdateSnapshot) {
+    setRecovering(snapshot.recovering)
+    setRecoveryError(snapshot.recoveryError)
     setResult(snapshot.check)
     setDownload(snapshot.download)
     setInstalling(snapshot.installing)
@@ -53,9 +58,14 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
       const current = generation.current
       try {
         const snapshot = await updateSnapshot()
-        if (active.current && current === generation.current && !checking.current) apply(snapshot)
+        if (active.current && current === generation.current) {
+          if (checking.current) {
+            setRecovering(snapshot.recovering)
+            setObservationError('')
+          } else apply(snapshot)
+        }
       } catch {
-        if (active.current && current === generation.current && !checking.current)
+        if (active.current && current === generation.current)
           setObservationError('更新状态暂时无法读取，恢复连接后会重新确认。')
       } finally {
         if (active.current) timer = setTimeout(() => void poll(), 700)
@@ -70,7 +80,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const running = ['downloading', 'verifying', 'cancelling'].includes(download.state)
   const preparing = installing || action === 'install'
   async function check() {
-    if (checking.current || acting.current || preparing) return
+    if (checking.current || acting.current || preparing || recovering) return
     setConfirmInstall(false)
     checking.current = true
     generation.current += 1
@@ -78,11 +88,13 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
     setError('')
     setOpenError('')
     setInstallError(null)
+    setRecoveryError(null)
+    setRecovering(false)
     setResult(null)
     setDownload(idle)
     try {
       const next = await checkUpdates()
-      if (active.current) setResult(next)
+      if (active.current) apply(next)
     } catch (error) {
       if (active.current) setError(errorText(error))
     } finally {
@@ -116,36 +128,40 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
       if (active.current) setAction(null)
     }
   }
-  const operationError = download.error || openError || installError
-  const message = pending
-    ? '正在检查更新…'
-    : observationError
-      ? '更新状态尚未确认'
-      : !loaded
-        ? '正在读取更新状态…'
-        : preparing
-          ? '正在复核并打开安装包…'
-          : download.state === 'downloading'
-            ? '正在下载更新包'
-            : download.state === 'verifying'
-              ? '正在校验已保存的更新包…'
-              : download.state === 'cancelling'
-                ? '正在取消并清理临时文件…'
-                : download.state === 'ready'
-                  ? '更新包已下载并校验'
-                  : download.state === 'cancelled'
-                    ? '下载已取消'
-                    : download.state === 'failed'
-                      ? '下载未完成'
-                      : result?.status === 'available'
-                        ? `发现新版本 ${result.latestVersion}`
-                        : result?.status === 'current'
-                          ? '当前版本无需更新'
-                          : result?.status === 'unpublished'
-                            ? '尚未发布可检查的版本'
-                            : desktop
-                              ? '手动检查 MooMole 客户端更新'
-                              : '请在桌面 App 中检查更新'
+  const operationError = download.error || openError || installError || recoveryError
+  const message = observationError
+    ? '更新状态尚未确认'
+    : recovering
+      ? '正在复核本地更新包…'
+      : pending
+        ? '正在检查更新…'
+        : !loaded
+          ? '正在读取更新状态…'
+          : preparing
+            ? '正在复核并打开安装包…'
+            : download.state === 'downloading'
+              ? '正在下载更新包'
+              : download.state === 'verifying'
+                ? '正在校验已保存的更新包…'
+                : download.state === 'cancelling'
+                  ? '正在取消并清理临时文件…'
+                  : download.state === 'ready'
+                    ? download.restored
+                      ? '已找到并校验本地更新包'
+                      : '更新包已下载并校验'
+                    : download.state === 'cancelled'
+                      ? '下载已取消'
+                      : download.state === 'failed'
+                        ? '下载未完成'
+                        : result?.status === 'available'
+                          ? `发现新版本 ${result.latestVersion}`
+                          : result?.status === 'current'
+                            ? '当前版本无需更新'
+                            : result?.status === 'unpublished'
+                              ? '尚未发布可检查的版本'
+                              : desktop
+                                ? '手动检查 MooMole 客户端更新'
+                                : '请在桌面 App 中检查更新'
   return (
     <section className="setting-group update-check" aria-label="MooMole 更新">
       <div className="setting-row">
@@ -162,7 +178,9 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
         </span>
         <button
           className="button secondary"
-          disabled={!desktop || !loaded || pending || running || !!action || preparing}
+          disabled={
+            !desktop || !loaded || pending || running || !!action || preparing || recovering
+          }
           onClick={() => void check()}
         >
           <RefreshCw size={14} />
@@ -217,7 +235,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                   <div className="update-actions">
                     <button
                       className="button primary"
-                      disabled={!!action || preparing || saving || !!observationError}
+                      disabled={!!action || preparing || recovering || saving || !!observationError}
                       onClick={() => void perform('install')}
                     >
                       打开并退出
@@ -235,7 +253,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                   <div className="update-actions">
                     <button
                       className="button primary"
-                      disabled={!!action || preparing || saving || !!observationError}
+                      disabled={!!action || preparing || recovering || saving || !!observationError}
                       onClick={() => {
                         setOpenError('')
                         setConfirmInstall(true)
@@ -245,7 +263,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                     </button>
                     <button
                       className="button secondary"
-                      disabled={!!action || preparing || !!observationError}
+                      disabled={!!action || preparing || recovering || !!observationError}
                       onClick={() => void perform('reveal')}
                     >
                       {action === 'reveal' ? '正在复核文件…' : '在 Finder 中查看'}
@@ -259,7 +277,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
               <p className="muted">下载后校验大小和 SHA-512，再由你手动安装。</p>
               <button
                 className="button secondary"
-                disabled={!!action || preparing || !!observationError || !loaded}
+                disabled={!!action || preparing || recovering || !!observationError || !loaded}
                 onClick={() => void perform('download')}
               >
                 {download.state === 'failed' ? '重新下载' : '下载更新包'}

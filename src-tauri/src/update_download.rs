@@ -15,12 +15,14 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{io::AsyncWriteExt, sync::Notify};
 
 #[path = "update_cache.rs"]
 mod maintenance;
+#[path = "update_recovery.rs"]
+mod recovery;
 
 #[derive(Default)]
 pub struct Control {
@@ -203,7 +205,7 @@ impl Ready {
     pub fn verified_path(&self) -> Result<PathBuf, String> {
         self.cache.attached()?;
         let mut file = self.cache.open_file(&self.name, false)?;
-        verify_file(&mut file, &self.asset, self.identity, None)?;
+        verify_file(&mut file, &self.asset, self.identity, None, None)?;
         crate::update_quarantine::present(&self.cache.path.join(&self.name))?;
         Ok(self.cache.path.join(&self.name))
     }
@@ -214,7 +216,8 @@ fn verify_file(
     asset: &Asset,
     identity: (u64, u64),
     control: Option<&Control>,
-) -> Result<(), String> {
+    deadline: Option<Instant>,
+) -> Result<std::fs::Metadata, String> {
     let before = file.metadata().map_err(|_| "无法读取更新文件。")?;
     if !before.is_file()
         || before.nlink() != 1
@@ -231,6 +234,9 @@ fn verify_file(
     loop {
         if control.is_some_and(Control::cancelled) {
             return Err("下载已取消。".into());
+        }
+        if deadline.is_some_and(|limit| Instant::now() >= limit) {
+            return Err("本地更新包复核超时，请重新下载。".into());
         }
         let n = file.read(&mut buffer).map_err(|_| "更新文件读取失败。")?;
         if n == 0 {
@@ -252,7 +258,7 @@ fn verify_file(
     {
         return Err("更新文件校验失败，请重新下载。".into());
     }
-    Ok(())
+    Ok(after)
 }
 
 pub async fn download(
@@ -346,7 +352,7 @@ async fn transfer(
     let ctl = control.clone();
     let verification = tokio::task::spawn_blocking(move || {
         let mut file = c.open_file(&name, false)?;
-        verify_file(&mut file, &a, identity, Some(&ctl))?;
+        verify_file(&mut file, &a, identity, Some(&ctl), None)?;
         c.attached()?;
         crate::update_quarantine::mark(&c.path.join(&name), &a.url)?;
         file.sync_all()
@@ -636,6 +642,13 @@ pub(crate) mod tests {
         .unwrap();
         let path = ready.verified_path().unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), body);
+        let asset = ready.asset.clone();
+        drop(ready);
+        drop(cache);
+        let restored = Cache::recover_existing(path.parent().unwrap(), &asset, &Control::default())
+            .unwrap()
+            .unwrap();
+        assert_eq!(restored.verified_path().unwrap(), path);
         assert!(std::process::Command::new("/usr/bin/hdiutil")
             .arg("verify")
             .arg(&path)
@@ -643,7 +656,7 @@ pub(crate) mod tests {
             .unwrap()
             .status
             .success());
-        println!("Local DMG transfer verified: {} bytes; private file, quarantine properties and container checksum passed.",body.len());
+        println!("Local DMG transfer and reopened-cache recovery verified: {} bytes; private file, quarantine properties and container checksum passed.",body.len());
     }
 
     #[test]

@@ -18,7 +18,7 @@ pub struct Cleanup {
     pub removed: usize,
 }
 
-fn retention(name: &str) -> Option<Duration> {
+pub(super) fn retention(name: &str) -> Option<Duration> {
     fn uuid(raw: &str) -> bool {
         uuid::Uuid::parse_str(raw).is_ok_and(|id| {
             id.get_version_num() == 4
@@ -55,7 +55,7 @@ fn eligible(meta: &Metadata, now: SystemTime, age: Duration) -> bool {
             .and_then(|t| now.duration_since(t).ok())
             .is_some_and(|d| d >= age)
 }
-fn same(a: &Metadata, b: &Metadata) -> bool {
+pub(super) fn same(a: &Metadata, b: &Metadata) -> bool {
     (
         a.dev(),
         a.ino(),
