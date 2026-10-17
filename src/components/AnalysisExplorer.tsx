@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ArrowLeft, ArrowRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
 import type { Analysis, Entry } from '../types'
 import { measuredBytes, shortPath } from '../lib/format'
-import { compareEntries, entryBytes, parentDirectory, spaceTiles } from '../lib/analysis'
+import {
+  analysisObservation,
+  compareEntries,
+  entryBytes,
+  measurementCoverage,
+  parentDirectory,
+  spaceTiles,
+} from '../lib/analysis'
 
 const PAGE_SIZE = 100
 const sizeLabel = (entry: Entry) =>
@@ -58,6 +65,8 @@ export function AnalysisExplorer({
   const visible = entries.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
   const unknown = entries.filter((entry) => entryBytes(entry) == null).length
   const zero = entries.filter((entry) => entryBytes(entry) === 0).length
+  const observation = analysisObservation(analysis)
+  const coverage = useMemo(() => measurementCoverage(analysis.entries), [analysis])
   useEffect(() => {
     if (selection?.analysis !== analysis) return
     const row = rows.current?.querySelector<HTMLElement>('.analysis-row-selected')
@@ -105,6 +114,33 @@ export function AnalysisExplorer({
           <ArrowLeft size={14} />
           上一级
         </button>
+      </div>
+      <div className="analysis-observation" aria-label="结果时间与完整性">
+        <p>
+          {observation ? (
+            <>
+              本次读取完成{' '}
+              <time dateTime={new Date(observation.finishedAt).toISOString()}>
+                {new Date(observation.finishedAt).toLocaleString('zh-CN', { hour12: false })}
+              </time>
+              {' · '}用时{' '}
+              {(observation.elapsedMs / 1000).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}{' '}
+              秒
+            </>
+          ) : (
+            '读取时间未记录'
+          )}
+          {' · '}缓存使用情况未知
+        </p>
+        <p>
+          返回的直接子项：{coverage.complete} 项已完整测量 · {coverage.partial} 项部分测量 ·{' '}
+          {coverage.unknown} 项无法测量或状态未知
+        </p>
+        {(coverage.partial > 0 || coverage.unknown > 0) && (
+          <p className="analysis-coverage-warning">
+            有子项未完整测量，请先查看对应项目；未知大小不代表零。
+          </p>
+        )}
       </div>
       {refreshing && (
         <p className="inline-note" role="status">
@@ -357,6 +393,27 @@ export function AnalysisExplorer({
         </div>
         <details className="analysis-boundaries">
           <summary>测量范围与图表说明</summary>
+          {observation ? (
+            <>
+              <p>
+                来源：Mole CLI{' '}
+                {observation.engineVersion ? `v${observation.engineVersion}` : '版本未记录'}
+                {' · '}显式目录 JSON。读取开始{' '}
+                {new Date(observation.startedAt).toLocaleString('zh-CN', { hour12: false })}
+                （本机时间）；完成时间为客户端取得本次结果的时间，用时由单调时钟记录，包含引擎调用、输出读取和解析。
+              </p>
+              <p className="mono">引擎修订：{observation.revision || '未记录'}</p>
+            </>
+          ) : (
+            <p>
+              这份结果没有可识别的读取来源记录，无法确认读取时间和引擎版本；可重新分析获取本次记录。
+            </p>
+          )}
+          <p>
+            Mole
+            没有报告缓存命中及原始测量时间，因此读取完成时间不等于每个项目的测量时间；重新分析也可能复用缓存。
+            完整性数量基于整份返回结果，不随筛选变化，也不代表磁盘上所有内容都已列出。
+          </p>
           <p>
             来自 Mole 对当前目录的结构化结果，不递归展开成所有文件的清单。图表最多单列 12
             个较大项目，其他正值项目合并；无法测量与已测量为零的项目仍保留在列表，部分测量为零不代表目录为空。

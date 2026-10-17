@@ -38,6 +38,17 @@ export interface Analysis {
   entries: Entry[]
   total_size: number
   total_files?: number
+  mooObservation?: AnalysisObservation | null
+}
+export interface AnalysisObservation {
+  version: 1
+  source: 'mole-directory-json'
+  startedAt: number
+  finishedAt: number
+  elapsedMs: number
+  engineVersion: string | null
+  revision: string
+  cacheUse: 'unreported'
 }
 export interface Snapshot {
   collected_at: string

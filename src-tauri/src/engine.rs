@@ -6,7 +6,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::process::Command;
 
@@ -297,6 +297,8 @@ pub async fn run(
         }
     };
     command.current_dir(root);
+    let started_at = crate::db::now();
+    let started = Instant::now();
     let bytes = output(
         command,
         job.clone(),
@@ -329,7 +331,7 @@ pub async fn run(
         preview.output = plain_terminal_text(&text);
         return serde_json::to_value(preview).map_err(|e| e.to_string());
     }
-    let result: Value =
+    let mut result: Value =
         serde_json::from_slice(&bytes).map_err(|e| format!("Mole 输出格式无法识别：{e}"))?;
     let valid = match job.kind {
         TaskKind::Analyze => {
@@ -347,7 +349,37 @@ pub async fn run(
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
     }
+    if job.kind == TaskKind::Analyze {
+        record_analysis_read(
+            &mut result,
+            started_at,
+            crate::db::now(),
+            started.elapsed(),
+            prepared.version.as_deref(),
+        );
+    }
     Ok(result)
+}
+
+fn record_analysis_read(
+    result: &mut Value,
+    started_at: i64,
+    finished_at: i64,
+    elapsed: Duration,
+    version: Option<&str>,
+) {
+    // These describe this client invocation, not the age of measurements
+    // inside Mole's caches. The pinned JSON protocol reports no cache hits.
+    result["mooObservation"] = json!({
+        "version": 1,
+        "source": "mole-directory-json",
+        "startedAt": started_at,
+        "finishedAt": finished_at,
+        "elapsedMs": elapsed.as_millis() as u64,
+        "engineVersion": version,
+        "revision": REVISION,
+        "cacheUse": "unreported",
+    });
 }
 
 pub(crate) fn plain_terminal_text(text: &str) -> String {
@@ -494,6 +526,44 @@ mod tests {
     }
 
     use super::*;
+    #[test]
+    fn analysis_read_provenance_preserves_measurements_and_survives_snapshot_retrieval() {
+        let mut result = json!({
+            "path": "/fixture", "scan_status": "partial", "total_size": 17,
+            "entries": [{"name": "unknown", "scan_status": "unavailable", "size": 0}],
+            "mooObservation": {"cacheUse": "fresh", "finishedAt": 999}
+        });
+        let original = result.clone();
+        // Wall-clock rollback must not turn a monotonic duration negative.
+        record_analysis_read(
+            &mut result,
+            2000,
+            1000,
+            Duration::from_millis(250),
+            Some("1.59.1"),
+        );
+        for key in ["path", "scan_status", "total_size", "entries"] {
+            assert_eq!(result[key], original[key]);
+        }
+        assert_eq!(
+            result["mooObservation"],
+            json!({
+                "version": 1, "source": "mole-directory-json", "startedAt": 2000,
+                "finishedAt": 1000, "elapsedMs": 250, "engineVersion": "1.59.1",
+                "revision": REVISION, "cacheUse": "unreported"
+            })
+        );
+        let mut cache = crate::tasks::Results::default();
+        cache.remember(&crate::tasks::Snapshot {
+            id: "analysis-fixture".into(),
+            kind: "analyze".into(),
+            state: "succeeded".into(),
+            result: Some(result.clone()),
+            error: None,
+            result_unavailable: None,
+        });
+        assert_eq!(cache.get("analysis-fixture").unwrap().result, Some(result));
+    }
     #[test]
     fn unavailable_saved_protection_survives_unrelated_settings_changes() {
         let scratch = tempfile::tempdir().unwrap();

@@ -969,6 +969,19 @@ h3 {
   align-items: flex-start;
   margin: 20px 0;
 }
+.analysis-observation {
+  margin: -8px 0 24px;
+  color: var(--subtle);
+  font-size: 11px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.analysis-observation p {
+  margin: 4px 0;
+}
+.analysis-observation .analysis-coverage-warning {
+  color: var(--text);
+}
 .analysis-history-buttons {
   display: flex;
   gap: 8px;
@@ -1193,6 +1206,7 @@ h3 {
 }
 .analysis-boundaries p {
   margin-top: 10px;
+  overflow-wrap: anywhere;
 }
 .empty-state {
   padding: 64px 24px;

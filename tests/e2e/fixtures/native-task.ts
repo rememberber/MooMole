@@ -66,12 +66,10 @@ export async function installTaskMock(
               starts.push(args)
               sessionStorage.setItem('mock-starts', JSON.stringify(starts))
               if (mode === 'resume') throw new Error('Existing task must not be restarted')
-              if (mode === 'navigation' && args.kind === 'analyze') {
+              if ((mode === 'navigation' || mode === 'analyze') && args.kind === 'analyze') {
                 sessionStorage.removeItem('mock-done')
                 sessionStorage.removeItem('mock-history-cancelled')
               }
-              if (mode === 'analyze' && args.kind === 'analyze')
-                sessionStorage.removeItem('mock-done')
               if (mode === 'apps' && args.kind === 'apps') sessionStorage.removeItem('mock-done')
               if (mode === 'history' && args.kind === 'history') {
                 sessionStorage.removeItem('mock-done')
@@ -123,12 +121,16 @@ export async function installTaskMock(
                                   },
                                 ],
                               }
-                            : (analysis ?? {
+                            : (mode === 'analyze' &&
+                                JSON.parse(
+                                  sessionStorage.getItem('mock-analysis-result') ?? 'null',
+                                )) ||
+                              analysis || {
                                 path: task.path,
                                 scan_status: 'complete',
                                 entries: [],
                                 total_size: 0,
-                              })
+                              }
                     : null,
               }
             }

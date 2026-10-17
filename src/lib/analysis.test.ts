@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { Entry } from '../types'
-import { compareEntries, entryBytes, parentDirectory, spaceTiles } from './analysis'
+import type { Analysis, AnalysisObservation, Entry } from '../types'
+import {
+  analysisObservation,
+  compareEntries,
+  entryBytes,
+  measurementCoverage,
+  parentDirectory,
+  spaceTiles,
+} from './analysis'
 
 const item = (
   name: string,
@@ -9,6 +16,54 @@ const item = (
 ): Entry => ({ name, path: `/fixture/${name}`, size, scan_status, is_dir: false })
 
 describe('analysis measurements and map geometry', () => {
+  it('counts whole-result coverage without promoting partial zero or malformed sizes to complete', () => {
+    expect(
+      measurementCoverage([
+        item('complete-zero', 0),
+        item('partial-zero', 0, 'partial'),
+        item('unknown', 999, 'unavailable'),
+        item('negative', -1),
+        item('invalid', Infinity),
+        { ...item('future-state', 9), scan_status: 'future' as Entry['scan_status'] },
+      ]),
+    ).toEqual({ complete: 1, partial: 1, unknown: 4 })
+    expect(measurementCoverage([])).toEqual({ complete: 0, partial: 0, unknown: 0 })
+  })
+  it('accepts recorded read times but leaves old, future and malformed provenance unknown', () => {
+    const analysis: Analysis = { path: '/', scan_status: 'complete', total_size: 0, entries: [] }
+    const observation: AnalysisObservation = {
+      version: 1,
+      source: 'mole-directory-json',
+      cacheUse: 'unreported',
+      startedAt: 2000,
+      finishedAt: 1000,
+      elapsedMs: 250,
+      engineVersion: '1.59.1',
+      revision: 'fixture',
+    }
+    // Duration is independent of wall-clock ordering.
+    expect(analysisObservation({ ...analysis, mooObservation: observation })).toEqual(observation)
+    expect(analysisObservation(analysis)).toBeNull()
+    for (const patch of [
+      { version: 2 },
+      { source: 'future' },
+      { cacheUse: 'fresh' },
+      { startedAt: 0 },
+      { finishedAt: NaN },
+      { finishedAt: 8640000000000001 },
+      { elapsedMs: -1 },
+      { elapsedMs: 0.5 },
+      { engineVersion: 1 },
+      { revision: null },
+    ]) {
+      expect(
+        analysisObservation({
+          ...analysis,
+          mooObservation: { ...observation, ...patch } as AnalysisObservation,
+        }),
+      ).toBeNull()
+    }
+  })
   it('excludes unknown and zero measurements from area without treating unknown as zero', () => {
     const unknown = item('unknown', 999999, 'unavailable')
     const partial = item('partial', 10, 'partial')

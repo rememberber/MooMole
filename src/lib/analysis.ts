@@ -1,4 +1,30 @@
-import type { Entry } from '../types'
+import type { Analysis, AnalysisObservation, Entry } from '../types'
+
+export function analysisObservation(analysis: Analysis): AnalysisObservation | null {
+  const value = analysis.mooObservation
+  const timestamp = (n: number) => Number.isSafeInteger(n) && n > 0 && n <= 8640000000000000
+  return value?.version === 1 &&
+    value.source === 'mole-directory-json' &&
+    value.cacheUse === 'unreported' &&
+    timestamp(value.startedAt) &&
+    timestamp(value.finishedAt) &&
+    Number.isSafeInteger(value.elapsedMs) &&
+    value.elapsedMs >= 0 &&
+    (value.engineVersion === null || typeof value.engineVersion === 'string') &&
+    typeof value.revision === 'string'
+    ? value
+    : null
+}
+
+export function measurementCoverage(entries: Entry[]) {
+  const coverage = { complete: 0, partial: 0, unknown: 0 }
+  for (const entry of entries) {
+    if (entryBytes(entry) == null) coverage.unknown++
+    else if (entry.scan_status === 'partial') coverage.partial++
+    else coverage.complete++
+  }
+  return coverage
+}
 
 export function entryBytes(entry: Entry): number | null {
   return ['complete', 'partial'].includes(entry.scan_status) &&

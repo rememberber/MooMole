@@ -53,7 +53,7 @@ export const analysis: Analysis = {
   ],
 }
 
-export function mount(many = false) {
+export function mount(many = false, observation?: Analysis['mooObservation']) {
   const host = document.createElement('div')
   host.id = 'analysis-test-fixture'
   host.style.cssText =
@@ -72,7 +72,7 @@ export function mount(many = false) {
               is_dir: false,
             })),
           }
-        : analysis,
+        : { ...analysis, mooObservation: observation },
     )
     const [request, setRequest] = useState('')
     return (
