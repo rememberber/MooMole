@@ -63,7 +63,7 @@ export function AnalysisNavigation({
           ))}
         </ol>
       </nav>
-      <p>返回和前进会重新读取目录，成功后才更新位置。</p>
+      <p>返回和前进会重新读取目录，成功后恢复查阅位置。</p>
     </div>
   )
 }

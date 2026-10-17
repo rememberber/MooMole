@@ -1,7 +1,21 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Ref,
+} from 'react'
 import { ArrowLeft, ArrowRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
 import type { Analysis, Entry } from '../types'
 import { LargeFileLibrary } from './LargeFileLibrary'
+import type {
+  AnalysisContext,
+  AnalysisExplorerHandle,
+  LargeFileHandle,
+} from '../lib/analysis-context'
 import { measuredBytes, shortPath } from '../lib/format'
 import {
   analysisObservation,
@@ -17,6 +31,8 @@ const sizeLabel = (entry: Entry) =>
   entryBytes(entry) == null ? '无法测量' : measuredBytes(entry.size, entry.scan_status)
 
 export function AnalysisExplorer({
+  ref,
+  initialContext,
   analysis,
   home,
   canAnalyze,
@@ -25,6 +41,8 @@ export function AnalysisExplorer({
   onAnalyze,
   onReveal,
 }: {
+  ref?: Ref<AnalysisExplorerHandle>
+  initialContext?: AnalysisContext
   analysis: Analysis
   home: string
   canAnalyze: boolean
@@ -33,18 +51,24 @@ export function AnalysisExplorer({
   onAnalyze: (path: string) => void
   onReveal: (path: string) => void
 }) {
-  const [view, setView] = useState<'directory' | 'large'>('directory')
-  const [query, setQuery] = useState('')
-  const [type, setType] = useState('all')
-  const [sort, setSort] = useState<'size' | 'name'>('size')
-  const [page, setPage] = useState(0)
-  const [selection, setSelection] = useState<{ analysis: Analysis; path: string } | null>(null)
+  const [view, setView] = useState<'directory' | 'large'>(initialContext?.view ?? 'directory')
+  const [query, setQuery] = useState(initialContext?.directory.query ?? '')
+  const [type, setType] = useState(initialContext?.directory.type ?? 'all')
+  const [sort, setSort] = useState<'size' | 'name'>(initialContext?.directory.sort ?? 'size')
+  const [selection, setSelection] = useState<{
+    analysis: Analysis
+    path: string
+    restored?: boolean
+  } | null>(() =>
+    initialContext?.directory.selectedPath
+      ? { analysis, path: initialContext.directory.selectedPath, restored: true }
+      : null,
+  )
   const inspector = useRef<HTMLDivElement>(null)
   const rows = useRef<HTMLDivElement>(null)
-  const selected =
-    selection?.analysis === analysis
-      ? analysis.entries.find((entry) => entry.path === selection.path)
-      : null
+  const directoryScroll = useRef(initialContext?.directory.scrollTop ?? 0)
+  const largeFiles = useRef<LargeFileHandle>(null)
+  const largeContext = useRef(initialContext?.large)
   const entries = useMemo(
     () =>
       analysis.entries
@@ -61,7 +85,15 @@ export function AnalysisExplorer({
         .sort((a, b) => compareEntries(a, b, sort)),
     [analysis, query, type, sort],
   )
+  const [page, setPage] = useState(() => {
+    const index = entries.findIndex(
+      (entry) => entry.path === initialContext?.directory.selectedPath,
+    )
+    return index >= 0 ? Math.floor(index / PAGE_SIZE) : (initialContext?.directory.page ?? 0)
+  })
   const tiles = useMemo(() => spaceTiles(entries), [entries])
+  const selected =
+    selection?.analysis === analysis ? entries.find((entry) => entry.path === selection.path) : null
   const pages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE))
   const currentPage = Math.min(page, pages - 1)
   const visible = entries.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
@@ -69,13 +101,48 @@ export function AnalysisExplorer({
   const zero = entries.filter((entry) => entryBytes(entry) === 0).length
   const observation = analysisObservation(analysis)
   const coverage = useMemo(() => measurementCoverage(analysis.entries), [analysis])
+  useImperativeHandle(ref, () => ({
+    capture: () => ({
+      path: analysis.path,
+      context: {
+        view,
+        directory: {
+          query,
+          type,
+          sort,
+          page: currentPage,
+          selectedPath: selected?.path ?? null,
+          scrollTop: rows.current?.scrollTop ?? directoryScroll.current,
+        },
+        large: largeFiles.current?.capture() ?? largeContext.current,
+        windowScroll: window.scrollY,
+      },
+    }),
+  }))
+  useLayoutEffect(() => {
+    if (rows.current) {
+      const row =
+        selected && selection?.restored && currentPage !== initialContext?.directory.page
+          ? rows.current.querySelector<HTMLElement>('.analysis-row-selected')
+          : null
+      rows.current.scrollTop = row?.offsetTop ?? directoryScroll.current
+    }
+  }, [view])
+  useLayoutEffect(() => {
+    window.scrollTo({ top: initialContext?.windowScroll ?? 0, behavior: 'instant' })
+  }, [])
   useEffect(() => {
-    if (selection?.analysis !== analysis) return
+    if (selection?.analysis !== analysis || selection.restored) return
     const row = rows.current?.querySelector<HTMLElement>('.analysis-row-selected')
     if (row && rows.current) rows.current.scrollTop = row.offsetTop
     inspector.current?.focus({ preventScroll: true })
     inspector.current?.scrollIntoView({ block: 'nearest' })
   }, [selection, analysis])
+  function switchView(next: 'directory' | 'large') {
+    if (rows.current) directoryScroll.current = rows.current.scrollTop
+    if (largeFiles.current) largeContext.current = largeFiles.current.capture()
+    setView(next)
+  }
   function clearSelection() {
     setSelection(null)
   }
@@ -158,20 +225,22 @@ export function AnalysisExplorer({
         <button
           className="button secondary compact"
           aria-pressed={view === 'directory'}
-          onClick={() => setView('directory')}
+          onClick={() => switchView('directory')}
         >
           目录内容
         </button>
         <button
           className="button secondary compact"
           aria-pressed={view === 'large'}
-          onClick={() => setView('large')}
+          onClick={() => switchView('large')}
         >
           大文件
         </button>
       </div>
       {view === 'large' ? (
         <LargeFileLibrary
+          ref={largeFiles}
+          initialContext={largeContext.current}
           analysis={analysis}
           canAnalyze={canAnalyze}
           canReveal={canReveal}
@@ -180,6 +249,11 @@ export function AnalysisExplorer({
         />
       ) : (
         <section className="card analysis-content">
+          {selection?.restored && selection.analysis === analysis && !selected && (
+            <p className="large-file-intro" role="status">
+              上次选中的项目未在本次结果或当前筛选中找到，已取消选中。
+            </p>
+          )}
           <div className="list-toolbar analysis-filters">
             <h2>目录内容</h2>
             <label className="search-field">

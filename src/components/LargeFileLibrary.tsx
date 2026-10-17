@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
+import type { LargeFileContext, LargeFileHandle } from '../lib/analysis-context'
 import { ExternalLink, Folder, Search } from 'lucide-react'
 import type { Analysis } from '../types'
 import { bytes } from '../lib/format'
@@ -15,23 +16,27 @@ import {
 const PAGE_SIZE = 20
 
 export function LargeFileLibrary({
+  ref,
+  initialContext,
   analysis,
   canAnalyze,
   canReveal,
   onAnalyze,
   onReveal,
 }: {
+  ref?: Ref<LargeFileHandle>
+  initialContext?: LargeFileContext
   analysis: Analysis
   canAnalyze: boolean
   canReveal: boolean
   onAnalyze: (path: string) => void
   onReveal: (path: string) => void
 }) {
-  const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<FileKind>('all')
-  const [minimum, setMinimum] = useState(0)
-  const [sort, setSort] = useState<'size' | 'name'>('size')
-  const [page, setPage] = useState(0)
+  const [query, setQuery] = useState(initialContext?.query ?? '')
+  const [kind, setKind] = useState<FileKind>(initialContext?.kind ?? 'all')
+  const [minimum, setMinimum] = useState(initialContext?.minimum ?? 0)
+  const [sort, setSort] = useState<'size' | 'name'>(initialContext?.sort ?? 'size')
+  const [page, setPage] = useState(initialContext?.page ?? 0)
   const rows = useRef<HTMLDivElement>(null)
   const report = useMemo(() => largeFileReport(analysis), [analysis])
   const files = useMemo(
@@ -40,6 +45,19 @@ export function LargeFileLibrary({
   )
   const pages = Math.max(1, Math.ceil(files.length / PAGE_SIZE))
   const currentPage = Math.min(page, pages - 1)
+  useImperativeHandle(ref, () => ({
+    capture: () => ({
+      query,
+      kind,
+      minimum,
+      sort,
+      page: currentPage,
+      scrollTop: rows.current?.scrollTop ?? 0,
+    }),
+  }))
+  useLayoutEffect(() => {
+    if (rows.current) rows.current.scrollTop = initialContext?.scrollTop ?? 0
+  }, [])
   const filtered = !!query || kind !== 'all' || minimum !== 0
   function goToPage(next: number) {
     setPage(next)

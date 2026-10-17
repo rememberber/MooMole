@@ -49,6 +49,7 @@ import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
+import { AnalysisContexts, type AnalysisExplorerHandle } from './lib/analysis-context'
 import {
   recordAnalysisVisit,
   type AnalysisHistoryTarget,
@@ -138,6 +139,11 @@ export default function App() {
     paths: api.desktop ? [] : [demoAnalysis.path],
     index: api.desktop ? -1 : 0,
   }))
+  const analysisContexts = useRef(new AnalysisContexts())
+  const analysisExplorer = useRef<AnalysisExplorerHandle>(null)
+  useEffect(() => {
+    analysisContexts.current.retain(analysisNavigation.paths)
+  }, [analysisNavigation])
   const [cleanup, setCleanup] = useState<Cleanup | null>(api.desktop ? null : demoCleanup)
   const [cleanPreview, setCleanPreview] = useState<CleanPreview | null>(
     api.desktop ? null : demoCleanPreview,
@@ -271,6 +277,7 @@ export default function App() {
     if (kind === 'status') setSnapshot(result as Snapshot)
     if (kind === 'analyze') {
       const value = result as Analysis
+      rememberAnalysisContext()
       setAnalysis({ ...value })
       setPath(value.path)
       setAnalysisNavigation((current) => recordAnalysisVisit(current, value.path, analysisTarget))
@@ -410,7 +417,12 @@ export default function App() {
     void api.official().catch((error) => setError(String(error)))
   }
   function changePage(next: Page) {
+    rememberAnalysisContext()
     setPage(next)
+  }
+  function rememberAnalysisContext() {
+    const current = analysisExplorer.current?.capture()
+    if (current) analysisContexts.current.remember(current.path, current.context)
   }
 
   if (!data)
@@ -759,7 +771,9 @@ export default function App() {
               )}
               {analysis ? (
                 <AnalysisExplorer
-                  key={analysis.path}
+                  key={`${analysisNavigation.index}:${analysis.path}`}
+                  ref={analysisExplorer}
+                  initialContext={analysisContexts.current.get(analysis.path)}
                   analysis={analysis}
                   home={data.home}
                   canAnalyze={canRun}
