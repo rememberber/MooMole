@@ -74,11 +74,14 @@ npm run tauri -- build --bundles app
 
 # 本地优化/免费签名验收包：App、ZIP 及大小/SHA-512 报告，不创建 Release
 npm run build:local-app
+
+# 同时生成并挂载验收本地 DMG（已有完整依赖缓存可追加 -- --offline）
+npm run build:local-dmg
 ```
 
 浏览器预览与桌面端有清楚标记；真实扫描、Finder 和目录选择仅在桌面端可用。若引擎未准备，界面会显示具体原因。
 
-`build:local-app` 先签内嵌程序、更新副本摘要再封装外层 App，并验证最终及解压后的产物；输出到新的 `local-artifacts/` 目录。它不使用付费证书或公证，不代表已完成 DMG/Gatekeeper 验收；说明见 [本地 App 验收](docs/local-app-build.md)。
+`build:local-app` 先签内嵌程序、更新副本摘要再封装外层 App，并验证最终及解压后的产物；输出到新的 `local-artifacts/` 目录。`build:local-dmg` 额外生成架构匹配的只读 DMG，包含拖入“应用程序”的入口和中文安装说明；挂载后核对签名、文件及权限，再卸载并记录大小/SHA-512。两者不使用付费证书或公证，下载后的 Gatekeeper、真实安装升级和正式发布仍待验证；说明见 [本地产物验收](docs/local-app-build.md)。
 
 ## 检查
 

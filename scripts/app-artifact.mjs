@@ -21,7 +21,7 @@ export function command(program, args) {
     env: { ...process.env, LC_ALL: 'C' },
   })
   if (result.error || result.status !== 0)
-    throw new Error(`${program} failed: ${result.error?.message ?? result.stderr ?? result.stdout}`)
+    throw new Error(`${program} failed: ${result.error?.message || result.stderr || result.stdout}`)
   return { stdout: result.stdout, stderr: result.stderr }
 }
 

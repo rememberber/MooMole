@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { toolchainEnv } from './env.mjs'
 import { checkVersion } from './version.mjs'
+import { buildDmg } from './dmg-artifact.mjs'
 import {
   command,
   fileDigest,
@@ -15,9 +16,11 @@ import {
 const root = resolve(import.meta.dirname, '..')
 if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(process.arch))
   throw new Error('This local App recipe requires macOS arm64/x64.')
-if (process.argv.slice(2).some((arg) => arg !== '--offline') || process.argv.slice(2).length > 1)
-  throw new Error('Usage: npm run build:local-app -- [--offline]')
+const args = process.argv.slice(2)
+if (args.some((arg) => !['--offline', '--dmg'].includes(arg)) || new Set(args).size !== args.length)
+  throw new Error('Usage: npm run build:local-app -- [--offline] [--dmg]')
 const offline = process.argv.includes('--offline')
+const includeDmg = process.argv.includes('--dmg')
 const version = checkVersion(root)
 const config = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8'))
 assertProductionPolicy(config)
@@ -86,6 +89,8 @@ try {
   rmSync(unpacked, { recursive: true, force: true })
 }
 verifySignedApp(app, expected)
+const dmgName = `MooMole-${version}-mac-${process.arch}.dmg`
+const dmg = includeDmg ? { file: dmgName, ...buildDmg(app, join(stage, dmgName), expected) } : null
 const git = command('/usr/bin/git', ['-C', root, 'rev-parse', 'HEAD']).stdout.trim()
 const dirty = !!command('/usr/bin/git', [
   '-C',
@@ -115,10 +120,11 @@ const metadata = {
     macOS: command('/usr/bin/sw_vers', ['-productVersion']).stdout.trim(),
   },
   archive: { file: zipName, ...fileDigest(join(stage, zipName)), sha512Encoding: 'hex' },
+  ...(dmg ? { diskImage: dmg } : {}),
   installationValidation: 'pending',
   gatekeeperValidation: 'pending',
 }
 writeArtifactReport(join(stage, 'validation.json'), metadata)
 console.log(
-  `Local ad-hoc App verified: ${stage}\nNot notarized; no DMG or public release was created.`,
+  `Local ad-hoc ${dmg ? 'App and DMG' : 'App'} verified: ${stage}\nNot notarized; installation and Gatekeeper checks pending. No public release was created.`,
 )

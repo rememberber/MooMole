@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { createHash } from 'node:crypto'
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -21,6 +22,7 @@ import {
   verifySignedApp,
 } from './app-artifact.mjs'
 import { requiredFiles, verifyPrepared, writeManifest } from './engine-manifest.mjs'
+import { buildDmg, mountedDevice, ownedImages, verifyDmg, withMountedDmg } from './dmg-artifact.mjs'
 
 const native = { skip: process.platform !== 'darwin' }
 const expected = {
@@ -166,5 +168,71 @@ test(
     rmSync(extra)
     symlinkSync('Info.plist', join(f.source, 'Contents/link'))
     assert.throws(() => inspectApp(f.source, expected), /links/)
+  },
+)
+
+test('disk ownership uses exact image paths and requires a single private mount', () => {
+  const entry = {
+    'image-path': '/owned/MooMole.dmg',
+    'system-entities': [
+      { 'dev-entry': '/dev/disk7' },
+      { 'dev-entry': '/dev/disk7s1', 'mount-point': '/private/owned/volume' },
+    ],
+  }
+  assert.deepEqual(ownedImages({ images: [entry] }, '/owned/MooMole.dmg'), [entry])
+  assert.deepEqual(ownedImages({ images: [entry] }, '/other/MooMole.dmg'), [])
+  assert.throws(() => ownedImages({}, '/owned/MooMole.dmg'), /inventory/)
+  assert.equal(mountedDevice(entry, '/private/owned/volume'), '/dev/disk7')
+  assert.throws(() => mountedDevice(entry, '/other/volume'), /private mount/)
+  for (const entities of [
+    [],
+    [{ 'dev-entry': '/dev/disk7' }],
+    [...entry['system-entities'], { 'dev-entry': '/dev/disk8' }],
+    [...entry['system-entities'], { 'mount-point': '/other/volume' }],
+  ])
+    assert.throws(() => mountedDevice({ 'system-entities': entities }, '/private/owned/volume'))
+})
+
+test(
+  'real DMG preserves signed App, validates its mounted copy and detaches even on inspection failure',
+  native,
+  (t) => {
+    const f = fixture(t)
+    signAppCopy(f.source, f.signed, expected)
+    assert.throws(() => buildDmg(f.signed, join(f.signed, 'inside.dmg'), expected), /outside/)
+    const image = join(f.root, 'MooMole.dmg')
+    const report = buildDmg(f.signed, image, expected)
+    assert.equal(report.format, 'UDZO')
+    assert.equal(report.readOnly, true)
+    assert.equal(report.validation, 'mounted-and-detached')
+    assert.equal(report.app.signing, 'ad-hoc')
+    assert.deepEqual({ size: report.size, sha512: report.sha512 }, fileDigest(image))
+    assert.throws(() => buildDmg(f.signed, image, expected), /fresh/)
+    assert.throws(() => verifyDmg(image, { ...expected, version: '0.2.0' }))
+    assert.throws(() => verifyDmg(image, expected, 'wrong-fingerprint'), /permissions differ/)
+    let mount
+    assert.throws(
+      () =>
+        withMountedDmg(image, (volume) => {
+          mount = volume
+          // Refuse an existing mount without detaching this caller's image.
+          assert.throws(() => withMountedDmg(image, () => {}), /already attached/)
+          assert.ok(existsSync(join(volume, 'MooMole.app')))
+          assert.throws(
+            () => writeFileSync(join(volume, 'must-not-write'), 'blocked'),
+            /EROFS|EACCES|EPERM/,
+          )
+          throw new Error('deliberate inspector failure')
+        }),
+      /deliberate inspector failure/,
+    )
+    assert.ok(mount)
+    assert.equal(existsSync(mount), false)
+    verifyDmg(image, expected, report.appFingerprint)
+    const broken = join(f.root, 'broken.dmg')
+    const bytes = readFileSync(image)
+    bytes[Math.floor(bytes.length / 2)] ^= 0xff
+    writeFileSync(broken, bytes)
+    assert.throws(() => verifyDmg(broken, expected))
   },
 )
