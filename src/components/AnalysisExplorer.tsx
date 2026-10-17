@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type Ref,
 } from 'react'
-import { ArrowLeft, ArrowRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
+import { ArrowRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
 import type { Analysis, Entry } from '../types'
 import { LargeFileLibrary } from './LargeFileLibrary'
 import type {
@@ -22,7 +22,6 @@ import {
   compareEntries,
   entryBytes,
   measurementCoverage,
-  parentDirectory,
   spaceTiles,
 } from '../lib/analysis'
 
@@ -165,7 +164,9 @@ export function AnalysisExplorer({
           <strong>{measuredBytes(analysis.total_size, analysis.scan_status)}</strong>
         </div>
         <div>
-          <span className="mono analysis-path">{shortPath(analysis.path, home)}</span>
+          <span className="mono analysis-path" title={analysis.path}>
+            {shortPath(analysis.path, home)}
+          </span>
           <small>
             {analysis.entries.length} 个直接子项 ·{' '}
             {analysis.scan_status === 'complete'
@@ -175,14 +176,6 @@ export function AnalysisExplorer({
                 : '无法测量'}
           </small>
         </div>
-        <button
-          className="button text"
-          disabled={!canAnalyze || analysis.path === '/'}
-          onClick={() => onAnalyze(parentDirectory(analysis.path))}
-        >
-          <ArrowLeft size={14} />
-          上一级
-        </button>
       </div>
       <div className="analysis-observation" aria-label="结果时间与完整性">
         <p>
@@ -255,7 +248,6 @@ export function AnalysisExplorer({
             </p>
           )}
           <div className="list-toolbar analysis-filters">
-            <h2>目录内容</h2>
             <label className="search-field">
               <Search size={14} />
               <input

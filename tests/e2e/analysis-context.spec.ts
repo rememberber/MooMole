@@ -121,12 +121,16 @@ test('large-file preferences survive view switches, page navigation and history;
   await views.getByRole('button', { name: '大文件', exact: true }).click()
   await expect(large).toContainText('显示 21–40 / 45 条匹配记录')
   expect(await rows.evaluate((node) => node.scrollTop)).toBe(150)
-  await page.evaluate(() => window.scrollTo(0, 400))
+  const savedScroll = await page.evaluate(() => {
+    window.scrollTo(0, 400)
+    return window.scrollY
+  })
+  expect(savedScroll).toBeGreaterThan(0)
   await page.getByRole('button', { name: '概览', exact: true }).click()
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await expect(large.getByRole('textbox', { name: '搜索大文件' })).toHaveValue('video-')
-  expect(await page.evaluate(() => window.scrollY)).toBe(400)
+  expect(await page.evaluate(() => window.scrollY)).toBe(savedScroll)
   expect(await rows.evaluate((node) => node.scrollTop)).toBe(150)
   await visit(page, b)
   await result(page, { ...a, large_files: a.large_files!.slice(0, 2) })

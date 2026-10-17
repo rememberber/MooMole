@@ -9,15 +9,12 @@ import {
   Clock3,
   Code2,
   Cpu,
-  Folder,
   FolderOpen,
   HardDrive,
   History,
-  Home,
   Info,
   LayoutGrid,
   LoaderCircle,
-  LockKeyhole,
   MemoryStick,
   RefreshCw,
   Search,
@@ -92,7 +89,7 @@ function Empty({
   return (
     <div className="empty-state">
       <div className="empty-icon">
-        <Icon size={27} strokeWidth={1.5} />
+        <Icon size={20} strokeWidth={1.5} />
       </div>
       <h3>{title}</h3>
       <div className="muted">{children}</div>
@@ -457,32 +454,6 @@ export default function App() {
   const pageName = navigation.find(([id]) => id === page)![2]
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
   const totalCandidates = cleanup?.items.reduce((sum, item) => sum + (item.size ?? 0), 0)
-  const actionCards = [
-    {
-      title: '看见每一份占用',
-      text: '逐层浏览目录，找到空间的去向。',
-      icon: HardDrive,
-      className: 'lavender',
-      page: 'analyze' as Page,
-      caption: '空间分析',
-    },
-    {
-      title: '先预览，再清理',
-      text: '把 Mole 的清理结果，放到眼前审阅。',
-      icon: Sparkles,
-      className: 'peach',
-      page: 'cleanup' as Page,
-      caption: '清理预览',
-    },
-    {
-      title: '整理应用清单',
-      text: '查看已安装应用和它们的来源。',
-      icon: Box,
-      className: 'mint',
-      page: 'apps' as Page,
-      caption: '应用列表',
-    },
-  ]
 
   return (
     <div className="app-shell">
@@ -492,11 +463,8 @@ export default function App() {
           <div className="brand-mark">
             m<span>·</span>
           </div>
-          <div>
-            MooMole<small>Mole CLI 桌面客户端</small>
-          </div>
+          <div>MooMole</div>
         </div>
-        <div className="nav-label">工作空间</div>
         <nav className="main-nav" aria-label="主导航">
           {navigation.map(([id, Icon, name]) => (
             <button
@@ -512,44 +480,130 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="local-card">
-            <span className="local-dot" />
-            <div>
-              本地运行<small>你的文件留在你的 Mac</small>
-            </div>
-            <ShieldCheck size={15} />
-          </div>
           <button className="sidebar-settings" onClick={() => setSettingsTab('general')}>
             <Settings2 size={17} />
             设置<span>⌘ ,</span>
           </button>
-          <button className="sidebar-about" onClick={() => setSettingsTab('about')}>
-            学习研究版 <span>v0.1.0</span>
+          <button
+            className="sidebar-about"
+            aria-label="关于与使用说明"
+            onClick={() => setSettingsTab('about')}
+          >
+            <Info size={17} />
+            关于 MooMole <span>v0.1.0</span>
+          </button>
+          <button className="sidebar-official" onClick={official}>
+            Mole 官方产品
+            <ArrowUpRight size={12} />
           </button>
         </div>
       </aside>
       <div className="workspace">
-        <header className="topbar" data-tauri-drag-region>
-          <div className="breadcrumb">
-            <Home size={14} />
-            <ChevronRight size={12} />
-            <span>{pageName}</span>
+        <header className="topbar" data-tauri-drag-region aria-label={`${pageName}工具栏`}>
+          <div className="toolbar-actions">
+            {page === 'analyze' ? (
+              <>
+                {analysis && (
+                  <AnalysisNavigation
+                    path={analysis.path}
+                    history={analysisNavigation}
+                    disabled={!canRun}
+                    onVisit={visitAnalysis}
+                    onAnalyze={(target) => void execute('analyze', target)}
+                  />
+                )}
+                <form
+                  className="path-bar"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (canRun) void execute('analyze', path)
+                  }}
+                >
+                  <input
+                    aria-label="扫描目录"
+                    value={path}
+                    onChange={(event) => setPath(event.target.value)}
+                    placeholder="输入绝对路径或 ~/目录"
+                  />
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun || !path.trim()}
+                    type="submit"
+                  >
+                    {busy?.kind === 'analyze' ? (
+                      <LoaderCircle size={14} className="spin" />
+                    ) : (
+                      <Search size={14} />
+                    )}
+                    开始分析
+                  </button>
+                </form>
+                <button
+                  className="icon-button"
+                  disabled={!canRun}
+                  onClick={() => void chooseAndAnalyze()}
+                  aria-label="选择文件夹"
+                  title="选择文件夹"
+                >
+                  <FolderOpen size={17} />
+                </button>
+              </>
+            ) : (
+              <>
+                {page === 'overview' && (
+                  <button
+                    className="button primary compact"
+                    disabled={!canRun}
+                    onClick={() => void chooseAndAnalyze()}
+                  >
+                    <FolderOpen size={15} />
+                    选择文件夹
+                  </button>
+                )}
+                {(page === 'overview' || page === 'status') && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun}
+                    onClick={() => void execute('status')}
+                  >
+                    <RefreshCw size={15} className={busy?.kind === 'status' ? 'spin' : ''} />
+                    {page === 'overview' ? '刷新状态' : '刷新快照'}
+                  </button>
+                )}
+                {page === 'cleanup' && (
+                  <button
+                    className="button primary compact"
+                    disabled={!canRun}
+                    onClick={() => void execute('clean')}
+                  >
+                    <Search size={15} />
+                    {cleanPreview ? '重新扫描' : '扫描清理预览'}
+                  </button>
+                )}
+                {page === 'apps' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun}
+                    onClick={() => void execute('apps')}
+                  >
+                    <RefreshCw size={15} />
+                    {apps ? '刷新列表' : '读取应用'}
+                  </button>
+                )}
+                {page === 'history' && (
+                  <span className="toolbar-note">
+                    客户端任务保留 {data.settings.retentionDays} 天
+                  </span>
+                )}
+              </>
+            )}
           </div>
-          <div className="topbar-right">
-            <span className="read-only-tag">
-              <ShieldCheck size={13} />
-              只读检查
-            </span>
-            <button
-              className="icon-button"
-              onClick={() => setSettingsTab('about')}
-              aria-label="关于与使用说明"
-            >
-              <Info size={17} />
-            </button>
-          </div>
+          <span className="read-only-tag">
+            <ShieldCheck size={13} />
+            只读检查
+          </span>
         </header>
-        <main className="main-content">
+        <main className="main-content" aria-label={`${pageName}内容`}>
           <ExecutionRecoveryNotice
             records={data.executions}
             onReview={() => {
@@ -584,21 +638,6 @@ export default function App() {
 
           {page === 'overview' && (
             <>
-              <div className="page-heading overview-heading">
-                <div>
-                  <div className="eyebrow">A LITTLE SPACE. A LITTLE CLARITY.</div>
-                  <h1>把空间，还给重要的事。</h1>
-                  <p>从看清占用开始，让每一次整理都有据可循。</p>
-                </div>
-                <button
-                  className="button secondary"
-                  disabled={!canRun}
-                  onClick={() => void execute('status')}
-                >
-                  <RefreshCw size={15} className={busy?.kind === 'status' ? 'spin' : ''} />
-                  刷新状态
-                </button>
-              </div>
               <EngineSummary engine={data.engine} desktop={api.desktop} />
               <section className="storage-card card">
                 <div className="storage-main">
@@ -641,28 +680,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div className="storage-aside">
-                  <div className="folder-art">
-                    <FolderOpen size={42} strokeWidth={1.2} />
-                    <span className="art-spark">
-                      <Sparkles size={14} />
-                    </span>
-                  </div>
-                  <h3>从一个文件夹开始</h3>
-                  <p>
-                    选择你想了解的目录，
-                    <br />
-                    看看空间都用在了哪里。
-                  </p>
-                  <button
-                    className="button primary"
-                    disabled={!canRun}
-                    onClick={() => void chooseAndAnalyze()}
-                  >
-                    选择文件夹
-                    <ArrowUpRight size={15} />
-                  </button>
-                </div>
               </section>
               <div className="metrics-grid">
                 <Metric
@@ -690,85 +707,11 @@ export default function App() {
                   icon={Clock3}
                 />
               </div>
-              <div className="section-heading">
-                <h2>按你的节奏，慢慢整理</h2>
-                <span>先了解，再决定</span>
-              </div>
-              <div className="action-grid">
-                {actionCards.map(({ title, text, icon: Icon, className, page, caption }) => (
-                  <button className="action-card" key={page} onClick={() => changePage(page)}>
-                    <div className={`action-icon ${className}`}>
-                      <Icon size={23} strokeWidth={1.5} />
-                    </div>
-                    <h3>{title}</h3>
-                    <p>{text}</p>
-                    <span>
-                      {caption}
-                      <ArrowRight size={15} />
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="quiet-note">
-                <LockKeyhole size={14} />
-                <span>当前版本仅检查与展示，不删除文件，不执行系统维护。</span>
-              </div>
             </>
           )}
 
           {page === 'analyze' && (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">DISK EXPLORER</div>
-                  <h1>空间分析</h1>
-                  <p>沿着目录慢慢下钻，让每一份占用都清晰可见。</p>
-                </div>
-                <button
-                  className="button primary"
-                  disabled={!canRun}
-                  onClick={() => void chooseAndAnalyze()}
-                >
-                  <FolderOpen size={15} />
-                  选择文件夹
-                </button>
-              </div>
-              <form
-                className="path-bar"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (canRun) void execute('analyze', path)
-                }}
-              >
-                <Folder size={17} />
-                <input
-                  aria-label="扫描目录"
-                  value={path}
-                  onChange={(event) => setPath(event.target.value)}
-                  placeholder="输入绝对路径或 ~/目录"
-                />
-                <button
-                  className="button secondary compact"
-                  disabled={!canRun || !path.trim()}
-                  type="submit"
-                >
-                  {busy?.kind === 'analyze' ? (
-                    <LoaderCircle size={14} className="spin" />
-                  ) : (
-                    <Search size={14} />
-                  )}
-                  开始分析
-                </button>
-              </form>
-              {analysis && (
-                <AnalysisNavigation
-                  path={analysis.path}
-                  history={analysisNavigation}
-                  disabled={!canRun}
-                  onVisit={visitAnalysis}
-                  onAnalyze={(target) => void execute('analyze', target)}
-                />
-              )}
               {analysis ? (
                 <AnalysisExplorer
                   key={`${analysisNavigation.index}:${analysis.path}`}
@@ -806,27 +749,9 @@ export default function App() {
 
           {page === 'cleanup' && (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">MOLE CLEAN</div>
-                  <h1>清理</h1>
-                  <p>查看 Mole CLI 的清理预览，了解每一项处理的内容。</p>
-                </div>
-                <button
-                  className="button primary"
-                  disabled={!canRun}
-                  onClick={() => void execute('clean')}
-                >
-                  <Search size={15} />
-                  {cleanPreview ? '重新扫描' : '扫描清理预览'}
-                </button>
-              </div>
               <div className="notice">
                 <ShieldCheck size={18} />
-                <span>
-                  通过 Mole CLI 的 dry-run
-                  模式扫描。当前只提供扫描与审阅，不会删除文件；需要管理员权限的项目会跳过。
-                </span>
+                <span>当前只提供扫描与审阅，不会删除文件；需要管理员权限的项目会跳过。</span>
               </div>
               {cleanPreview ? (
                 <CleanReview
@@ -840,7 +765,7 @@ export default function App() {
                 />
               ) : (
                 <section className="card">
-                  <Empty icon={Sparkles} title="让命令行能力，更容易使用">
+                  <Empty icon={Sparkles} title="尚未扫描">
                     <p>
                       点击“扫描清理预览”，读取 Mole 的候选项目。
                       <br />
@@ -947,21 +872,6 @@ export default function App() {
 
           {page === 'apps' && (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">APPLICATION LIBRARY</div>
-                  <h1>应用列表</h1>
-                  <p>查看这台 Mac 上的应用、安装来源和已知占用。</p>
-                </div>
-                <button
-                  className="button primary"
-                  disabled={!canRun}
-                  onClick={() => void execute('apps')}
-                >
-                  <RefreshCw size={15} />
-                  {apps ? '刷新列表' : '读取应用'}
-                </button>
-              </div>
               <div className="inline-note">
                 <Info size={14} />
                 列表来自 Mole CLI；仅供查看和对比，不会卸载。首次读取可能需要较长时间。
@@ -976,7 +886,7 @@ export default function App() {
                 />
               ) : (
                 <section className="card">
-                  <Empty icon={Box} title="你的应用，一目了然">
+                  <Empty icon={Box} title="尚未读取应用">
                     <p>
                       点击“读取应用”获取 Mole CLI 的应用清单。
                       <br />
@@ -990,21 +900,6 @@ export default function App() {
 
           {page === 'status' && (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">SYSTEM SNAPSHOT</div>
-                  <h1>系统状态</h1>
-                  <p>记录此刻的状态，帮助你了解 Mac 正在忙什么。</p>
-                </div>
-                <button
-                  className="button primary"
-                  disabled={!canRun}
-                  onClick={() => void execute('status')}
-                >
-                  <RefreshCw size={15} />
-                  刷新快照
-                </button>
-              </div>
               {snapshot ? (
                 <>
                   <div className="device-card card">
@@ -1083,14 +978,6 @@ export default function App() {
 
           {page === 'history' && (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">ACTIVITY LOG</div>
-                  <h1>操作历史</h1>
-                  <p>查看客户端任务与 Mole CLI 原始历史，分别保留来源。</p>
-                </div>
-                <span className="tag">客户端任务保留 {data.settings.retentionDays} 天</span>
-              </div>
               <MoleHistoryView
                 report={moleHistory}
                 disabled={!!busy || !api.desktop || !data.engine.available}
@@ -1186,14 +1073,6 @@ export default function App() {
               </section>
             </>
           )}
-
-          <footer className="content-footer">
-            <span>MooMole · 学习研究项目</span>
-            <button onClick={official}>
-              支持 Mole 官方产品
-              <ArrowUpRight size={12} />
-            </button>
-          </footer>
         </main>
       </div>
       {plan && (
@@ -1246,8 +1125,6 @@ export default function App() {
           <div className="welcome-symbol">
             <ShieldCheck size={30} strokeWidth={1.4} />
           </div>
-          <div className="eyebrow">BEFORE WE BEGIN</div>
-          <h2>先了解，再开始。</h2>
           <p>
             MooMole
             是独立的非官方学习研究项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。

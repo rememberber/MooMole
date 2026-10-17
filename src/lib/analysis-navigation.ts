@@ -31,14 +31,3 @@ export function recordAnalysisVisit(
   const paths = [...history.paths.slice(0, history.index + 1), path].slice(-HISTORY_LIMIT)
   return { paths, index: paths.length - 1 }
 }
-
-export function directoryCrumbs(path: string): { name: string; path: string }[] {
-  if (!path.startsWith('/')) return []
-  const crumbs = [{ name: '/', path: '/' }]
-  let current = ''
-  for (const name of path.split('/').filter(Boolean)) {
-    current += `/${name}`
-    crumbs.push({ name, path: current })
-  }
-  return crumbs
-}

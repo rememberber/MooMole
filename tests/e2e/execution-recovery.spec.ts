@@ -52,7 +52,7 @@ test('completed and explicitly cancelled batches do not produce an interruption 
 }) => {
   await installRecoveryMock(page, 'terminal')
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把空间，还给重要的事。' })).toBeVisible()
+  await expect(page.getByRole('main', { name: '概览内容' })).toBeVisible()
   await expect(page.getByRole('region', { name: '清理中断与待核实结果' })).toHaveCount(0)
 })
 

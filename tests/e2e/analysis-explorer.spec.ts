@@ -64,7 +64,6 @@ test('filters preserve unknown and zero rows, empty states and readonly measurem
     explorer.getByText('不是实时快照、可释放空间或清理许可', { exact: false }),
   ).toBeVisible()
   await page.getByRole('button', { name: '模拟根目录不可读' }).click()
-  await expect(explorer.getByRole('button', { name: '上一级', exact: true })).toBeDisabled()
   await expect(
     explorer.getByText('没有可展示的子项；部分内容无法读取，请检查目录权限。'),
   ).toBeVisible()

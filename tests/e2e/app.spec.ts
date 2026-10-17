@@ -50,7 +50,7 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/')
   await expect(page.getByText('浏览器预览', { exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '把空间，还给重要的事。' })).toBeVisible()
+  await expect(page.getByRole('main', { name: '概览内容' })).toBeVisible()
   const engine = page.getByRole('region', { name: 'Mole CLI 版本' })
   await expect(engine).toBeVisible()
   await expect(engine).toContainText('内置 Mole CLI')

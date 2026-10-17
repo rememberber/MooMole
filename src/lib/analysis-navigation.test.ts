@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  directoryCrumbs,
-  recordAnalysisVisit,
-  type AnalysisNavigationHistory,
-} from './analysis-navigation'
+import { recordAnalysisVisit, type AnalysisNavigationHistory } from './analysis-navigation'
 
 const empty = (): AnalysisNavigationHistory => ({ paths: [], index: -1 })
 
@@ -48,19 +44,5 @@ describe('successful analysis visits', () => {
       paths: ['/visit-48', '/branch'],
       index: 1,
     })
-  })
-  it('builds exact ancestor paths without interpreting special characters or inventing siblings', () => {
-    expect(directoryCrumbs('/')).toEqual([{ name: '/', path: '/' }])
-    expect(directoryCrumbs('relative')).toEqual([])
-    const path = "/Volumes/中文 空格/[*] $(literal) 'quote'/目录\n名"
-    const crumbs = directoryCrumbs(path)
-    expect(crumbs.map((v) => v.path)).toEqual([
-      '/',
-      '/Volumes',
-      '/Volumes/中文 空格',
-      "/Volumes/中文 空格/[*] $(literal) 'quote'",
-      path,
-    ])
-    expect(crumbs.at(-1)?.name).toBe('目录\n名')
   })
 })

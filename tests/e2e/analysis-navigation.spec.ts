@@ -6,7 +6,7 @@ const back = (page: Page) => page.getByRole('button', { name: '返回上次分�
 const forward = (page: Page) =>
   page.getByRole('button', { name: '前进到下一次分析的目录', exact: true })
 const current = (page: Page) =>
-  page.getByRole('navigation', { name: '分析目录路径' }).locator('[aria-current="location"]')
+  page.getByRole('region', { name: 'Mole 空间分析结果' }).locator('.analysis-path')
 
 async function finish(page: Page) {
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
@@ -79,21 +79,21 @@ test('failure and cancellation leave the current visit and forward branch intact
   await expect(page.getByRole('alert')).toContainText('fixture 目录不可访问')
   await expect(current(page)).toHaveAttribute('title', '/fixture/a')
   await expect(forward(page)).toBeEnabled()
-  await expect(forward(page)).toHaveAttribute('title', '/fixture/b')
+  await expect(forward(page)).toHaveAttribute('title', '前进：/fixture/b')
   await page.evaluate(() => sessionStorage.removeItem('mock-history-error'))
   await start(page, '/fixture/cancelled')
   await page.getByRole('button', { name: '取消', exact: true }).click()
   await expect(page.getByRole('button', { name: '开始分析', exact: true })).toBeEnabled()
   await expect(current(page)).toHaveAttribute('title', '/fixture/a')
-  await expect(forward(page)).toHaveAttribute('title', '/fixture/b')
+  await expect(forward(page)).toHaveAttribute('title', '前进：/fixture/b')
   await start(page, '/fixture/new')
   await finish(page)
   await expect(current(page)).toHaveAttribute('title', '/fixture/new')
   await expect(forward(page)).toBeDisabled()
-  await expect(back(page)).toHaveAttribute('title', '/fixture/a')
+  await expect(back(page)).toHaveAttribute('title', '返回：/fixture/a')
 })
 
-test('breadcrumbs use returned paths, keep special names literal, fit both themes, and reset on reload', async ({
+test('toolbar uses returned paths, parent navigation, literal special names, and resets on reload', async ({
   page,
 }) => {
   await open(page)
@@ -101,22 +101,18 @@ test('breadcrumbs use returned paths, keep special names literal, fit both theme
   await finish(page)
   await expect(pathBar(page)).toHaveValue('/fixture/canonical')
   await expect(current(page)).toHaveAttribute('title', '/fixture/canonical')
-  const ancestor = page.getByRole('button', { name: '分析目录 /fixture', exact: true })
+  const ancestor = page.getByRole('button', { name: '上一级', exact: true })
   await ancestor.focus()
   await page.keyboard.press('Enter')
   await finish(page)
   await expect(current(page)).toHaveAttribute('title', '/fixture')
-  await expect(back(page)).toHaveAttribute('title', '/fixture/canonical')
+  await expect(back(page)).toHaveAttribute('title', '返回：/fixture/canonical')
   const special = "/fixture/中文 空格/[*] $(literal) 'quote'/" + 'very-long-directory-'.repeat(8)
   await start(page, special)
   await finish(page)
   await expect(current(page)).toHaveAttribute('title', special)
-  await expect(
-    page.getByRole('button', {
-      name: "分析目录 /fixture/中文 空格/[*] $(literal) 'quote'",
-      exact: true,
-    }),
-  ).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '分析目录路径' })).toHaveCount(0)
+  await expect(pathBar(page)).toHaveValue(special)
   await page.setViewportSize({ width: 960, height: 780 })
   for (const theme of ['light', 'dark']) {
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)

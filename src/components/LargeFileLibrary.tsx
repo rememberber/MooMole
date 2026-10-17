@@ -67,7 +67,6 @@ export function LargeFileLibrary({
   return (
     <section className="card large-file-library" aria-label="Mole 大文件列表">
       <div className="list-toolbar analysis-filters">
-        <h2>大文件</h2>
         <label className="search-field">
           <Search size={14} />
           <input
