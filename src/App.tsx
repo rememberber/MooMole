@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Box,
-  Check,
   ChevronRight,
   Clock3,
   Code2,
@@ -26,15 +25,7 @@ import {
 } from 'lucide-react'
 import * as api from './lib/api'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
-import {
-  bytes,
-  dateTime,
-  kindNames,
-  measuredBytes,
-  percent,
-  shortPath,
-  stateNames,
-} from './lib/format'
+import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { Modal } from './components/Modal'
 import { SettingsModal } from './components/SettingsModal'
 import { CleanReview } from './components/CleanReview'
@@ -45,6 +36,7 @@ import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
+import { TaskHistory } from './components/TaskHistory'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
 import { AnalysisTaskNotice } from './components/AnalysisTaskNotice'
@@ -1087,54 +1079,14 @@ export default function App() {
                   setData((current) => (current ? { ...current, executions } : current))
                 }
               />
-              <section className="card">
-                <div className="list-toolbar">
-                  <h2>客户端检查任务</h2>
-                </div>
-                {data.history.length ? (
-                  <>
-                    {data.history.map((task) => (
-                      <div className="history-row" key={task.id}>
-                        <span className="history-icon">
-                          {task.state === 'succeeded' ? <Check size={17} /> : <Clock3 size={17} />}
-                        </span>
-                        <div className="history-info">
-                          <strong>{kindNames[task.kind] ?? task.kind}</strong>
-                          <span title={task.path ?? task.message ?? ''}>
-                            {task.path
-                              ? shortPath(task.path, data.home)
-                              : (task.message ?? '只读任务')}
-                          </span>
-                          {task.state !== 'succeeded' && task.path && <small>{task.message}</small>}
-                        </div>
-                        <time>{dateTime(task.createdAt)}</time>
-                        <span className={`state-tag ${task.state}`}>
-                          {stateNames[task.state] ?? task.state}
-                        </span>
-                        {api.desktop &&
-                          task.state === 'running' &&
-                          Object.hasOwn(kindNames, task.kind) && (
-                            <button
-                              className="button secondary"
-                              disabled={!!busy}
-                              onClick={() => void followTasks([task])}
-                            >
-                              继续跟踪
-                            </button>
-                          )}
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <Empty icon={History} title="从第一次检查开始">
-                    <p>
-                      完成空间分析、缓存检查或读取系统状态后，
-                      <br />
-                      任务会记录在这里。
-                    </p>
-                  </Empty>
-                )}
-              </section>
+              <TaskHistory
+                records={data.history}
+                home={data.home}
+                canRefresh={api.desktop}
+                canTrack={api.desktop && !busy}
+                onRefresh={() => refreshRecords()}
+                onTrack={(task) => void followTasks([task])}
+              />
             </>
           )}
         </main>

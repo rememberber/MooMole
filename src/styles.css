@@ -1473,14 +1473,23 @@ h3 {
   padding: 20px;
   border-bottom: 1px solid var(--border);
 }
-.history-icon {
-  width: 34px;
-  height: 34px;
-  background: var(--soft);
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  color: var(--subtle);
+.history-open {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 4px 0;
+  border-radius: 4px;
+}
+.history-open:hover .history-info strong {
+  text-decoration: underline;
+}
+.history-open .state-tag {
+  max-width: 140px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   flex-shrink: 0;
 }
 .history-info {
@@ -1491,6 +1500,7 @@ h3 {
   display: block;
   font-size: 12px;
   font-weight: 550;
+  overflow-wrap: anywhere;
 }
 .history-info span {
   display: block;
@@ -1511,6 +1521,89 @@ h3 {
 .history-row time {
   color: var(--muted);
   font-size: 10px;
+  flex-shrink: 0;
+}
+.task-history-toolbar {
+  flex-wrap: wrap;
+}
+.task-history-toolbar .search-field {
+  flex: 1;
+  min-width: 130px;
+}
+.task-history-toolbar .search-field input {
+  width: 100%;
+  min-width: 0;
+}
+.task-history-toolbar select {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 11px;
+}
+.task-history-summary,
+.task-history-scope {
+  padding: 12px 21px;
+  color: var(--subtle);
+  line-height: 1.8;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.task-history-summary[role='alert'] {
+  color: var(--text);
+}
+.task-history-scope summary {
+  cursor: pointer;
+}
+.task-history-scope p {
+  margin-top: 8px;
+}
+.task-history-more {
+  padding: 12px 21px;
+}
+.task-history .history-info small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-history .empty-inline .button {
+  margin-top: 10px;
+}
+.modal.task-detail-modal {
+  width: min(680px, calc(100vw - 60px));
+  padding: 28px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.task-detail-modal h2 {
+  padding-right: 24px;
+  font-size: 16px;
+}
+.task-detail-state {
+  margin: 4px 0 16px;
+  color: var(--subtle);
+}
+.task-detail-fields {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 12px;
+}
+.task-detail-fields dt {
+  color: var(--subtle);
+}
+.task-detail-fields dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-detail-modal > .button {
+  margin-top: 14px;
+}
+.task-detail-modal .task-history-scope {
+  padding: 12px 0 0;
 }
 .state-tag {
   background: var(--soft);
