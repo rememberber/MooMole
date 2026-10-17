@@ -7,7 +7,8 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --background: #fff;
-  --sidebar: #f6f7f9;
+  --sidebar: #f2f3f6;
+  --sidebar-border: #e3e5ea;
   --surface: #fff;
   --soft: #f7f8fa;
   --border: #eceef1;
@@ -27,7 +28,8 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
   --background: #1b1c20;
-  --sidebar: #17181c;
+  --sidebar: #15161a;
+  --sidebar-border: #303138;
   --surface: #212227;
   --soft: #28292f;
   --border: #313239;
@@ -104,7 +106,7 @@ button svg {
 .sidebar {
   width: 176px;
   background: var(--sidebar);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--sidebar-border);
   padding: 0 16px 18px;
   position: fixed;
   inset: 0 auto 0 0;
@@ -221,9 +223,12 @@ button svg {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--sidebar);
+  border-bottom: 1px solid transparent;
+  background: var(--background);
   -webkit-app-region: drag;
+}
+.topbar[data-scrolled='true'] {
+  border-bottom-color: var(--border);
 }
 .topbar button,
 .topbar input,
@@ -655,7 +660,7 @@ h3 {
   flex-direction: column;
   gap: 9px;
   font-size: 11px;
-  overflow: hidden;
+  min-width: 0;
 }
 .analysis-summary small {
   color: var(--muted);
@@ -806,6 +811,43 @@ h3 {
 .analysis-path {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+.analysis-path ol {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+.analysis-path li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.analysis-path li > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.analysis-crumb,
+.analysis-path [aria-current] {
+  display: block;
+  min-width: 0;
+  max-width: 220px;
+  padding: 4px 5px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analysis-crumb {
+  color: var(--subtle);
+}
+.analysis-crumb:not(:disabled):hover {
+  background: var(--soft);
+  color: var(--text);
 }
 .analysis-observation {
   margin: 0 0 14px;

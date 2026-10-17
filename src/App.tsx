@@ -130,6 +130,13 @@ function Metric({
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
+  const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
+  useEffect(() => {
+    const update = () => setToolbarScrolled(window.scrollY > 0)
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [])
   const [snapshot, setSnapshot] = useState<Snapshot | null>(api.desktop ? null : demoSnapshot)
   const [analysis, setAnalysis] = useState<Analysis | null>(api.desktop ? null : demoAnalysis)
   const [analysisNavigation, setAnalysisNavigation] = useState<AnalysisNavigationHistory>(() => ({
@@ -499,7 +506,12 @@ export default function App() {
         </div>
       </aside>
       <div className="workspace">
-        <header className="topbar" data-tauri-drag-region aria-label={`${pageName}工具栏`}>
+        <header
+          className="topbar"
+          data-scrolled={toolbarScrolled}
+          data-tauri-drag-region
+          aria-label={`${pageName}工具栏`}
+        >
           <div className="toolbar-actions">
             {page === 'analyze' ? (
               <>

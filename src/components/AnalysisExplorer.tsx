@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type Ref,
 } from 'react'
-import { ArrowRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
+import { ArrowRight, ChevronRight, ExternalLink, File, Folder, Info, Search } from 'lucide-react'
 import type { Analysis, Entry } from '../types'
 import { LargeFileLibrary } from './LargeFileLibrary'
 import type {
@@ -17,6 +17,7 @@ import type {
   LargeFileHandle,
 } from '../lib/analysis-context'
 import { measuredBytes, shortPath } from '../lib/format'
+import { directoryCrumbs } from '../lib/analysis-navigation'
 import {
   analysisObservation,
   compareEntries,
@@ -100,6 +101,7 @@ export function AnalysisExplorer({
   const zero = entries.filter((entry) => entryBytes(entry) === 0).length
   const observation = analysisObservation(analysis)
   const coverage = useMemo(() => measurementCoverage(analysis.entries), [analysis])
+  const crumbs = useMemo(() => directoryCrumbs(analysis.path), [analysis.path])
   useImperativeHandle(ref, () => ({
     capture: () => ({
       path: analysis.path,
@@ -164,9 +166,34 @@ export function AnalysisExplorer({
           <strong>{measuredBytes(analysis.total_size, analysis.scan_status)}</strong>
         </div>
         <div>
-          <span className="mono analysis-path" title={analysis.path}>
-            {shortPath(analysis.path, home)}
-          </span>
+          <nav className="mono analysis-path" aria-label="分析目录路径" title={analysis.path}>
+            {crumbs.length ? (
+              <ol>
+                {crumbs.map((crumb, index) => (
+                  <li key={crumb.path}>
+                    {index > 0 && <ChevronRight size={12} aria-hidden="true" />}
+                    {index === crumbs.length - 1 ? (
+                      <span aria-current="location" title={analysis.path}>
+                        {crumb.name}
+                      </span>
+                    ) : (
+                      <button
+                        className="analysis-crumb"
+                        disabled={!canAnalyze || refreshing}
+                        title={crumb.path}
+                        aria-label={`分析目录 ${crumb.path}`}
+                        onClick={() => onAnalyze(crumb.path)}
+                      >
+                        {crumb.name}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <span aria-current="location">{shortPath(analysis.path, home)}</span>
+            )}
+          </nav>
           <small>
             {analysis.entries.length} 个直接子项 ·{' '}
             {analysis.scan_status === 'complete'

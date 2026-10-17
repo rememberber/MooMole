@@ -36,7 +36,8 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
     await expect(
       page.locator('main h1, .eyebrow, .breadcrumb, .content-footer, .action-card'),
     ).toHaveCount(0)
-    await expect(page.getByRole('navigation', { name: '分析目录路径' })).toHaveCount(0)
+    if (name !== '空间分析')
+      await expect(page.getByRole('navigation', { name: '分析目录路径' })).toHaveCount(0)
     expect((await toolbar.boundingBox())!.height).toBeLessThanOrEqual(64)
     if (name === '空间分析') {
       await toolbar.getByRole('textbox', { name: '扫描目录' }).fill(analysis.path)
@@ -47,6 +48,7 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
         (await page.getByRole('region', { name: 'Mole 空间分析结果' }).boundingBox())!.y,
       ).toBeLessThan(100)
       await expect(toolbar.getByRole('button', { name: '上一级', exact: true })).toBeEnabled()
+      await expect(page.getByRole('navigation', { name: '分析目录路径' })).toBeVisible()
     }
     if (name === '应用列表') {
       await toolbar.getByRole('button', { name: '读取应用', exact: true }).click()
@@ -96,6 +98,9 @@ test('root navigation remains disabled and the compact path field works with the
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByRole('button', { name: '开始分析', exact: true })).toBeEnabled()
   await expect(page.getByRole('button', { name: '上一级', exact: true })).toBeDisabled()
+  const crumbs = page.getByRole('navigation', { name: '分析目录路径' })
+  await expect(crumbs.locator('[aria-current="location"]')).toHaveText('/')
+  await expect(crumbs.getByRole('button')).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Mole 空间分析结果' })).toContainText('无法测量')
   await path.focus()
   await expect(path).toBeFocused()

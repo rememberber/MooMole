@@ -36,6 +36,7 @@ test('successful folder visits support back and forward, reread each target, and
   await expect(forward(page)).toBeDisabled()
   await page.getByRole('button', { name: 'child 文件夹', exact: true }).click()
   await expect(current(page)).toHaveAttribute('title', '/fixture/start')
+  await expect(page.getByRole('button', { name: '分析目录 /fixture', exact: true })).toBeDisabled()
   await expect(back(page)).toBeDisabled()
   await finish(page)
   await expect(current(page)).toHaveAttribute('title', '/fixture/start/child')
@@ -93,7 +94,7 @@ test('failure and cancellation leave the current visit and forward branch intact
   await expect(back(page)).toHaveAttribute('title', '返回：/fixture/a')
 })
 
-test('toolbar uses returned paths, parent navigation, literal special names, and resets on reload', async ({
+test('result breadcrumbs use returned paths, navigate literal ancestors by keyboard, and reset on reload', async ({
   page,
 }) => {
   await open(page)
@@ -101,7 +102,7 @@ test('toolbar uses returned paths, parent navigation, literal special names, and
   await finish(page)
   await expect(pathBar(page)).toHaveValue('/fixture/canonical')
   await expect(current(page)).toHaveAttribute('title', '/fixture/canonical')
-  const ancestor = page.getByRole('button', { name: '上一级', exact: true })
+  const ancestor = page.getByRole('button', { name: '分析目录 /fixture', exact: true })
   await ancestor.focus()
   await page.keyboard.press('Enter')
   await finish(page)
@@ -111,7 +112,8 @@ test('toolbar uses returned paths, parent navigation, literal special names, and
   await start(page, special)
   await finish(page)
   await expect(current(page)).toHaveAttribute('title', special)
-  await expect(page.getByRole('navigation', { name: '分析目录路径' })).toHaveCount(0)
+  const crumbs = page.getByRole('navigation', { name: '分析目录路径' })
+  await expect(crumbs.locator('[aria-current="location"]')).toHaveText(special.split('/').at(-1)!)
   await expect(pathBar(page)).toHaveValue(special)
   await page.setViewportSize({ width: 960, height: 780 })
   for (const theme of ['light', 'dark']) {
@@ -123,6 +125,17 @@ test('toolbar uses returned paths, parent navigation, literal special names, and
       animations: 'disabled',
     })
   }
+  const parent = "/fixture/中文 空格/[*] $(literal) 'quote'"
+  await crumbs.getByRole('button', { name: `分析目录 ${parent}`, exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(current(page)).toHaveAttribute('title', special)
+  await finish(page)
+  await expect(current(page)).toHaveAttribute('title', parent)
+  await expect(pathBar(page)).toHaveValue(parent)
+  const starts = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('mock-starts') ?? '[]'),
+  )
+  expect(starts.at(-1).path).toBe(parent)
   await page.reload()
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await expect(page.getByText('先选择一个文件夹', { exact: true })).toBeVisible()

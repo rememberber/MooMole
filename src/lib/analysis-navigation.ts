@@ -10,6 +10,17 @@ export interface AnalysisHistoryTarget {
 
 const HISTORY_LIMIT = 32
 
+export function directoryCrumbs(path: string): { name: string; path: string }[] {
+  if (!path.startsWith('/')) return []
+  const crumbs = [{ name: '/', path: '/' }]
+  let current = ''
+  for (const name of path.split('/').filter(Boolean)) {
+    current += `/${name}`
+    crumbs.push({ name, path: current })
+  }
+  return crumbs
+}
+
 // Call only after a successful task. The target belongs to that request, so
 // failures/cancellation cannot move the cursor or discard forward visits.
 export function recordAnalysisVisit(
