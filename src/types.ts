@@ -315,6 +315,8 @@ export interface UpdateCheckResult {
   } | null
 }
 export interface UpdateSnapshot {
+  checking: boolean
+  checkError: string | null
   autoDownload: boolean
   preferenceError: string | null
   recovering: boolean

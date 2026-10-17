@@ -27,6 +27,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const [result, setResult] = useState<UpdateCheckResult | null>(null)
   const [download, setDownload] = useState(idle)
   const [pending, setPending] = useState(false)
+  const [remoteChecking, setRemoteChecking] = useState(false)
   const [autoDownload, setAutoDownload] = useState(false)
   const [preferenceError, setPreferenceError] = useState<string | null>(null)
   const [recovering, setRecovering] = useState(false)
@@ -46,6 +47,8 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const checking = useRef(false)
   const generation = useRef(0)
   function apply(snapshot: UpdateSnapshot) {
+    setRemoteChecking(snapshot.checking)
+    setError(snapshot.checkError ?? '')
     setAutoDownload(snapshot.autoDownload)
     setPreferenceError(snapshot.preferenceError)
     setRecovering(snapshot.recovering)
@@ -67,6 +70,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
         const snapshot = await updateSnapshot()
         if (active.current && current === generation.current) {
           if (checking.current) {
+            setRemoteChecking(snapshot.checking)
             setRecovering(snapshot.recovering)
             setObservationError('')
           } else apply(snapshot)
@@ -84,10 +88,19 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
       clearTimeout(timer)
     }
   }, [])
+  const checkingNow = pending || remoteChecking
   const running = ['downloading', 'verifying', 'cancelling'].includes(download.state)
   const preparing = installing || action === 'install'
   async function check() {
-    if (checking.current || acting.current || preparing || recovering) return
+    if (
+      checking.current ||
+      remoteChecking ||
+      acting.current ||
+      preparing ||
+      recovering ||
+      observationError
+    )
+      return
     setConfirmInstall(false)
     checking.current = true
     generation.current += 1
@@ -105,6 +118,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
     } catch (error) {
       if (active.current) setError(errorText(error))
     } finally {
+      generation.current += 1
       checking.current = false
       if (active.current) setPending(false)
     }
@@ -158,7 +172,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
     ? '更新状态尚未确认'
     : recovering
       ? '正在复核本地更新包…'
-      : pending
+      : checkingNow
         ? '正在检查更新…'
         : !loaded
           ? '正在读取更新状态…'
@@ -204,7 +218,14 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
         <button
           className="button secondary"
           disabled={
-            !desktop || !loaded || pending || running || !!action || preparing || recovering
+            !desktop ||
+            !loaded ||
+            checkingNow ||
+            running ||
+            !!action ||
+            preparing ||
+            recovering ||
+            !!observationError
           }
           onClick={() => void check()}
         >
@@ -260,7 +281,14 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                   <div className="update-actions">
                     <button
                       className="button primary"
-                      disabled={!!action || preparing || recovering || saving || !!observationError}
+                      disabled={
+                        checkingNow ||
+                        !!action ||
+                        preparing ||
+                        recovering ||
+                        saving ||
+                        !!observationError
+                      }
                       onClick={() => void perform('install')}
                     >
                       打开并退出
@@ -278,7 +306,14 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                   <div className="update-actions">
                     <button
                       className="button primary"
-                      disabled={!!action || preparing || recovering || saving || !!observationError}
+                      disabled={
+                        checkingNow ||
+                        !!action ||
+                        preparing ||
+                        recovering ||
+                        saving ||
+                        !!observationError
+                      }
                       onClick={() => {
                         setOpenError('')
                         setConfirmInstall(true)
@@ -288,7 +323,9 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
                     </button>
                     <button
                       className="button secondary"
-                      disabled={!!action || preparing || recovering || !!observationError}
+                      disabled={
+                        checkingNow || !!action || preparing || recovering || !!observationError
+                      }
                       onClick={() => void perform('reveal')}
                     >
                       {action === 'reveal' ? '正在复核文件…' : '在 Finder 中查看'}
@@ -302,7 +339,14 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
               <p className="muted">下载后校验大小和 SHA-512，再由你手动安装。</p>
               <button
                 className="button secondary"
-                disabled={!!action || preparing || recovering || !!observationError || !loaded}
+                disabled={
+                  checkingNow ||
+                  !!action ||
+                  preparing ||
+                  recovering ||
+                  !!observationError ||
+                  !loaded
+                }
                 onClick={() => void perform('download')}
               >
                 {download.state === 'failed' ? '重新下载' : '下载更新包'}
@@ -334,7 +378,7 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
             !desktop ||
             !loaded ||
             saving ||
-            pending ||
+            checkingNow ||
             recovering ||
             !!action ||
             preparing ||

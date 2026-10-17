@@ -13,6 +13,8 @@ async function setup(page: Page) {
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
     const snapshot = () => ({
+      checking: sessionStorage.getItem('update-checking') === 'yes',
+      checkError: sessionStorage.getItem('update-check-error'),
       autoDownload: sessionStorage.getItem('update-auto-download') === 'yes',
       preferenceError: sessionStorage.getItem('update-preference-error'),
       recovering: sessionStorage.getItem('update-recovering') === 'yes',
@@ -48,13 +50,18 @@ async function setup(page: Page) {
           String(Number(sessionStorage.getItem('update-checks') ?? 0) + 1),
         )
         sessionStorage.setItem('update-args', JSON.stringify(args ?? null))
+        sessionStorage.setItem('update-checking', 'yes')
+        sessionStorage.removeItem('update-check-error')
         sessionStorage.removeItem('update-cached-check')
         sessionStorage.removeItem('update-download')
         sessionStorage.removeItem('update-recovery-error')
         while (sessionStorage.getItem('update-mode') === 'pending')
           await new Promise((resolve) => setTimeout(resolve, 20))
-        if (sessionStorage.getItem('update-mode') === 'error')
+        if (sessionStorage.getItem('update-mode') === 'error') {
+          sessionStorage.setItem('update-check-error', '检查更新失败，请重试。')
+          sessionStorage.removeItem('update-checking')
           throw new Error('检查更新失败，请重试。')
+        }
         const result = JSON.parse(sessionStorage.getItem('update-result') ?? '{}')
         sessionStorage.setItem('update-cached-check', JSON.stringify(result))
         if (sessionStorage.getItem('update-mode') === 'restore-pending') {
@@ -78,6 +85,8 @@ async function setup(page: Page) {
         if (sessionStorage.getItem('update-mode') === 'restore-error')
           sessionStorage.setItem('update-recovery-error', '本地更新包未能复用，请重新下载。')
         sessionStorage.removeItem('update-recovering')
+        while (sessionStorage.getItem('update-completion-pending'))
+          await new Promise((resolve) => setTimeout(resolve, 20))
         if (
           sessionStorage.getItem('update-auto-download') === 'yes' &&
           result.status === 'available' &&
@@ -101,11 +110,20 @@ async function setup(page: Page) {
           )
           sessionStorage.removeItem('update-recovery-error')
         }
+        sessionStorage.removeItem('update-checking')
         return snapshot()
       }
       if (command === 'get_update_snapshot') {
         if (sessionStorage.getItem('update-snapshot-error')) throw new Error('state unavailable')
-        return snapshot()
+        const value = snapshot()
+        if (sessionStorage.getItem('update-delay-snapshot')) {
+          sessionStorage.removeItem('update-delay-snapshot')
+          sessionStorage.setItem('update-snapshot-blocked', 'yes')
+          while (sessionStorage.getItem('update-hold-snapshot'))
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          sessionStorage.setItem('update-snapshot-delivered', 'yes')
+        }
+        return value
       }
       if (command === 'download_update') {
         sessionStorage.setItem('download-args', JSON.stringify(args))
@@ -710,3 +728,133 @@ test('opted-in check shows backend download progress and turning the preference 
   await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeEnabled()
   expect(await page.evaluate(() => sessionStorage.getItem('update-auto-starts'))).toBe('1')
 })
+
+test('reopening observes the same network check, blocks repeats and recovers unknown observation', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  await page.evaluate((result) => {
+    sessionStorage.setItem('update-result', JSON.stringify(result))
+    sessionStorage.setItem('update-mode', 'pending')
+  }, base)
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await page.getByRole('button', { name: '关闭弹窗' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('button', { name: '关于', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
+  await expect(updates.getByRole('checkbox', { name: '手动检查后自动下载' })).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('update-snapshot-error', 'yes'))
+  await expect(updates.getByRole('status')).toContainText('更新状态尚未确认')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('update-snapshot-error'))
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await page.evaluate(() => sessionStorage.removeItem('update-mode'))
+  await expect(updates.getByRole('status')).toContainText('尚未发布可检查的版本')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeEnabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('1')
+})
+
+test('retains a failed check while closed and clears it only on a new accepted check', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('update-mode', 'pending'))
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await page.getByRole('button', { name: '关闭弹窗' }).click()
+  await page.evaluate(() => sessionStorage.setItem('update-mode', 'error'))
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('update-check-error')))
+    .toBe('检查更新失败，请重试。')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('button', { name: '关于', exact: true }).click()
+  await expect(updates.getByRole('alert')).toHaveText('检查更新失败，请重试。')
+  await expect(updates.getByRole('button', { name: '重试检查', exact: true })).toBeEnabled()
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toHaveCount(0)
+  await page.evaluate((result) => {
+    sessionStorage.setItem('update-result', JSON.stringify(result))
+    sessionStorage.setItem('update-mode', 'pending')
+  }, base)
+  await updates.getByRole('button', { name: '重试检查', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await expect(updates.getByRole('alert')).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.removeItem('update-mode'))
+  await expect(updates.getByRole('status')).toContainText('尚未发布可检查的版本')
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('2')
+})
+
+test('a delayed in-flight snapshot cannot replace the terminal check result', async ({ page }) => {
+  const updates = await setup(page)
+  await page.evaluate((result) => {
+    sessionStorage.setItem('update-result', JSON.stringify(result))
+    sessionStorage.setItem('update-mode', 'pending')
+  }, base)
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在检查更新')
+  await page.evaluate(() => {
+    sessionStorage.setItem('update-delay-snapshot', 'yes')
+    sessionStorage.setItem('update-hold-snapshot', 'yes')
+  })
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('update-snapshot-blocked')))
+    .toBe('yes')
+  await page.evaluate(() => sessionStorage.removeItem('update-mode'))
+  await expect(updates.getByRole('status')).toContainText('尚未发布可检查的版本')
+  await page.evaluate(() => sessionStorage.removeItem('update-hold-snapshot'))
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('update-snapshot-delivered')))
+    .toBe('yes')
+  await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeEnabled()
+  await expect(updates.getByRole('status')).toContainText('尚未发布可检查的版本')
+  // A user can immediately start another check; no stale pending flag remains.
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('2')
+})
+
+for (const restored of [false, true]) {
+  test(`post-check admission keeps ${restored ? 'installation' : 'manual download'} disabled on reopening`, async ({
+    page,
+  }) => {
+    const updates = await setup(page)
+    await page.evaluate(
+      ({ result, restored }) => {
+        sessionStorage.setItem('update-result', JSON.stringify(result))
+        sessionStorage.setItem('update-completion-pending', 'yes')
+        if (restored) sessionStorage.setItem('update-mode', 'restore-ready')
+      },
+      {
+        result: {
+          ...base,
+          status: 'available',
+          latestVersion: '0.2.0',
+          asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+        },
+        restored,
+      },
+    )
+    await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem('update-cached-check')))
+      .not.toBeNull()
+    await page.getByRole('button', { name: '关闭弹窗' }).click()
+    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await page.getByRole('button', { name: '关于', exact: true }).click()
+    await expect(updates.getByRole('status')).toContainText('正在检查更新')
+    const next = updates.getByRole('button', {
+      name: restored ? '打开 DMG 安装' : '下载更新包',
+      exact: true,
+    })
+    await expect(next).toBeDisabled()
+    if (restored)
+      await expect(
+        updates.getByRole('button', { name: '在 Finder 中查看', exact: true }),
+      ).toBeDisabled()
+    await page.evaluate(() => sessionStorage.removeItem('update-completion-pending'))
+    await expect(next).toBeEnabled()
+    expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBe('1')
+    expect(await page.evaluate(() => sessionStorage.getItem('download-args'))).toBeNull()
+    expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBeNull()
+  })
+}

@@ -511,11 +511,15 @@ async fn check_updates(
     let db = state.db.clone();
     tauri::async_runtime::spawn(async move {
         let _operation = operation;
-        checker.check(Some(path.clone())).await?;
-        // Serialize the live preference decision with saves; toggling off after
-        // this point affects subsequent checks, not an already accepted download.
-        let db = db.lock().map_err(|_| "无法读取本机设置。")?;
-        checker.after_check(update_preferences::load(&db), path)
+        checker
+            .check(Some(path.clone()), || {
+                // Serialize the live preference decision with saves; toggling off after
+                // this point affects subsequent checks, not an already accepted download.
+                let db = db.lock().map_err(|_| "无法读取本机设置。")?;
+                checker.after_check(update_preferences::load(&db), path)?;
+                Ok(())
+            })
+            .await
     })
     .await
     .map_err(|_| "更新检查未完成，请重试。")?

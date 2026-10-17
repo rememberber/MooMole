@@ -26,6 +26,38 @@ impl Drop for Reset<'_> {
     }
 }
 
+// The backend owns this guard, including when the settings panel disappears.
+// Failure is published before releasing the check admission flag.
+struct Checking<'a> {
+    checker: &'a Checker,
+    finished: bool,
+}
+impl Checking<'_> {
+    fn finish(&mut self, error: Option<String>) -> Result<(), String> {
+        let mut s = self
+            .checker
+            .session
+            .lock()
+            .map_err(|_| "无法保存更新状态。")?;
+        s.checking = false;
+        s.check_error = error;
+        if s.check_error.is_some() {
+            s.check = None;
+            s.checked_at = None;
+            s.ready = None;
+        }
+        self.finished = true;
+        Ok(())
+    }
+}
+impl Drop for Checking<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = self.finish(Some("更新检查未完成，请重新检查。".into()));
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Checker {
     pub installation: Arc<crate::update_install::Gate>,
@@ -37,6 +69,8 @@ pub struct Checker {
 
 #[derive(Default)]
 struct Session {
+    checking: bool,
+    check_error: Option<String>,
     check: Option<Check>,
     checked_at: Option<Instant>,
     download: Download,
@@ -61,6 +95,8 @@ pub struct Download {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    checking: bool,
+    check_error: Option<String>,
     auto_download: bool,
     preference_error: Option<String>,
     recovering: bool,
@@ -331,6 +367,8 @@ impl Checker {
             download.state = "idle";
         }
         Ok(Snapshot {
+            checking: s.checking,
+            check_error: s.check_error.clone(),
             auto_download: self.auto_download.load(Ordering::SeqCst),
             preference_error: s.preference_error.clone(),
             recovering: s.recovering,
@@ -382,7 +420,10 @@ impl Checker {
             };
             (asset, s.checked_at)
         };
-        let attempt = self.start(path);
+        // Only the post-check decision may use the admission owned by check().
+        // Keeping it through this decision prevents another check/maintenance
+        // from replacing the selection before automatic download admission.
+        let attempt = self.start_inner(path, true);
         if let Err(error) = attempt {
             let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
             if !s.closing
@@ -404,8 +445,18 @@ impl Checker {
         self.snapshot()
     }
     pub fn start(self: &Arc<Self>, path: std::path::PathBuf) -> Result<Snapshot, String> {
+        self.start_inner(path, false)
+    }
+    fn start_inner(
+        self: &Arc<Self>,
+        path: std::path::PathBuf,
+        after_check: bool,
+    ) -> Result<Snapshot, String> {
         let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
-        if s.closing || self.busy.load(Ordering::SeqCst) || s.control.is_some() {
+        if s.closing
+            || (self.busy.load(Ordering::SeqCst) && !(after_check && s.checking))
+            || s.control.is_some()
+        {
             return Err("已有更新操作正在进行，请稍候。".into());
         }
         if s.ready.is_some() {
@@ -616,7 +667,18 @@ impl Checker {
         }
         result
     }
-    pub async fn check(&self, cache: Option<std::path::PathBuf>) -> Result<Check, String> {
+    pub async fn check(
+        &self,
+        cache: Option<std::path::PathBuf>,
+        after: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Snapshot, String> {
+        self.check_using(self.check_source(cache), after).await
+    }
+    async fn check_using(
+        &self,
+        source: impl std::future::Future<Output = Result<Check, String>>,
+        after: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Snapshot, String> {
         if self.busy.swap(true, Ordering::SeqCst) {
             return Err("已有更新操作正在进行，请稍候。".into());
         }
@@ -626,6 +688,8 @@ impl Checker {
             if s.closing || s.control.is_some() {
                 return Err("请等待当前下载结束，或先取消下载。".into());
             }
+            s.checking = true;
+            s.check_error = None;
             s.install_error = None;
             s.recovery_error = None;
             s.check = None;
@@ -633,6 +697,20 @@ impl Checker {
             s.ready = None;
             s.download = Download::default();
         }
+        let mut checking = Checking {
+            checker: self,
+            finished: false,
+        };
+        let result = async {
+            source.await?;
+            after()
+        }
+        .await;
+        checking.finish(result.as_ref().err().cloned())?;
+        result?;
+        self.snapshot()
+    }
+    async fn check_source(&self, cache: Option<std::path::PathBuf>) -> Result<Check, String> {
         let current = env!("CARGO_PKG_VERSION");
         if std::env::consts::OS != "macos" {
             return Err("当前系统尚未支持应用更新，请查看发布页。".into());
@@ -734,6 +812,142 @@ mod tests {
         value["assets"][0] = serde_json::to_value(asset).unwrap();
         parse(manifest(vec![value]), current, arch).unwrap()
     }
+    #[tokio::test]
+    async fn pending_check_and_failure_are_observable_and_duplicates_preserve_the_owner() {
+        let checker = Arc::new(Checker::default());
+        let (started, observing) = tokio::sync::oneshot::channel();
+        let (release, waiting) = tokio::sync::oneshot::channel::<()>();
+        let owner = checker.clone();
+        let task = tokio::spawn(async move {
+            owner
+                .check_using(
+                    async {
+                        started.send(()).unwrap();
+                        waiting.await.unwrap();
+                        Err("连接失败 fixture".into())
+                    },
+                    || Ok(()),
+                )
+                .await
+        });
+        observing.await.unwrap();
+        let pending = checker.snapshot().unwrap();
+        assert!(pending.checking);
+        assert!(pending.check_error.is_none());
+        assert!(pending.check.is_none());
+        assert!(checker
+            .check(None, || panic!("duplicate must not complete"))
+            .await
+            .is_err());
+        let temp = tempfile::tempdir().unwrap();
+        assert!(checker.start(temp.path().join("unused")).is_err());
+        assert!(!temp.path().join("unused").exists());
+        assert!(checker.snapshot().unwrap().checking);
+        release.send(()).unwrap();
+        assert!(task.await.unwrap().is_err());
+        let failed = checker.snapshot().unwrap();
+        assert!(!failed.checking);
+        assert_eq!(failed.check_error.as_deref(), Some("连接失败 fixture"));
+        assert!(failed.check.is_none());
+        assert!(!checker.active());
+        // Looking at the state again neither clears the failure nor restarts work.
+        assert_eq!(checker.snapshot().unwrap().check_error, failed.check_error);
+        let next = parse(manifest(vec![]), "0.1.0", "arm64").unwrap();
+        let snapshot = checker
+            .check_using(checker.accept_check(next, None), || Ok(()))
+            .await
+            .unwrap();
+        assert!(!snapshot.checking);
+        assert!(snapshot.check_error.is_none());
+        assert_eq!(snapshot.check.unwrap().status, Status::Unpublished);
+    }
+
+    #[tokio::test]
+    async fn post_check_failure_withdraws_selection_and_the_next_check_can_retry() {
+        let checker = Checker::default();
+        let selected = parse(manifest(vec![release("0.2.0", "arm64")]), "0.1.0", "arm64").unwrap();
+        assert!(checker
+            .check_using(checker.accept_check(selected, None), || {
+                assert!(checker.snapshot().unwrap().checking);
+                Err("本机偏好状态无法确认 fixture".into())
+            })
+            .await
+            .is_err());
+        let failed = checker.snapshot().unwrap();
+        assert!(!failed.checking);
+        assert!(failed.check.is_none());
+        assert!(failed.check_error.unwrap().contains("偏好"));
+        assert!(checker.session.lock().unwrap().checked_at.is_none());
+        assert!(!checker.busy.load(Ordering::SeqCst));
+        // Maintenance/reveal admission alone is never reported as a check.
+        checker.busy.store(true, Ordering::SeqCst);
+        assert!(!checker.snapshot().unwrap().checking);
+        checker.busy.store(false, Ordering::SeqCst);
+    }
+
+    #[tokio::test]
+    async fn abandoning_a_pending_source_releases_admission_and_retains_an_interruption() {
+        let checker = Arc::new(Checker::default());
+        let (started, observing) = tokio::sync::oneshot::channel();
+        let owner = checker.clone();
+        let task = tokio::spawn(async move {
+            owner
+                .check_using(
+                    async {
+                        started.send(()).unwrap();
+                        std::future::pending::<Result<Check, String>>().await
+                    },
+                    || Ok(()),
+                )
+                .await
+        });
+        observing.await.unwrap();
+        task.abort();
+        assert!(matches!(task.await, Err(error) if error.is_cancelled()));
+        let snapshot = checker.snapshot().unwrap();
+        assert!(!snapshot.checking);
+        assert!(snapshot.check_error.unwrap().contains("未完成"));
+        assert!(!checker.active());
+        let next = parse(manifest(vec![]), "0.1.0", "arm64").unwrap();
+        assert!(checker
+            .check_using(checker.accept_check(next, None), || Ok(()))
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn automatic_admission_remains_inside_the_observable_check_ownership() {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let checker = Arc::new(Checker::default());
+        let blocked = temp.path().join("blocked-cache");
+        std::fs::write(&blocked, b"preserve").unwrap();
+        let selected = selection(&ready.asset, "0.1.0", "arm64");
+        let snapshot = checker
+            .check_using(checker.accept_check(selected, None), || {
+                assert!(checker.busy.load(Ordering::SeqCst));
+                assert!(checker.snapshot().unwrap().checking);
+                assert!(checker.start(blocked.clone()).is_err());
+                let admitted = checker.after_check(Ok(true), blocked.clone())?;
+                assert!(admitted.checking);
+                assert!(matches!(admitted.download.state, "downloading" | "failed"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        assert!(!snapshot.checking);
+        assert!(snapshot.check_error.is_none());
+        assert!(!checker.busy.load(Ordering::SeqCst));
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while checker.active() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(checker.snapshot().unwrap().download.state, "failed");
+        assert_eq!(std::fs::read(blocked).unwrap(), b"preserve");
+    }
+
     #[tokio::test]
     async fn fresh_selection_restores_in_new_session_and_protects_the_verified_package() {
         let (_temp, ready) = crate::update_download::tests::installation_fixture().await;
@@ -970,7 +1184,7 @@ mod tests {
                         assert!(checker.snapshot().unwrap().installing);
                         assert!(checker.installation.enter().is_err());
                         assert!(checker.ready_path().await.is_err());
-                        assert!(checker.check(None).await.is_err());
+                        assert!(checker.check(None, || Ok(())).await.is_err());
                         order.lock().unwrap().push("open");
                         Ok(())
                     }
@@ -1349,7 +1563,7 @@ mod tests {
             s.download.state = "downloading";
         }
         assert!(checker.start(temp.path().join("cache")).is_err());
-        assert!(checker.check(None).await.is_err());
+        assert!(checker.check(None, || Ok(())).await.is_err());
         checker.cancel().unwrap();
         assert!(control.cancelled());
         assert_eq!(checker.snapshot().unwrap().download.state, "cancelling");
@@ -1357,7 +1571,7 @@ mod tests {
         checker.session.lock().unwrap().control = None;
         assert!(!checker.active());
         assert!(checker.start(temp.path().join("cache")).is_err());
-        assert!(checker.check(None).await.is_err());
+        assert!(checker.check(None, || Ok(())).await.is_err());
     }
 
     fn serve(response: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
@@ -1426,7 +1640,7 @@ mod tests {
     async fn duplicate_checks_are_rejected_before_network() {
         let checker = Checker::default();
         checker.busy.store(true, Ordering::SeqCst);
-        assert!(checker.check(None).await.is_err());
+        assert!(checker.check(None, || Ok(())).await.is_err());
         assert!(checker.busy.load(Ordering::SeqCst));
     }
 }
