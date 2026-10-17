@@ -13,6 +13,8 @@ async function setup(page: Page) {
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
     const snapshot = () => ({
+      autoDownload: sessionStorage.getItem('update-auto-download') === 'yes',
+      preferenceError: sessionStorage.getItem('update-preference-error'),
       recovering: sessionStorage.getItem('update-recovering') === 'yes',
       recoveryError: sessionStorage.getItem('update-recovery-error'),
       installing: sessionStorage.getItem('update-installing') === 'yes',
@@ -24,6 +26,16 @@ async function setup(page: Page) {
       ),
     })
     internal.invoke = async (command, args) => {
+      if (command === 'set_update_auto_download') {
+        sessionStorage.setItem('update-preference-args', JSON.stringify(args))
+        while (sessionStorage.getItem('update-preference-pending'))
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        if (sessionStorage.getItem('update-preference-fail'))
+          throw new Error('自动下载设置未能保存，已保留原值，请重试。')
+        sessionStorage.setItem('update-auto-download', args?.enabled ? 'yes' : 'no')
+        sessionStorage.removeItem('update-preference-error')
+        return snapshot()
+      }
       if (command === 'save_settings') {
         sessionStorage.setItem('update-save-started', 'yes')
         while (sessionStorage.getItem('update-save-pending'))
@@ -66,6 +78,29 @@ async function setup(page: Page) {
         if (sessionStorage.getItem('update-mode') === 'restore-error')
           sessionStorage.setItem('update-recovery-error', '本地更新包未能复用，请重新下载。')
         sessionStorage.removeItem('update-recovering')
+        if (
+          sessionStorage.getItem('update-auto-download') === 'yes' &&
+          result.status === 'available' &&
+          result.asset &&
+          JSON.parse(sessionStorage.getItem('update-download') ?? '{}').state !== 'ready'
+        ) {
+          sessionStorage.setItem(
+            'update-auto-starts',
+            String(Number(sessionStorage.getItem('update-auto-starts') ?? 0) + 1),
+          )
+          sessionStorage.setItem(
+            'update-download',
+            JSON.stringify({
+              state: 'downloading',
+              restored: false,
+              fileName: result.asset.fileName,
+              transferred: 0,
+              total: 1000,
+              error: null,
+            }),
+          )
+          sessionStorage.removeItem('update-recovery-error')
+        }
         return snapshot()
       }
       if (command === 'get_update_snapshot') {
@@ -502,6 +537,9 @@ test('pending settings save prevents confirming installation until the save comp
   await settings.getByRole('button', { name: '关于', exact: true }).click()
   await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeDisabled()
   await expect(settings.getByText('正在保存…', { exact: true })).toBeVisible()
+  await expect(
+    updates.getByRole('checkbox', { name: '手动检查后自动下载', exact: true }),
+  ).toBeDisabled()
   expect(await page.evaluate(() => sessionStorage.getItem('install-calls'))).toBeNull()
   await page.evaluate(() => sessionStorage.removeItem('update-save-pending'))
   await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
@@ -515,6 +553,7 @@ test('fresh manual check revalidates a saved package without downloading, surviv
     (result) => {
       sessionStorage.setItem('update-result', JSON.stringify(result))
       sessionStorage.setItem('update-mode', 'restore-pending')
+      sessionStorage.setItem('update-auto-download', 'yes')
     },
     {
       ...base,
@@ -525,6 +564,9 @@ test('fresh manual check revalidates a saved package without downloading, surviv
   )
   await updates.getByRole('button', { name: '检查更新', exact: true }).click()
   await expect(updates.getByRole('status')).toContainText('正在复核本地更新包')
+  await expect(
+    updates.getByRole('checkbox', { name: '手动检查后自动下载', exact: true }),
+  ).toBeDisabled()
   await expect(updates.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled()
   await expect(updates.getByRole('progressbar')).toHaveCount(0)
   await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toHaveCount(0)
@@ -547,6 +589,7 @@ test('fresh manual check revalidates a saved package without downloading, surviv
   await expect(updates.getByRole('button', { name: '打开 DMG 安装', exact: true })).toBeEnabled()
   await expect(updates.getByRole('button', { name: '在 Finder 中查看', exact: true })).toBeEnabled()
   await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => sessionStorage.getItem('update-auto-starts'))).toBeNull()
   expect(await page.evaluate(() => sessionStorage.getItem('download-args'))).toBeNull()
   await page.setViewportSize({ width: 960, height: 780 })
   for (const theme of ['light', 'dark']) {
@@ -586,4 +629,84 @@ test('local recovery failure keeps the fresh release result and starting a new d
   await updates.getByRole('button', { name: '下载更新包', exact: true }).click()
   await expect(updates.getByRole('status')).toContainText('正在下载更新包')
   await expect(updates.getByRole('alert')).toHaveCount(0)
+})
+
+test('automatic download preference defaults off, persists only after successful save and never checks by itself', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  const preference = updates.getByRole('checkbox', { name: '手动检查后自动下载', exact: true })
+  await expect(preference).not.toBeChecked()
+  await expect(updates).toContainText('安装仍需确认')
+  await page.evaluate(() => sessionStorage.setItem('update-preference-fail', 'yes'))
+  await preference.click()
+  await expect(updates.getByRole('alert')).toContainText('已保留原值')
+  await expect(preference).not.toBeChecked()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBeNull()
+  await page.evaluate(() => {
+    sessionStorage.removeItem('update-preference-fail')
+    sessionStorage.setItem('update-preference-pending', 'yes')
+  })
+  await preference.click()
+  await expect(preference).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('update-preference-pending'))
+  await expect(preference).toBeChecked()
+  await expect(preference).toBeEnabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-preference-args'))).toBe(
+    '{"enabled":true}',
+  )
+  expect(await page.evaluate(() => sessionStorage.getItem('update-checks'))).toBeNull()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: '设置', exact: true })
+    .getByRole('button', { name: '关于', exact: true })
+    .click()
+  await expect(preference).toBeChecked()
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    await updates.scrollIntoViewIfNeeded()
+    expect(await updates.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/update-preference-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+})
+
+test('opted-in check shows backend download progress and turning the preference off preserves the active transfer', async ({
+  page,
+}) => {
+  const updates = await setup(page)
+  const preference = updates.getByRole('checkbox', { name: '手动检查后自动下载', exact: true })
+  await preference.click()
+  await expect(preference).toBeChecked()
+  await page.evaluate((result) => sessionStorage.setItem('update-result', JSON.stringify(result)), {
+    ...base,
+    status: 'available',
+    latestVersion: '0.2.0',
+    asset: { fileName: 'MooMole-0.2.0-mac-arm64.dmg' },
+  })
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('正在下载更新包')
+  await expect(updates.getByRole('progressbar')).toHaveAttribute('value', '0')
+  expect(await page.evaluate(() => sessionStorage.getItem('update-auto-starts'))).toBe('1')
+  expect(await page.evaluate(() => sessionStorage.getItem('download-args'))).toBeNull()
+  await preference.click()
+  await expect(preference).not.toBeChecked()
+  await expect(updates.getByRole('status')).toContainText('正在下载更新包')
+  expect(await page.evaluate(() => sessionStorage.getItem('cancel-download-args'))).toBeNull()
+  await page.evaluate(() => {
+    const d = JSON.parse(sessionStorage.getItem('update-download')!)
+    d.state = 'cancelled'
+    sessionStorage.setItem('update-download', JSON.stringify(d))
+  })
+  await expect(updates.getByRole('status')).toContainText('下载已取消')
+  await updates.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(updates.getByRole('status')).toContainText('发现新版本 0.2.0')
+  await expect(updates.getByRole('button', { name: '下载更新包', exact: true })).toBeEnabled()
+  expect(await page.evaluate(() => sessionStorage.getItem('update-auto-starts'))).toBe('1')
 })

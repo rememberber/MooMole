@@ -50,6 +50,8 @@ export const official = (): Promise<void> =>
 export const checkUpdates = (): Promise<UpdateSnapshot> =>
   desktop ? invoke('check_updates') : Promise.reject(new Error('请在桌面 App 中检查更新。'))
 export const updateSnapshot = (): Promise<UpdateSnapshot> => invoke('get_update_snapshot')
+export const setUpdateAutoDownload = (enabled: boolean): Promise<UpdateSnapshot> =>
+  invoke('set_update_auto_download', { enabled })
 export const downloadUpdate = (): Promise<UpdateSnapshot> => invoke('download_update')
 export const cancelUpdateDownload = (): Promise<void> => invoke('cancel_update_download')
 export const revealUpdateDownload = (): Promise<void> => invoke('reveal_update_download')

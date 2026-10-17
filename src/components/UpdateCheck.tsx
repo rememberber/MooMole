@@ -9,6 +9,7 @@ import {
   cancelUpdateDownload,
   revealUpdateDownload,
   installUpdate,
+  setUpdateAutoDownload,
 } from '../lib/api'
 import { bytes } from '../lib/format'
 import type { UpdateCheckResult, UpdateSnapshot } from '../types'
@@ -26,9 +27,13 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const [result, setResult] = useState<UpdateCheckResult | null>(null)
   const [download, setDownload] = useState(idle)
   const [pending, setPending] = useState(false)
+  const [autoDownload, setAutoDownload] = useState(false)
+  const [preferenceError, setPreferenceError] = useState<string | null>(null)
   const [recovering, setRecovering] = useState(false)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
-  const [action, setAction] = useState<'download' | 'cancel' | 'reveal' | 'install' | null>(null)
+  const [action, setAction] = useState<
+    'download' | 'cancel' | 'reveal' | 'install' | 'preference' | null
+  >(null)
   const [installing, setInstalling] = useState(false)
   const [confirmInstall, setConfirmInstall] = useState(false)
   const acting = useRef(false)
@@ -41,6 +46,8 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
   const checking = useRef(false)
   const generation = useRef(0)
   function apply(snapshot: UpdateSnapshot) {
+    setAutoDownload(snapshot.autoDownload)
+    setPreferenceError(snapshot.preferenceError)
     setRecovering(snapshot.recovering)
     setRecoveryError(snapshot.recoveryError)
     setResult(snapshot.check)
@@ -128,7 +135,25 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
       if (active.current) setAction(null)
     }
   }
-  const operationError = download.error || openError || installError || recoveryError
+  async function toggleAutoDownload(enabled: boolean) {
+    if (acting.current) return
+    acting.current = true
+    generation.current += 1
+    setAction('preference')
+    setOpenError('')
+    try {
+      const next = await setUpdateAutoDownload(enabled)
+      if (active.current) apply(next)
+    } catch (error) {
+      if (active.current) setOpenError(errorText(error))
+    } finally {
+      generation.current += 1
+      acting.current = false
+      if (active.current) setAction(null)
+    }
+  }
+  const operationError =
+    download.error || openError || installError || recoveryError || preferenceError
   const message = observationError
     ? '更新状态尚未确认'
     : recovering
@@ -299,6 +324,31 @@ export function UpdateCheck({ saving = false }: { saving?: boolean }) {
           )}
         </>
       )}
+      <label className="update-preference">
+        <input
+          type="checkbox"
+          aria-label="手动检查后自动下载"
+          aria-describedby="update-auto-download-hint"
+          checked={autoDownload}
+          disabled={
+            !desktop ||
+            !loaded ||
+            saving ||
+            pending ||
+            recovering ||
+            !!action ||
+            preparing ||
+            !!observationError
+          }
+          onChange={(event) => void toggleAutoDownload(event.target.checked)}
+        />
+        <span>
+          手动检查后自动下载
+          <small id="update-auto-download-hint">
+            仅影响后续手动检查，当前下载可单独取消；安装仍需确认。
+          </small>
+        </span>
+      </label>
       <button
         className="button ghost"
         onClick={() => {

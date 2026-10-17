@@ -1819,6 +1819,23 @@ select {
 .update-check .setting-row > button {
   flex-shrink: 0;
 }
+.update-preference {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 8px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.update-preference input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.update-preference small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
 .update-actions {
   display: flex;
   flex-wrap: wrap;

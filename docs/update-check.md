@@ -4,7 +4,7 @@
 
 ## 界面与联网
 
-不在启动、进入关于页或定时后台自动检查。用户点击后，由 Rust 访问固定来源：
+不在启动、进入关于页或定时后台自动检查。“手动检查后自动下载”默认关闭，启用后只影响成功检查后的下载决策，不增加自动检查；安装仍需确认。用户点击检查后，由 Rust 访问固定来源：
 
 `https://raw.githubusercontent.com/rememberber/MooMole/main/update-manifest.json`
 

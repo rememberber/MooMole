@@ -29,6 +29,7 @@ impl Drop for Reset<'_> {
 #[derive(Default)]
 pub struct Checker {
     pub installation: Arc<crate::update_install::Gate>,
+    auto_download: AtomicBool,
     busy: AtomicBool,
     maintaining: AtomicBool,
     session: Mutex<Session>,
@@ -45,6 +46,7 @@ struct Session {
     install_error: Option<String>,
     recovering: bool,
     recovery_error: Option<String>,
+    preference_error: Option<String>,
 }
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,6 +61,8 @@ pub struct Download {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    auto_download: bool,
+    preference_error: Option<String>,
     recovering: bool,
     recovery_error: Option<String>,
     installing: bool,
@@ -327,6 +331,8 @@ impl Checker {
             download.state = "idle";
         }
         Ok(Snapshot {
+            auto_download: self.auto_download.load(Ordering::SeqCst),
+            preference_error: s.preference_error.clone(),
             recovering: s.recovering,
             recovery_error: s.recovery_error.clone(),
             installing: self.installation.active(),
@@ -334,6 +340,68 @@ impl Checker {
             check: s.check.clone(),
             download,
         })
+    }
+    pub fn set_preference(&self, preference: Result<bool, String>) -> Result<(), String> {
+        let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+        let enabled = match preference {
+            Ok(enabled) => {
+                s.preference_error = None;
+                enabled
+            }
+            Err(_) => {
+                s.preference_error =
+                    Some("自动下载设置无法读取，本次不会自动下载；可重新设置。".into());
+                false
+            }
+        };
+        self.auto_download.store(enabled, Ordering::SeqCst);
+        Ok(())
+    }
+    pub fn after_check(
+        self: &Arc<Self>,
+        preference: Result<bool, String>,
+        path: std::path::PathBuf,
+    ) -> Result<Snapshot, String> {
+        self.set_preference(preference)?;
+        if !self.auto_download.load(Ordering::SeqCst) {
+            return self.snapshot();
+        }
+        let (asset, checked_at) = {
+            let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if s.closing
+                || s.control.is_some()
+                || s.ready.is_some()
+                || !matches!(s.download.state, "" | "idle")
+            {
+                drop(s);
+                return self.snapshot();
+            }
+            let Some(asset) = s.check.as_ref().and_then(|c| c.asset.clone()) else {
+                drop(s);
+                return self.snapshot();
+            };
+            (asset, s.checked_at)
+        };
+        let attempt = self.start(path);
+        if let Err(error) = attempt {
+            let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if !s.closing
+                && s.control.is_none()
+                && s.ready.is_none()
+                && s.checked_at == checked_at
+                && s.check.as_ref().and_then(|c| c.asset.as_ref()) == Some(&asset)
+                && matches!(s.download.state, "" | "idle")
+            {
+                s.download = Download {
+                    state: "failed",
+                    file_name: Some(asset.file_name),
+                    total: asset.size,
+                    error: Some(error),
+                    ..Download::default()
+                };
+            }
+        }
+        self.snapshot()
     }
     pub fn start(self: &Arc<Self>, path: std::path::PathBuf) -> Result<Snapshot, String> {
         let mut s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
@@ -367,7 +435,14 @@ impl Checker {
         s.control = Some(control.clone());
         let owner = self.clone();
         tauri::async_runtime::spawn(async move {
-            let result = match Cache::open(&path) {
+            let cache = path
+                .parent()
+                .ok_or_else(|| "无法定位应用缓存。".to_string())
+                .and_then(|root| {
+                    std::fs::create_dir_all(root).map_err(|_| "无法创建应用缓存。".to_string())
+                })
+                .and_then(|_| Cache::open(&path));
+            let result = match cache {
                 Ok(cache) => {
                     crate::update_download::download(
                         asset,
@@ -742,6 +817,129 @@ mod tests {
             .is_err());
         assert!(path.is_file());
         assert_eq!(std::fs::read(&invalid_cache).unwrap(), b"unchanged");
+    }
+
+    #[tokio::test]
+    async fn automatic_download_is_opt_in_and_skips_unavailable_or_already_restored_assets() {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let asset = ready.asset.clone();
+        let path = ready.verified_path().unwrap();
+        let missing = temp.path().join("not-created/pending-updates");
+        let checker = Arc::new(Checker::default());
+        checker
+            .accept_check(selection(&asset, "0.1.0", "arm64"), None)
+            .await
+            .unwrap();
+        assert!(!checker.snapshot().unwrap().auto_download);
+        assert_eq!(
+            checker
+                .after_check(Ok(false), missing.clone())
+                .unwrap()
+                .download
+                .state,
+            "idle"
+        );
+        assert!(!missing.parent().unwrap().exists());
+        for result in [
+            selection(&asset, "0.2.0", "arm64"),
+            selection(&asset, "0.1.0", "x64"),
+            parse(manifest(vec![]), "0.1.0", "arm64").unwrap(),
+        ] {
+            let other = Arc::new(Checker::default());
+            other.accept_check(result, None).await.unwrap();
+            assert_eq!(
+                other
+                    .after_check(Ok(true), missing.clone())
+                    .unwrap()
+                    .download
+                    .state,
+                "idle"
+            );
+        }
+        let restored = Arc::new(Checker::default());
+        restored
+            .accept_check(
+                selection(&asset, "0.1.0", "arm64"),
+                Some(path.parent().unwrap().to_owned()),
+            )
+            .await
+            .unwrap();
+        assert!(
+            restored
+                .after_check(Ok(true), missing.clone())
+                .unwrap()
+                .download
+                .restored
+        );
+        assert!(!missing.parent().unwrap().exists());
+        assert_eq!(restored.ready_path().await.unwrap(), path);
+    }
+    #[tokio::test]
+    async fn automatic_download_attempt_uses_existing_worker_and_preserves_failure_without_retry_loop(
+    ) {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let checker = Arc::new(Checker::default());
+        checker
+            .accept_check(selection(&ready.asset, "0.1.0", "arm64"), None)
+            .await
+            .unwrap();
+        let blocked = temp.path().join("blocked");
+        std::fs::write(&blocked, b"preserve").unwrap();
+        let snapshot = checker.after_check(Ok(true), blocked.clone()).unwrap();
+        assert!(matches!(snapshot.download.state, "downloading" | "failed"));
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while checker.active() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let snapshot = checker.snapshot().unwrap();
+        assert_eq!(snapshot.download.state, "failed");
+        assert_eq!(snapshot.download.transferred, 0);
+        assert!(snapshot.download.error.unwrap().contains("缓存"));
+        assert_eq!(snapshot.check.unwrap().status, Status::Available);
+        let unused = temp.path().join("no-retry/pending-updates");
+        checker.after_check(Ok(true), unused.clone()).unwrap();
+        assert!(!unused.parent().unwrap().exists());
+        assert_eq!(std::fs::read(&blocked).unwrap(), b"preserve");
+        assert!(!checker.session.lock().unwrap().closing);
+    }
+    #[tokio::test]
+    async fn unreadable_preference_expiry_and_toggle_off_never_start_or_cancel_existing_work() {
+        let (temp, ready) = crate::update_download::tests::installation_fixture().await;
+        let checker = Arc::new(Checker::default());
+        checker
+            .accept_check(selection(&ready.asset, "0.1.0", "arm64"), None)
+            .await
+            .unwrap();
+        let missing = temp.path().join("not-created/pending-updates");
+        let snapshot = checker
+            .after_check(Err("fixture read failure".into()), missing.clone())
+            .unwrap();
+        assert!(!snapshot.auto_download);
+        assert!(snapshot.preference_error.unwrap().contains("无法读取"));
+        assert_eq!(snapshot.download.state, "idle");
+        assert!(!missing.parent().unwrap().exists());
+        let control = Arc::new(Control::default());
+        checker.session.lock().unwrap().control = Some(control.clone());
+        checker.after_check(Ok(false), missing.clone()).unwrap();
+        checker.after_check(Ok(true), missing).unwrap();
+        assert!(!control.cancelled());
+        assert!(Arc::ptr_eq(
+            checker.session.lock().unwrap().control.as_ref().unwrap(),
+            &control
+        ));
+        {
+            let mut s = checker.session.lock().unwrap();
+            s.control = None;
+            s.checked_at = Some(Instant::now() - Duration::from_secs(16 * 60));
+        }
+        let expired = checker
+            .after_check(Ok(true), temp.path().join("expired"))
+            .unwrap();
+        assert!(expired.download.error.unwrap().contains("过期"));
+        assert!(!temp.path().join("expired").exists());
     }
 
     async fn installer() -> (tempfile::TempDir, Arc<Checker>, std::path::PathBuf) {

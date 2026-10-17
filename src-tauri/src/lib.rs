@@ -22,6 +22,7 @@ mod tasks;
 mod tree;
 mod update_download;
 mod update_install;
+mod update_preferences;
 mod update_quarantine;
 mod updates;
 
@@ -507,13 +508,29 @@ async fn check_updates(
         .map_err(|_| "无法定位本地更新缓存。")?
         .join("pending-updates");
     let checker = state.updates.clone();
+    let db = state.db.clone();
     tauri::async_runtime::spawn(async move {
         let _operation = operation;
-        checker.check(Some(path)).await?;
-        checker.snapshot()
+        checker.check(Some(path.clone())).await?;
+        // Serialize the live preference decision with saves; toggling off after
+        // this point affects subsequent checks, not an already accepted download.
+        let db = db.lock().map_err(|_| "无法读取本机设置。")?;
+        checker.after_check(update_preferences::load(&db), path)
     })
     .await
     .map_err(|_| "更新检查未完成，请重试。")?
+}
+
+#[tauri::command]
+fn set_update_auto_download(
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<updates::Snapshot, String> {
+    let _operation = state.updates.installation.enter()?;
+    let db = state.db.lock().map_err(|_| "无法保存本机设置。")?;
+    update_preferences::save(&db, enabled)?;
+    state.updates.set_preference(Ok(enabled))?;
+    state.updates.snapshot()
 }
 
 #[tauri::command]
@@ -530,7 +547,6 @@ fn download_update(
         .path()
         .app_cache_dir()
         .map_err(|_| "无法定位应用缓存。")?;
-    std::fs::create_dir_all(&root).map_err(|_| "无法创建应用缓存。")?;
     state.updates.start(root.join("pending-updates"))
 }
 #[tauri::command]
@@ -646,6 +662,7 @@ pub fn run() {
                 bundled
             };
             let updates = Arc::new(updates::Checker::default());
+            updates.set_preference(update_preferences::load(&connection))?;
             if let Ok(cache) = app.path().app_cache_dir() {
                 updates.schedule_maintenance(cache.join("pending-updates"));
             }
@@ -679,6 +696,7 @@ pub fn run() {
             open_official,
             check_updates,
             get_update_snapshot,
+            set_update_auto_download,
             download_update,
             cancel_update_download,
             reveal_update_download,
