@@ -19,6 +19,9 @@ use std::{
 };
 use tokio::{io::AsyncWriteExt, sync::Notify};
 
+#[path = "update_cache.rs"]
+mod maintenance;
+
 #[derive(Default)]
 pub struct Control {
     cancelled: AtomicBool,
@@ -89,6 +92,9 @@ impl Cache {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
             Err(_) => return Err("无法创建更新缓存目录。".into()),
         }
+        Self::existing(path)
+    }
+    fn existing(path: &Path) -> Result<Arc<Self>, String> {
         let directory = open_directory(path)?;
         let meta = directory.metadata().map_err(|_| "无法读取更新缓存目录。")?;
         if meta.uid() != unsafe { libc::geteuid() } || meta.mode() & 0o077 != 0 {
@@ -188,6 +194,9 @@ pub struct Ready {
     identity: (u64, u64),
 }
 impl Ready {
+    pub fn cache_name(&self) -> &str {
+        &self.name
+    }
     pub fn discard(&self) -> Result<(), String> {
         self.cache.unlink(&self.name)
     }
@@ -264,6 +273,16 @@ async fn transfer(
     control: Arc<Control>,
     progress: impl Fn(u64, bool) + Send + Sync,
 ) -> Result<Ready, String> {
+    // No transfer file exists yet; this session exclusively owns downloads.
+    let maintenance = cache.clone();
+    let stop = control.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        maintenance.cleanup(None, std::time::SystemTime::now(), || stop.cancelled())
+    })
+    .await;
+    if control.cancelled() {
+        return Err("下载已取消。".into());
+    }
     cache.budget(asset.size)?;
     let suffix = uuid::Uuid::new_v4();
     let mut pending = Pending {

@@ -29,6 +29,7 @@ impl Drop for Reset<'_> {
 #[derive(Default)]
 pub struct Checker {
     busy: AtomicBool,
+    maintaining: AtomicBool,
     session: Mutex<Session>,
 }
 
@@ -272,6 +273,44 @@ async fn fetch(client: &Client, url: &str) -> Result<Option<Vec<u8>>, String> {
 }
 
 impl Checker {
+    /// Local-only upkeep; no network access and no new cache directories.
+    pub fn schedule_maintenance(self: &Arc<Self>, path: std::path::PathBuf) {
+        let weak = Arc::downgrade(self);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                let Some(owner) = weak.upgrade() else { break };
+                if owner.session.lock().map(|s| s.closing).unwrap_or(true) {
+                    break;
+                }
+                let path = path.clone();
+                let result = tokio::task::spawn_blocking(move || owner.maintain(&path)).await;
+                if !matches!(result, Ok(Ok(()))) {
+                    eprintln!("MooMole: 更新缓存维护未完成，后续将重试。");
+                }
+                tokio::time::sleep(Duration::from_secs(6 * 60 * 60)).await;
+            }
+        });
+    }
+    fn maintain(&self, path: &std::path::Path) -> Result<(), String> {
+        // The guard lives in the blocking worker, never an abortable awaiter.
+        if self.busy.swap(true, Ordering::SeqCst) {
+            return Ok(());
+        }
+        let _busy = Reset(&self.busy);
+        let protected = {
+            let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
+            if s.closing || s.control.is_some() {
+                return Ok(());
+            }
+            self.maintaining.store(true, Ordering::SeqCst);
+            s.ready.as_ref().map(|r| r.cache_name().to_owned())
+        };
+        let _maintenance = Reset(&self.maintaining);
+        Cache::cleanup_existing(path, protected.as_deref(), || {
+            self.session.lock().map(|s| s.closing).unwrap_or(true)
+        })?;
+        Ok(())
+    }
     pub fn snapshot(&self) -> Result<Snapshot, String> {
         let s = self.session.lock().map_err(|_| "无法读取更新状态。")?;
         let mut download = s.download.clone();
@@ -385,10 +424,12 @@ impl Checker {
         }
     }
     pub fn active(&self) -> bool {
-        self.session
-            .lock()
-            .map(|s| s.control.is_some())
-            .unwrap_or(true)
+        self.maintaining.load(Ordering::SeqCst)
+            || self
+                .session
+                .lock()
+                .map(|s| s.control.is_some())
+                .unwrap_or(true)
     }
     pub async fn ready_path(self: &Arc<Self>) -> Result<std::path::PathBuf, String> {
         if self.busy.swap(true, Ordering::SeqCst) {
@@ -470,6 +511,46 @@ mod tests {
     }
     fn parse(value: Value, current: &str, arch: &str) -> Result<Check, String> {
         select(&serde_json::to_vec(&value).unwrap(), current, arch)
+    }
+
+    #[test]
+    fn maintenance_skips_active_operations_and_shutdown_and_releases_guards_on_error() {
+        use std::os::unix::fs::OpenOptionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("cache");
+        let checker = Checker::default();
+        let _cache = Cache::open(&path).unwrap();
+        let name = format!(".moomole-{}.download", uuid::Uuid::new_v4());
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path.join(&name))
+            .unwrap();
+        file.set_modified(std::time::SystemTime::now() - Duration::from_secs(2 * 86400))
+            .unwrap();
+        checker.busy.store(true, Ordering::SeqCst);
+        checker.maintain(&path).unwrap();
+        assert!(path.join(&name).exists());
+        assert!(checker.busy.load(Ordering::SeqCst));
+        checker.busy.store(false, Ordering::SeqCst);
+        checker.session.lock().unwrap().control = Some(Arc::new(Control::default()));
+        checker.maintain(&path).unwrap();
+        assert!(path.join(&name).exists());
+        assert!(!checker.busy.load(Ordering::SeqCst));
+        checker.session.lock().unwrap().control = None;
+        let bad = temp.path().join("file");
+        std::fs::write(&bad, b"not a cache").unwrap();
+        assert!(checker.maintain(&bad).is_err());
+        assert!(!checker.busy.load(Ordering::SeqCst));
+        assert!(!checker.active());
+        checker.maintain(&path).unwrap();
+        assert!(!path.join(&name).exists());
+        assert!(!checker.active());
+        std::fs::write(path.join("keep"), b"unknown").unwrap();
+        checker.shutdown();
+        checker.maintain(&bad).unwrap();
+        assert!(path.join("keep").exists());
     }
 
     #[test]

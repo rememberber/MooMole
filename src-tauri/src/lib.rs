@@ -584,6 +584,10 @@ pub fn run() {
             } else {
                 bundled
             };
+            let updates = Arc::new(updates::Checker::default());
+            if let Ok(cache) = app.path().app_cache_dir() {
+                updates.schedule_maintenance(cache.join("pending-updates"));
+            }
             app.manage(AppState {
                 db: Arc::new(Mutex::new(connection)),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
@@ -591,7 +595,7 @@ pub fn run() {
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(AtomicU8::new(0)),
-                updates: Arc::new(updates::Checker::default()),
+                updates,
             });
             Ok(())
         })
