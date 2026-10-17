@@ -13,6 +13,7 @@ import {
   taskTimeLabel,
 } from '../lib/task-history'
 import { Modal } from './Modal'
+import { DiagnosticExport } from './DiagnosticExport'
 
 const BATCH = 50
 export function TaskHistory({
@@ -249,6 +250,7 @@ export function TaskHistory({
                   原始类型：{detail.kind} · 原始状态：{detail.state}
                 </p>
               </details>
+              <DiagnosticExport key={detail.id} taskId={detail.id} />
             </>
           ) : (
             <p role="status">

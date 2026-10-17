@@ -1605,6 +1605,31 @@ h3 {
 .task-detail-modal .task-history-scope {
   padding: 12px 0 0;
 }
+.diagnostic-export {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.diagnostic-export p {
+  margin: 10px 0;
+  color: var(--subtle);
+  overflow-wrap: anywhere;
+}
+.diagnostic-export pre {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--soft);
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.diagnostic-export [role='alert'] {
+  color: var(--text);
+}
 .state-tag {
   background: var(--soft);
   padding: 4px 8px;

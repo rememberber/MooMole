@@ -22,6 +22,14 @@ export const bootstrap = (): Promise<Bootstrap> =>
   desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
 export const history = (): Promise<TaskRecord[]> =>
   desktop ? invoke('get_history') : Promise.resolve([])
+export const prepareTaskDiagnostic = (taskId: string): Promise<string> =>
+  desktop
+    ? invoke('prepare_task_diagnostic', { taskId })
+    : Promise.reject(new Error('请在桌面 App 中生成诊断摘要。'))
+export const saveTaskDiagnostic = (report: string): Promise<boolean> =>
+  desktop
+    ? invoke('save_task_diagnostic', { report })
+    : Promise.reject(new Error('请在桌面 App 中保存诊断摘要。'))
 export const executions = (): Promise<ExecutionSummary[]> =>
   desktop ? invoke('list_executions') : Promise.resolve([])
 export const execution = (runId: string): Promise<ExecutionDetail> =>

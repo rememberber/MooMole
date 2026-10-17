@@ -1,6 +1,7 @@
 mod clean_preview;
 mod db;
 mod descendant_rules;
+mod diagnostics;
 mod engine;
 mod engine_manifest;
 mod execution;
@@ -105,6 +106,39 @@ fn save_settings(
 #[tauri::command]
 fn get_history(state: tauri::State<'_, AppState>) -> Result<Vec<TaskRecord>, String> {
     db::history(&*state.db.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+fn prepare_task_diagnostic(
+    task_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
+    let task = db::task(&*state.db.lock().map_err(|e| e.to_string())?, &task_id)?
+        .ok_or("任务不存在或已超过保留期限，请刷新列表。")?;
+    diagnostics::prepare(&task, engine::info(&state.engine_root).version)
+}
+
+#[tauri::command]
+async fn save_task_diagnostic(report: String, app: tauri::AppHandle) -> Result<bool, String> {
+    diagnostics::validate(&report)?;
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_title("保存诊断摘要")
+        .set_file_name("MooMole-diagnostic.json")
+        .add_filter("JSON 诊断摘要", &["json"])
+        .save_file(move |path| {
+            let _ = sender.send(path);
+        });
+    let Some(path) = receiver.await.map_err(|_| "保存窗口已关闭，请重试。")? else {
+        return Ok(false);
+    };
+    let path = path.into_path().map_err(|_| "请选择本机文件路径。")?;
+    tauri::async_runtime::spawn_blocking(move || diagnostics::save(&path, &report))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(true)
 }
 
 #[tauri::command]
@@ -504,6 +538,8 @@ pub fn run() {
             bootstrap,
             save_settings,
             get_history,
+            prepare_task_diagnostic,
+            save_task_diagnostic,
             list_executions,
             get_execution,
             get_task_snapshot,
