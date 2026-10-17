@@ -539,7 +539,7 @@ export default function App() {
             设置
           </button>
           <button className="sidebar-official" onClick={official}>
-            Mole 官方产品
+            请使用Mole官方产品
             <ArrowUpRight size={12} />
           </button>
         </div>
