@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Info, Plus, Settings2, ShieldCheck, Trash2 } from 
 import type { Settings } from '../types'
 import { chooseDirectory, official } from '../lib/api'
 import { Modal } from './Modal'
+import { appVersion } from '../lib/app-version'
 
 export function SettingsModal({
   settings,
@@ -163,7 +164,7 @@ export function SettingsModal({
               </div>
               <div>
                 <h3>MooMole</h3>
-                <p className="muted">0.1.0 · 学习研究版</p>
+                <p className="muted">{appVersion} · 学习研究版</p>
               </div>
             </div>
             <div className="setting-group about-copy">

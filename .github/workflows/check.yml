@@ -1,0 +1,116 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, dev]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24.21.0'
+  GO_VERSION: '1.26.0'
+  RUSTUP_TOOLCHAIN: '1.99.0'
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  frontend:
+    name: Frontend and repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Check versions
+        run: npm run version:check
+      - name: Check release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run version:check -- --tag "$RELEASE_TAG"
+      - run: npm run format:check
+      - run: npm run test:version
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Keep browser test evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: browser-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  native:
+    name: Native checks (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt
+      - name: Verify host architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e 'if (process.platform !== "darwin" || process.arch !== process.env.EXPECTED_ARCH) process.exit(1)'
+      - run: npm ci
+      - run: node scripts/cargo.mjs fmt --check
+      - name: Prepare pinned Mole engine from source
+        run: npm run engine:prepare
+      - run: npm run test:engine
+      - run: npm run test:adapter
+      - name: Rust tests with locked dependencies
+        run: npm run check:rust -- --locked
+      - name: Build debug App (not a release installer)
+        run: npm run tauri -- build --debug --bundles app
+      - name: Archive debug App and engine manifest
+        run: |
+          mkdir -p ci-artifacts
+          ditto -c -k --sequesterRsrc --keepParent src-tauri/target/debug/bundle/macos/MooMole.app ci-artifacts/MooMole-debug.app.zip
+          cp src-tauri/resources/mole/UPSTREAM.json ci-artifacts/engine-manifest.json
+          node --version > ci-artifacts/toolchains.txt
+          npm --version >> ci-artifacts/toolchains.txt
+          go version >> ci-artifacts/toolchains.txt
+          rustc --version >> ci-artifacts/toolchains.txt
+          shasum -a 256 ci-artifacts/MooMole-debug.app.zip > ci-artifacts/SHA256SUMS
+      - name: Keep debug build evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: debug-app-${{ matrix.arch }}
+          path: ci-artifacts/
+          retention-days: 7
+          if-no-files-found: error

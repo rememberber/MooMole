@@ -834,3 +834,27 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 ### 后续边界
 
 本轮只有客户端检查元数据摘要，不包含具体错误正文，可能不足以单独定位问题。Mole 原始历史、执行收据和环境故障的完整脱敏诊断，以及完整执行、恢复与免费安装升级仍按路线图推进；本次 debug 原生保存不能代替正式 DMG、权限受限卷、磁盘满及完整无障碍验收。
+
+## 2026-10-17 · 第三十六阶段：统一版本来源与提交检查基础
+
+按路线图推进构建基础。保持现有产品与桌面布局，将关于页的手写版本改为单一来源，并添加可审阅的 CI 配置；本轮不提升版本、不生成正式发布物或触发远端发布。
+
+### 已实现
+
+- 根 package.json 是唯一版本编辑来源，脚本同步 npm 根锁版本、Cargo package/本地锁版本与 Tauri 版本，保留其他依赖、注释和排版。检查为只读，支持严格 SemVer 与精确 `v<version>` 标签；同步先验证全部镜像结构并复核输入，未知/重复布局拒绝，不作为通用 TOML 编辑器或多文件事务。
+- 关于页从 package 导入版本，Rust 诊断继续采用 CARGO_PKG_VERSION。前端构建及 Tauri 入口先检查镜像；Cargo build script 独立核对 package/Tauri 与 crate 版本，直接调用 Cargo 也拒绝这三处漂移。当前版本仍为 0.1.0。
+- 添加 PR、main/master/dev push、v* 标签与手动触发的工作流，contents 只读、checkout 不留凭据、Actions 绑定完整 SHA，相同 ref 的旧运行取消。前端 job 覆盖版本/标签、格式、脚本/单元、TypeScript/Vite 与浏览器；原生矩阵为 macos-14 arm64、macos-15-intel x64，检查主机架构、固定源码引擎准备、清单/适配/Rust 测试与 debug App 构建。
+- 工作流固定 Node 24.21.0、Go 1.26.0、Rust 1.99.0；npm ci 和 Cargo --locked 使用锁定依赖，不缓存开发机 .cache。成功调试包用 ditto ZIP 保留 App 结构/权限，附引擎清单、实际工具链与摘要，按架构保留 7 天；浏览器失败保留测试目录。不创建 Release、更新清单、DMG 或标签，也不配置 Apple 证书/公证。完整约定见 [版本与构建检查](build-validation.md)。
+
+### 验证证据
+
+- 新增版本脚本 5 组隔离测试通过：SemVer 与不安全/超长输入、四份镜像（含 npm 两个根字段）漂移及标签拒绝、预发布/构建标记同步、依赖/注释/格式保留、幂等、缺失/重复/未知布局时写入前整体停止。对真实仓库执行同步无版本镜像差异，v0.1.0 标签校验通过，没有创建 Git 标签。
+- 用本轮真实编译出的 build-script-build 在独立临时目录注入 package 和 Tauri 两种版本不符；均在 tauri_build 执行前以“应用版本不一致”拒绝，未改动工作区版本文件。
+- 前端单元 39 项通过，浏览器全量 77 项通过（48.4 秒）；关于页用根 package 版本核对真实界面。首次回归暴露 Node 加载 JSON 需要 import attribute，测试侧改用 Node 文件读取后通过；Vite 的应用导入正常构建。Rust --locked 全量 102 项通过、5 项既有显式测试忽略；引擎 fixture 5 项及两组 Shell 适配 fixture 通过。
+- 工作流通过 actionlint v1.7.12 静态检查。核对官方 Actions v7 及实际完整 SHA、runner 架构标签，并确认所选工具链的官方分发元数据可访问；这不代表远端 job 或两个架构已经运行通过。Prettier、Rustfmt、diff、TypeScript/Vite 和最终 Tauri debug App 打包通过，App 约 52.38 MiB。
+- 退出旧 App 后启动新原生包，首页显示 Mole CLI v1.59.1 / 引擎就绪，设置 → 关于显示 0.1.0 · 学习研究版，研究说明、上游致谢与官方入口保留。包内 CFBundleShortVersionString / CFBundleVersion 均为 0.1.0。原生启动正常完成系统快照，用户数据库仍 schema v3、执行批次数 0、任务数 118，没有清理/恢复或权限修改。
+- 在临时目录按 CI 的 ditto 命令生成并解压调试 ZIP，16,346,115 字节；包含引擎清单，ZIP 完整性通过，解压主程序与原包字节一致，权限 0755。临时产物未提交或上传，不将它视为已验证的 DMG 或签名发布物。
+
+### 后续边界
+
+工作流尚未推送或触发远端首次运行，Intel、旧系统、干净 runner、网络/配额差异仍待实际验证；完整 CI 条目保持待办。系统镜像、SDK/Xcode 与 npm 尚非完全固定，release 构建、签名后摘要、更新清单/资产命名、源码材料、免费 DMG 安装升级和最终发布流程仍需继续完成。

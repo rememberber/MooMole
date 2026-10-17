@@ -77,7 +77,11 @@ npm run tauri -- build --bundles app
 
 ## 检查
 
+应用版本只编辑 `package.json`，使用 `npm run version:sync` 同步锁文件与原生镜像；构建先校验一致性，关于页使用相同来源。提交检查工作流及版本/标签约定见 [版本与构建检查](docs/build-validation.md)。当前工作流只检查并保存调试产物，不发布正式版本，首次远端运行仍待验证。
+
 ```bash
+npm run version:check
+npm run test:version
 npm test
 npm run build
 npm run check:rust

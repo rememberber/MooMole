@@ -1,5 +1,10 @@
 import { expect, test, type Locator } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
+import { readFileSync } from 'node:fs'
+
+const appVersion = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+).version
 
 async function expandPlanDetails(dialog: Locator) {
   for (const detail of await dialog.locator('.plan-item-details').all())
@@ -134,6 +139,7 @@ test('settings modal supports theme changes, keyboard dismissal and about copy',
   await page.getByRole('combobox', { name: '主题', exact: true }).selectOption('dark')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await dialog.getByRole('button', { name: '关于', exact: true }).click()
+  await expect(dialog.getByText(`${appVersion} · 学习研究版`, { exact: true })).toBeVisible()
   await expect(dialog.getByText('本项目仅供学习和研究使用', { exact: false })).toBeVisible()
   await expect(dialog.getByRole('button', { name: '访问 Mole 官方产品' })).toBeVisible()
   await page.keyboard.press('Escape')
