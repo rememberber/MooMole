@@ -38,7 +38,13 @@ export interface Analysis {
   entries: Entry[]
   total_size: number
   total_files?: number
+  large_files?: LargeFile[] | null
   mooObservation?: AnalysisObservation | null
+}
+export interface LargeFile {
+  name: string
+  path: string
+  size: number
 }
 export interface AnalysisObservation {
   version: 1

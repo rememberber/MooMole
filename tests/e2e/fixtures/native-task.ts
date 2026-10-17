@@ -58,6 +58,10 @@ export async function installTaskMock(
                 engine: { ...initial.engine, available: true, version: '1.59.1' },
               }
             if (command === 'get_history') return history()
+            if (mode === 'analyze' && command === 'reveal_path') {
+              sessionStorage.setItem('mock-reveal-path', args.path ?? '')
+              return
+            }
             if (command === 'list_review_plans') return []
             if (command === 'plugin:event|listen')
               throw new Error('Simulated unavailable event channel')
