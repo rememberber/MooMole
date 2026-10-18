@@ -1462,7 +1462,8 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 - Rust --locked 最终全量 213 项通过、16 项显式检查保持忽略（共 229，8.38 秒）。首次全量中原有深层目录计划变化测试得到保守 unavailable 而非预期 contentsChanged；单项复跑与最终全量均通过，未修改该实现或降低断言。前端单元全量 57 项通过，TypeScript/Vite 通过；增加动态路径、原型属性 kind、计数、问题根与状态矛盾拒绝检查。
 - 浏览器全量 114 项通过（1.5 分钟），含应用检查 17 项，覆盖两个同类应用组候选分别展示/保护、重查、读取失败、变化、预算和始终保留。960px 浅深色关联区截图已检查，无横向溢出，技术范围仍按需展开。
 - build:local-dmg -- --offline 成功：固定引擎、TypeScript/Vite、Cargo --locked 优化编译（15.93 秒）、3 处 ad-hoc 签名、ZIP 往返与只读 DMG 挂载/卸载通过。产物 local-artifacts/MooMole-0.1.0-mac-arm64-JgObfU/，App 文件总字节 30,658,270、ZIP 12,196,222、DMG 14,144,358；源码记录 2ba3fb7 / dirty=true。DMG SHA-512 为 da3cded566c5a89d8f8cdcc5247201a0345f059c8cbb18a6afdf5291e09fd4de895d7f0c31b20a80ce94b20c818e6a1c0d9dfd306428ad4cce59135062c21408。签名、引擎资源及两份归档大小/摘要构建后独立复核通过，仍为未公证本地验收包，未公开发布。
-- 原生界面工具报告 Mac 锁屏，已请求手动解锁；本阶段原生启动/真实关联目录显示与运行后数据复核暂待验证，不能沿用上阶段结果视为本阶段通过。验证前数据库 schema v3、任务 160、执行批次数 0，settings SHA-256 91a93ca6fb576061ca78a5552df8ec367205eecd5ce9b71420bfb14151d875fe；更新偏好表和 pending-updates 缓存均不存在。未改变权限、真实数据或系统安全属性。Prettier、Rustfmt 与 diff 检查通过。
+- 首次原生检查遇到锁屏；用户解锁后正常退出上阶段包并确认停止，启动 JgObfU 新包（PID 91148）。首页 Mole CLI v1.59.1 / 引擎就绪，读取 58 个真实应用。23:02:35 检查 MooTool 1.3.5，仍保留项目目录的同标识 1.3.3 副本和主应用运行展示（PID 68368）；常用根、卷与收据各自的问题继续可见。组/派生检查尝试 2 根后触及数量或时间预算，明确提示不完整并给出 ~/Library/Application Scripts；设置位置检查期间变化为 unknown/changed，Cookie 无法访问仍未知，另外 14 个精确位置本次未发现。没有把范围不完整或变化当成不存在，也没有为取得正面结果放宽预算、申请权限或制造真实数据。动态多候选及保护命中使用隔离与浏览器 fixture 验证，未声称本机已命中应用组。
+- 原生截图检查路径、问题、完整范围和底部说明正常显示，滚动后工具栏分隔线与连续工作区符合既有设计。运行后数据库 schema v3、任务 160→162，仅新增启动状态 116b96d9（1834ms）与应用清单 3de70abc（2054ms），均成功；详情不新增历史，执行批次数仍 0。settings SHA-256 91a93ca6fb576061ca78a5552df8ec367205eecd5ce9b71420bfb14151d875fe 保持不变，更新偏好表与 pending-updates 缓存仍不存在。App/两个引擎签名、资源和 ZIP/DMG 大小及 SHA-512 运行后再次复核通过。没有提权、启停目标应用、改变权限、真实清理/恢复或系统安全属性变更；Prettier、Rustfmt 与 diff 检查通过。
 
 ### 后续边界
 
