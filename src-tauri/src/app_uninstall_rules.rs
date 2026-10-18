@@ -13,6 +13,7 @@ const LOGIC: &str = "75cb9db37d26656c01e6c2298d3907c0a7b3b0a2d73fec1494ae522447c
 const DATA: &str = "ac2cdaf4e71d35756ae861ed1e1a9ca7efeeea4e8806e0365c20ebb839615f51";
 const UNINSTALL: &str = "1ffcd3f39735013210346e106c7ade367078faaefa3a6e072e20c1234ca37a31";
 const BATCH: &str = "f44ed6a61ec5074f8efe89e65dd3d9fbc48dd78533b4d529d8220dd9660bcc54";
+const RECEIPTS: &str = "5a75ca76477880016e035e76a688371653f354a57a8668f85906351609977894";
 const LIMIT: u64 = 256 * 1024;
 
 #[derive(Debug, Serialize)]
@@ -236,6 +237,7 @@ pub fn load(root: &Path) -> Result<Policy, String> {
     pinned_text(&root.join("lib/core/app_protection.sh"), LOGIC)?;
     pinned_text(&root.join("bin/uninstall.sh"), UNINSTALL)?;
     pinned_text(&root.join("lib/uninstall/batch.sh"), BATCH)?;
+    pinned_text(&root.join("lib/core/pkg_receipts.sh"), RECEIPTS)?;
     Policy::parse(&pinned_text(
         &root.join("lib/core/app_protection_data.sh"),
         DATA,

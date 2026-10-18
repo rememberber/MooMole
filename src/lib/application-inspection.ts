@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 10 ||
+    data.protocol !== 11 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -41,8 +41,8 @@ export function parseApplicationInspection(
   const installations = data.installations
   if (
     !installations ||
-    installations.version !== 4 ||
-    installations.source !== 'moleListRegistryRootsAndVolumes' ||
+    installations.version !== 5 ||
+    installations.source !== 'moleListRegistryRootsVolumesAndReceipts' ||
     installations.revision !== moleUninstallRevision ||
     !Array.isArray(installations.copies) ||
     installations.copies.length > 32 ||
@@ -65,6 +65,7 @@ export function parseApplicationInspection(
               'listUnavailable',
               'rootsIncomplete',
               'volumesIncomplete',
+              'receiptsIncomplete',
             ].includes(installations.issue ?? ''))) ||
     (data.identity === 'different' && installations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && installations.issue !== 'identityUnavailable') ||
@@ -159,6 +160,39 @@ export function parseApplicationInspection(
       (volumes.rootCount !== 0 || volumes.entries !== 0 || volumes.candidates !== 0)) ||
     (volumes.code === 'notChecked') !== (installations.code === 'unknown') ||
     (installations.issue === 'volumesIncomplete' && volumes.code !== 'partial')
+  )
+    return fail()
+  const receipts = installations.receipts
+  if (
+    !receipts ||
+    !['observed', 'partial', 'notChecked'].includes(receipts.code) ||
+    !Number.isInteger(receipts.packageCount) ||
+    receipts.packageCount < 0 ||
+    receipts.packageCount > 512 ||
+    !Number.isInteger(receipts.checkedCount) ||
+    receipts.checkedCount < 0 ||
+    receipts.checkedCount > 64 ||
+    receipts.checkedCount > receipts.packageCount ||
+    !Number.isInteger(receipts.entries) ||
+    receipts.entries < 0 ||
+    receipts.entries > 32768 ||
+    !Number.isInteger(receipts.candidates) ||
+    receipts.candidates < 0 ||
+    receipts.candidates > 128 ||
+    receipts.candidates > receipts.entries ||
+    (receipts.checkedCount === 0 && (receipts.entries !== 0 || receipts.candidates !== 0)) ||
+    (receipts.code === 'partial'
+      ? !['unavailable', 'changed', 'limitReached', 'unsupportedReceipt'].includes(
+          receipts.issue ?? '',
+        ) || installations.code !== 'partial'
+      : receipts.issue !== null) ||
+    (receipts.code === 'notChecked' &&
+      (receipts.packageCount !== 0 ||
+        receipts.checkedCount !== 0 ||
+        receipts.entries !== 0 ||
+        receipts.candidates !== 0)) ||
+    (receipts.code === 'notChecked') !== (installations.code === 'unknown') ||
+    (installations.issue === 'receiptsIncomplete' && receipts.code !== 'partial')
   )
     return fail()
   const associations = data.associations

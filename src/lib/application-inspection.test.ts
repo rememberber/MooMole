@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 10,
+  protocol: 11,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
   installations: {
-    version: 4,
-    source: 'moleListRegistryRootsAndVolumes',
+    version: 5,
+    source: 'moleListRegistryRootsVolumesAndReceipts',
     roots: {
       code: 'observed',
       issue: null,
@@ -26,6 +26,14 @@ const valid = () => ({
       entries: 10,
       candidates: 2,
       firstUncertainPath: null,
+    },
+    receipts: {
+      code: 'observed',
+      issue: null,
+      packageCount: 20,
+      checkedCount: 2,
+      entries: 40,
+      candidates: 2,
     },
     revision: moleUninstallRevision,
     code: 'observed',
@@ -88,7 +96,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 11 },
+      { protocol: 12 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -106,6 +114,14 @@ describe('application inspection boundary', () => {
         ...valid().installations,
         code: 'unknown',
         issue: 'identityChanged',
+        receipts: {
+          code: 'notChecked',
+          issue: null,
+          packageCount: 0,
+          checkedCount: 0,
+          entries: 0,
+          candidates: 0,
+        },
         volumes: {
           code: 'notChecked',
           issue: null,
@@ -142,6 +158,14 @@ describe('application inspection boundary', () => {
         ...valid().installations,
         code: 'unknown',
         issue: 'identityUnavailable',
+        receipts: {
+          code: 'notChecked',
+          issue: null,
+          packageCount: 0,
+          checkedCount: 0,
+          entries: 0,
+          candidates: 0,
+        },
         volumes: {
           code: 'notChecked',
           issue: null,
@@ -428,7 +452,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...installations, version: 5 },
+      { ...installations, version: 6 },
       { ...installations, source: 'inventory' },
       { ...installations, code: 'onlyCopy' },
       { ...installations, code: 'partial' },
@@ -561,5 +585,39 @@ describe('application inspection boundary', () => {
     ).toThrow()
     const absent = { ...valid(), installations: { ...installations, volumes: undefined } }
     expect(() => parse(absent)).toThrow()
+  })
+  it('rejects inconsistent receipt scope and preserves incomplete reasons', () => {
+    const base = valid().installations
+    for (const issue of ['unavailable', 'changed', 'limitReached', 'unsupportedReceipt']) {
+      const receipts = { ...base.receipts, code: 'partial', issue }
+      expect(
+        parse({
+          ...valid(),
+          installations: { ...base, code: 'partial', issue: 'receiptsIncomplete', receipts },
+        }).installations.receipts.issue,
+      ).toBe(issue)
+    }
+    for (const receipts of [
+      undefined,
+      { ...base.receipts, packageCount: 513 },
+      { ...base.receipts, checkedCount: 65 },
+      { ...base.receipts, checkedCount: 21 },
+      { ...base.receipts, entries: 32769 },
+      { ...base.receipts, candidates: 129 },
+      { ...base.receipts, candidates: 41 },
+      { ...base.receipts, checkedCount: 0 },
+      { ...base.receipts, code: 'notChecked' },
+      { ...base.receipts, issue: 'changed' },
+      { ...base.receipts, code: 'partial', issue: 'safe' },
+      { ...base.receipts, entries: -1 },
+      { ...base.receipts, checkedCount: 0.5 },
+    ])
+      expect(() => parse({ ...valid(), installations: { ...base, receipts } })).toThrow()
+    expect(() =>
+      parse({
+        ...valid(),
+        installations: { ...base, code: 'partial', issue: 'receiptsIncomplete' },
+      }),
+    ).toThrow()
   })
 })

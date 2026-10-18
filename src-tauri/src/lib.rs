@@ -4,6 +4,7 @@ mod app_discovery;
 mod app_icons;
 mod app_inspection;
 mod app_protection;
+mod app_receipts;
 mod app_shared_rules;
 mod app_uninstall_rules;
 mod clean_preview;

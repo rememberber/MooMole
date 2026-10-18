@@ -65,16 +65,18 @@ fn exited(pid: u32) -> Result<bool, String> {
 struct Reader {
     handle: JoinHandle<Result<Vec<u8>, std::io::Error>>,
     value: Option<Result<Vec<u8>, String>>,
+    limit: u64,
 }
 impl Reader {
-    fn new(stream: impl AsyncRead + Unpin + Send + 'static) -> Self {
+    fn new(stream: impl AsyncRead + Unpin + Send + 'static, limit: u64) -> Self {
         Self {
             handle: tokio::spawn(async move {
                 let mut data = vec![];
-                stream.take(OUTPUT_LIMIT + 1).read_to_end(&mut data).await?;
+                stream.take(limit + 1).read_to_end(&mut data).await?;
                 Ok(data)
             }),
             value: None,
+            limit,
         }
     }
     async fn poll_finished(&mut self) {
@@ -90,7 +92,7 @@ impl Reader {
     fn problem(&self) -> Option<&'static str> {
         match &self.value {
             Some(Err(_)) => Some("无法完整读取任务输出。"),
-            Some(Ok(bytes)) if bytes.len() as u64 > OUTPUT_LIMIT => {
+            Some(Ok(bytes)) if bytes.len() as u64 > self.limit => {
                 Some("任务输出超过上限，请缩小扫描目录。")
             }
             _ => None,
@@ -114,11 +116,19 @@ impl Drop for Reader {
     }
 }
 
-pub async fn output(
+pub async fn output(command: Command, job: Arc<Job>, timeout: Duration) -> Result<Vec<u8>, String> {
+    output_bounded(command, job, timeout, OUTPUT_LIMIT).await
+}
+
+pub async fn output_bounded(
     mut command: Command,
     job: Arc<Job>,
     timeout: Duration,
+    limit: u64,
 ) -> Result<Vec<u8>, String> {
+    if limit == 0 || limit > OUTPUT_LIMIT {
+        return Err("输出边界无法识别。".into());
+    }
     if job.cancelled.load(Ordering::SeqCst) {
         return Err("任务已取消。".into());
     }
@@ -150,8 +160,8 @@ pub async fn output(
         lease,
         armed: true,
     };
-    let mut out = Reader::new(child.stdout.take().ok_or("无法读取任务输出。")?);
-    let mut err = Reader::new(child.stderr.take().ok_or("无法读取任务诊断。")?);
+    let mut out = Reader::new(child.stdout.take().ok_or("无法读取任务输出。")?, limit);
+    let mut err = Reader::new(child.stderr.take().ok_or("无法读取任务诊断。")?, limit);
     let started = Instant::now();
     let mut exited_at = None;
     let mut stopping: Option<(&str, Instant)> = None;
@@ -189,6 +199,11 @@ pub async fn output(
             } else if exited_at.is_some() && out.value.is_some() && err.value.is_some() {
                 break;
             }
+        }
+        // A stopped leader with closed pipes no longer needs the grace period.
+        // It stays unreaped until the final group signal below pins its PGID.
+        if stopping.is_some() && exited_at.is_some() && out.value.is_some() && err.value.is_some() {
+            break;
         }
         if stopping.is_some_and(|(_, at)| at.elapsed() >= STOP_GRACE) {
             break;
@@ -422,6 +437,23 @@ mod tests {
         assert!(!marker.exists());
         // The escaped fixture is deliberately bounded; do not signal a saved PID.
         ready(&marker).await;
+    }
+    #[tokio::test]
+    async fn caller_output_bounds_stop_a_small_stream_and_release_the_owned_group() {
+        let started = Instant::now();
+        let mut command = Command::new("/usr/bin/perl");
+        command.args(["-e", "$|=1; print 'x' x 4096; sleep 10"]);
+        let job = Arc::new(Job::new(TaskKind::Apps));
+        let result = tokio::time::timeout(
+            Duration::from_secs(6),
+            output_bounded(command, job.clone(), Duration::from_secs(20), 1024),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(result.contains("超过上限"));
+        assert_eq!(job.process_id(), None);
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
     #[tokio::test]
     async fn excessive_output_interrupts_without_waiting_for_the_command_deadline() {

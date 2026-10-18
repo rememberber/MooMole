@@ -225,6 +225,7 @@ export function ApplicationInspection({
                     registryUnavailable: '系统登记来源无法读取，已保留其他有效结果，请重试。',
                     listUnavailable: '本次 Mole 清单已不可用，已保留其他有效结果，请重新读取列表。',
                     limitReached: '候选或命中达到上限，结果不完整；请保留关联数据。',
+                    receiptsIncomplete: '安装收据未能完整核对，请保留并查看下方原因。',
                     volumesIncomplete: '卷内安装位置检查未完整完成，请保留并查看下方原因。',
                     rootsIncomplete: '安装目录扫描未完整完成，请保留并查看下方原因。',
                     candidateUnavailable: '部分候选位置已失效、不可读或布局暂不支持，结果不完整。',
@@ -257,6 +258,13 @@ export function ApplicationInspection({
                 )}
               </p>
             )}
+            {value.installations.receipts.code !== 'notChecked' && (
+              <p className="muted">
+                已核对 {value.installations.receipts.checkedCount} 份非 Apple 安装收据
+                {value.installations.receipts.issue &&
+                  ` · ${{ unavailable: '部分收据未能完整读取，请重试', changed: '安装收据在检查期间变化，请重查', limitReached: '收据核对达到数量或时间上限', unsupportedReceipt: '部分收据格式或路径暂不支持' }[value.installations.receipts.issue]}`}
+              </p>
+            )}
             {value.installations.copies.map((copy) => (
               <p key={copy.path}>
                 <span className="mono association-path">{copy.path}</span>
@@ -275,8 +283,9 @@ export function ApplicationInspection({
             ))}
             <p className="muted">
               核对 Mole 清单前 64 项、系统登记前 32 项，以及常用安装根和本地卷各最多 128
-              个候选；最多显示 32 个命中。卷内仅检查直属 App 与 Applications 下最多 3
-              层，网络卷与安装收据尚未覆盖，未命中不代表数据独占。
+              个候选；最多显示 32 个命中。卷内仅检查直属 App 与 Applications 下最多 3 层；收据只补查
+              /usr/local、/opt 下最多 128
+              个候选。网络卷与其他安装位置尚未完整覆盖，未命中不代表数据独占。
             </p>
           </details>
           <details className="application-associations">

@@ -31,6 +31,7 @@ struct Installations {
     copies: Vec<InstalledCopy>,
     roots: crate::app_discovery::Observation,
     volumes: crate::app_discovery::Observation,
+    receipts: crate::app_receipts::Observation,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -597,14 +598,15 @@ mod mac {
                 };
                 let mut result = Self {
                     observation: Installations {
-                        version: 4,
-                        source: "moleListRegistryRootsAndVolumes",
+                        version: 5,
+                        source: "moleListRegistryRootsVolumesAndReceipts",
                         revision: crate::engine::REVISION,
                         code: "unknown",
                         issue,
                         copies: vec![],
                         roots: crate::app_discovery::Observation::not_checked(),
                         volumes: crate::app_discovery::Observation::not_checked(),
+                        receipts: crate::app_receipts::Observation::not_checked(),
                     },
                     candidates: vec![],
                 };
@@ -644,7 +646,7 @@ mod mac {
                     .into_iter()
                     .take(LIMIT)
                     .chain(mole_paths.into_iter().take(64))
-                    .chain(root_paths.into_iter().take(256))
+                    .chain(root_paths.into_iter().take(384))
                 {
                     let Some(path) = path else {
                         result.partial("candidateUnavailable");
@@ -1104,12 +1106,21 @@ mod mac {
         let volume_scan = root_scan
             .as_ref()
             .map(|_| crate::app_discovery::mac::Check::begin_volumes());
+        let receipt_scan = root_scan
+            .as_ref()
+            .map(|_| crate::app_receipts::mac::Check::begin());
         let mut root_paths = root_scan
             .as_ref()
             .map(|check| check.paths.clone())
             .unwrap_or_default();
         root_paths.extend(
             volume_scan
+                .as_ref()
+                .map(|check| check.paths.clone())
+                .unwrap_or_default(),
+        );
+        root_paths.extend(
+            receipt_scan
                 .as_ref()
                 .map(|check| check.paths.clone())
                 .unwrap_or_default(),
@@ -1143,6 +1154,13 @@ mod mac {
         installations.volumes = volume_scan
             .map(|scan| scan.finish())
             .unwrap_or_else(crate::app_discovery::Observation::not_checked);
+        installations.receipts = receipt_scan
+            .map(|scan| scan.finish())
+            .unwrap_or_else(crate::app_receipts::Observation::not_checked);
+        if installations.receipts.code == "partial" && installations.code == "observed" {
+            installations.code = "partial";
+            installations.issue = Some("receiptsIncomplete");
+        }
         if installations.volumes.code == "partial" && installations.code == "observed" {
             installations.code = "partial";
             installations.issue = Some("volumesIncomplete");
@@ -1155,7 +1173,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 10,
+            protocol: 11,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
