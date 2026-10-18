@@ -56,13 +56,42 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 7 : 6,
+        protocol: mode === 'future' ? 8 : 7,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        installations: {
+          version: mode === 'copiesFuture' ? 2 : 1,
+          source: 'launchServices',
+          code:
+            mode === 'mismatch'
+              ? 'unknown'
+              : mode === 'copiesPartial' || mode === 'copiesChanged'
+                ? 'partial'
+                : 'observed',
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode === 'copiesPartial'
+                ? 'candidateUnavailable'
+                : mode === 'copiesChanged'
+                  ? 'candidatesChanged'
+                  : null,
+          copies:
+            mode === 'copiesFound' || mode === 'copiesPartial'
+              ? [
+                  {
+                    path: '/Applications/Example Beta.app',
+                    bundleId: 'ORG.EXAMPLE.SAME',
+                    version: '3.0',
+                    build: '70',
+                  },
+                ]
+              : [],
+        },
         associations: {
           version: mode === 'associationFuture' ? 2 : 1,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
@@ -225,7 +254,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('同标识安装副本、共享数据及个人数据归属仍待核实')
+  await expect(inspection).toContainText('完整安装副本、共享数据及个人数据归属仍待核实')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -573,4 +602,51 @@ test('exact association locations stay retained, partial and revocable', async (
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
   await expect(inspection.getByRole('alert')).toContainText('无法识别')
   await expect(inspection.locator('.application-associations')).toHaveCount(0)
+})
+
+test('registered installation copies explain shared data and keep incomplete or changed results conservative', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'copiesFound'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('关联数据可能共用')
+  const copies = inspection.locator('.application-installations')
+  await copies.locator('summary').click()
+  await expect(copies).toContainText('发现 1 个其他登记位置')
+  await expect(copies).toContainText('/Applications/Example Beta.app')
+  await expect(copies).toContainText('版本 3.0 · 构建 70')
+  await expect(copies).toContainText('关联数据可能共用，请保留')
+  await expect(copies).toContainText('不包含完整目录、外接卷和安装收据扫描')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await copies.screenshot({
+      path: `test-results/application-copies-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'copiesPartial'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(copies.locator('summary')).toContainText('检查不完整')
+  await expect(copies).toContainText('结果不完整')
+  await expect(copies).toContainText('/Applications/Example Beta.app')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'copiesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(copies).toContainText('检查期间发生变化，已撤下对应结果')
+  await expect(copies).not.toContainText('/Applications/Example Beta.app')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'other'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(copies).toContainText('未发现其他登记位置不代表只有这一个安装副本')
+  await expect(inspection).toContainText('另有 1 个同标识安装位置的主应用在运行')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'copiesFuture'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection.locator('.application-installations')).toHaveCount(0)
+  await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
 })

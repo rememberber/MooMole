@@ -2,12 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 6,
+  protocol: 7,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
+  installations: {
+    version: 1,
+    source: 'launchServices',
+    code: 'observed',
+    issue: null,
+    copies: [] as {
+      path: string
+      bundleId: string
+      version: string | null
+      build: string | null
+    }[],
+  },
   associations: {
     version: 1,
     revision: moleUninstallRevision,
@@ -58,7 +70,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 7 },
+      { protocol: 8 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -72,6 +84,7 @@ describe('application inspection boundary', () => {
     const mismatch = {
       ...valid(),
       identity: 'different',
+      installations: { ...valid().installations, code: 'unknown', issue: 'identityChanged' },
       associations: { ...valid().associations, issue: 'identityChanged' },
       background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
       officialUninstaller: {
@@ -87,6 +100,7 @@ describe('application inspection boundary', () => {
     const missing = {
       ...valid(),
       identity: 'unavailable',
+      installations: { ...valid().installations, code: 'unknown', issue: 'identityUnavailable' },
       associations: { ...valid().associations, issue: 'identityUnavailable' },
       bundleId: null,
       background: { ...valid().background, code: 'unknown', issue: 'identityUnavailable' },
@@ -321,5 +335,64 @@ describe('application inspection boundary', () => {
       { ...associations, code: 'unknown', issue: 'homeUnavailable' },
     ])
       expect(() => parse({ ...valid(), associations: invalid })).toThrow('无法识别')
+  })
+  it('keeps partial registered copies separate from exhaustive absence and rejects mismatched identities', () => {
+    const copy = {
+      path: '/Applications/Other.app',
+      bundleId: 'ORG.EXAMPLE.APP',
+      version: '3.0',
+      build: null,
+    }
+    const installations = { ...valid().installations, copies: [copy] }
+    expect(parse({ ...valid(), installations }).installations.copies).toEqual([copy])
+    for (const issue of ['limitReached', 'candidateUnavailable', 'candidatesChanged'])
+      expect(
+        parse({ ...valid(), installations: { ...installations, code: 'partial', issue } })
+          .installations.copies,
+      ).toHaveLength(1)
+    expect(
+      parse({
+        ...valid(),
+        installations: { ...valid().installations, code: 'unknown', issue: 'registryUnavailable' },
+      }).installations.code,
+    ).toBe('unknown')
+    expect(() =>
+      parse(
+        {
+          ...valid(),
+          bundleId: 'org.example.k',
+          installations: { ...installations, copies: [{ ...copy, bundleId: 'org.example.K' }] },
+        },
+        'org.example.k',
+      ),
+    ).toThrow('无法识别')
+    for (const invalid of [
+      undefined,
+      {},
+      { ...installations, version: 2 },
+      { ...installations, source: 'inventory' },
+      { ...installations, code: 'onlyCopy' },
+      { ...installations, code: 'partial' },
+      { ...installations, issue: 'limitReached' },
+      { ...installations, code: 'unknown', issue: 'registryUnavailable' },
+      { ...installations, copies: [copy, copy] },
+      {
+        ...installations,
+        copies: Array.from({ length: 33 }, (_, i) => ({
+          ...copy,
+          path: `/Applications/Copy${i}.app`,
+        })),
+      },
+      ...[
+        { path: 'relative.app' },
+        { path: '/Applications/../Other.app' },
+        { path: '/Applications/Host.app/Helper.app' },
+        { path: '/Applications/Bad\n.app' },
+        { bundleId: 'org.other.app' },
+        { version: 42 },
+        { build: 'bad\n' },
+      ].map((change) => ({ ...installations, copies: [{ ...copy, ...change }] })),
+    ])
+      expect(() => parse({ ...valid(), installations: invalid })).toThrow('无法识别')
   })
 })

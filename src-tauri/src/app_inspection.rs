@@ -18,6 +18,24 @@ pub struct Inspection {
     official_uninstaller: crate::app_uninstall_rules::OfficialObservation,
     background: crate::app_background::Observation,
     associations: crate::app_associations::Observation,
+    installations: Installations,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Installations {
+    version: u32,
+    source: &'static str,
+    code: &'static str,
+    issue: Option<&'static str>,
+    copies: Vec<InstalledCopy>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstalledCopy {
+    path: String,
+    bundle_id: String,
+    version: Option<String>,
+    build: Option<String>,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -466,6 +484,294 @@ mod mac {
             reason: reason.into(),
         }
     }
+    // Launch Services is an additional, explicitly partial discovery source.
+    // It cannot replace Mole's roots, receipt, volume or shared-remnant scans.
+    mod copies {
+        use super::*;
+        use objc2_app_kit::NSWorkspace;
+        const LIMIT: usize = 32;
+        pub(super) fn registered(id: &str) -> Result<Vec<Option<String>>, ()> {
+            autoreleasepool(|_| {
+                let urls = NSWorkspace::sharedWorkspace()
+                    .URLsForApplicationsWithBundleIdentifier(&NSString::from_str(id));
+                Ok(urls
+                    .iter()
+                    .take(LIMIT + 1)
+                    .map(|url| {
+                        url.isFileURL()
+                            .then(|| url.path().and_then(|p| text(&p, 4096)))
+                            .flatten()
+                    })
+                    .collect())
+            })
+        }
+        struct Candidate {
+            bundle: Bundle,
+            evidence: Evidence,
+            copy: Option<InstalledCopy>,
+        }
+        pub(super) struct Check {
+            observation: Installations,
+            candidates: Vec<Candidate>,
+        }
+        impl Check {
+            pub(super) fn begin(
+                selected: &Bundle,
+                id: Option<&str>,
+                identity: &str,
+                rules_ready: bool,
+                query: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+            ) -> Self {
+                let issue = if identity == "different" {
+                    Some("identityChanged")
+                } else if identity == "unavailable" || id.is_none() {
+                    Some("identityUnavailable")
+                } else if !rules_ready {
+                    Some("rulesUnavailable")
+                } else {
+                    None
+                };
+                let mut result = Self {
+                    observation: Installations {
+                        version: 1,
+                        source: "launchServices",
+                        code: "unknown",
+                        issue,
+                        copies: vec![],
+                    },
+                    candidates: vec![],
+                };
+                if issue.is_some() {
+                    return result;
+                }
+                let id = id.unwrap();
+                let Ok(paths) = query(id) else {
+                    result.observation.issue = Some("registryUnavailable");
+                    return result;
+                };
+                result.observation.code = "observed";
+                if paths.len() > LIMIT {
+                    result.partial("limitReached");
+                }
+                let mut seen_paths = std::collections::HashSet::new();
+                let mut seen_objects = std::collections::HashSet::new();
+                seen_objects.insert((selected.metadata.dev(), selected.metadata.ino()));
+                for path in paths.into_iter().take(LIMIT) {
+                    let Some(path) = path else {
+                        result.partial("candidateUnavailable");
+                        continue;
+                    };
+                    if path == selected.path.to_string_lossy() || !seen_paths.insert(path.clone()) {
+                        continue;
+                    }
+                    if path.chars().any(char::is_control)
+                        || Path::new(&path)
+                            .ancestors()
+                            .skip(1)
+                            .any(|p| p.extension().is_some_and(|s| s.eq_ignore_ascii_case("app")))
+                    {
+                        result.partial("candidateUnavailable");
+                        continue;
+                    }
+                    let Ok(bundle) = Bundle::open(&path) else {
+                        result.partial("candidateUnavailable");
+                        continue;
+                    };
+                    if !seen_objects.insert((bundle.metadata.dev(), bundle.metadata.ino())) {
+                        continue;
+                    }
+                    let Ok((evidence, bytes)) = Evidence::read(&bundle) else {
+                        result.partial("candidateUnavailable");
+                        continue;
+                    };
+                    let Ok(fields) = parse(&bytes) else {
+                        result.partial("candidateUnavailable");
+                        continue;
+                    };
+                    let copy = match fields.id {
+                        Some(other) if other.eq_ignore_ascii_case(id) => Some(InstalledCopy {
+                            path,
+                            bundle_id: other,
+                            version: fields.version,
+                            build: fields.build,
+                        }),
+                        Some(_) => None,
+                        None => {
+                            result.partial("candidateUnavailable");
+                            None
+                        }
+                    };
+                    result.candidates.push(Candidate {
+                        bundle,
+                        evidence,
+                        copy,
+                    });
+                }
+                result
+            }
+            fn partial(&mut self, issue: &'static str) {
+                self.observation.code = "partial";
+                self.observation.issue = Some(issue);
+            }
+            pub(super) fn finish(mut self) -> Installations {
+                let candidates = std::mem::take(&mut self.candidates);
+                for candidate in candidates {
+                    if !candidate.evidence.verify(&candidate.bundle) {
+                        self.partial("candidatesChanged");
+                        continue;
+                    }
+                    if let Some(copy) = candidate.copy {
+                        self.observation.copies.push(copy);
+                    }
+                }
+                self.observation.copies.sort_by(|a, b| a.path.cmp(&b.path));
+                self.observation
+            }
+        }
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            fn fixture(root: &Path, name: &str, id: &str) -> PathBuf {
+                let app = root.join(format!("{name}.app"));
+                std::fs::create_dir_all(app.join("Contents")).unwrap();
+                std::fs::write(app.join("Contents/Info.plist"), format!("<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>{id}</string><key>CFBundleShortVersionString</key><string>2.3</string></dict></plist>")).unwrap();
+                app
+            }
+            fn value(check: Check) -> serde_json::Value {
+                serde_json::to_value(check.finish()).unwrap()
+            }
+            #[test]
+            fn verifies_ids_case_insensitively_deduplicates_and_keeps_nonrunning_copies() {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let selected_path = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(selected_path.to_str().unwrap()).unwrap();
+                let other = fixture(&root, "Other", "ORG.EXAMPLE.APP");
+                let wrong = fixture(&root, "Wrong", "org.other.app");
+                let paths = vec![
+                    Some(selected_path.to_str().unwrap().into()),
+                    Some(other.to_str().unwrap().into()),
+                    Some(other.to_str().unwrap().into()),
+                    Some(wrong.to_str().unwrap().into()),
+                ];
+                let v = value(Check::begin(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(paths),
+                ));
+                assert_eq!(v["code"], "observed");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+                assert_eq!(v["copies"][0]["bundleId"], "ORG.EXAMPLE.APP");
+                assert_eq!(v["copies"][0]["version"], "2.3");
+            }
+            #[test]
+            fn stale_linked_nested_or_unreadable_candidates_keep_verified_copies_and_partial_scope()
+            {
+                use std::os::unix::fs::symlink;
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let good = fixture(&root, "Good", "org.example.app");
+                let alias = root.join("Alias.app");
+                symlink(&good, &alias).unwrap();
+                let nested = fixture(&good, "Helper", "org.example.app");
+                let bad = fixture(&root, "Bad", "org.example.app");
+                std::fs::write(bad.join("Contents/Info.plist"), "bad").unwrap();
+                let paths = [good, alias, nested, bad, root.join("Missing.app")]
+                    .map(|p| Some(p.to_str().unwrap().into()));
+                let v = value(Check::begin(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(paths.into()),
+                ));
+                assert_eq!(v["code"], "partial");
+                assert_eq!(v["issue"], "candidateUnavailable");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+            }
+            #[test]
+            fn candidate_changes_withdraw_only_affected_copies_and_recheck_negative_ids() {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let good = fixture(&root, "Good", "org.example.app");
+                let changed = fixture(&root, "Changed", "org.example.app");
+                let wrong = fixture(&root, "Wrong", "org.other.app");
+                let paths = [&good, &changed, &wrong].map(|p| Some(p.to_str().unwrap().into()));
+                let check =
+                    Check::begin(&selected, Some("org.example.app"), "matches", true, |_| {
+                        Ok(paths.into())
+                    });
+                std::fs::write(changed.join("Contents/Info.plist"), "changed").unwrap();
+                std::fs::write(wrong.join("Contents/Info.plist"), "changed").unwrap();
+                let v = value(check);
+                assert_eq!(v["issue"], "candidatesChanged");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+            }
+            #[test]
+            fn missing_scope_and_limits_never_claim_exhaustive_absence_or_probe_untrusted_identity()
+            {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                for (id, identity, rules, issue) in [
+                    (
+                        Some("org.example.app"),
+                        "different",
+                        true,
+                        "identityChanged",
+                    ),
+                    (None, "unavailable", true, "identityUnavailable"),
+                    (
+                        Some("org.example.app"),
+                        "matches",
+                        false,
+                        "rulesUnavailable",
+                    ),
+                ] {
+                    let v = value(Check::begin(&selected, id, identity, rules, |_| {
+                        panic!("must not query")
+                    }));
+                    assert_eq!(v["issue"], issue);
+                    assert_eq!(v["code"], "unknown");
+                }
+                let v = value(Check::begin(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Err(()),
+                ));
+                assert_eq!(v["issue"], "registryUnavailable");
+                let v = value(Check::begin(
+                    &selected,
+                    Some("org.example.app"),
+                    "unreported",
+                    true,
+                    |_| Ok(vec![]),
+                ));
+                assert_eq!(v["code"], "observed");
+                assert!(v["copies"].as_array().unwrap().is_empty());
+                let v = value(Check::begin(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![Some(app.to_str().unwrap().into()); 33]),
+                ));
+                assert_eq!(v["issue"], "limitReached");
+                assert_eq!(v["code"], "partial");
+            }
+        }
+    }
+
+    #[cfg(test)]
     fn inspect_context(
         path: &str,
         expected: &str,
@@ -473,6 +779,19 @@ mod mac {
         hook: impl FnOnce(),
         home: &Path,
         rules_ready: bool,
+    ) -> Result<Inspection, String> {
+        inspect_context_with_registry(path, expected, query, hook, home, rules_ready, |_| {
+            Ok(vec![])
+        })
+    }
+    fn inspect_context_with_registry(
+        path: &str,
+        expected: &str,
+        query: impl FnOnce(&str) -> Result<Vec<Process>, String>,
+        hook: impl FnOnce(),
+        home: &Path,
+        rules_ready: bool,
+        registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
     ) -> Result<Inspection, String> {
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
@@ -496,6 +815,13 @@ mod mac {
             identity,
             rules_ready,
         );
+        let installations = copies::Check::begin(
+            &bundle,
+            fields.id.as_deref(),
+            identity,
+            rules_ready,
+            registry,
+        );
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
                 Running::unknown("本地应用标识与 Mole 清单不同，请重新读取列表。")
@@ -509,11 +835,12 @@ mod mac {
         hook();
         let background = background.finish();
         let associations = associations.finish();
+        let installations = installations.finish();
         if !evidence.verify(&bundle) {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 6,
+            protocol: 7,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -527,6 +854,7 @@ mod mac {
             ),
             background,
             associations,
+            installations,
         })
     }
     #[cfg(test)]
@@ -551,7 +879,15 @@ mod mac {
         home: &Path,
         rules_ready: bool,
     ) -> Result<Inspection, String> {
-        inspect_context(path, expected, processes, || {}, home, rules_ready)
+        inspect_context_with_registry(
+            path,
+            expected,
+            processes,
+            || {},
+            home,
+            rules_ready,
+            copies::registered,
+        )
     }
     #[cfg(test)]
     mod tests {
@@ -640,6 +976,50 @@ mod mac {
                     "binary {xml}"
                 );
             }
+        }
+        #[test]
+        fn full_inspection_rechecks_registered_copy_evidence_and_keeps_selected_identity() {
+            let temp = tempfile::tempdir().unwrap();
+            let home = temp.path().canonicalize().unwrap();
+            let app = fixture(&home, "SelectedCopy", &fields());
+            let other = fixture(&home, "OtherCopy", &fields());
+            let result = inspect_context_with_registry(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {},
+                &home,
+                true,
+                |_| Ok(vec![Some(other.to_str().unwrap().into())]),
+            )
+            .unwrap();
+            assert_eq!(
+                serde_json::to_value(result).unwrap()["installations"]["copies"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let result = inspect_context_with_registry(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::write(other.join("Contents/Info.plist"), "changed").unwrap();
+                },
+                &home,
+                true,
+                |_| Ok(vec![Some(other.to_str().unwrap().into())]),
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["installations"]["issue"], "candidatesChanged");
+            assert!(result["installations"]["copies"]
+                .as_array()
+                .unwrap()
+                .is_empty());
+            assert_eq!(result["identity"], "matches");
+            assert_eq!(result["version"], "2.3");
         }
         #[test]
         fn associations_are_bound_to_fresh_identity_and_withdraw_changed_paths() {

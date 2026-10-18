@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 6 ||
+    data.protocol !== 7 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -35,6 +35,55 @@ export function parseApplicationInspection(
     !(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
+    )
+  )
+    return fail()
+  const installations = data.installations
+  if (
+    !installations ||
+    installations.version !== 1 ||
+    installations.source !== 'launchServices' ||
+    !Array.isArray(installations.copies) ||
+    installations.copies.length > 32 ||
+    new Set(installations.copies.map((copy) => copy?.path)).size !== installations.copies.length ||
+    (installations.code === 'unknown'
+      ? installations.copies.length !== 0 ||
+        ![
+          'identityChanged',
+          'identityUnavailable',
+          'rulesUnavailable',
+          'registryUnavailable',
+        ].includes(installations.issue ?? '')
+      : !['observed', 'partial'].includes(installations.code) ||
+        !data.bundleId ||
+        ['different', 'unavailable'].includes(data.identity) ||
+        (installations.code === 'observed'
+          ? installations.issue !== null
+          : !['limitReached', 'candidateUnavailable', 'candidatesChanged'].includes(
+              installations.issue ?? '',
+            ))) ||
+    (data.identity === 'different' && installations.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && installations.issue !== 'identityUnavailable') ||
+    (installations.issue === 'identityChanged' && data.identity !== 'different') ||
+    (installations.issue === 'identityUnavailable' && data.identity !== 'unavailable') ||
+    installations.copies.some(
+      (copy) =>
+        !copy ||
+        !text(copy.path, 4096) ||
+        !copy.path.startsWith('/') ||
+        !copy.path.endsWith('.app') ||
+        copy.path
+          .split('/')
+          .some(
+            (part, index, parts) =>
+              part === '..' ||
+              part === '.' ||
+              (index < parts.length - 1 && part.toLowerCase().endsWith('.app')),
+          ) ||
+        !text(copy.bundleId, 255) ||
+        !/^[A-Za-z0-9_.-]+$/.test(copy.bundleId) ||
+        copy.bundleId.toLowerCase() !== data.bundleId?.toLowerCase() ||
+        ![copy.version, copy.build].every((v) => v === null || text(v, 128)),
     )
   )
     return fail()

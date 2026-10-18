@@ -25,7 +25,7 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 
 使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
 
-协议 v6 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）及 associations（8 个精确标识位置的只读结果）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
+协议 v7 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）、associations（8 个精确标识位置的只读结果）及 installations（系统登记位置的同标识副本核对）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 
 ## 验证与后续
 
@@ -34,3 +34,5 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 后续仍需精确关联数据、共享归属、完整 Mole 卸载保护规则、完整活动/文件占用、退出提示与取消、拒绝退出/自动重启、计划和逐项执行。客户端系统目录/自身/保护目录已补充只读提示，当前检查不提供卸载按钮或自动退出行为，也不替代 Mole 规则与执行前复核。
 
 应用详情现可按需查看 [8 个精确标识关联位置](application-associations.md)，显示发现、未发现和无法确认；全部保留，不证明归属或提供执行资格。共享、个人数据与完整发现/保护仍待完成。
+
+安装副本现可查看 [系统登记位置的只读核对](application-copies.md)：候选会重新验证包内身份及文件证据，发现时提示关联数据可能共用，未发现仍不证明只有一个副本。

@@ -91,7 +91,9 @@ export function ApplicationInspection({
                   ? 'Mole 要求保留'
                   : value.officialUninstaller.code === 'officialRequired'
                     ? '请使用官方卸载器'
-                    : '归属待确认'}
+                    : value.installations.copies.length > 0
+                      ? '关联数据可能共用'
+                      : '归属待确认'}
             </strong>
             {(value.protection.reasons.length > 0 ||
               value.moleProtection.code === 'protected' ||
@@ -198,6 +200,49 @@ export function ApplicationInspection({
             value.officialUninstaller.issue === 'rulesUnavailable') && (
             <p className="muted">内置规则资源未通过校验或无法读取，请检查引擎状态后重试。</p>
           )}
+          <details className="application-installations">
+            <summary>
+              {stale ? '较早安装副本' : '安装副本'} ·{' '}
+              {value.installations.code === 'unknown'
+                ? '无法确认'
+                : value.installations.copies.length > 0
+                  ? `发现 ${value.installations.copies.length} 个其他登记位置`
+                  : '未发现其他登记位置'}
+              {value.installations.code === 'partial' && ' · 检查不完整'}
+            </summary>
+            <p>
+              {value.installations.copies.length > 0
+                ? '这些位置的本地标识相同，关联数据可能共用，请保留。'
+                : '仍需保留关联数据；未发现其他登记位置不代表只有这一个安装副本。'}
+            </p>
+            {value.installations.issue && (
+              <p className="muted">
+                {
+                  {
+                    identityChanged: '本地标识已变化，请重新读取应用列表。',
+                    identityUnavailable: '本地标识无法读取，请重新检查。',
+                    rulesUnavailable: '规则资源无法确认，请检查引擎状态后重试。',
+                    registryUnavailable: '系统登记位置无法读取，请保留并重试。',
+                    limitReached: '登记位置超过 32 项，只核对了前 32 项，结果不完整。',
+                    candidateUnavailable: '部分登记位置已失效、不可读或布局暂不支持，结果不完整。',
+                    candidatesChanged: '部分位置在检查期间发生变化，已撤下对应结果，请重查。',
+                  }[value.installations.issue]
+                }
+              </p>
+            )}
+            {value.installations.copies.map((copy) => (
+              <p key={copy.path}>
+                <span className="mono association-path">{copy.path}</span>
+                <span className="muted">
+                  版本 {copy.version ?? '未提供'}
+                  {copy.build ? ` · 构建 ${copy.build}` : ''}
+                </span>
+              </p>
+            ))}
+            <p className="muted">
+              仅核对系统登记的同标识位置，不包含完整目录、外接卷和安装收据扫描，也未核实不同标识应用之间的共享数据。没有认证签名或发布者。
+            </p>
+          </details>
           <details className="application-associations">
             <summary>
               {stale ? '较早关联位置' : '关联位置'} ·{' '}
@@ -256,7 +301,7 @@ export function ApplicationInspection({
             )}
             <p className="muted">
               仅查询精确标识的 8
-              个常见位置，未测量大小；同标识安装副本、共享数据及个人数据归属仍待核实。
+              个常见位置，未测量大小；完整安装副本、共享数据及个人数据归属仍待核实。
             </p>
           </details>
           <details>
