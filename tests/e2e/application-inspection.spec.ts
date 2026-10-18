@@ -27,7 +27,9 @@ async function setup(page: Page) {
       const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
       const protection = {
         reasons:
-          saved?.protectedPaths.includes('/Applications') || mode === 'protected'
+          saved?.protectedPaths.includes('/Applications') ||
+          mode === 'protected' ||
+          mode === 'moleUnknownProtected'
             ? ['clientDirectory']
             : mode === 'system'
               ? ['systemLocation']
@@ -35,7 +37,9 @@ async function setup(page: Page) {
                 ? ['currentApplication']
                 : [],
         matchedPaths:
-          saved?.protectedPaths.includes('/Applications') || mode === 'protected'
+          saved?.protectedPaths.includes('/Applications') ||
+          mode === 'protected' ||
+          mode === 'moleUnknownProtected'
             ? ['/Applications']
             : [],
       }
@@ -48,13 +52,29 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 3 : 2,
+        protocol: mode === 'future' ? 4 : 3,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        moleProtection: {
+          version: mode === 'moleFuture' ? 2 : 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode === 'mismatch' || mode?.startsWith('moleUnknown')
+              ? 'unknown'
+              : mode === 'moleProtected'
+                ? 'protected'
+                : 'notMatched',
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode?.startsWith('moleUnknown')
+                ? 'rulesUnavailable'
+                : null,
+        },
         running:
           mode === 'mismatch'
             ? {
@@ -105,7 +125,9 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('Mole 卸载规则、共享数据和个人数据归属尚未检查')
+  await expect(inspection).toContainText(
+    '厂商卸载方式、后台应用条件、共享数据和个人数据归属尚未检查',
+  )
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -157,6 +179,49 @@ test('a refreshed list discards a delayed observation from its old task', async 
   )
   expect(calls).toHaveLength(2)
   expect(calls[0].taskId).not.toBe(calls[1].taskId)
+})
+
+test('Mole protections, no-match and unavailable rules remain distinct while client guards survive', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const { row, inspection } = await setup(page)
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('归属待确认')
+  await expect(inspection).toContainText('本次未命中系统组件禁用规则')
+  await inspection.getByText('规则来源', { exact: true }).click()
+  await expect(inspection.getByText(/Mole should_protect_from_uninstall/)).toBeVisible()
+  await expect(inspection).toContainText('ba3a0f57f78e')
+  await inspection.getByText('规则来源', { exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('Mole 要求保留 · 当前仅供查看')
+  await expect(inspection).toContainText('命中 Mole 系统组件保护')
+  await expect(inspection).not.toContainText('归属待确认')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/application-mole-rules-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleUnknownProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('Mole 系统组件规则无法确认')
+  await expect(inspection).toContainText('内置规则资源未通过校验或无法读取')
+  await expect(inspection).toContainText('已命中客户端保护')
+  await expect(inspection).not.toContainText('命中 Mole 系统组件保护')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleFuture'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('已命中客户端保护')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleUnknown'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await expect(inspection).toContainText('归属待确认')
+  await expect(inspection).toContainText('Mole 系统组件规则无法确认')
 })
 
 test('guards explain system location, current client and protected directories without claiming uninstall eligibility', async ({

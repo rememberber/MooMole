@@ -14,6 +14,7 @@ pub struct Inspection {
     identity: &'static str,
     running: Running,
     protection: crate::app_protection::Protection,
+    mole_protection: crate::app_uninstall_rules::Observation,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -54,6 +55,7 @@ impl Running {
 pub async fn load(
     path: String,
     expected: String,
+    engine_root: std::path::PathBuf,
     slots: Arc<Semaphore>,
 ) -> Result<Inspection, String> {
     let slot = slots
@@ -61,7 +63,14 @@ pub async fn load(
         .map_err(|_| "已有应用状态检查正在进行，请稍后重试。")?;
     let worker = tokio::task::spawn_blocking(move || {
         let _slot = slot;
-        inspect(&path, &expected)
+        let policy = crate::app_uninstall_rules::load(&engine_root);
+        let mut result = inspect(&path, &expected)?;
+        result.mole_protection = crate::app_uninstall_rules::observe(
+            policy.as_ref().ok(),
+            result.bundle_id.as_deref(),
+            result.identity,
+        );
+        Ok(result)
     });
     tokio::time::timeout(Duration::from_secs(5), worker)
         .await
@@ -423,7 +432,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 2,
+            protocol: 3,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -431,6 +440,7 @@ mod mac {
             identity,
             running,
             protection: crate::app_protection::Protection::default(),
+            mole_protection: crate::app_uninstall_rules::Observation::unknown("rulesUnavailable"),
         })
     }
     pub(super) fn inspect(path: &str, expected: &str) -> Result<Inspection, String> {

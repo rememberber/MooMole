@@ -1,6 +1,7 @@
 mod app_icons;
 mod app_inspection;
 mod app_protection;
+mod app_uninstall_rules;
 mod clean_preview;
 mod db;
 mod descendant_rules;
@@ -362,8 +363,13 @@ async fn inspect_application(
         .map_err(|_| "无法读取应用清单。")?
         .app_target(&task_id, index)
         .ok_or("这份应用清单已不可用，请重新读取列表。")?;
-    let mut result =
-        app_inspection::load(path.clone(), bundle_id, state.inspection_slots.clone()).await?;
+    let mut result = app_inspection::load(
+        path.clone(),
+        bundle_id,
+        state.engine_root.clone(),
+        state.inspection_slots.clone(),
+    )
+    .await?;
     // Read after the asynchronous observation: a newly saved directory must not
     // be missed because a filesystem/AppKit read took longer than the settings save.
     let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护目录。")?)?;

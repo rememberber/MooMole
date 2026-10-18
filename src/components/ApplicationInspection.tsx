@@ -84,9 +84,14 @@ export function ApplicationInspection({
           <p>
             <strong>
               {stale && '较早保护结果 · '}
-              {value.protection.reasons.length ? '已命中客户端保护' : '归属待确认'}
+              {value.protection.reasons.length
+                ? '已命中客户端保护'
+                : value.moleProtection.code === 'protected'
+                  ? 'Mole 要求保留'
+                  : '归属待确认'}
             </strong>
-            {value.protection.reasons.length > 0 && ' · 当前仅供查看'}
+            {(value.protection.reasons.length > 0 || value.moleProtection.code === 'protected') &&
+              ' · 当前仅供查看'}
           </p>
           {value.protection.reasons.length > 0 && (
             <dl>
@@ -111,10 +116,35 @@ export function ApplicationInspection({
               )}
             </dl>
           )}
-          <p className="muted">
-            {value.protection.reasons.length === 0 && '未命中本次客户端保护规则。'}
-            Mole 卸载规则、共享数据和个人数据归属尚未检查。
-          </p>
+          <dl>
+            <dt>Mole 规则</dt>
+            <dd>
+              {value.moleProtection.code === 'protected'
+                ? '命中 Mole 系统组件保护'
+                : value.moleProtection.code === 'notMatched'
+                  ? '本次未命中系统组件禁用规则'
+                  : 'Mole 系统组件规则无法确认'}
+            </dd>
+          </dl>
+          {value.moleProtection.issue && (
+            <p className="muted">
+              {
+                {
+                  identityChanged: '本地标识与清单不同，请重新读取应用列表。',
+                  identityUnavailable: '本地标识无法读取，请确认应用仍在原位置后重试。',
+                  rulesUnavailable: '内置规则资源未通过校验或无法读取，请检查引擎状态后重试。',
+                }[value.moleProtection.issue]
+              }
+            </p>
+          )}
+          <p className="muted">厂商卸载方式、后台应用条件、共享数据和个人数据归属尚未检查。</p>
+          <details>
+            <summary>规则来源</summary>
+            <p className="muted">
+              Mole should_protect_from_uninstall · {value.moleProtection.revision.slice(0, 12)}
+              ；客户端目录与自身保护继续生效，未命中不代表可卸载。
+            </p>
+          </details>
           <dl>
             <dt>本地版本</dt>
             <dd>

@@ -1,5 +1,7 @@
 import type { ApplicationInspection } from '../types'
 
+export const moleUninstallRevision = 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f'
+
 export function parseApplicationInspection(
   value: unknown,
   expectedId: string,
@@ -15,7 +17,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 2 ||
+    data.protocol !== 3 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -25,6 +27,23 @@ export function parseApplicationInspection(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
     )
+  )
+    return fail()
+  const mole = data.moleProtection
+  if (
+    !mole ||
+    mole.version !== 1 ||
+    mole.revision !== moleUninstallRevision ||
+    !['protected', 'notMatched', 'unknown'].includes(mole.code) ||
+    (mole.code === 'unknown'
+      ? !['identityChanged', 'identityUnavailable', 'rulesUnavailable'].includes(mole.issue ?? '')
+      : mole.issue !== null ||
+        !data.bundleId ||
+        ['different', 'unavailable'].includes(data.identity)) ||
+    (data.identity === 'different' && mole.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && mole.issue !== 'identityUnavailable') ||
+    (mole.issue === 'identityChanged' && data.identity !== 'different') ||
+    (mole.issue === 'identityUnavailable' && data.identity !== 'unavailable')
   )
     return fail()
   const protection = data.protection

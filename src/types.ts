@@ -85,12 +85,18 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 2
+  protocol: 3
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  moleProtection: {
+    version: 1
+    revision: string
+    code: 'protected' | 'notMatched' | 'unknown'
+    issue: 'identityChanged' | 'identityUnavailable' | 'rulesUnavailable' | null
+  }
   protection: {
     reasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
     matchedPaths: string[]

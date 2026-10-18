@@ -30,6 +30,8 @@
 
 同一详情补充系统目录、当前客户端/同标识应用及已保存保护目录重叠提示；未命中仍为“归属待确认”，不视作可卸载。保存保护目录后重新检查，旧响应不会覆盖；完整 Mole 卸载规则和关联数据保护尚待适配，见 [客户端保护提示](application-protection.md)。
 
+另已适配固定 Mole 的 should_protect_from_uninstall 系统组件单项规则，区分要求保留、本次未命中及无法确认，保留允许卸载的 Apple 应用例外优先级。来源按需展开；资源不可用不变成未命中，也不撤下已确认的客户端保护。厂商卸载器、后台应用条件和关联数据仍待适配。
+
 ## 原生图标
 
 列表使用 macOS 的 [NSWorkspace icon(forFile:)](https://developer.apple.com/documentation/appkit/nsworkspace/icon%28forfile%3A%29) 获取系统关联图标，在独立 64×64 RGBA 位图中绘制为 PNG，按 32px 显示。系统可返回通用图标；它只辅助辨认，不证明 Bundle ID、签名、归属或可卸载性。失败、应用消失、不可读取或不支持的路径继续显示原有通用图标，不影响搜索、对比或 Finder。
