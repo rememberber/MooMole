@@ -18,7 +18,27 @@ pub struct Inspection {
     official_uninstaller: crate::app_uninstall_rules::OfficialObservation,
     background: crate::app_background::Observation,
     associations: crate::app_associations::Observation,
+    embedded: Embedded,
     installations: Installations,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Embedded {
+    version: u32,
+    revision: &'static str,
+    code: &'static str,
+    issue: Option<&'static str>,
+    entries: usize,
+    directories: usize,
+    plists: usize,
+    bundles: Vec<EmbeddedBundle>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmbeddedBundle {
+    relative_path: String,
+    bundle_id: String,
+    kind: &'static str,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,6 +156,7 @@ fn inspect(
 
 #[cfg(target_os = "macos")]
 mod mac {
+    mod embedded;
     use super::*;
     use objc2::{rc::autoreleasepool, runtime::AnyObject};
     use objc2_app_kit::NSRunningApplication;
@@ -1095,6 +1116,7 @@ mod mac {
             &crate::app_background::mac::Scope::new(home),
             rules_ready,
         );
+        let embedded = embedded::Check::begin(&bundle, fields.id.as_deref(), identity, rules_ready);
         let associations = crate::app_associations::mac::Check::begin(
             home,
             fields.id.as_deref(),
@@ -1149,6 +1171,7 @@ mod mac {
         };
         hook();
         let background = background.finish();
+        let embedded = embedded.finish();
         let associations = associations.finish();
         let mut installations = installations.finish();
         installations.roots = root_scan
@@ -1176,7 +1199,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 13,
+            protocol: 14,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -1190,6 +1213,7 @@ mod mac {
             ),
             background,
             associations,
+            embedded,
             installations,
         })
     }

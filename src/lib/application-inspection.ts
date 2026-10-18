@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 13 ||
+    data.protocol !== 14 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -36,6 +36,78 @@ export function parseApplicationInspection(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
     )
+  )
+    return fail()
+  const embedded = data.embedded
+  const reverseDns = (value: unknown): value is string =>
+    text(value, 255) &&
+    /^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(value as string)
+  if (
+    !embedded ||
+    embedded.version !== 1 ||
+    embedded.revision !== moleUninstallRevision ||
+    !['observed', 'partial', 'notChecked'].includes(embedded.code) ||
+    !Number.isInteger(embedded.entries) ||
+    embedded.entries < 0 ||
+    embedded.entries > 2048 ||
+    !Number.isInteger(embedded.directories) ||
+    embedded.directories < 0 ||
+    embedded.directories > 128 ||
+    !Number.isInteger(embedded.plists) ||
+    embedded.plists < 0 ||
+    embedded.plists > 128 ||
+    embedded.plists > embedded.entries ||
+    embedded.directories > embedded.entries + 1 ||
+    !Array.isArray(embedded.bundles) ||
+    embedded.bundles.length > 32 ||
+    embedded.bundles.length > embedded.plists ||
+    (embedded.issue === 'changed' && embedded.bundles.length !== 0) ||
+    new Set(embedded.bundles.map((item) => item?.relativePath)).size !== embedded.bundles.length ||
+    (embedded.code === 'notChecked'
+      ? ![
+          'identityChanged',
+          'identityUnavailable',
+          'rulesUnavailable',
+          'bundleIdUnsupported',
+        ].includes(embedded.issue ?? '') ||
+        embedded.entries !== 0 ||
+        embedded.directories !== 0 ||
+        embedded.plists !== 0 ||
+        embedded.bundles.length !== 0
+      : ['different', 'unavailable'].includes(data.identity) ||
+        !reverseDns(data.bundleId) ||
+        (embedded.code === 'observed'
+          ? embedded.issue !== null || embedded.directories === 0
+          : !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(
+              embedded.issue ?? '',
+            ))) ||
+    (data.identity === 'different' && embedded.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && embedded.issue !== 'identityUnavailable') ||
+    (embedded.issue === 'identityChanged' && data.identity !== 'different') ||
+    (embedded.issue === 'identityUnavailable' && data.identity !== 'unavailable') ||
+    (embedded.issue === 'bundleIdUnsupported' && reverseDns(data.bundleId)) ||
+    embedded.bundles.some((item) => {
+      if (
+        !item ||
+        !text(item.relativePath, 1024) ||
+        /[\u007f-\u009f]/.test(item.relativePath) ||
+        !item.relativePath.startsWith('Contents/') ||
+        item.relativePath.split('/').length > 11 ||
+        item.relativePath.split('/').some((part) => !part || part === '.' || part === '..') ||
+        !reverseDns(item.bundleId) ||
+        item.bundleId === data.bundleId ||
+        item.bundleId.startsWith('org.sparkle-project.')
+      )
+        return true
+      const extension = item.relativePath.split('.').at(-1)?.toLowerCase()
+      return item.kind === 'appex'
+        ? extension !== 'appex'
+        : item.kind === 'xpc'
+          ? extension !== 'xpc'
+          : item.kind !== 'loginItem' ||
+            extension !== 'app' ||
+            !item.relativePath.startsWith('Contents/Library/LoginItems/')
+    })
   )
     return fail()
   const installations = data.installations

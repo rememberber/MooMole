@@ -56,13 +56,54 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 14 : 13,
+        protocol: mode === 'future' ? 15 : 14,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        embedded: {
+          version: 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode === 'mismatch'
+              ? 'notChecked'
+              : ['embeddedChanged', 'embeddedLimit', 'embeddedUnavailable'].includes(mode ?? '')
+                ? 'partial'
+                : 'observed',
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode === 'embeddedChanged'
+                ? 'changed'
+                : mode === 'embeddedLimit'
+                  ? 'limitReached'
+                  : mode === 'embeddedUnavailable'
+                    ? 'unavailable'
+                    : null,
+          entries: mode === 'mismatch' ? 0 : 25,
+          directories: mode === 'mismatch' ? 0 : 6,
+          plists: mode === 'mismatch' ? 0 : 4,
+          bundles:
+            mode === 'embeddedUnavailable' ||
+            mode === 'embeddedChanged' ||
+            mode === 'mismatch' ||
+            !mode?.startsWith('embedded')
+              ? []
+              : [
+                  {
+                    relativePath: 'Contents/PlugIns/Share.appex',
+                    bundleId: 'org.example.same.share',
+                    kind: 'appex',
+                  },
+                  {
+                    relativePath: 'Contents/Library/LoginItems/Helper.app',
+                    bundleId: 'org.example.helper',
+                    kind: 'loginItem',
+                  },
+                ],
+        },
         installations: {
           version: mode === 'copiesFuture' ? 6 : 5,
           source: 'moleListRegistryRootsVolumesAndReceipts',
@@ -431,7 +472,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('嵌入扩展标识与完整归属仍待核实')
+  await expect(inspection).toContainText('扩展数据目录与完整归属仍待核实')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -650,7 +691,7 @@ test('guards explain system location, current client and protected directories w
     await expect(inspection).toContainText('已命中客户端保护 · 当前仅供查看')
     await expect(inspection).toContainText(reason)
     await expect(inspection).not.toContainText('归属待确认')
-    await expect(inspection).toContainText('嵌入扩展标识与完整归属仍待核实')
+    await expect(inspection).toContainText('扩展数据目录与完整归属仍待核实')
   }
   await expect(inspection).toContainText('/Applications')
   await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
@@ -1029,7 +1070,7 @@ test('group and derived directory candidates stay retained while source failures
   )
   await expect(associations).toContainText('目录名规则命中，可能由多个应用共用，保留')
   await expect(associations).toContainText('已保存保护目录覆盖，保留')
-  await expect(associations).toContainText('嵌入扩展标识与完整归属仍待核实')
+  await expect(associations).toContainText('扩展数据目录与完整归属仍待核实')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -1052,4 +1093,43 @@ test('group and derived directory candidates stay retained while source failures
   await expect(associations).toContainText('扫描达到数量或时间上限')
   await expect(associations.getByRole('checkbox')).toHaveCount(0)
   await expect(associations.getByRole('button')).toHaveCount(0)
+})
+
+test('embedded identities expose scope and withdraw changed results without offering data actions', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'embeddedFound'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const embedded = inspection.getByLabel('嵌入扩展', { exact: true })
+  await expect(embedded.locator('summary')).toContainText('2 个位置')
+  await embedded.locator('summary').click()
+  await expect(embedded).toContainText('org.example.same.share')
+  await expect(embedded).toContainText('Contents/Library/LoginItems/Helper.app')
+  await expect(embedded).toContainText('签名、运行状态和数据归属未验证')
+  await expect(embedded).toContainText('本轮未据此查询扩展数据目录')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const identityColumn = await embedded.locator('dd').first().boundingBox()
+    expect(identityColumn?.width).toBeGreaterThan(300)
+    await embedded.screenshot({
+      path: `test-results/application-embedded-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, message] of [
+    ['embeddedChanged', '组件在检查期间变化'],
+    ['embeddedUnavailable', '部分组件无法完整读取'],
+    ['embeddedLimit', '检查达到数量、深度或时间上限'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(embedded.locator('summary')).toContainText('检查不完整')
+    await expect(embedded).toContainText(message)
+    if (mode !== 'embeddedLimit') await expect(embedded).not.toContainText('org.example.same.share')
+  }
+  await expect(embedded.getByRole('checkbox')).toHaveCount(0)
+  await expect(embedded.getByRole('button')).toHaveCount(0)
 })

@@ -2,12 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 13,
+  protocol: 14,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
+  embedded: {
+    version: 1,
+    revision: moleUninstallRevision,
+    code: 'observed',
+    issue: null,
+    entries: 1,
+    directories: 1,
+    plists: 1,
+    bundles: [] as { relativePath: string; bundleId: string; kind: string }[],
+  },
   installations: {
     version: 5,
     source: 'moleListRegistryRootsVolumesAndReceipts',
@@ -108,6 +118,95 @@ const associationLocations = [
 const parse = (value: unknown, expected = 'org.example.app') =>
   parseApplicationInspection(value, expected)
 describe('application inspection boundary', () => {
+  it('validates embedded identity scope without asserting ownership or accepting unsafe paths', () => {
+    const data = valid()
+    data.embedded = {
+      ...data.embedded,
+      entries: 20,
+      directories: 6,
+      plists: 4,
+      bundles: [
+        {
+          relativePath: 'Contents/PlugIns/Share.appex',
+          bundleId: 'org.example.share',
+          kind: 'appex',
+        },
+        {
+          relativePath: 'Contents/Library/LoginItems/Helper.App',
+          bundleId: 'org.vendor.helper',
+          kind: 'loginItem',
+        },
+        {
+          relativePath: 'Contents/XPCServices/Service.XPC',
+          bundleId: 'org.vendor.service',
+          kind: 'xpc',
+        },
+      ],
+    }
+    expect(parse(data).embedded.bundles).toHaveLength(3)
+    for (const change of [
+      { version: 2 },
+      { revision: 'unknown' },
+      { code: 'complete' },
+      { issue: 'unavailable' },
+      { entries: 2049 },
+      { entries: -1 },
+      { directories: 129 },
+      { directories: 0 },
+      { plists: 129 },
+      { plists: 2 },
+      { code: 'notChecked', issue: 'rulesUnavailable' },
+      { code: 'partial', issue: null },
+      { code: 'partial', issue: 'changed' },
+    ])
+      expect(() => parse({ ...data, embedded: { ...data.embedded, ...change } })).toThrow()
+    for (const bundle of [
+      { relativePath: '/Contents/PlugIns/X.appex', bundleId: 'org.example.share', kind: 'appex' },
+      { relativePath: 'Contents/../X.appex', bundleId: 'org.example.share', kind: 'appex' },
+      { relativePath: 'Contents//X.appex', bundleId: 'org.example.share', kind: 'appex' },
+      { relativePath: 'Contents/Other.app', bundleId: 'org.example.share', kind: 'loginItem' },
+      { relativePath: 'Contents/PlugIns/X.appex', bundleId: 'org.example.app', kind: 'appex' },
+      {
+        relativePath: 'Contents/PlugIns/X.appex',
+        bundleId: 'org.sparkle-project.helper',
+        kind: 'appex',
+      },
+      { relativePath: 'Contents/PlugIns/X.appex', bundleId: 'bad_id', kind: 'appex' },
+      { relativePath: 'Contents/PlugIns/X.appex', bundleId: 'org.example.share', kind: 'xpc' },
+      {
+        relativePath: 'Contents/PlugIns/X.appex',
+        bundleId: 'org.example.share',
+        kind: 'constructor',
+      },
+      {
+        relativePath: 'Contents/' + 'a/'.repeat(10) + 'X.appex',
+        bundleId: 'org.example.share',
+        kind: 'appex',
+      },
+    ])
+      expect(() => parse({ ...data, embedded: { ...data.embedded, bundles: [bundle] } })).toThrow()
+    expect(() =>
+      parse({
+        ...data,
+        embedded: {
+          ...data.embedded,
+          bundles: [data.embedded.bundles[0], data.embedded.bundles[0]],
+        },
+      }),
+    ).toThrow()
+    for (const issue of ['unavailable', 'unsupported', 'limitReached']) {
+      expect(
+        parse({ ...data, embedded: { ...data.embedded, code: 'partial', issue } }).embedded.code,
+      ).toBe('partial')
+    }
+    expect(
+      parse({
+        ...data,
+        embedded: { ...data.embedded, code: 'partial', issue: 'changed', bundles: [] },
+      }).embedded.bundles,
+    ).toEqual([])
+  })
+
   it('keeps observed, not observed and unknown distinct without turning a different copy into this app', () => {
     expect(parse(valid()).running.code).toBe('observed')
     const other = valid()
@@ -123,7 +222,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 14 },
+      { protocol: 15 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -165,6 +264,14 @@ describe('application inspection boundary', () => {
           candidates: 0,
           firstUncertainPath: null,
         },
+      },
+      embedded: {
+        ...valid().embedded,
+        code: 'notChecked',
+        issue: 'identityChanged',
+        entries: 0,
+        directories: 0,
+        plists: 0,
       },
       associations: { ...valid().associations, issue: 'identityChanged' },
       background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
@@ -209,6 +316,14 @@ describe('application inspection boundary', () => {
           candidates: 0,
           firstUncertainPath: null,
         },
+      },
+      embedded: {
+        ...valid().embedded,
+        code: 'notChecked',
+        issue: 'identityUnavailable',
+        entries: 0,
+        directories: 0,
+        plists: 0,
       },
       associations: { ...valid().associations, issue: 'identityUnavailable' },
       bundleId: null,

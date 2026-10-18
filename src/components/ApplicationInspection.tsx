@@ -409,8 +409,60 @@ export function ApplicationInspection({
             )}
             <p className="muted">
               仅查询精确标识的 16 个常见位置，另检查应用组与扩展的 4 个目录各一层、合计最多 64
-              个候选，未测量大小。目录名不证明扩展身份或数据独占；嵌入扩展标识与完整归属仍待核实。
+              个候选，未测量大小。目录名不证明扩展身份或数据独占；扩展数据目录与完整归属仍待核实。
             </p>
+          </details>
+          <details className="application-embedded" aria-label="嵌入扩展">
+            <summary>
+              {stale && '较早'}
+              嵌入扩展 ·{' '}
+              {value.embedded.code === 'notChecked'
+                ? '未检查'
+                : `${value.embedded.bundles.length} 个位置`}
+              {value.embedded.code === 'partial' && ' · 检查不完整'}
+            </summary>
+            <p>仅核对包内标识；签名、运行状态和数据归属未验证，关联数据继续保留。</p>
+            {value.embedded.issue && (
+              <p className="muted">
+                {
+                  {
+                    identityChanged: '应用标识与清单不同，请重新读取列表。',
+                    identityUnavailable: '主应用标识无法确认，请重试。',
+                    rulesUnavailable: 'Mole 规则无法确认，请检查内置引擎后重试。',
+                    bundleIdUnsupported: '主应用标识格式暂不支持。',
+                    unavailable: '部分组件无法完整读取，请重试。',
+                    unsupported: '部分链接、布局或身份文件暂不支持。',
+                    changed: '组件在检查期间变化，已撤下本次扩展标识，请重查。',
+                    limitReached: '检查达到数量、深度或时间上限，结果不完整。',
+                  }[value.embedded.issue]
+                }
+              </p>
+            )}
+            {value.embedded.bundles.length > 0 && (
+              <dl>
+                {value.embedded.bundles.map((bundle) => (
+                  <div key={bundle.relativePath}>
+                    <dt>
+                      {{ appex: '应用扩展', xpc: 'XPC 服务', loginItem: '登录项' }[bundle.kind]}
+                    </dt>
+                    <dd>
+                      <span className="mono association-path">{bundle.bundleId}</span>
+                      <span className="mono association-path">{bundle.relativePath}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {value.embedded.code === 'observed' && value.embedded.bundles.length === 0 && (
+              <p className="muted">本次范围内未发现符合规则的扩展标识，不代表不存在其他组件。</p>
+            )}
+            {value.embedded.code !== 'notChecked' && (
+              <p className="muted">
+                已查看 {value.embedded.plists} 份身份文件所在位置。仅检查选中 App 的 Contents 内最多
+                12 层、128 份身份文件与 32 个扩展位置；不包含主标识与 Sparkle
+                共享服务。本轮未据此查询扩展数据目录。
+              </p>
+            )}
           </details>
           <details>
             <summary>规则来源</summary>

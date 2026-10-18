@@ -85,12 +85,31 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 13
+  protocol: 14
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  embedded: {
+    version: 1
+    revision: string
+    code: 'observed' | 'partial' | 'notChecked'
+    issue:
+      | 'identityChanged'
+      | 'identityUnavailable'
+      | 'rulesUnavailable'
+      | 'bundleIdUnsupported'
+      | 'unavailable'
+      | 'unsupported'
+      | 'changed'
+      | 'limitReached'
+      | null
+    entries: number
+    directories: number
+    plists: number
+    bundles: { relativePath: string; bundleId: string; kind: 'appex' | 'xpc' | 'loginItem' }[]
+  }
   installations: {
     version: 5
     source: 'moleListRegistryRootsVolumesAndReceipts'
