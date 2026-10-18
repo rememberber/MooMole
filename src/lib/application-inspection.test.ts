@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 12,
+  protocol: 13,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -47,11 +47,19 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 2,
+    version: 3,
     revision: moleUninstallRevision,
     code: 'unknown',
     issue: 'homeUnavailable',
     entries: [],
+    discovery: {
+      code: 'notChecked',
+      issue: null,
+      rootCount: 0,
+      entries: 0,
+      candidates: 0,
+      firstUncertainRoot: null,
+    },
   },
   background: {
     version: 1,
@@ -78,6 +86,25 @@ const valid = () => ({
     reason: '本次发现主应用，其他进程未检查。',
   },
 })
+const associationLocations = [
+  ['support', 'Library/Application Support', ''],
+  ['cache', 'Library/Caches', ''],
+  ['logs', 'Library/Logs', ''],
+  ['preferences', 'Library/Preferences', '.plist'],
+  ['savedState', 'Library/Saved Application State', '.savedState'],
+  ['container', 'Library/Containers', ''],
+  ['webKit', 'Library/WebKit', ''],
+  ['httpStorage', 'Library/HTTPStorages', ''],
+  ['webContent', 'Library/WebKit/com.apple.WebKit.WebContent', ''],
+  ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+  ['cookies', 'Library/Cookies', '.binarycookies'],
+  ['scripts', 'Library/Application Scripts', ''],
+  ['inputMethod', 'Library/Input Methods', '.app'],
+  ['autosave', 'Library/Autosave Information', ''],
+  ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
+  ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
+]
+
 const parse = (value: unknown, expected = 'org.example.app') =>
   parseApplicationInspection(value, expected)
 describe('application inspection boundary', () => {
@@ -96,7 +123,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 13 },
+      { protocol: 14 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -369,24 +396,7 @@ describe('application inspection boundary', () => {
       expect(() => parse({ ...valid(), background })).toThrow('无法识别')
   })
   it('bounds exact candidate paths and never accepts an ownership or deletion claim', () => {
-    const locations = [
-      ['support', 'Library/Application Support', ''],
-      ['cache', 'Library/Caches', ''],
-      ['logs', 'Library/Logs', ''],
-      ['preferences', 'Library/Preferences', '.plist'],
-      ['savedState', 'Library/Saved Application State', '.savedState'],
-      ['container', 'Library/Containers', ''],
-      ['webKit', 'Library/WebKit', ''],
-      ['httpStorage', 'Library/HTTPStorages', ''],
-      ['webContent', 'Library/WebKit/com.apple.WebKit.WebContent', ''],
-      ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
-      ['cookies', 'Library/Cookies', '.binarycookies'],
-      ['scripts', 'Library/Application Scripts', ''],
-      ['inputMethod', 'Library/Input Methods', '.app'],
-      ['autosave', 'Library/Autosave Information', ''],
-      ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
-      ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
-    ]
+    const locations = associationLocations
     const entries = locations.map(([kind, root, suffix], index) => ({
       kind,
       relativePath: `${root}/org.example.app${suffix}`,
@@ -395,11 +405,19 @@ describe('application inspection boundary', () => {
       protectionReasons: [] as string[],
     }))
     const associations = {
-      version: 2,
+      version: 3,
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,
       entries,
+      discovery: {
+        code: 'observed',
+        issue: null,
+        rootCount: 4,
+        entries: 20,
+        candidates: 0,
+        firstUncertainRoot: null,
+      },
     }
     expect(parse({ ...valid(), associations }).associations.entries[0].status).toBe('present')
     for (const status of ['present', 'notFound', 'unknown']) {
@@ -420,7 +438,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 3 },
+      { ...associations, version: 4 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -646,5 +664,88 @@ describe('application inspection boundary', () => {
         installations: { ...base, code: 'partial', issue: 'receiptsIncomplete' },
       }),
     ).toThrow()
+  })
+  it('bounds group and derived discovery without accepting arbitrary roots, loose matches or complete partial scans', () => {
+    const fixed = associationLocations.map(([kind, root, suffix]) => ({
+      kind,
+      relativePath: `${root}/org.example.app${suffix}`,
+      status: 'notFound',
+      issue: null,
+      protectionReasons: [] as string[],
+    }))
+    const entry = {
+      kind: 'groupContainer',
+      relativePath: 'Library/Group Containers/TEAM.org.example.app.shared',
+      status: 'present',
+      issue: null,
+      protectionReasons: ['clientDirectory'],
+    }
+    const discovery = {
+      code: 'observed',
+      issue: null,
+      rootCount: 4,
+      entries: 40,
+      candidates: 1,
+      firstUncertainRoot: null,
+    }
+    const associations = {
+      version: 3,
+      revision: moleUninstallRevision,
+      code: 'observed',
+      issue: null,
+      entries: [...fixed, entry],
+      discovery,
+    }
+    expect(parse({ ...valid(), associations }).associations.entries).toHaveLength(17)
+    for (const issue of ['unavailable', 'unsupported', 'changed', 'limitReached'])
+      expect(
+        parse({
+          ...valid(),
+          associations: {
+            ...associations,
+            discovery: {
+              ...discovery,
+              code: 'partial',
+              issue,
+              firstUncertainRoot: 'Library/Group Containers',
+            },
+          },
+        }).associations.discovery.issue,
+      ).toBe(issue)
+    for (const invalid of [
+      { ...discovery, rootCount: 3 },
+      { ...discovery, rootCount: 5 },
+      { ...discovery, entries: 1025 },
+      { ...discovery, entries: -1 },
+      { ...discovery, candidates: 2 },
+      { ...discovery, candidates: 65 },
+      { ...discovery, code: 'notChecked' },
+      { ...discovery, issue: 'changed' },
+      { ...discovery, code: 'partial', issue: 'changed', firstUncertainRoot: '/etc' },
+      { ...discovery, code: 'partial', issue: 'safe', firstUncertainRoot: 'Library/Containers' },
+    ])
+      expect(() =>
+        parse({ ...valid(), associations: { ...associations, discovery: invalid } }),
+      ).toThrow()
+    for (const invalid of [
+      { ...entry, relativePath: 'Library/Group Containers/TEAM.org.example.apple' },
+      { ...entry, relativePath: 'Library/Group Containers/TEAM.Org.example.app' },
+      { ...entry, relativePath: 'Library/Group Containers/Xorg.example.app.shared' },
+      { ...entry, relativePath: 'Library/Group Containers/TEAM.org.example.app/child' },
+      { ...entry, relativePath: 'Library/Group Containers/../org.example.app' },
+      { ...entry, relativePath: 'Library/Group Containers/TEAM.org.example.app\u0085' },
+      {
+        ...entry,
+        kind: 'constructor',
+        relativePath: `${String(Object)}/TEAM.org.example.app.shared`,
+      },
+      { ...entry, kind: 'toString' },
+      { ...entry, kind: 'derivedScripts' },
+      { ...entry, kind: 'owned' },
+      { ...entry, kind: 'derivedScripts', relativePath: fixed[11].relativePath },
+    ])
+      expect(() =>
+        parse({ ...valid(), associations: { ...associations, entries: [...fixed, invalid] } }),
+      ).toThrow()
   })
 })

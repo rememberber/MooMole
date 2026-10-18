@@ -56,7 +56,7 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 13 : 12,
+        protocol: mode === 'future' ? 14 : 13,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -206,7 +206,7 @@ async function setup(page: Page) {
             : [],
         },
         associations: {
-          version: mode === 'associationFuture' ? 3 : 2,
+          version: mode === 'associationFuture' ? 4 : 3,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -218,6 +218,33 @@ async function setup(page: Page) {
               : mode?.startsWith('association') && mode !== 'associationFuture'
                 ? null
                 : 'homeUnavailable',
+          discovery:
+            mode?.startsWith('association') && mode !== 'associationFuture'
+              ? {
+                  code: mode?.startsWith('associationRelated') ? 'partial' : 'observed',
+                  issue:
+                    mode === 'associationRelatedChanged'
+                      ? 'changed'
+                      : mode === 'associationRelatedLimit'
+                        ? 'limitReached'
+                        : mode?.startsWith('associationRelated')
+                          ? 'unavailable'
+                          : null,
+                  rootCount: 4,
+                  entries: 20,
+                  candidates: mode?.startsWith('associationRelated') ? 2 : 0,
+                  firstUncertainRoot: mode?.startsWith('associationRelated')
+                    ? 'Library/Group Containers'
+                    : null,
+                }
+              : {
+                  code: 'notChecked',
+                  issue: null,
+                  rootCount: 0,
+                  entries: 0,
+                  candidates: 0,
+                  firstUncertainRoot: null,
+                },
           entries:
             mode?.startsWith('association') && mode !== 'associationFuture'
               ? [
@@ -237,24 +264,49 @@ async function setup(page: Page) {
                   ['autosave', 'Library/Autosave Information', ''],
                   ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
                   ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
-                ].map(([kind, root, suffix], index) => ({
-                  kind,
-                  relativePath: `${root}/org.example.same${suffix}`,
-                  status:
-                    mode === 'associationChanged'
-                      ? 'unknown'
-                      : index === 0
-                        ? 'present'
+                ]
+                  .map(([kind, root, suffix], index) => ({
+                    kind,
+                    relativePath: `${root}/org.example.same${suffix}`,
+                    status:
+                      mode === 'associationChanged'
+                        ? 'unknown'
+                        : index === 0
+                          ? 'present'
+                          : index === 1
+                            ? 'unknown'
+                            : 'notFound',
+                    issue:
+                      mode === 'associationChanged'
+                        ? 'changed'
                         : index === 1
-                          ? 'unknown'
-                          : 'notFound',
-                  issue:
-                    mode === 'associationChanged' ? 'changed' : index === 1 ? 'unsupported' : null,
-                  protectionReasons:
-                    mode === 'associationProtected' && [0, 1, 11].includes(index)
-                      ? ['clientDirectory']
+                          ? 'unsupported'
+                          : null,
+                    protectionReasons:
+                      mode === 'associationProtected' && [0, 1, 11].includes(index)
+                        ? ['clientDirectory']
+                        : [],
+                  }))
+                  .concat(
+                    mode?.startsWith('associationRelated')
+                      ? [
+                          {
+                            kind: 'groupContainer',
+                            relativePath: 'Library/Group Containers/TEAM.org.example.same.shared',
+                            status: mode === 'associationRelatedChanged' ? 'unknown' : 'present',
+                            issue: mode === 'associationRelatedChanged' ? 'changed' : null,
+                            protectionReasons: ['clientDirectory'],
+                          },
+                          {
+                            kind: 'groupContainer',
+                            relativePath: 'Library/Group Containers/group.org.example.same.shared',
+                            status: mode === 'associationRelatedChanged' ? 'unknown' : 'present',
+                            issue: mode === 'associationRelatedChanged' ? 'changed' : null,
+                            protectionReasons: [],
+                          },
+                        ]
                       : [],
-                }))
+                  )
               : [],
         },
         background: {
@@ -379,7 +431,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('完整安装副本、共享数据及个人数据归属仍待核实')
+  await expect(inspection).toContainText('嵌入扩展标识与完整归属仍待核实')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -598,7 +650,7 @@ test('guards explain system location, current client and protected directories w
     await expect(inspection).toContainText('已命中客户端保护 · 当前仅供查看')
     await expect(inspection).toContainText(reason)
     await expect(inspection).not.toContainText('归属待确认')
-    await expect(inspection).toContainText('共享数据及个人数据归属仍待核实')
+    await expect(inspection).toContainText('嵌入扩展标识与完整归属仍待核实')
   }
   await expect(inspection).toContainText('/Applications')
   await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
@@ -958,4 +1010,46 @@ test('per-location protection stays visible for found, unknown and missing data 
   await expect(associations).not.toContainText('处受保护')
   await expect(associations).not.toContainText('已保存保护目录覆盖')
   await expect(associations).not.toContainText('~/Library/Application Scripts/org.example.same')
+})
+
+test('group and derived directory candidates stay retained while source failures, changes and limits remain visible', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationRelated'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await expect(associations.locator('summary')).toContainText('组与扩展检查不完整')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('已检查 4 个应用组与扩展目录')
+  await expect(associations.getByText('应用组容器', { exact: true })).toHaveCount(2)
+  await expect(associations).toContainText('部分目录无法完整读取，请重试')
+  await expect(associations).toContainText(
+    '~/Library/Group Containers/TEAM.org.example.same.shared',
+  )
+  await expect(associations).toContainText('目录名规则命中，可能由多个应用共用，保留')
+  await expect(associations).toContainText('已保存保护目录覆盖，保留')
+  await expect(associations).toContainText('嵌入扩展标识与完整归属仍待核实')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-related-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationRelatedChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('目录在检查期间变化，请重查')
+  await expect(associations).toContainText('检查期间发生变化，请重查')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationRelatedLimit'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('扫描达到数量或时间上限')
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  await expect(associations.getByRole('button')).toHaveCount(0)
 })

@@ -34,6 +34,50 @@ const LOCATIONS: [(&str, &str, &str); 16] = [
     ),
 ];
 
+const RELATED_ROOTS: [(&str, &str); 4] = [
+    ("groupContainer", "Library/Group Containers"),
+    ("derivedScripts", "Library/Application Scripts"),
+    ("derivedContainer", "Library/Containers"),
+    ("fileProvider", "Library/Application Support/FileProvider"),
+];
+// Fixed Mole mole_name_has_bundle_id_boundary: case-sensitive dot boundaries.
+fn name_matches(name: &str, id: &str) -> bool {
+    valid_id(id)
+        && (name == id
+            || name.starts_with(&format!("{id}."))
+            || name.ends_with(&format!(".{id}"))
+            || name.contains(&format!(".{id}.")))
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Discovery {
+    code: &'static str,
+    issue: Option<&'static str>,
+    root_count: usize,
+    entries: usize,
+    candidates: usize,
+    first_uncertain_root: Option<&'static str>,
+}
+impl Discovery {
+    fn not_checked() -> Self {
+        Self {
+            code: "notChecked",
+            issue: None,
+            root_count: 0,
+            entries: 0,
+            candidates: 0,
+            first_uncertain_root: None,
+        }
+    }
+    fn partial(&mut self, issue: &'static str, root: &'static str) {
+        self.code = "partial";
+        if self.issue.is_none() || (issue == "changed" && self.issue != Some("changed")) {
+            self.issue = Some(issue);
+            self.first_uncertain_root = Some(root);
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Observation {
@@ -42,6 +86,7 @@ pub struct Observation {
     code: &'static str,
     issue: Option<&'static str>,
     entries: Vec<Entry>,
+    discovery: Discovery,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,11 +100,12 @@ struct Entry {
 impl Observation {
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 2,
+            version: 3,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
             entries: vec![],
+            discovery: Discovery::not_checked(),
         }
     }
     pub fn attach_protection(
@@ -102,11 +148,12 @@ pub mod mac {
     use super::*;
     use std::{
         collections::HashMap,
-        ffi::CString,
+        ffi::{CStr, CString},
         fs::File,
-        os::fd::{AsRawFd, FromRawFd},
+        os::fd::{AsRawFd, FromRawFd, IntoRawFd},
         path::Component,
         sync::Arc,
+        time::{Duration, Instant},
     };
     const SF_DATALESS: u32 = 0x40000000;
     #[derive(PartialEq, Eq)]
@@ -295,6 +342,52 @@ pub mod mac {
             probe.issue = None;
             probe
         }
+        fn directory(
+            path: &Path,
+            depth: usize,
+            pool: &mut HashMap<std::path::PathBuf, Arc<File>>,
+        ) -> (Self, Option<Arc<File>>) {
+            let mut probe = Self::begin(path, depth, pool);
+            if probe.status != "present" {
+                return (probe, None);
+            }
+            let link = probe.links.last_mut().unwrap();
+            let stat = link.value.as_ref().unwrap();
+            if stat.st_mode & libc::S_IFMT != libc::S_IFDIR {
+                probe.status = "unknown";
+                probe.issue = Some("unsupported");
+                return (probe, None);
+            }
+            let file = if let Some(file) = pool.get(path) {
+                file.clone()
+            } else {
+                let fd = unsafe {
+                    libc::openat(
+                        link.parent.as_raw_fd(),
+                        link.name.as_ptr(),
+                        libc::O_RDONLY
+                            | libc::O_DIRECTORY
+                            | libc::O_NOFOLLOW
+                            | libc::O_CLOEXEC
+                            | libc::O_NONBLOCK,
+                    )
+                };
+                if fd < 0 {
+                    probe.status = "unknown";
+                    probe.issue = Some("unavailable");
+                    return (probe, None);
+                }
+                Arc::new(unsafe { File::from_raw_fd(fd) })
+            };
+            if !local(&file) || fstat(&file).map_or(true, |opened| !same(&opened, stat, true)) {
+                probe.status = "unknown";
+                probe.issue = Some("changed");
+                return (probe, None);
+            }
+            link.held = Some(file.clone());
+            pool.insert(path.into(), file.clone());
+            (probe, Some(file))
+        }
         fn finish(self) -> (&'static str, Option<&'static str>) {
             for link in self.links {
                 let Ok(current) = stat_at(&link.parent, &link.name) else {
@@ -321,6 +414,7 @@ pub mod mac {
     pub struct Check {
         observation: Observation,
         probes: Vec<Probe>,
+        roots: Vec<(&'static str, Probe)>,
     }
     impl Check {
         pub fn begin(home: &Path, id: Option<&str>, identity: &str, rules_ready: bool) -> Self {
@@ -351,6 +445,7 @@ pub mod mac {
                 return Self {
                     observation: Observation::unknown(issue),
                     probes: vec![],
+                    roots: vec![],
                 };
             }
             let id = id.unwrap();
@@ -374,20 +469,171 @@ pub mod mac {
                     protection_reasons: vec![],
                 });
             }
+            let mut discovery = Discovery::not_checked();
+            discovery.code = "observed";
+            let mut roots = vec![];
+            let mut related = vec![];
+            let started = Instant::now();
+            let depth = home
+                .components()
+                .filter(|c| matches!(c, Component::Normal(_)))
+                .count();
+            for (kind, root) in RELATED_ROOTS {
+                if started.elapsed() > Duration::from_millis(500)
+                    || discovery.entries >= 1024
+                    || related.len() >= 64
+                {
+                    discovery.partial("limitReached", root);
+                    break;
+                }
+                discovery.root_count += 1;
+                let (probe, file) = Probe::directory(&home.join(root), depth, &mut pool);
+                if let Some(file) = file {
+                    Self::scan_root(
+                        &file,
+                        kind,
+                        root,
+                        id,
+                        home,
+                        &entries,
+                        &mut related,
+                        &mut discovery,
+                        started,
+                    );
+                } else if probe.status == "unknown" {
+                    discovery.partial(probe.issue.unwrap_or("unavailable"), root);
+                }
+                roots.push((root, probe));
+            }
+            related.sort_by(|a, b| a.1.cmp(&b.1));
+            for (kind, relative_path) in related {
+                probes.push(Probe::begin(&home.join(&relative_path), depth, &mut pool));
+                entries.push(Entry {
+                    kind,
+                    relative_path,
+                    status: "unknown",
+                    issue: Some("unavailable"),
+                    protection_reasons: vec![],
+                });
+            }
+            discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 2,
+                    version: 3,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,
                     entries,
+                    discovery,
                 },
                 probes,
+                roots,
+            }
+        }
+        fn scan_root(
+            file: &File,
+            kind: &'static str,
+            root: &'static str,
+            id: &str,
+            home: &Path,
+            exact: &[Entry],
+            related: &mut Vec<(&'static str, String)>,
+            discovery: &mut Discovery,
+            started: Instant,
+        ) {
+            struct Stream(*mut libc::DIR);
+            impl Drop for Stream {
+                fn drop(&mut self) {
+                    unsafe {
+                        libc::closedir(self.0);
+                    }
+                }
+            }
+            let Ok(clone) = file.try_clone() else {
+                discovery.partial("unavailable", root);
+                return;
+            };
+            let fd = clone.into_raw_fd();
+            let pointer = unsafe { libc::fdopendir(fd) };
+            if pointer.is_null() {
+                unsafe {
+                    libc::close(fd);
+                }
+                discovery.partial("unavailable", root);
+                return;
+            }
+            let stream = Stream(pointer);
+            loop {
+                if discovery.entries >= 1024
+                    || related.len() >= 64
+                    || started.elapsed() > Duration::from_millis(500)
+                {
+                    discovery.partial("limitReached", root);
+                    break;
+                }
+                unsafe {
+                    *libc::__error() = 0;
+                }
+                let entry = unsafe { libc::readdir(stream.0) };
+                if entry.is_null() {
+                    if unsafe { *libc::__error() } != 0 {
+                        discovery.partial("unavailable", root);
+                    }
+                    break;
+                }
+                let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) };
+                if matches!(name.to_bytes(), b"." | b"..") {
+                    continue;
+                }
+                discovery.entries += 1;
+                let Ok(name) = name.to_str() else {
+                    discovery.partial("unsupported", root);
+                    continue;
+                };
+                if name.chars().any(char::is_control) {
+                    discovery.partial("unsupported", root);
+                    continue;
+                }
+                if !name_matches(name, id) {
+                    continue;
+                }
+                let relative_path = format!("{root}/{name}");
+                if relative_path.len() > 1024 || home.join(&relative_path).as_os_str().len() > 4096
+                {
+                    discovery.partial("unsupported", root);
+                    continue;
+                }
+                let name = CString::new(name).unwrap();
+                let Ok(Some(stat)) = stat_at(file, &name) else {
+                    discovery.partial("unavailable", root);
+                    continue;
+                };
+                let kind_value = stat.st_mode & libc::S_IFMT;
+                if kind_value != libc::S_IFDIR && kind_value != libc::S_IFLNK {
+                    continue;
+                }
+                if kind_value == libc::S_IFLNK {
+                    discovery.partial("unsupported", root);
+                }
+                if exact.iter().any(|e| e.relative_path == relative_path)
+                    || related.iter().any(|(_, p)| *p == relative_path)
+                {
+                    continue;
+                }
+                related.push((kind, relative_path));
             }
         }
         pub fn finish(mut self) -> Observation {
             for (entry, probe) in self.observation.entries.iter_mut().zip(self.probes) {
                 (entry.status, entry.issue) = probe.finish();
+            }
+            for (root, probe) in self.roots {
+                let (status, issue) = probe.finish();
+                if status == "unknown" {
+                    self.observation
+                        .discovery
+                        .partial(issue.unwrap_or("unavailable"), root);
+                }
             }
             self.observation
         }
@@ -405,6 +651,123 @@ pub mod mac {
                 Check::begin(home, Some("org.example.app"), "matches", true).finish(),
             )
             .unwrap()
+        }
+        #[test]
+        fn related_roots_use_boundaries_deduplicate_exact_paths_and_do_not_recurse() {
+            let temp = fixture();
+            let home = temp.path();
+            for path in [
+                "Library/Group Containers/TEAM.org.example.app.shared",
+                "Library/Group Containers/TEAM.org.example.apple",
+                "Library/Group Containers/TEAM.org.Example.app",
+                "Library/Group Containers/vendor/org.example.app",
+                "Library/Application Scripts/org.example.app",
+                "Library/Application Scripts/org.example.app.Share",
+                "Library/Containers/org.example.app",
+                "Library/Containers/org.example.app.Provider",
+                "Library/Application Support/FileProvider/org.example.app",
+            ] {
+                fs::create_dir_all(home.join(path)).unwrap();
+            }
+            let personal =
+                home.join("Library/Group Containers/TEAM.org.example.app.shared/personal");
+            fs::write(&personal, "keep me").unwrap();
+            let result = observe(home);
+            assert_eq!(result["entries"].as_array().unwrap().len(), 20);
+            assert_eq!(result["discovery"]["candidates"], 4);
+            assert_eq!(result["discovery"]["code"], "observed");
+            assert!(result["entries"].as_array().unwrap()[16..]
+                .iter()
+                .all(|entry| entry["status"] == "present"));
+            assert!(!result["entries"].as_array().unwrap()[16..]
+                .iter()
+                .any(
+                    |entry| entry["relativePath"].as_str().unwrap().contains("apple")
+                        || entry["relativePath"].as_str().unwrap().contains("vendor/")
+                ));
+            assert_eq!(fs::read_to_string(&personal).unwrap(), "keep me");
+        }
+        #[test]
+        fn related_links_missing_roots_and_changes_stay_incomplete_and_protected() {
+            let temp = fixture();
+            let home = temp.path();
+            let root = home.join("Library/Group Containers");
+            fs::create_dir_all(&root).unwrap();
+            let outside = home.join("outside");
+            fs::create_dir(&outside).unwrap();
+            symlink(&outside, root.join("TEAM.org.example.app.link")).unwrap();
+            let mut result = Check::begin(home, Some("org.example.app"), "matches", true).finish();
+            result
+                .attach_protection(
+                    home,
+                    Some("org.example.app"),
+                    "org.client.app",
+                    &[root.to_str().unwrap().into()],
+                )
+                .unwrap();
+            let value = serde_json::to_value(result).unwrap();
+            assert_eq!(value["discovery"]["issue"], "unsupported");
+            assert_eq!(value["entries"][16]["issue"], "unsupported");
+            assert_eq!(
+                value["entries"][16]["protectionReasons"][0],
+                "clientDirectory"
+            );
+            let check = Check::begin(home, Some("org.example.app"), "matches", true);
+            fs::create_dir_all(home.join("Library/Application Support/FileProvider")).unwrap();
+            assert_eq!(
+                serde_json::to_value(check.finish()).unwrap()["discovery"]["issue"],
+                "changed"
+            );
+            fs::rename(&root, home.join("Library/saved-groups")).unwrap();
+            symlink(home.join("Library/saved-groups"), &root).unwrap();
+            let value = observe(home);
+            assert_eq!(value["discovery"]["code"], "partial");
+            assert_eq!(value["discovery"]["candidates"], 0);
+            assert_eq!(
+                value["discovery"]["firstUncertainRoot"],
+                "Library/Group Containers"
+            );
+        }
+        #[test]
+        fn related_entry_candidate_and_time_budgets_cannot_prove_absence() {
+            let temp = fixture();
+            let home = temp.path();
+            let root = home.join("Library/Group Containers");
+            fs::create_dir_all(&root).unwrap();
+            for i in 0..65 {
+                fs::create_dir(root.join(format!("org.example.app.{i}"))).unwrap();
+            }
+            let value = observe(home);
+            assert_eq!(value["discovery"]["candidates"], 64);
+            assert_eq!(value["discovery"]["issue"], "limitReached");
+            let temp = fixture();
+            let home = temp.path();
+            let root = home.join("Library/Group Containers");
+            fs::create_dir_all(&root).unwrap();
+            for i in 0..1025 {
+                fs::write(root.join(format!("unrelated{i}")), "").unwrap();
+            }
+            let value = observe(home);
+            assert_eq!(value["discovery"]["entries"], 1024);
+            assert_eq!(value["discovery"]["candidates"], 0);
+            assert_eq!(value["discovery"]["issue"], "limitReached");
+            let mut pool = HashMap::new();
+            let (_, file) = Probe::directory(&root, home.components().count() - 1, &mut pool);
+            let mut discovery = Discovery::not_checked();
+            let mut paths = vec![];
+            Check::scan_root(
+                &file.unwrap(),
+                "groupContainer",
+                RELATED_ROOTS[0].1,
+                "org.example.app",
+                home,
+                &[],
+                &mut paths,
+                &mut discovery,
+                Instant::now() - Duration::from_secs(1),
+            );
+            assert_eq!(discovery.issue, Some("limitReached"));
+            assert_eq!(discovery.entries, 0);
         }
         #[test]
         fn expanded_locations_keep_content_and_bound_live_directory_handles() {
@@ -644,6 +1007,70 @@ mod tests {
         ] {
             assert!(!valid_id(id));
         }
+    }
+    #[test]
+    #[ignore = "requires pinned Mole source; compares name boundaries without filesystem traversal or lifecycle calls"]
+    fn prepared_name_boundaries_match_original_mole_helpers() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+        crate::app_uninstall_rules::load(&root).unwrap();
+        let base = std::fs::read_to_string(root.join("lib/core/base.sh")).unwrap();
+        let source = std::fs::read_to_string(root.join("lib/core/app_protection.sh")).unwrap();
+        for (_, path) in RELATED_ROOTS {
+            assert!(source.contains(&format!("$HOME/{path}")));
+        }
+        let mut script = "set -euo pipefail\n".to_owned();
+        for name in [
+            "mole_is_reverse_dns_bundle_id",
+            "mole_name_starts_with_bundle_id_boundary",
+            "mole_name_has_bundle_id_boundary",
+        ] {
+            script.push_str(&crate::app_background::test_function(&base, name));
+            script.push('\n');
+        }
+        script.push_str(r#"while (($#)); do if mole_name_has_bundle_id_boundary "$1" "$2"; then printf '1'; else printf '0'; fi; shift 2; done"#);
+        let mut args = vec![];
+        let mut expected = String::new();
+        for id in [
+            "org.example.app",
+            "Com.Example.App",
+            "1.a-b",
+            "app",
+            "bad_id",
+            "",
+        ] {
+            for name in [
+                id.to_owned(),
+                format!("{id}.Share"),
+                format!("TEAM.{id}"),
+                format!("TEAM.{id}.shared"),
+                format!("x{id}"),
+                format!("{id}_extra"),
+                format!("{id}le"),
+                format!("{id} "),
+                format!("中文.{id}.provider"),
+                format!(".{id}"),
+                format!("group.{id}_extra"),
+                format!("{id}.*"),
+                "other.name".into(),
+            ] {
+                expected.push(if name_matches(&name, id) { '1' } else { '0' });
+                args.extend([name, id.to_owned()]);
+            }
+        }
+        let output = std::process::Command::new("/bin/bash")
+            .args(["-c", &script, "boundaries"])
+            .args(args)
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("LC_ALL", "C")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(String::from_utf8(output.stdout).unwrap(), expected);
     }
     #[test]
     #[ignore = "requires the prepared, fixed Mole source"]

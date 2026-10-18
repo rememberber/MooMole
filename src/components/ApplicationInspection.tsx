@@ -95,7 +95,11 @@ export function ApplicationInspection({
                     ? '请使用官方卸载器'
                     : protectedAssociations > 0
                       ? '关联位置受保护'
-                      : value.installations.copies.length > 0
+                      : value.installations.copies.length > 0 ||
+                          value.associations.entries.some(
+                            (entry) =>
+                              entry.kind === 'groupContainer' && entry.status === 'present',
+                          )
                         ? '关联数据可能共用'
                         : '归属待确认'}
             </strong>
@@ -300,8 +304,21 @@ export function ApplicationInspection({
                 ? '无法确认'
                 : `${value.associations.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.associations.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
               {protectedAssociations > 0 && ` · ${protectedAssociations} 处受保护`}
+              {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
+            {value.associations.discovery.code !== 'notChecked' && (
+              <p className="muted">
+                已检查 {value.associations.discovery.rootCount} 个应用组与扩展目录
+                {value.associations.discovery.issue &&
+                  ` · ${{ unavailable: '部分目录无法完整读取，请重试', unsupported: '部分名称、链接或目录布局暂不支持', changed: '目录在检查期间变化，请重查', limitReached: '扫描达到数量或时间上限' }[value.associations.discovery.issue]}`}
+                {value.associations.discovery.firstUncertainRoot && (
+                  <span className="mono association-path">
+                    ~/{value.associations.discovery.firstUncertainRoot}
+                  </span>
+                )}
+              </p>
+            )}
             {value.associations.code === 'unknown' ? (
               <p className="muted">
                 {
@@ -322,7 +339,7 @@ export function ApplicationInspection({
                       (entry) => entry.status !== 'notFound' || entry.protectionReasons.length > 0,
                     )
                     .map((entry) => (
-                      <div key={entry.kind}>
+                      <div key={entry.relativePath}>
                         <dt>
                           {
                             {
@@ -342,6 +359,10 @@ export function ApplicationInspection({
                               autosave: '自动保存',
                               syncedPreferences: '同步设置',
                               crashReports: '崩溃报告',
+                              groupContainer: '应用组容器',
+                              derivedScripts: '派生应用脚本',
+                              derivedContainer: '派生沙盒数据',
+                              fileProvider: '文件提供程序',
                             }[entry.kind]
                           }
                         </dt>
@@ -351,6 +372,16 @@ export function ApplicationInspection({
                             : entry.status === 'notFound'
                               ? '本次未发现'
                               : `无法确认 · ${{ unavailable: '请检查访问权限后重试', unsupported: '链接、挂载或文件类型暂不支持', changed: '检查期间发生变化，请重查' }[entry.issue!]}`}
+                          {[
+                            'groupContainer',
+                            'derivedScripts',
+                            'derivedContainer',
+                            'fileProvider',
+                          ].includes(entry.kind) && (
+                            <span className="association-path muted">
+                              目录名规则命中，可能由多个应用共用，保留
+                            </span>
+                          )}
                           {entry.protectionReasons.length > 0 && (
                             <span className="association-path">
                               {entry.protectionReasons
@@ -358,7 +389,7 @@ export function ApplicationInspection({
                                   (reason) =>
                                     ({
                                       systemLocation: '系统位置，保留',
-                                      currentApplication: '当前客户端的数据，保留',
+                                      currentApplication: '客户端自身保护，保留',
                                       clientDirectory: '已保存保护目录覆盖，保留',
                                     })[reason],
                                 )
@@ -377,8 +408,8 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 16
-              个常见位置，未测量大小；完整安装副本、共享数据及个人数据归属仍待核实。
+              仅查询精确标识的 16 个常见位置，另检查应用组与扩展的 4 个目录各一层、合计最多 64
+              个候选，未测量大小。目录名不证明扩展身份或数据独占；嵌入扩展标识与完整归属仍待核实。
             </p>
           </details>
           <details>

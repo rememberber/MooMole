@@ -1176,7 +1176,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 12,
+            protocol: 13,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,

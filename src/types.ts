@@ -85,7 +85,7 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 12
+  protocol: 13
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -142,7 +142,7 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 2
+    version: 3
     revision: string
     code: 'observed' | 'unknown'
     issue:
@@ -152,6 +152,14 @@ export interface ApplicationInspection {
       | 'bundleIdUnsupported'
       | 'homeUnavailable'
       | null
+    discovery: {
+      code: 'observed' | 'partial' | 'notChecked'
+      issue: 'unavailable' | 'unsupported' | 'changed' | 'limitReached' | null
+      rootCount: number
+      entries: number
+      candidates: number
+      firstUncertainRoot: string | null
+    }
     entries: {
       kind: string
       relativePath: string

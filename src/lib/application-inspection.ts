@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 12 ||
+    data.protocol !== 13 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -214,9 +214,34 @@ export function parseApplicationInspection(
     ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
     ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
   ]
+  const relatedRoots: Record<string, string> = {
+    groupContainer: 'Library/Group Containers',
+    derivedScripts: 'Library/Application Scripts',
+    derivedContainer: 'Library/Containers',
+    fileProvider: 'Library/Application Support/FileProvider',
+  }
+  const relatedPath = (entry: ApplicationInspection['associations']['entries'][number]) => {
+    const root = Object.hasOwn(relatedRoots, entry.kind) ? relatedRoots[entry.kind] : null
+    if (!root || !text(entry.relativePath, 1024) || /[\u007f-\u009f]/.test(entry.relativePath))
+      return false
+    const prefix = `${root}/`
+    if (!entry.relativePath.startsWith(prefix)) return false
+    const name = entry.relativePath.slice(prefix.length)
+    const id = data.bundleId ?? ''
+    return (
+      !name.includes('/') &&
+      name !== '.' &&
+      name !== '..' &&
+      (name === id ||
+        name.startsWith(`${id}.`) ||
+        name.endsWith(`.${id}`) ||
+        name.includes(`.${id}.`)) &&
+      !locations.some(([, path, suffix]) => entry.relativePath === `${path}/${id}${suffix}`)
+    )
+  }
   if (
     !associations ||
-    associations.version !== 2 ||
+    associations.version !== 3 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -233,7 +258,8 @@ export function parseApplicationInspection(
         ['different', 'unavailable'].includes(data.identity) ||
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
-        associations.entries.length !== locations.length) ||
+        associations.entries.length < locations.length ||
+        associations.entries.length > locations.length + 64) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||
@@ -241,9 +267,11 @@ export function parseApplicationInspection(
     associations.entries.some(
       (entry, index) =>
         !entry ||
-        entry.kind !== locations[index]?.[0] ||
-        entry.relativePath !==
-          `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}` ||
+        (index < locations.length
+          ? entry.kind !== locations[index]?.[0] ||
+            entry.relativePath !==
+              `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}`
+          : !relatedPath(entry)) ||
         !Array.isArray(entry.protectionReasons) ||
         entry.protectionReasons.length > 3 ||
         new Set(entry.protectionReasons).size !== entry.protectionReasons.length ||
@@ -255,6 +283,34 @@ export function parseApplicationInspection(
           ? !['unavailable', 'unsupported', 'changed'].includes(entry.issue ?? '')
           : entry.issue !== null),
     )
+  )
+    return fail()
+  const discovery = associations.discovery
+  if (
+    !discovery ||
+    !['observed', 'partial', 'notChecked'].includes(discovery.code) ||
+    !Number.isInteger(discovery.rootCount) ||
+    discovery.rootCount < 0 ||
+    discovery.rootCount > 4 ||
+    !Number.isInteger(discovery.entries) ||
+    discovery.entries < 0 ||
+    discovery.entries > 1024 ||
+    !Number.isInteger(discovery.candidates) ||
+    discovery.candidates < 0 ||
+    discovery.candidates > 64 ||
+    discovery.candidates > discovery.entries ||
+    new Set(associations.entries.map((entry) => entry.relativePath)).size !==
+      associations.entries.length ||
+    (discovery.code === 'notChecked') !== (associations.code === 'unknown') ||
+    (discovery.code === 'notChecked'
+      ? discovery.rootCount !== 0 || discovery.entries !== 0 || discovery.candidates !== 0
+      : discovery.candidates !== associations.entries.length - locations.length) ||
+    (discovery.code === 'observed' && discovery.rootCount !== 4) ||
+    (discovery.code === 'partial'
+      ? !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(
+          discovery.issue ?? '',
+        ) || !Object.values(relatedRoots).includes(discovery.firstUncertainRoot ?? '')
+      : discovery.issue !== null || discovery.firstUncertainRoot !== null)
   )
     return fail()
   const background = data.background
