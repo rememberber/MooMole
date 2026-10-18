@@ -7,6 +7,7 @@ import { appEstimateLabel, appSizeEstimate, compareApps } from '../lib/applicati
 export function ApplicationLibrary({
   apps,
   taskId,
+  protectedPaths = [],
   home,
   refreshing = false,
   canReveal,
@@ -14,6 +15,7 @@ export function ApplicationLibrary({
 }: {
   apps: AppEntry[]
   taskId?: string | null
+  protectedPaths?: string[]
   home: string
   refreshing?: boolean
   canReveal: boolean
@@ -185,6 +187,7 @@ export function ApplicationLibrary({
             key={app.path}
             app={app}
             taskId={taskId}
+            protectedPaths={protectedPaths}
             index={indices.get(app.path)!}
             home={home}
             selected={selected.has(app.path)}

@@ -965,6 +965,7 @@ export default function App() {
                 <ApplicationLibrary
                   apps={apps}
                   taskId={appsTaskId}
+                  protectedPaths={data.settings.protectedPaths}
                   home={data.home}
                   refreshing={busy?.kind === 'apps'}
                   canReveal={api.desktop}

@@ -85,12 +85,16 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 1
+  protocol: 2
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  protection: {
+    reasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
+    matchedPaths: string[]
+  }
   running: {
     code: 'observed' | 'notObserved' | 'unknown'
     pids: number[]

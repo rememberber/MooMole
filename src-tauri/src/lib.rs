@@ -1,5 +1,6 @@
 mod app_icons;
 mod app_inspection;
+mod app_protection;
 mod clean_preview;
 mod db;
 mod descendant_rules;
@@ -346,6 +347,7 @@ async fn application_icon(
 }
 #[tauri::command]
 async fn inspect_application(
+    app: tauri::AppHandle,
     task_id: String,
     index: usize,
     state: tauri::State<'_, AppState>,
@@ -360,7 +362,21 @@ async fn inspect_application(
         .map_err(|_| "无法读取应用清单。")?
         .app_target(&task_id, index)
         .ok_or("这份应用清单已不可用，请重新读取列表。")?;
-    app_inspection::load(path, bundle_id, state.inspection_slots.clone()).await
+    let mut result =
+        app_inspection::load(path.clone(), bundle_id, state.inspection_slots.clone()).await?;
+    // Read after the asynchronous observation: a newly saved directory must not
+    // be missed because a filesystem/AppKit read took longer than the settings save.
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护目录。")?)?;
+    let executable = std::env::current_exe().ok();
+    result.attach_protection(
+        &path,
+        executable
+            .as_deref()
+            .and_then(app_protection::containing_app),
+        &app.config().identifier,
+        &settings.protected_paths,
+    )?;
+    Ok(result)
 }
 
 #[tauri::command]

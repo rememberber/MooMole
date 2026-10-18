@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 1,
+  protocol: 2,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
+  protection: { reasons: [] as string[], matchedPaths: [] as string[] },
   running: {
     code: 'observed',
     pids: [17],
@@ -33,7 +34,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 2 },
+      { protocol: 3 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -70,5 +71,30 @@ describe('application inspection boundary', () => {
       { ...valid().running, code: 'notRunning' },
     ])
       expect(() => parse({ ...valid(), running })).toThrow()
+  })
+  it('keeps guards separate from unknown ownership and rejects malformed or contradictory guards', () => {
+    expect(parse(valid()).protection.reasons).toEqual([])
+    for (const reason of ['systemLocation', 'currentApplication'])
+      expect(
+        parse({ ...valid(), protection: { reasons: [reason], matchedPaths: [] } }).protection
+          .reasons,
+      ).toEqual([reason])
+    const protection = { reasons: ['clientDirectory'], matchedPaths: ['/Applications'] }
+    expect(parse({ ...valid(), protection }).protection.matchedPaths).toEqual(['/Applications'])
+    for (const invalid of [
+      undefined,
+      null,
+      {},
+      { reasons: ['safeToUninstall'], matchedPaths: [] },
+      { reasons: ['currentApplication', 'currentApplication'], matchedPaths: [] },
+      { reasons: ['clientDirectory'], matchedPaths: [] },
+      { reasons: [], matchedPaths: ['/Applications'] },
+      { ...protection, matchedPaths: ['relative'] },
+      { ...protection, matchedPaths: ['/Applications/../elsewhere'] },
+      { ...protection, matchedPaths: ['/bad\npath'] },
+      { ...protection, matchedPaths: ['/Applications', '/Applications'] },
+      { ...protection, matchedPaths: Array.from({ length: 101 }, (_, i) => `/app${i}`) },
+    ])
+      expect(() => parse({ ...valid(), protection: invalid })).toThrow('无法识别')
   })
 })

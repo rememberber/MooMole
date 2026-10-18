@@ -25,10 +25,10 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 
 使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
 
-协议 v1 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）及 running（observed/notObserved/unknown、展示 PID、其他位置数与原因）。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
+协议 v2 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）及 protection（客户端命中原因/目录）。保护提示与未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 
 ## 验证与后续
 
 隔离文件系统验证 XML/binary、未知类型、标识不一致/未提供、运行路径与同标识副本、终止/无效 PID/缺位置、来源失败、符号链接/硬链接/FIFO/缺失/超大文件、外部实体及文件/Contents/应用包替换；只对自身临时目录写入。任务缓存验证原条目与 ID 绑定；前端协议和浏览器 fixture 验证未知/错误/重试、关闭重开、列表刷新后的迟到响应、一分钟较早提示和浅深色布局。真实主机验收和测试数见开发记录第四十七阶段。
 
-后续仍需精确关联数据、共享归属、系统与当前应用保护、完整活动/文件占用、退出提示与取消、拒绝退出/自动重启、计划和逐项执行。当前检查不提供卸载按钮或自动退出行为，也不替代 Mole 规则与执行前复核。
+后续仍需精确关联数据、共享归属、完整 Mole 卸载保护规则、完整活动/文件占用、退出提示与取消、拒绝退出/自动重启、计划和逐项执行。客户端系统目录/自身/保护目录已补充只读提示，当前检查不提供卸载按钮或自动退出行为，也不替代 Mole 规则与执行前复核。

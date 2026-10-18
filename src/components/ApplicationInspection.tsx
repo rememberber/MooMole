@@ -81,6 +81,40 @@ export function ApplicationInspection({
       )}
       {value && (
         <>
+          <p>
+            <strong>
+              {stale && '较早保护结果 · '}
+              {value.protection.reasons.length ? '已命中客户端保护' : '归属待确认'}
+            </strong>
+            {value.protection.reasons.length > 0 && ' · 当前仅供查看'}
+          </p>
+          {value.protection.reasons.length > 0 && (
+            <dl>
+              <dt>保护原因</dt>
+              <dd>
+                {value.protection.reasons
+                  .map(
+                    (reason) =>
+                      ({
+                        systemLocation: '位于系统目录',
+                        currentApplication: '当前客户端或同标识应用（未验证签名）',
+                        clientDirectory: '与已保存保护目录重叠',
+                      })[reason],
+                  )
+                  .join('；')}
+              </dd>
+              {value.protection.matchedPaths.length > 0 && (
+                <>
+                  <dt>保护目录</dt>
+                  <dd className="mono">{value.protection.matchedPaths.join('；')}</dd>
+                </>
+              )}
+            </dl>
+          )}
+          <p className="muted">
+            {value.protection.reasons.length === 0 && '未命中本次客户端保护规则。'}
+            Mole 卸载规则、共享数据和个人数据归属尚未检查。
+          </p>
           <dl>
             <dt>本地版本</dt>
             <dd>

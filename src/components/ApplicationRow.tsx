@@ -9,6 +9,7 @@ import { appSizeEstimate, appSource } from '../lib/application-library'
 export function ApplicationRow({
   app,
   taskId,
+  protectedPaths,
   index,
   home,
   selected,
@@ -18,6 +19,7 @@ export function ApplicationRow({
 }: {
   app: AppEntry
   taskId?: string | null
+  protectedPaths: string[]
   index: number
   home: string
   selected: boolean
@@ -66,7 +68,7 @@ export function ApplicationRow({
         </dl>
         {open && (
           <ApplicationInspection
-            key={`${taskId}:${index}`}
+            key={`${taskId}:${index}:${JSON.stringify(protectedPaths)}`}
             taskId={taskId}
             index={index}
             expectedId={app.bundle_id}

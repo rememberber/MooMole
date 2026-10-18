@@ -15,7 +15,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 1 ||
+    data.protocol !== 2 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -25,6 +25,24 @@ export function parseApplicationInspection(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
     )
+  )
+    return fail()
+  const protection = data.protection
+  if (
+    !protection ||
+    !Array.isArray(protection.reasons) ||
+    protection.reasons.length > 3 ||
+    new Set(protection.reasons).size !== protection.reasons.length ||
+    !protection.reasons.every((reason) =>
+      ['systemLocation', 'currentApplication', 'clientDirectory'].includes(reason),
+    ) ||
+    !Array.isArray(protection.matchedPaths) ||
+    protection.matchedPaths.length > 100 ||
+    new Set(protection.matchedPaths).size !== protection.matchedPaths.length ||
+    !protection.matchedPaths.every(
+      (path) => text(path, 4096) && path.startsWith('/') && !path.split('/').includes('..'),
+    ) ||
+    protection.reasons.includes('clientDirectory') !== protection.matchedPaths.length > 0
   )
     return fail()
   if (

@@ -14,11 +14,31 @@ async function setup(page: Page) {
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
     internal.invoke = async (command, args) => {
+      if (command === 'plugin:dialog|open') return '/Applications'
+      if (command === 'save_settings') {
+        sessionStorage.setItem('inspection-settings', JSON.stringify(args?.settings))
+        return args?.settings
+      }
       if (command !== 'inspect_application') return previous(command, args)
       const calls = JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]')
       calls.push(args)
       sessionStorage.setItem('inspection-calls', JSON.stringify(calls))
       const mode = sessionStorage.getItem('inspection-mode')
+      const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
+      const protection = {
+        reasons:
+          saved?.protectedPaths.includes('/Applications') || mode === 'protected'
+            ? ['clientDirectory']
+            : mode === 'system'
+              ? ['systemLocation']
+              : mode === 'self'
+                ? ['currentApplication']
+                : [],
+        matchedPaths:
+          saved?.protectedPaths.includes('/Applications') || mode === 'protected'
+            ? ['/Applications']
+            : [],
+      }
       if (mode === 'pending')
         while (!sessionStorage.getItem('inspection-release'))
           await new Promise((resolve) => setTimeout(resolve, 20))
@@ -28,12 +48,13 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 2 : 1,
+        protocol: mode === 'future' ? 3 : 2,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
+        protection,
         running:
           mode === 'mismatch'
             ? {
@@ -83,6 +104,8 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection.getByRole('status')).toHaveText('发现主应用运行')
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
+  await expect(inspection).toContainText('归属待确认')
+  await expect(inspection).toContainText('Mole 卸载规则、共享数据和个人数据归属尚未检查')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -136,17 +159,82 @@ test('a refreshed list discards a delayed observation from its old task', async 
   expect(calls[0].taskId).not.toBe(calls[1].taskId)
 })
 
+test('guards explain system location, current client and protected directories without claiming uninstall eligibility', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const { row, inspection } = await setup(page)
+  await row.getByText('位置与来源', { exact: true }).click()
+  for (const [mode, reason] of [
+    ['system', '位于系统目录'],
+    ['self', '当前客户端或同标识应用（未验证签名）'],
+    ['protected', '与已保存保护目录重叠'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(inspection).toContainText('已命中客户端保护 · 当前仅供查看')
+    await expect(inspection).toContainText(reason)
+    await expect(inspection).not.toContainText('归属待确认')
+    await expect(inspection).toContainText('共享数据和个人数据归属尚未检查')
+  }
+  await expect(inspection).toContainText('/Applications')
+  await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/application-protection-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+})
+
+test('saved protection changes invalidate an in-flight observation and its delayed result', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'pending'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection.getByRole('status')).toContainText('正在检查')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'other'))
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '设置', exact: true })
+  await dialog.getByRole('button', { name: '保护列表', exact: true }).click()
+  await dialog.getByRole('button', { name: '添加目录', exact: true }).click()
+  await expect(dialog.getByText('/Applications', { exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(inspection).toContainText('已命中客户端保护')
+  await expect(inspection).toContainText('/Applications')
+  await page.evaluate(() => sessionStorage.setItem('inspection-release', 'yes'))
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('inspection-completed')))
+    .toBe('2')
+  await expect(inspection).toContainText('已命中客户端保护')
+  await expect(inspection).not.toContainText('old version')
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await dialog.getByRole('button', { name: '保护列表', exact: true }).click()
+  await dialog.getByRole('button', { name: '移除保护 /Applications', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(inspection).toContainText('归属待确认')
+  await expect(inspection).not.toContainText('已命中客户端保护')
+})
+
 test('read errors and unrecognized protocol stay unknown and retry without keeping a positive result', async ({
   page,
 }) => {
   const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'protected'))
   await row.getByText('位置与来源', { exact: true }).click()
   await expect(inspection.getByRole('status')).toHaveText('发现主应用运行')
+  await expect(inspection).toContainText('已命中客户端保护')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'error'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
   await expect(inspection.getByRole('alert')).toContainText('读取超时')
   await expect(inspection.getByRole('status')).toHaveText('应用状态无法确认')
   await expect(inspection).not.toContainText('主应用 PID')
+  await expect(inspection).not.toContainText('已命中客户端保护')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'future'))
   await inspection.getByRole('button', { name: '重试检查' }).click()
   await expect(inspection.getByRole('alert')).toContainText('无法识别')
@@ -164,6 +252,7 @@ test('an open observation becomes visibly older and rechecking withdraws the old
   await expect(inspection.getByRole('status')).toHaveText('发现主应用运行')
   await page.clock.fastForward(60001)
   await expect(inspection.getByRole('status')).toHaveText('较早结果 · 发现主应用运行')
+  await expect(inspection).toContainText('较早保护结果 · 归属待确认')
   await expect(inspection).toContainText('请重新检查')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'pending'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()

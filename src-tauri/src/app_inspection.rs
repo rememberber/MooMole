@@ -13,6 +13,25 @@ pub struct Inspection {
     build: Option<String>,
     identity: &'static str,
     running: Running,
+    protection: crate::app_protection::Protection,
+}
+impl Inspection {
+    pub fn attach_protection(
+        &mut self,
+        path: &str,
+        current_app: Option<&std::path::Path>,
+        current_id: &str,
+        rules: &[String],
+    ) -> Result<(), String> {
+        self.protection = crate::app_protection::check(
+            path,
+            self.bundle_id.as_deref(),
+            current_app,
+            current_id,
+            rules,
+        )?;
+        Ok(())
+    }
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -404,13 +423,14 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 1,
+            protocol: 2,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
             build: fields.build,
             identity,
             running,
+            protection: crate::app_protection::Protection::default(),
         })
     }
     pub(super) fn inspect(path: &str, expected: &str) -> Result<Inspection, String> {
