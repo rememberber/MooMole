@@ -1365,6 +1365,17 @@ h3 {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+.application-inspection {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-bottom: 14px;
+}
+.application-inspection p + p {
+  margin-top: 5px;
+}
+.application-inspection > .button {
+  margin-top: 10px;
+}
 .application-footer {
   display: flex;
   flex-wrap: wrap;

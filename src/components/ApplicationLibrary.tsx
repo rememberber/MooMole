@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, Search } from 'lucide-react'
-import { ApplicationIcon } from './ApplicationIcon'
+import { Search } from 'lucide-react'
+import { ApplicationRow } from './ApplicationRow'
 import type { AppEntry } from '../types'
-import { shortPath } from '../lib/format'
-import {
-  appEstimateLabel,
-  appSizeEstimate,
-  appSource,
-  compareApps,
-} from '../lib/application-library'
+import { appEstimateLabel, appSizeEstimate, compareApps } from '../lib/application-library'
 
 export function ApplicationLibrary({
   apps,
@@ -187,53 +181,17 @@ export function ApplicationLibrary({
       </div>
       <div className="application-results" aria-label="应用结果">
         {visible.map((app) => (
-          <article
-            className="application-item"
+          <ApplicationRow
             key={app.path}
-            aria-label={`${app.name} · ${app.path}`}
-          >
-            <div className="app-row">
-              <input
-                type="checkbox"
-                aria-label={`对比 ${app.path}`}
-                checked={selected.has(app.path)}
-                onChange={(event) => toggle([app.path], event.target.checked)}
-              />
-              <ApplicationIcon taskId={taskId} index={indices.get(app.path)!} />
-              <div className="app-info">
-                <strong>{app.name}</strong>
-                <small className="mono">{shortPath(app.path, home)}</small>
-              </div>
-              <span className="tag">{appSource(app.source)}</span>
-              <span className="app-size">
-                {appSizeEstimate(app.size) == null ? '大小未知' : app.size}
-              </span>
-            </div>
-            <details className="application-details">
-              <summary>位置与来源</summary>
-              <dl>
-                <dt>完整路径</dt>
-                <dd className="mono">{app.path}</dd>
-                <dt>Bundle ID</dt>
-                <dd className="mono">{app.bundle_id || '未提供'}</dd>
-                <dt>Mole 来源</dt>
-                <dd>{app.source || '未提供'}</dd>
-                {appSizeEstimate(app.size) == null && (
-                  <>
-                    <dt>Mole 大小标记</dt>
-                    <dd>{app.size || '未提供'}</dd>
-                  </>
-                )}
-              </dl>
-              <button
-                className="button secondary compact"
-                disabled={!canReveal}
-                onClick={() => onReveal(app.path)}
-              >
-                <ExternalLink size={13} />在 Finder 中显示
-              </button>
-            </details>
-          </article>
+            app={app}
+            taskId={taskId}
+            index={indices.get(app.path)!}
+            home={home}
+            selected={selected.has(app.path)}
+            onSelect={(checked) => toggle([app.path], checked)}
+            canReveal={canReveal}
+            onReveal={onReveal}
+          />
         ))}
         {!visible.length && (
           <div className="empty-inline">

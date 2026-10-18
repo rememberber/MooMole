@@ -1,4 +1,5 @@
 mod app_icons;
+mod app_inspection;
 mod clean_preview;
 mod db;
 mod descendant_rules;
@@ -49,6 +50,7 @@ struct AppState {
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     results: Arc<Mutex<tasks::Results>>,
     icon_slots: Arc<tokio::sync::Semaphore>,
+    inspection_slots: Arc<tokio::sync::Semaphore>,
     engine_root: PathBuf,
     home: PathBuf,
     // 0 accepts tasks, 1 drains cancellations, 2 permits the final exit.
@@ -342,6 +344,25 @@ async fn application_icon(
     }
     .await)
 }
+#[tauri::command]
+async fn inspect_application(
+    task_id: String,
+    index: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<app_inspection::Inspection, String> {
+    if state.shutdown.load(Ordering::SeqCst) != 0 || state.updates.installation.active() {
+        return Err("当前暂不能检查应用状态，请稍后重试。".into());
+    }
+    uuid::Uuid::parse_str(&task_id).map_err(|_| "应用清单无效，请重新读取。")?;
+    let (path, bundle_id) = state
+        .results
+        .lock()
+        .map_err(|_| "无法读取应用清单。")?
+        .app_target(&task_id, index)
+        .ok_or("这份应用清单已不可用，请重新读取列表。")?;
+    app_inspection::load(path, bundle_id, state.inspection_slots.clone()).await
+}
+
 #[tauri::command]
 fn list_review_plans(
     state: tauri::State<'_, AppState>,
@@ -695,6 +716,7 @@ pub fn run() {
                 jobs: Arc::new(Mutex::new(HashMap::new())),
                 results: Arc::new(Mutex::new(tasks::Results::default())),
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(AtomicU8::new(0)),
@@ -712,6 +734,7 @@ pub fn run() {
             get_execution,
             get_task_snapshot,
             application_icon,
+            inspect_application,
             list_review_plans,
             create_review_plan,
             get_review_plan,

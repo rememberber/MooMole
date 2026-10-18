@@ -112,6 +112,21 @@ impl Results {
             .map(str::to_owned)
     }
 
+    pub fn app_target(&mut self, id: &str, index: usize) -> Option<(String, String)> {
+        let path = self.app_path(id, index)?;
+        let row = self
+            .entries
+            .iter()
+            .find(|e| e.snapshot.id == id)?
+            .snapshot
+            .result
+            .as_ref()?
+            .as_array()?
+            .get(index)?;
+        let bundle_id = row.get("bundle_id")?.as_str()?;
+        (bundle_id.len() <= 255).then(|| (path, bundle_id.to_owned()))
+    }
+
     pub fn get(&mut self, id: &str) -> Option<Snapshot> {
         self.prune(Instant::now());
         self.entries
@@ -224,6 +239,40 @@ mod tests {
         apps.result = None;
         cache.remember(&apps);
         assert!(cache.app_path("1", 0).is_none());
+    }
+
+    #[test]
+    fn inspection_targets_bind_the_mole_identifier_without_accepting_other_task_results() {
+        let mut cache = Results::default();
+        let mut apps = snapshot(
+            1,
+            serde_json::json!([
+                {"path":"/Applications/一.app","bundle_id":"org.example.first"},
+                {"path":"/Applications/二.app","bundle_id":""},
+                {"path":"/Applications/三.app","bundle_id":17},
+                {"path":"/Applications/四.app","bundle_id":"x".repeat(256)}
+            ]),
+        );
+        apps.kind = "apps".into();
+        cache.remember(&apps);
+        assert_eq!(
+            cache.app_target("1", 0),
+            Some(("/Applications/一.app".into(), "org.example.first".into()))
+        );
+        assert_eq!(
+            cache.app_target("1", 1),
+            Some(("/Applications/二.app".into(), "".into()))
+        );
+        for index in [2, 3, usize::MAX] {
+            assert!(cache.app_target("1", index).is_none());
+        }
+        apps.kind = "analyze".into();
+        cache.remember(&apps);
+        assert!(cache.app_target("1", 0).is_none());
+        apps.kind = "apps".into();
+        cache.remember(&apps);
+        cache.entries.back_mut().unwrap().finished = Instant::now() - TTL;
+        assert!(cache.app_target("1", 0).is_none());
     }
 
     #[test]

@@ -84,6 +84,20 @@ export interface AppEntry {
   path: string
   size: string
 }
+export interface ApplicationInspection {
+  protocol: 1
+  checkedAt: number
+  bundleId: string | null
+  version: string | null
+  build: string | null
+  identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  running: {
+    code: 'observed' | 'notObserved' | 'unknown'
+    pids: number[]
+    otherCopies: number
+    reason: string
+  }
+}
 export interface CleanupItem {
   id: string
   name: string
