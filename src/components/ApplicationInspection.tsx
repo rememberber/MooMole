@@ -225,6 +225,7 @@ export function ApplicationInspection({
                     registryUnavailable: '系统登记来源无法读取，已保留其他有效结果，请重试。',
                     listUnavailable: '本次 Mole 清单已不可用，已保留其他有效结果，请重新读取列表。',
                     limitReached: '候选或命中达到上限，结果不完整；请保留关联数据。',
+                    volumesIncomplete: '卷内安装位置检查未完整完成，请保留并查看下方原因。',
                     rootsIncomplete: '安装目录扫描未完整完成，请保留并查看下方原因。',
                     candidateUnavailable: '部分候选位置已失效、不可读或布局暂不支持，结果不完整。',
                     candidatesChanged: '部分位置在检查期间发生变化，已撤下对应结果，请重查。',
@@ -240,6 +241,18 @@ export function ApplicationInspection({
                 {value.installations.roots.firstUncertainPath && (
                   <span className="mono association-path">
                     {value.installations.roots.firstUncertainPath}
+                  </span>
+                )}
+              </p>
+            )}
+            {value.installations.volumes.code !== 'notChecked' && (
+              <p className="muted">
+                已探查 {value.installations.volumes.rootCount} 个卷入口
+                {value.installations.volumes.issue &&
+                  ` · ${{ unavailable: '部分卷无法访问或布局不支持', changed: '挂载或卷目录发生变化，请重查', limitReached: '卷扫描达到数量或时间上限', unsupportedVolume: '网络卷或自动挂载位置暂不支持，结果不完整' }[value.installations.volumes.issue]}`}
+                {value.installations.volumes.firstUncertainPath && (
+                  <span className="mono association-path">
+                    {value.installations.volumes.firstUncertainPath}
                   </span>
                 )}
               </p>
@@ -261,8 +274,9 @@ export function ApplicationInspection({
               </p>
             ))}
             <p className="muted">
-              核对 Mole 清单前 64 项、系统登记前 32 项及常用安装根最多 3 层、128 个候选；最多显示 32
-              个命中。外接卷枚举与安装收据尚未检查，未命中不代表数据独占。
+              核对 Mole 清单前 64 项、系统登记前 32 项，以及常用安装根和本地卷各最多 128
+              个候选；最多显示 32 个命中。卷内仅检查直属 App 与 Applications 下最多 3
+              层，网络卷与安装收据尚未覆盖，未命中不代表数据独占。
             </p>
           </details>
           <details className="application-associations">

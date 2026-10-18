@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 9 ||
+    data.protocol !== 10 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -41,8 +41,8 @@ export function parseApplicationInspection(
   const installations = data.installations
   if (
     !installations ||
-    installations.version !== 3 ||
-    installations.source !== 'moleListRegistryAndRoots' ||
+    installations.version !== 4 ||
+    installations.source !== 'moleListRegistryRootsAndVolumes' ||
     installations.revision !== moleUninstallRevision ||
     !Array.isArray(installations.copies) ||
     installations.copies.length > 32 ||
@@ -64,6 +64,7 @@ export function parseApplicationInspection(
               'registryUnavailable',
               'listUnavailable',
               'rootsIncomplete',
+              'volumesIncomplete',
             ].includes(installations.issue ?? ''))) ||
     (data.identity === 'different' && installations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && installations.issue !== 'identityUnavailable') ||
@@ -126,6 +127,38 @@ export function parseApplicationInspection(
       (roots.rootCount !== 0 || roots.entries !== 0 || roots.candidates !== 0)) ||
     (roots.code === 'notChecked') !== (installations.code === 'unknown') ||
     (installations.issue === 'rootsIncomplete' && roots.code !== 'partial')
+  )
+    return fail()
+  const volumes = installations.volumes
+  if (
+    !volumes ||
+    !['observed', 'partial', 'notChecked'].includes(volumes.code) ||
+    !Number.isInteger(volumes.rootCount) ||
+    volumes.rootCount < 0 ||
+    volumes.rootCount > 64 ||
+    !Number.isInteger(volumes.entries) ||
+    volumes.entries < 0 ||
+    volumes.entries > 2048 ||
+    !Number.isInteger(volumes.candidates) ||
+    volumes.candidates < 0 ||
+    volumes.candidates > 128 ||
+    volumes.candidates > volumes.entries ||
+    !(
+      volumes.firstUncertainPath === null ||
+      (text(volumes.firstUncertainPath, 4096) &&
+        (volumes.firstUncertainPath === '/Volumes' ||
+          volumes.firstUncertainPath.startsWith('/Volumes/')) &&
+        !volumes.firstUncertainPath.split('/').some((part) => part === '..' || part === '.'))
+    ) ||
+    (volumes.code === 'partial'
+      ? !['unavailable', 'changed', 'limitReached', 'unsupportedVolume'].includes(
+          volumes.issue ?? '',
+        ) || installations.code !== 'partial'
+      : volumes.issue !== null || volumes.firstUncertainPath !== null) ||
+    (volumes.code === 'notChecked' &&
+      (volumes.rootCount !== 0 || volumes.entries !== 0 || volumes.candidates !== 0)) ||
+    (volumes.code === 'notChecked') !== (installations.code === 'unknown') ||
+    (installations.issue === 'volumesIncomplete' && volumes.code !== 'partial')
   )
     return fail()
   const associations = data.associations

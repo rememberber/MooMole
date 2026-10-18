@@ -35,7 +35,7 @@
 
 ## 协议与后续
 
-应用检查协议 v9 的 associations 包含 version=1、固定 revision、observed/unknown、issue 和 entries。观测成功时必须按固定顺序返回 8 项；每项 kind、relativePath、present/notFound/unknown 和 issue 需互相一致。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v10 的 associations 包含 version=1、固定 revision、observed/unknown、issue 和 entries。观测成功时必须按固定顺序返回 8 项；每项 kind、relativePath、present/notFound/unknown 和 issue 需互相一致。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，8 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

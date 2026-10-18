@@ -56,7 +56,7 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 10 : 9,
+        protocol: mode === 'future' ? 11 : 10,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -64,8 +64,8 @@ async function setup(page: Page) {
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
         installations: {
-          version: mode === 'copiesFuture' ? 4 : 3,
-          source: 'moleListRegistryAndRoots',
+          version: mode === 'copiesFuture' ? 5 : 4,
+          source: 'moleListRegistryRootsAndVolumes',
           roots: mode?.startsWith('roots')
             ? {
                 code: 'partial',
@@ -97,11 +97,46 @@ async function setup(page: Page) {
                   candidates: 4,
                   firstUncertainPath: null,
                 },
+          volumes:
+            mode === 'mismatch'
+              ? {
+                  code: 'notChecked',
+                  issue: null,
+                  rootCount: 0,
+                  entries: 0,
+                  candidates: 0,
+                  firstUncertainPath: null,
+                }
+              : mode?.startsWith('volumes')
+                ? {
+                    code: 'partial',
+                    issue:
+                      mode === 'volumesChanged'
+                        ? 'changed'
+                        : mode === 'volumesLimit'
+                          ? 'limitReached'
+                          : 'unsupportedVolume',
+                    rootCount: 2,
+                    entries: 30,
+                    candidates: 3,
+                    firstUncertainPath: '/Volumes/Shared Disk',
+                  }
+                : {
+                    code: 'observed',
+                    issue: null,
+                    rootCount: 2,
+                    entries: 10,
+                    candidates: 2,
+                    firstUncertainPath: null,
+                  },
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode === 'mismatch'
               ? 'unknown'
-              : mode === 'copiesPartial' || mode === 'copiesChanged' || mode?.startsWith('roots')
+              : mode === 'copiesPartial' ||
+                  mode === 'copiesChanged' ||
+                  mode?.startsWith('roots') ||
+                  mode?.startsWith('volumes')
                 ? 'partial'
                 : 'observed',
           issue:
@@ -113,7 +148,9 @@ async function setup(page: Page) {
                   ? 'candidatesChanged'
                   : mode?.startsWith('roots')
                     ? 'rootsIncomplete'
-                    : null,
+                    : mode?.startsWith('volumes')
+                      ? 'volumesIncomplete'
+                      : null,
           copies: ['copiesFound', 'copiesPartial', 'sharedRelated', 'sharedChannel'].includes(
             mode ?? '',
           )
@@ -663,7 +700,7 @@ test('registered installation copies explain shared data and keep incomplete or 
   await expect(copies).toContainText('/Applications/Example Beta.app')
   await expect(copies).toContainText('版本 3.0 · 构建 70')
   await expect(copies).toContainText('可能共用关联数据，请保留')
-  await expect(copies).toContainText('外接卷枚举与安装收据尚未检查')
+  await expect(copies).toContainText('网络卷与安装收据尚未覆盖')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -769,4 +806,40 @@ test('installation-root discovery exposes inaccessible, changed and limited scop
   }
   await expect(shared.getByRole('button')).toHaveCount(0)
   await expect(shared.getByRole('checkbox')).toHaveCount(0)
+})
+
+test('volume limitations keep data retained and show network, change and budget reasons', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'volumesNetwork'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const shared = inspection.locator('.application-installations')
+  await shared.locator('summary').click()
+  await expect(shared).toContainText('检查不完整')
+  await expect(shared).toContainText('网络卷或自动挂载位置暂不支持')
+  await expect(shared).toContainText('/Volumes/Shared Disk')
+  await expect(shared).toContainText('未命中不代表数据独占')
+  for (const [mode, reason] of [
+    ['volumesChanged', '挂载或卷目录发生变化，请重查'],
+    ['volumesLimit', '卷扫描达到数量或时间上限'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(shared).toContainText(reason)
+  }
+  if ((await shared.getAttribute('open')) === null) await shared.locator('summary').click()
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await shared.screenshot({
+      path: `test-results/application-volumes-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
 })

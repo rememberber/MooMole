@@ -62,15 +62,15 @@ pub mod mac {
             Err(())
         }
     }
-    fn object(s: &libc::stat) -> (i32, u64, u16, u32) {
-        (s.st_dev, s.st_ino, s.st_mode, s.st_flags)
-    }
-    fn stamp(s: &libc::stat) -> (i32, u64, u16, u32, i64, i64, i64, i64, i64) {
+    type Object = (i32, u64, u16, u32, u32, u32);
+    fn object(s: &libc::stat) -> Object {
         (
-            s.st_dev,
-            s.st_ino,
-            s.st_mode,
-            s.st_flags,
+            s.st_dev, s.st_ino, s.st_mode, s.st_flags, s.st_uid, s.st_gid,
+        )
+    }
+    fn stamp(s: &libc::stat) -> (Object, i64, i64, i64, i64, i64) {
+        (
+            object(s),
             s.st_size,
             s.st_mtime,
             s.st_mtime_nsec,
@@ -84,6 +84,81 @@ pub mod mac {
             libc::fstatfs(file.as_raw_fd(), s.as_mut_ptr()) == 0
                 && s.assume_init().f_flags & libc::MNT_LOCAL as u32 != 0
         }
+    }
+    // Own the mount snapshot: getmntinfo's shared buffer is unsafe across workers.
+    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+    struct Mount {
+        path: PathBuf,
+        fsid: Vec<u8>,
+        flags: u32,
+        kind: String,
+        source: Vec<i8>,
+    }
+    fn mount_table(scope: &Path) -> Result<Vec<Mount>, ()> {
+        const LIMIT: usize = 256;
+        let mut buffer: Vec<libc::statfs> =
+            (0..LIMIT).map(|_| unsafe { std::mem::zeroed() }).collect();
+        let count = unsafe {
+            libc::getfsstat(
+                buffer.as_mut_ptr(),
+                std::mem::size_of_val(buffer.as_slice()) as i32,
+                libc::MNT_NOWAIT,
+            )
+        };
+        if count < 0 || count as usize >= LIMIT {
+            return Err(());
+        }
+        let mut result = Vec::new();
+        for item in buffer.into_iter().take(count as usize) {
+            fn string(bytes: &[i8]) -> Result<String, ()> {
+                let end = bytes.iter().position(|b| *b == 0).ok_or(())?;
+                String::from_utf8(bytes[..end].iter().map(|b| *b as u8).collect()).map_err(|_| ())
+            }
+            let path = PathBuf::from(string(&item.f_mntonname)?);
+            if !path.is_absolute()
+                || path
+                    .to_str()
+                    .is_none_or(|s| s.chars().any(char::is_control))
+            {
+                return Err(());
+            }
+            if !scope.starts_with(&path) && !path.starts_with(scope) {
+                continue;
+            }
+            let fsid = unsafe {
+                std::slice::from_raw_parts(
+                    (&item.f_fsid as *const libc::fsid_t).cast::<u8>(),
+                    std::mem::size_of::<libc::fsid_t>(),
+                )
+                .to_vec()
+            };
+            result.push(Mount {
+                path,
+                fsid,
+                flags: item.f_flags,
+                kind: string(&item.f_fstypename)?,
+                source: item.f_mntfromname.to_vec(),
+            });
+        }
+        result.sort();
+        Ok(result)
+    }
+    fn local_mount(path: &Path, mounts: &[Mount]) -> bool {
+        let enclosing: Vec<_> = mounts
+            .iter()
+            .filter(|m| path.starts_with(&m.path))
+            .collect();
+        !enclosing.is_empty()
+            && enclosing
+                .iter()
+                .all(|m| m.flags & libc::MNT_LOCAL as u32 != 0 && m.kind != "autofs")
+    }
+    fn internal_snapshot(name: &str, parent: &libc::stat, child: &libc::stat) -> bool {
+        name == "com.apple.TimeMachine.localsnapshots"
+            && child.st_mode & libc::S_IFMT == libc::S_IFDIR
+            && parent.st_uid == 0
+            && child.st_uid == 0
+            && parent.st_dev == child.st_dev
     }
     enum Opened {
         Directory(File),
@@ -166,6 +241,7 @@ pub mod mac {
         evidence: Vec<Evidence>,
         seen: HashSet<String>,
         started: Instant,
+        mounts: Option<(PathBuf, Vec<Mount>)>,
     }
     pub fn roots(home: &Path) -> Vec<PathBuf> {
         vec![
@@ -202,6 +278,7 @@ pub mod mac {
                 evidence: vec![],
                 seen: HashSet::new(),
                 started: Instant::now(),
+                mounts: None,
             };
             for root in roots {
                 if result.exhausted(root) {
@@ -222,6 +299,159 @@ pub mod mac {
             }
             result.observation.candidates = result.paths.len();
             result
+        }
+        pub fn begin_volumes() -> Self {
+            Self::volumes(Path::new("/Volumes"), mount_table(Path::new("/Volumes")))
+        }
+        fn volumes(root: &Path, mounts: Result<Vec<Mount>, ()>) -> Self {
+            let mut result = Self::scan(&[]);
+            let Ok(mounts) = mounts else {
+                result.partial("unavailable", root);
+                return result;
+            };
+            result.mounts = Some((root.into(), mounts));
+            let Ok(Opened::Directory(file)) = result.open(root) else {
+                result.partial("unavailable", root);
+                return result;
+            };
+            // Stages: /Volumes entries, each volume's immediate children, then
+            // only Applications (three levels) or an immediate independent App.
+            result.volume_level(root, &file, true);
+            result.observation.candidates = result.paths.len();
+            result
+        }
+        fn open(&self, path: &Path) -> Result<Opened, ()> {
+            if self
+                .mounts
+                .as_ref()
+                .is_some_and(|(_, mounts)| !local_mount(path, mounts))
+            {
+                return Err(());
+            }
+            open(path)
+        }
+        fn volume_level(&mut self, path: &Path, file: &File, container: bool) {
+            if self.exhausted(path) {
+                return;
+            }
+            let Ok(before) = stat_fd(file) else {
+                self.partial("unavailable", path);
+                return;
+            };
+            self.evidence.push(Evidence::Directory(path.into(), before));
+            let Ok(clone) = file.try_clone() else {
+                self.partial("unavailable", path);
+                return;
+            };
+            let fd = clone.into_raw_fd();
+            let pointer = unsafe { libc::fdopendir(fd) };
+            if pointer.is_null() {
+                unsafe {
+                    libc::close(fd);
+                }
+                self.partial("unavailable", path);
+                return;
+            }
+            let stream = Stream(pointer);
+            loop {
+                if self.exhausted(path) {
+                    break;
+                }
+                unsafe {
+                    *libc::__error() = 0;
+                }
+                let entry = unsafe { libc::readdir(stream.0) };
+                if entry.is_null() {
+                    if unsafe { *libc::__error() } != 0 {
+                        self.partial("unavailable", path);
+                    }
+                    break;
+                }
+                let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) };
+                if matches!(name.to_bytes(), b"." | b"..") {
+                    continue;
+                }
+                self.observation.entries += 1;
+                let Ok(text) = name.to_str() else {
+                    self.partial("unavailable", path);
+                    continue;
+                };
+                if text.chars().any(char::is_control) {
+                    self.partial("unavailable", path);
+                    continue;
+                }
+                let child = path.join(text);
+                if self
+                    .mounts
+                    .as_ref()
+                    .is_some_and(|(_, mounts)| !local_mount(&child, mounts))
+                {
+                    self.partial("unsupportedVolume", &child);
+                    continue;
+                }
+                let Ok(Some(stat)) = stat_at(file, name) else {
+                    self.partial("unavailable", &child);
+                    continue;
+                };
+                let kind = stat.st_mode & libc::S_IFMT;
+                if container {
+                    if self.observation.root_count >= 64 {
+                        self.partial("limitReached", &child);
+                        break;
+                    }
+                    self.observation.root_count += 1;
+                    // This is the exact verified internal namespace exception in Mole.
+                    if internal_snapshot(text, &before, &stat) {
+                        match self.open(&child) {
+                            Ok(Opened::Directory(dir))
+                                if stat_fd(&dir).is_ok_and(|s| stamp(&s) == stamp(&stat)) =>
+                            {
+                                self.evidence.push(Evidence::Directory(child, stat));
+                            }
+                            _ => self.partial("unavailable", &child),
+                        }
+                        continue;
+                    }
+                    if kind != libc::S_IFDIR && kind != libc::S_IFLNK {
+                        continue;
+                    }
+                    match self.open(&child) {
+                        Ok(Opened::Directory(dir)) => self.volume_level(&child, &dir, false),
+                        _ => self.partial("unavailable", &child),
+                    }
+                } else if text.to_ascii_lowercase().ends_with(".app")
+                    && (kind == libc::S_IFDIR || kind == libc::S_IFLNK)
+                {
+                    self.candidate(&child);
+                } else if text == "Applications" && kind == libc::S_IFDIR {
+                    match self.open(&child) {
+                        Ok(Opened::Directory(dir)) => self.walk(&child, &dir, 0),
+                        _ => self.partial("unavailable", &child),
+                    }
+                }
+            }
+            if stat_fd(file).map_or(true, |s| stamp(&s) != stamp(&before)) {
+                self.partial("changed", path);
+            }
+        }
+        fn candidate(&mut self, path: &Path) {
+            let Some(value) = path.to_str().filter(|s| s.len() <= 4096) else {
+                self.partial("unavailable", path);
+                return;
+            };
+            if self.seen.insert(value.to_owned()) {
+                self.paths.push(Some(value.to_owned()));
+            }
+        }
+        fn verify_mounts(&mut self, current: Result<Vec<Mount>, ()>) {
+            if let Some((scope, expected)) = &self.mounts {
+                let scope = scope.clone();
+                match current {
+                    Ok(current) if &current == expected => {}
+                    Ok(_) => self.partial("changed", &scope),
+                    Err(()) => self.partial("unavailable", &scope),
+                }
+            }
         }
         fn partial(&mut self, issue: &'static str, path: &Path) {
             self.observation.code = "partial";
@@ -296,6 +526,14 @@ pub mod mac {
                     continue;
                 }
                 let child_path = path.join(text);
+                if self
+                    .mounts
+                    .as_ref()
+                    .is_some_and(|(_, mounts)| !local_mount(&child_path, mounts))
+                {
+                    self.partial("unsupportedVolume", &child_path);
+                    continue;
+                }
                 let Ok(Some(stat)) = stat_at(file, name) else {
                     self.partial("unavailable", &child_path);
                     continue;
@@ -304,16 +542,9 @@ pub mod mac {
                 if text.to_ascii_lowercase().ends_with(".app")
                     && (kind == libc::S_IFDIR || kind == libc::S_IFLNK)
                 {
-                    if child_path.as_os_str().len() > 4096 {
-                        self.partial("unavailable", path);
-                        continue;
-                    }
-                    let value = child_path.to_str().unwrap().to_owned();
-                    if self.seen.insert(value.clone()) {
-                        self.paths.push(Some(value));
-                    }
+                    self.candidate(&child_path);
                 } else if kind == libc::S_IFDIR && depth + 1 < 3 && !text.starts_with('.') {
-                    match open(&child_path) {
+                    match self.open(&child_path) {
                         Ok(Opened::Directory(child)) => self.walk(&child_path, &child, depth + 1),
                         _ => self.partial("unavailable", &child_path),
                     }
@@ -324,15 +555,23 @@ pub mod mac {
             }
         }
         pub fn finish(mut self) -> Observation {
+            if let Some((scope, _)) = &self.mounts {
+                self.verify_mounts(mount_table(scope));
+            }
             let started = Instant::now();
             for item in std::mem::take(&mut self.evidence) {
                 if started.elapsed() > Duration::from_millis(1000) {
-                    self.partial("limitReached", Path::new("/"));
+                    let scope = self
+                        .mounts
+                        .as_ref()
+                        .map(|(scope, _)| scope.clone())
+                        .unwrap_or_else(|| PathBuf::from("/"));
+                    self.partial("limitReached", &scope);
                     break;
                 }
                 let (path, valid) = match item {
                     Evidence::Directory(path, expected) => {
-                        let valid = match open(&path) {
+                        let valid = match self.open(&path) {
                             Ok(Opened::Directory(file)) => {
                                 stat_fd(&file).is_ok_and(|s| stamp(&s) == stamp(&expected))
                             }
@@ -341,7 +580,7 @@ pub mod mac {
                         (path, valid)
                     }
                     Evidence::Missing(parent, name, expected) => {
-                        let valid = match open(&parent) {
+                        let valid = match self.open(&parent) {
                             Ok(Opened::Directory(file)) => {
                                 stat_fd(&file).is_ok_and(|s| object(&s) == object(&expected))
                                     && matches!(stat_at(&file, &name), Ok(None))
@@ -355,6 +594,9 @@ pub mod mac {
                     self.partial("changed", &path);
                 }
             }
+            if let Some((scope, _)) = &self.mounts {
+                self.verify_mounts(mount_table(scope));
+            }
             self.observation
         }
     }
@@ -362,6 +604,189 @@ pub mod mac {
     mod tests {
         use super::*;
         use std::{fs, os::unix::fs::symlink};
+        #[test]
+        fn snapshot_exception_requires_exact_namespace_root_ownership_and_same_device() {
+            let mut parent: libc::stat = unsafe { std::mem::zeroed() };
+            let mut child: libc::stat = unsafe { std::mem::zeroed() };
+            parent.st_dev = 1;
+            child.st_dev = 1;
+            child.st_mode = libc::S_IFDIR;
+            let name = "com.apple.TimeMachine.localsnapshots";
+            assert!(internal_snapshot(name, &parent, &child));
+            assert!(!internal_snapshot("other", &parent, &child));
+            child.st_dev = 2;
+            assert!(!internal_snapshot(name, &parent, &child));
+            child.st_dev = 1;
+            child.st_uid = 501;
+            assert!(!internal_snapshot(name, &parent, &child));
+            child.st_uid = 0;
+            parent.st_uid = 501;
+            assert!(!internal_snapshot(name, &parent, &child));
+            parent.st_uid = 0;
+            child.st_mode = libc::S_IFLNK;
+            assert!(!internal_snapshot(name, &parent, &child));
+        }
+        #[test]
+        fn volume_scope_finds_only_direct_apps_and_applications_children() {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            for relative in [
+                "Disk/Top.app/Contents/Helper.app",
+                "Disk/Applications/Vendor/v1/Deep.app",
+                "Disk/Applications/Vendor/v1/deeper/TooDeep.app",
+                "Disk/Elsewhere/Missed.app",
+                ".HiddenDisk/.Hidden.app",
+                "Disk/Applications/.hidden/Ignore.app",
+                "Disk/Applications/.Visible.APP",
+            ] {
+                fs::create_dir_all(root.join(relative)).unwrap();
+            }
+            let check = Check::volumes(&root, mount_table(&root));
+            let mut names: Vec<_> = check
+                .paths
+                .iter()
+                .flatten()
+                .map(|p| Path::new(p).file_name().unwrap().to_str().unwrap())
+                .collect();
+            names.sort();
+            assert_eq!(
+                names,
+                [".Hidden.app", ".Visible.APP", "Deep.app", "Top.app"]
+            );
+            assert_eq!(check.observation.root_count, 2);
+            assert_eq!(check.finish().code, "observed");
+        }
+        #[test]
+        fn volumes_reject_network_autofs_unknown_tables_and_linked_roots() {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            fs::create_dir_all(root.join("Network/Applications/Blocked.app")).unwrap();
+            let mut mounts = mount_table(&root).unwrap();
+            let mut network = mounts[0].clone();
+            network.path = root.join("Network");
+            network.flags = 0;
+            network.kind = "smbfs".into();
+            mounts.push(network.clone());
+            let mut check = Check::volumes(&root, Ok(mounts.clone()));
+            assert!(check.paths.is_empty());
+            assert_eq!(check.observation.issue, Some("unsupportedVolume"));
+            check.verify_mounts(Ok(mounts.clone()));
+            network.flags = libc::MNT_LOCAL as u32;
+            network.kind = "autofs".into();
+            assert!(!local_mount(&root.join("Network/Applications"), &[network]));
+            let unknown = Check::volumes(&root, Err(()));
+            assert_eq!(unknown.observation.issue, Some("unavailable"));
+            assert!(unknown.paths.is_empty());
+            let alias = root.join("Alias");
+            symlink(root.join("Network"), &alias).unwrap();
+            let check = Check::volumes(&root, mount_table(&root));
+            assert_eq!(check.finish().code, "partial");
+        }
+        #[test]
+        fn volume_mount_changes_replacements_and_budgets_remain_partial() {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            fs::create_dir_all(root.join("Disk/Applications/One.app")).unwrap();
+            let mut check = Check::volumes(&root, mount_table(&root));
+            let mut changed = mount_table(&root).unwrap();
+            changed[0].fsid.push(1);
+            check.verify_mounts(Ok(changed));
+            assert_eq!(check.observation.issue, Some("changed"));
+            let check = Check::volumes(&root, mount_table(&root));
+            fs::rename(root.join("Disk/Applications"), root.join("Saved")).unwrap();
+            symlink(root.join("Saved"), root.join("Disk/Applications")).unwrap();
+            assert_eq!(check.finish().issue, Some("changed"));
+            fs::remove_file(root.join("Disk/Applications")).unwrap();
+            for i in 0..65 {
+                fs::create_dir(root.join(format!("Disk{i}"))).unwrap();
+            }
+            let check = Check::volumes(&root, mount_table(&root));
+            assert_eq!(check.observation.root_count, 64);
+            assert_eq!(check.finish().issue, Some("limitReached"));
+        }
+        #[test]
+        #[ignore = "requires pinned Mole source; compares volume selection and nested app scope with original find"]
+        fn prepared_volume_scope_matches_mole_find() {
+            use std::process::Command;
+            let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+            crate::app_uninstall_rules::load(&source).unwrap();
+            let batch = fs::read_to_string(source.join("lib/uninstall/batch.sh")).unwrap();
+            let offset = batch
+                .find("uninstall_live_bundle_has_other_install() {")
+                .unwrap();
+            let start = offset + batch[offset..].find("-mindepth 1 -maxdepth 1").unwrap();
+            let expression =
+                &batch[start..start + batch[start..].find(" || volume_scan_rc=$?").unwrap()];
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            for path in [
+                "Disk/Top.app/Contents/Helper.app",
+                "Disk/Applications/Vendor/Deep.app",
+                "Disk/Elsewhere/No.app",
+                ".Hidden/.App.APP",
+            ] {
+                fs::create_dir_all(root.join(path)).unwrap();
+            }
+            symlink(root.join("Disk/Top.app"), root.join("Disk/Link.app")).unwrap();
+            let script = format!(
+                r#"set -euo pipefail
+{}
+shopt -s dotglob nullglob
+for volume in "$1"/*; do
+  while IFS= read -r -d '' scope; do
+    find "$scope" -maxdepth 3 \( -type d -name '.*' ! -iname '*.app' ! -path "$scope" -prune \) -o \( \( -type d -o -type l \) -iname '*.app' -print0 \) | while IFS= read -r -d '' app; do
+      if _uninstall_live_candidate_is_nested_app "$scope" "$app"; then continue; fi
+      printf '%s\0' "$app"
+    done
+  done < <(find "$volume" {} -print0)
+done"#,
+                crate::app_background::test_function(
+                    &batch,
+                    "_uninstall_live_candidate_is_nested_app"
+                ),
+                expression
+            );
+            let output = Command::new("/bin/bash")
+                .args(["-c", &script, "volume-scope"])
+                .arg(&root)
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .env("LC_ALL", "C")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let mut expected: Vec<_> = output
+                .stdout
+                .split(|b| *b == 0)
+                .filter(|s| !s.is_empty())
+                .map(|s| String::from_utf8(s.to_vec()).unwrap())
+                .collect();
+            // Upstream's relative predicate admits a helper when its starting
+            // root is itself an App. Our supported scope is independent Apps;
+            // the package inspector also rejects every nested App path.
+            assert!(expected
+                .iter()
+                .any(|p| p.ends_with("Top.app/Contents/Helper.app")));
+            expected.retain(|p| {
+                !Path::new(p).ancestors().skip(1).any(|parent| {
+                    parent
+                        .extension()
+                        .is_some_and(|e| e.eq_ignore_ascii_case("app"))
+                })
+            });
+            let mut actual: Vec<_> = Check::volumes(&root, mount_table(&root))
+                .paths
+                .into_iter()
+                .flatten()
+                .collect();
+            expected.sort();
+            actual.sort();
+            assert_eq!(actual, expected);
+        }
         #[test]
         fn bounded_depth_hidden_and_nested_helpers_follow_mole_scope() {
             let tmp = tempfile::tempdir().unwrap();

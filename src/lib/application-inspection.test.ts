@@ -2,21 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 9,
+  protocol: 10,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
   installations: {
-    version: 3,
-    source: 'moleListRegistryAndRoots',
+    version: 4,
+    source: 'moleListRegistryRootsAndVolumes',
     roots: {
       code: 'observed',
       issue: null,
       rootCount: 9,
       entries: 40,
       candidates: 4,
+      firstUncertainPath: null,
+    },
+    volumes: {
+      code: 'observed',
+      issue: null,
+      rootCount: 2,
+      entries: 10,
+      candidates: 2,
       firstUncertainPath: null,
     },
     revision: moleUninstallRevision,
@@ -80,7 +88,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 10 },
+      { protocol: 11 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -98,6 +106,14 @@ describe('application inspection boundary', () => {
         ...valid().installations,
         code: 'unknown',
         issue: 'identityChanged',
+        volumes: {
+          code: 'notChecked',
+          issue: null,
+          rootCount: 0,
+          entries: 0,
+          candidates: 0,
+          firstUncertainPath: null,
+        },
         roots: {
           code: 'notChecked',
           issue: null,
@@ -126,6 +142,14 @@ describe('application inspection boundary', () => {
         ...valid().installations,
         code: 'unknown',
         issue: 'identityUnavailable',
+        volumes: {
+          code: 'notChecked',
+          issue: null,
+          rootCount: 0,
+          entries: 0,
+          candidates: 0,
+          firstUncertainPath: null,
+        },
         roots: {
           code: 'notChecked',
           issue: null,
@@ -404,7 +428,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...installations, version: 4 },
+      { ...installations, version: 5 },
       { ...installations, source: 'inventory' },
       { ...installations, code: 'onlyCopy' },
       { ...installations, code: 'partial' },
@@ -499,5 +523,43 @@ describe('application inspection boundary', () => {
     expect(() =>
       parse({ ...valid(), installations: { ...partial, roots: installations.roots } }),
     ).toThrow('无法识别')
+  })
+  it('keeps volume uncertainty and limits visible and rejects contradictory or unsafe scope', () => {
+    const installations = valid().installations
+    const volumes = {
+      ...installations.volumes,
+      code: 'partial',
+      issue: 'unsupportedVolume',
+      firstUncertainPath: '/Volumes/Share',
+    }
+    const partial = { ...installations, code: 'partial', issue: 'volumesIncomplete', volumes }
+    expect(parse({ ...valid(), installations: partial }).installations.volumes.issue).toBe(
+      'unsupportedVolume',
+    )
+    for (const issue of ['unavailable', 'changed', 'limitReached'])
+      expect(
+        parse({ ...valid(), installations: { ...partial, volumes: { ...volumes, issue } } })
+          .installations.code,
+      ).toBe('partial')
+    for (const invalid of [
+      { ...volumes, rootCount: 65 },
+      { ...volumes, rootCount: -1 },
+      { ...volumes, entries: 2049 },
+      { ...volumes, candidates: 129 },
+      { ...volumes, candidates: 11 },
+      { ...volumes, code: 'observed' },
+      { ...volumes, code: 'notChecked' },
+      { ...volumes, issue: 'safe' },
+      { ...volumes, firstUncertainPath: '/VolumesFake/Share' },
+      { ...volumes, firstUncertainPath: '/Volumes/../Applications' },
+      { ...volumes, firstUncertainPath: '/Applications' },
+    ])
+      expect(() => parse({ ...valid(), installations: { ...partial, volumes: invalid } })).toThrow()
+    expect(() => parse({ ...valid(), installations: { ...installations, volumes } })).toThrow()
+    expect(() =>
+      parse({ ...valid(), installations: { ...partial, volumes: installations.volumes } }),
+    ).toThrow()
+    const absent = { ...valid(), installations: { ...installations, volumes: undefined } }
+    expect(() => parse(absent)).toThrow()
   })
 })
