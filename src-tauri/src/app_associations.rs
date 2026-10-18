@@ -3,7 +3,7 @@
 use serde::Serialize;
 use std::path::Path;
 
-const LOCATIONS: [(&str, &str, &str); 8] = [
+const LOCATIONS: [(&str, &str, &str); 16] = [
     ("support", "Library/Application Support", ""),
     ("cache", "Library/Caches", ""),
     ("logs", "Library/Logs", ""),
@@ -16,6 +16,22 @@ const LOCATIONS: [(&str, &str, &str); 8] = [
     ("container", "Library/Containers", ""),
     ("webKit", "Library/WebKit", ""),
     ("httpStorage", "Library/HTTPStorages", ""),
+    (
+        "webContent",
+        "Library/WebKit/com.apple.WebKit.WebContent",
+        "",
+    ),
+    ("httpCookies", "Library/HTTPStorages", ".binarycookies"),
+    ("cookies", "Library/Cookies", ".binarycookies"),
+    ("scripts", "Library/Application Scripts", ""),
+    ("inputMethod", "Library/Input Methods", ".app"),
+    ("autosave", "Library/Autosave Information", ""),
+    ("syncedPreferences", "Library/SyncedPreferences", ".plist"),
+    (
+        "crashReports",
+        "Library/Caches/com.plausiblelabs.crashreporter.data",
+        "",
+    ),
 ];
 
 #[derive(Debug, Serialize)]
@@ -34,16 +50,39 @@ struct Entry {
     relative_path: String,
     status: &'static str,
     issue: Option<&'static str>,
+    protection_reasons: Vec<&'static str>,
 }
 impl Observation {
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 1,
+            version: 2,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
             entries: vec![],
         }
+    }
+    pub fn attach_protection(
+        &mut self,
+        home: &Path,
+        local_id: Option<&str>,
+        current_id: &str,
+        rules: &[String],
+    ) -> Result<(), String> {
+        // Match the exact returned locations against the latest saved rules.
+        // These lexical guards are independent of existence or ownership.
+        for entry in &mut self.entries {
+            let path = home.join(&entry.relative_path);
+            entry.protection_reasons = crate::app_protection::check(
+                path.to_str().ok_or("关联保护目录无法确认，请重试。")?,
+                local_id,
+                None,
+                current_id,
+                rules,
+            )?
+            .reasons;
+        }
+        Ok(())
     }
 }
 
@@ -62,6 +101,7 @@ fn valid_id(id: &str) -> bool {
 pub mod mac {
     use super::*;
     use std::{
+        collections::HashMap,
         ffi::CString,
         fs::File,
         os::fd::{AsRawFd, FromRawFd},
@@ -70,7 +110,7 @@ pub mod mac {
     };
     const SF_DATALESS: u32 = 0x40000000;
     #[derive(PartialEq, Eq)]
-    struct Stamp(u64, u64, u16, u16, u32, i64, i64, i64, i64, i64);
+    struct Stamp(u64, u64, u16, u16, u32, u32, u32, i64, i64, i64, i64, i64);
     fn stamp(s: &libc::stat) -> Stamp {
         Stamp(
             s.st_dev as u64,
@@ -78,6 +118,8 @@ pub mod mac {
             s.st_mode,
             s.st_nlink,
             s.st_flags,
+            s.st_uid,
+            s.st_gid,
             s.st_size,
             s.st_mtime,
             s.st_mtime_nsec,
@@ -89,8 +131,11 @@ pub mod mac {
         if strict {
             stamp(a) == stamp(b)
         } else {
-            (a.st_dev, a.st_ino, a.st_mode, a.st_flags)
-                == (b.st_dev, b.st_ino, b.st_mode, b.st_flags)
+            (
+                a.st_dev, a.st_ino, a.st_mode, a.st_flags, a.st_uid, a.st_gid,
+            ) == (
+                b.st_dev, b.st_ino, b.st_mode, b.st_flags, b.st_uid, b.st_gid,
+            )
         }
     }
     fn stat_at(parent: &File, name: &CString) -> Result<Option<libc::stat>, ()> {
@@ -138,26 +183,38 @@ pub mod mac {
         issue: Option<&'static str>,
     }
     impl Probe {
-        fn begin(path: &Path, home_depth: usize) -> Self {
+        fn begin(
+            path: &Path,
+            home_depth: usize,
+            pool: &mut HashMap<std::path::PathBuf, Arc<File>>,
+        ) -> Self {
             let mut probe = Self {
                 links: vec![],
                 status: "unknown",
                 issue: Some("unavailable"),
             };
-            let fd = unsafe {
-                libc::open(
-                    c"/".as_ptr(),
-                    libc::O_RDONLY
-                        | libc::O_CLOEXEC
-                        | libc::O_DIRECTORY
-                        | libc::O_NOFOLLOW
-                        | libc::O_NONBLOCK,
-                )
+            let root = std::path::PathBuf::from("/");
+            let mut parent = if let Some(file) = pool.get(&root) {
+                file.clone()
+            } else {
+                let fd = unsafe {
+                    libc::open(
+                        c"/".as_ptr(),
+                        libc::O_RDONLY
+                            | libc::O_CLOEXEC
+                            | libc::O_DIRECTORY
+                            | libc::O_NOFOLLOW
+                            | libc::O_NONBLOCK,
+                    )
+                };
+                if fd < 0 {
+                    return probe;
+                }
+                let file = Arc::new(unsafe { File::from_raw_fd(fd) });
+                pool.insert(root.clone(), file.clone());
+                file
             };
-            if fd < 0 {
-                return probe;
-            }
-            let mut parent = Arc::new(unsafe { File::from_raw_fd(fd) });
+            let mut prefix = root;
             if !local(&parent) {
                 return probe;
             }
@@ -175,6 +232,7 @@ pub mod mac {
                 let Ok(value) = stat_at(&parent, &name) else {
                     return probe;
                 };
+                prefix.push(part);
                 let mut link = Link {
                     parent: parent.clone(),
                     name,
@@ -201,28 +259,33 @@ pub mod mac {
                     return probe;
                 }
                 if !last {
-                    let fd = unsafe {
-                        libc::openat(
-                            parent.as_raw_fd(),
-                            link.name.as_ptr(),
-                            libc::O_RDONLY
-                                | libc::O_CLOEXEC
-                                | libc::O_DIRECTORY
-                                | libc::O_NOFOLLOW
-                                | libc::O_NONBLOCK,
-                        )
+                    let file = if let Some(file) = pool.get(&prefix) {
+                        file.clone()
+                    } else {
+                        let fd = unsafe {
+                            libc::openat(
+                                parent.as_raw_fd(),
+                                link.name.as_ptr(),
+                                libc::O_RDONLY
+                                    | libc::O_CLOEXEC
+                                    | libc::O_DIRECTORY
+                                    | libc::O_NOFOLLOW
+                                    | libc::O_NONBLOCK,
+                            )
+                        };
+                        if fd < 0 {
+                            probe.links.push(link);
+                            return probe;
+                        }
+                        Arc::new(unsafe { File::from_raw_fd(fd) })
                     };
-                    if fd < 0 {
-                        probe.links.push(link);
-                        return probe;
-                    }
-                    let file = Arc::new(unsafe { File::from_raw_fd(fd) });
                     if !local(&file)
                         || fstat(&file).map_or(true, |opened| !same(&opened, s, link.strict))
                     {
                         probe.links.push(link);
                         return probe;
                     }
+                    pool.insert(prefix.clone(), file.clone());
                     link.held = Some(file.clone());
                     parent = file;
                 }
@@ -269,7 +332,9 @@ pub mod mac {
                 Some("rulesUnavailable")
             } else if !valid_id(id.unwrap()) {
                 Some("bundleIdUnsupported")
-            } else if home.to_str().is_none()
+            } else if home
+                .to_str()
+                .is_none_or(|s| s.chars().any(char::is_control))
                 || home == Path::new("/")
                 || !home.is_absolute()
                 || home.as_os_str().len() > 3072
@@ -291,6 +356,7 @@ pub mod mac {
             let id = id.unwrap();
             let mut entries = vec![];
             let mut probes = vec![];
+            let mut pool = HashMap::new();
             for (kind, root, suffix) in LOCATIONS {
                 let relative_path = format!("{root}/{id}{suffix}");
                 probes.push(Probe::begin(
@@ -298,17 +364,19 @@ pub mod mac {
                     home.components()
                         .filter(|c| matches!(c, Component::Normal(_)))
                         .count(),
+                    &mut pool,
                 ));
                 entries.push(Entry {
                     kind,
                     relative_path,
                     status: "unknown",
                     issue: Some("unavailable"),
+                    protection_reasons: vec![],
                 });
             }
             Self {
                 observation: Observation {
-                    version: 1,
+                    version: 2,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,
@@ -339,6 +407,114 @@ pub mod mac {
             .unwrap()
         }
         #[test]
+        fn expanded_locations_keep_content_and_bound_live_directory_handles() {
+            use std::collections::HashSet;
+            let temp = fixture();
+            let home = temp.path();
+            for (_, root, suffix) in LOCATIONS {
+                let path = home.join(format!("{root}/org.example.app{suffix}"));
+                fs::create_dir_all(path.parent().unwrap()).unwrap();
+                if suffix.is_empty() || suffix == ".app" {
+                    fs::create_dir_all(&path).unwrap();
+                } else {
+                    fs::write(&path, "personal state remains").unwrap();
+                }
+            }
+            let check = Check::begin(home, Some("org.example.app"), "matches", true);
+            let handles: HashSet<_> = check
+                .probes
+                .iter()
+                .flat_map(|probe| {
+                    probe.links.iter().flat_map(|link| {
+                        std::iter::once(Arc::as_ptr(&link.parent))
+                            .chain(link.held.as_ref().map(Arc::as_ptr))
+                    })
+                })
+                .collect();
+            assert!(handles.len() <= 32, "{} directory handles", handles.len());
+            let result = serde_json::to_value(check.finish()).unwrap();
+            assert!(result["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|entry| entry["status"] == "present"));
+            assert_eq!(
+                fs::read_to_string(home.join("Library/Cookies/org.example.app.binarycookies"))
+                    .unwrap(),
+                "personal state remains"
+            );
+            let check = Check::begin(home, Some("org.example.app"), "matches", true);
+            fs::rename(
+                home.join("Library/WebKit/com.apple.WebKit.WebContent/org.example.app"),
+                home.join("Library/WebKit/com.apple.WebKit.WebContent/saved"),
+            )
+            .unwrap();
+            let result = serde_json::to_value(check.finish()).unwrap();
+            assert_eq!(result["entries"][8]["issue"], "changed");
+            assert_eq!(result["entries"][1]["status"], "present");
+        }
+        #[test]
+        fn protection_matches_latest_rules_even_for_missing_locations_without_claiming_ownership() {
+            let temp = fixture();
+            let home = temp.path();
+            let cache = home.join("Library/Caches/org.example.app");
+            let rules = vec![
+                cache.join("keep").to_str().unwrap().to_owned(),
+                home.join("Library/Application Scripts")
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+                home.join("Library/Application Support/org.example.app.other")
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+            ];
+            let mut result = Check::begin(home, Some("org.example.app"), "matches", true).finish();
+            result
+                .attach_protection(home, Some("org.example.app"), "org.client.app", &rules)
+                .unwrap();
+            assert_eq!(result.entries[1].status, "notFound");
+            assert_eq!(result.entries[1].protection_reasons, ["clientDirectory"]);
+            assert_eq!(result.entries[11].protection_reasons, ["clientDirectory"]);
+            assert!(result.entries[0].protection_reasons.is_empty());
+            result
+                .attach_protection(home, Some("org.example.app"), "org.example.app", &[])
+                .unwrap();
+            assert!(result
+                .entries
+                .iter()
+                .all(|entry| entry.protection_reasons == ["currentApplication"]));
+            result
+                .attach_protection(home, Some("org.example.app"), "org.client.app", &[])
+                .unwrap();
+            assert!(result
+                .entries
+                .iter()
+                .all(|entry| entry.protection_reasons.is_empty()));
+            assert!(result
+                .attach_protection(
+                    home,
+                    Some("org.example.app"),
+                    "org.client.app",
+                    &["relative".into()]
+                )
+                .is_err());
+        }
+        #[test]
+        fn a_cached_parent_replaced_between_probes_is_never_followed() {
+            let temp = fixture();
+            let home = temp.path();
+            let path = home.join("Library/Caches/org.example.app");
+            fs::create_dir_all(&path).unwrap();
+            let mut pool = HashMap::new();
+            let first = Probe::begin(&path, home.components().count() - 1, &mut pool);
+            fs::rename(home.join("Library/Caches"), home.join("Library/old")).unwrap();
+            symlink(home.join("Library/old"), home.join("Library/Caches")).unwrap();
+            let second = Probe::begin(&path, home.components().count() - 1, &mut pool);
+            assert_eq!(first.finish(), ("unknown", Some("changed")));
+            assert_eq!(second.finish(), ("unknown", Some("unsupported")));
+        }
+        #[test]
         fn exact_locations_do_not_enumerate_similar_or_shared_names() {
             let temp = fixture();
             let home = temp.path();
@@ -351,7 +527,7 @@ pub mod mac {
             )
             .unwrap();
             let v = observe(home);
-            assert_eq!(v["entries"].as_array().unwrap().len(), 8);
+            assert_eq!(v["entries"].as_array().unwrap().len(), 16);
             assert_eq!(v["entries"][0]["status"], "present");
             assert_eq!(v["entries"][1]["status"], "notFound");
             assert_eq!(v["entries"][3]["status"], "present");

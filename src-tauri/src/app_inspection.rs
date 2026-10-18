@@ -48,6 +48,7 @@ impl Inspection {
         path: &str,
         current_app: Option<&std::path::Path>,
         current_id: &str,
+        home: &std::path::Path,
         rules: &[String],
     ) -> Result<(), String> {
         self.protection = crate::app_protection::check(
@@ -57,6 +58,8 @@ impl Inspection {
             current_id,
             rules,
         )?;
+        self.associations
+            .attach_protection(home, self.bundle_id.as_deref(), current_id, rules)?;
         Ok(())
     }
 }
@@ -1173,7 +1176,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 11,
+            protocol: 12,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,

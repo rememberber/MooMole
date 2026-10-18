@@ -389,6 +389,7 @@ async fn inspect_application(
             .as_deref()
             .and_then(app_protection::containing_app),
         &app.config().identifier,
+        &state.home,
         &settings.protected_paths,
     )?;
     Ok(result)

@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 11 ||
+    data.protocol !== 12 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -205,10 +205,18 @@ export function parseApplicationInspection(
     ['container', 'Library/Containers', ''],
     ['webKit', 'Library/WebKit', ''],
     ['httpStorage', 'Library/HTTPStorages', ''],
+    ['webContent', 'Library/WebKit/com.apple.WebKit.WebContent', ''],
+    ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+    ['cookies', 'Library/Cookies', '.binarycookies'],
+    ['scripts', 'Library/Application Scripts', ''],
+    ['inputMethod', 'Library/Input Methods', '.app'],
+    ['autosave', 'Library/Autosave Information', ''],
+    ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
+    ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
   ]
   if (
     !associations ||
-    associations.version !== 1 ||
+    associations.version !== 2 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -236,6 +244,12 @@ export function parseApplicationInspection(
         entry.kind !== locations[index]?.[0] ||
         entry.relativePath !==
           `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}` ||
+        !Array.isArray(entry.protectionReasons) ||
+        entry.protectionReasons.length > 3 ||
+        new Set(entry.protectionReasons).size !== entry.protectionReasons.length ||
+        entry.protectionReasons.some(
+          (reason) => !['systemLocation', 'currentApplication', 'clientDirectory'].includes(reason),
+        ) ||
         !['present', 'notFound', 'unknown'].includes(entry.status) ||
         (entry.status === 'unknown'
           ? !['unavailable', 'unsupported', 'changed'].includes(entry.issue ?? '')

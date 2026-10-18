@@ -85,7 +85,7 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 11
+  protocol: 12
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -142,7 +142,7 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 1
+    version: 2
     revision: string
     code: 'observed' | 'unknown'
     issue:
@@ -157,6 +157,7 @@ export interface ApplicationInspection {
       relativePath: string
       status: 'present' | 'notFound' | 'unknown'
       issue: 'unavailable' | 'unsupported' | 'changed' | null
+      protectionReasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
     }[]
   }
   background: {

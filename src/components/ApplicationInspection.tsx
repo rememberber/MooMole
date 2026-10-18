@@ -58,6 +58,8 @@ export function ApplicationInspection({
     }, 60000)
     return () => clearTimeout(timer)
   }, [value])
+  const protectedAssociations =
+    value?.associations.entries.filter((entry) => entry.protectionReasons.length > 0).length ?? 0
   const labels = {
     observed: '发现主应用运行',
     notObserved: '未发现匹配主应用',
@@ -91,14 +93,17 @@ export function ApplicationInspection({
                   ? 'Mole 要求保留'
                   : value.officialUninstaller.code === 'officialRequired'
                     ? '请使用官方卸载器'
-                    : value.installations.copies.length > 0
-                      ? '关联数据可能共用'
-                      : '归属待确认'}
+                    : protectedAssociations > 0
+                      ? '关联位置受保护'
+                      : value.installations.copies.length > 0
+                        ? '关联数据可能共用'
+                        : '归属待确认'}
             </strong>
             {(value.protection.reasons.length > 0 ||
               value.moleProtection.code === 'protected' ||
               value.background.code === 'restricted' ||
-              value.officialUninstaller.code === 'officialRequired') &&
+              value.officialUninstaller.code === 'officialRequired' ||
+              protectedAssociations > 0) &&
               ' · 当前仅供查看'}
           </p>
           {value.protection.reasons.length > 0 && (
@@ -294,6 +299,7 @@ export function ApplicationInspection({
               {value.associations.code === 'unknown'
                 ? '无法确认'
                 : `${value.associations.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.associations.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
+              {protectedAssociations > 0 && ` · ${protectedAssociations} 处受保护`}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
             {value.associations.code === 'unknown' ? (
@@ -312,7 +318,9 @@ export function ApplicationInspection({
               <>
                 <dl>
                   {value.associations.entries
-                    .filter((entry) => entry.status !== 'notFound')
+                    .filter(
+                      (entry) => entry.status !== 'notFound' || entry.protectionReasons.length > 0,
+                    )
                     .map((entry) => (
                       <div key={entry.kind}>
                         <dt>
@@ -326,13 +334,37 @@ export function ApplicationInspection({
                               container: '沙盒数据',
                               webKit: '网页数据',
                               httpStorage: '网络存储',
+                              webContent: '网页内容',
+                              httpCookies: '网络 Cookie',
+                              cookies: 'Cookie',
+                              scripts: '应用脚本',
+                              inputMethod: '输入法扩展',
+                              autosave: '自动保存',
+                              syncedPreferences: '同步设置',
+                              crashReports: '崩溃报告',
                             }[entry.kind]
                           }
                         </dt>
                         <dd>
                           {entry.status === 'present'
                             ? '发现位置 · 归属待确认'
-                            : `无法确认 · ${{ unavailable: '请检查访问权限后重试', unsupported: '链接、挂载或文件类型暂不支持', changed: '检查期间发生变化，请重查' }[entry.issue!]}`}
+                            : entry.status === 'notFound'
+                              ? '本次未发现'
+                              : `无法确认 · ${{ unavailable: '请检查访问权限后重试', unsupported: '链接、挂载或文件类型暂不支持', changed: '检查期间发生变化，请重查' }[entry.issue!]}`}
+                          {entry.protectionReasons.length > 0 && (
+                            <span className="association-path">
+                              {entry.protectionReasons
+                                .map(
+                                  (reason) =>
+                                    ({
+                                      systemLocation: '系统位置，保留',
+                                      currentApplication: '当前客户端的数据，保留',
+                                      clientDirectory: '已保存保护目录覆盖，保留',
+                                    })[reason],
+                                )
+                                .join('；')}
+                            </span>
+                          )}
                           <span className="mono association-path">~/{entry.relativePath}</span>
                         </dd>
                       </div>
@@ -345,7 +377,7 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 8
+              仅查询精确标识的 16
               个常见位置，未测量大小；完整安装副本、共享数据及个人数据归属仍待核实。
             </p>
           </details>

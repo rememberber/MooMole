@@ -56,7 +56,7 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 12 : 11,
+        protocol: mode === 'future' ? 13 : 12,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -206,7 +206,7 @@ async function setup(page: Page) {
             : [],
         },
         associations: {
-          version: mode === 'associationFuture' ? 2 : 1,
+          version: mode === 'associationFuture' ? 3 : 2,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -229,6 +229,14 @@ async function setup(page: Page) {
                   ['container', 'Library/Containers', ''],
                   ['webKit', 'Library/WebKit', ''],
                   ['httpStorage', 'Library/HTTPStorages', ''],
+                  ['webContent', 'Library/WebKit/com.apple.WebKit.WebContent', ''],
+                  ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+                  ['cookies', 'Library/Cookies', '.binarycookies'],
+                  ['scripts', 'Library/Application Scripts', ''],
+                  ['inputMethod', 'Library/Input Methods', '.app'],
+                  ['autosave', 'Library/Autosave Information', ''],
+                  ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
+                  ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
                 ].map(([kind, root, suffix], index) => ({
                   kind,
                   relativePath: `${root}/org.example.same${suffix}`,
@@ -242,6 +250,10 @@ async function setup(page: Page) {
                           : 'notFound',
                   issue:
                     mode === 'associationChanged' ? 'changed' : index === 1 ? 'unsupported' : null,
+                  protectionReasons:
+                    mode === 'associationProtected' && [0, 1, 11].includes(index)
+                      ? ['clientDirectory']
+                      : [],
                 }))
               : [],
         },
@@ -687,7 +699,7 @@ test('exact association locations stay retained, partial and revocable', async (
   await expect(associations).toContainText('发现位置 · 归属待确认')
   await expect(associations).toContainText('~/Library/Application Support/org.example.same')
   await expect(associations).toContainText('链接、挂载或文件类型暂不支持')
-  await expect(associations).toContainText('6 处常见位置本次未发现，不代表没有其他关联文件')
+  await expect(associations).toContainText('14 处常见位置本次未发现，不代表没有其他关联文件')
   await expect(associations.getByRole('checkbox')).toHaveCount(0)
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
@@ -704,7 +716,7 @@ test('exact association locations stay retained, partial and revocable', async (
   }
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationChanged'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
-  await expect(associations).toContainText('0 处发现 · 8 处无法确认')
+  await expect(associations).toContainText('0 处发现 · 16 处无法确认')
   await expect(associations).toContainText('检查期间发生变化，请重查')
   await expect(associations).not.toContainText('发现位置 · 归属待确认')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'mismatch'))
@@ -910,4 +922,40 @@ test('receipt discovery keeps failure, changes, bounds and unsupported records v
       animations: 'disabled',
     })
   }
+})
+
+test('per-location protection stays visible for found, unknown and missing data and clears after rechecking', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationProtected'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('关联位置受保护')
+  const associations = inspection.locator('.application-associations')
+  await expect(associations.locator('summary')).toContainText('3 处受保护')
+  await associations.locator('summary').click()
+  await expect(associations.getByText('已保存保护目录覆盖，保留', { exact: true })).toHaveCount(3)
+  await expect(associations).toContainText('无法确认')
+  await expect(associations).toContainText('本次未发现')
+  await expect(associations).toContainText('~/Library/Application Scripts/org.example.same')
+  await expect(associations).toContainText('16 个常见位置')
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-associated-protection-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationObserved'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).not.toContainText('处受保护')
+  await expect(associations).not.toContainText('已保存保护目录覆盖')
+  await expect(associations).not.toContainText('~/Library/Application Scripts/org.example.same')
 })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 11,
+  protocol: 12,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -47,7 +47,7 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 1,
+    version: 2,
     revision: moleUninstallRevision,
     code: 'unknown',
     issue: 'homeUnavailable',
@@ -96,7 +96,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 12 },
+      { protocol: 13 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -378,25 +378,49 @@ describe('application inspection boundary', () => {
       ['container', 'Library/Containers', ''],
       ['webKit', 'Library/WebKit', ''],
       ['httpStorage', 'Library/HTTPStorages', ''],
+      ['webContent', 'Library/WebKit/com.apple.WebKit.WebContent', ''],
+      ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+      ['cookies', 'Library/Cookies', '.binarycookies'],
+      ['scripts', 'Library/Application Scripts', ''],
+      ['inputMethod', 'Library/Input Methods', '.app'],
+      ['autosave', 'Library/Autosave Information', ''],
+      ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
+      ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
     ]
     const entries = locations.map(([kind, root, suffix], index) => ({
       kind,
       relativePath: `${root}/org.example.app${suffix}`,
       status: index === 0 ? 'present' : index === 1 ? 'unknown' : 'notFound',
       issue: index === 1 ? 'unsupported' : null,
+      protectionReasons: [] as string[],
     }))
     const associations = {
-      version: 1,
+      version: 2,
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,
       entries,
     }
     expect(parse({ ...valid(), associations }).associations.entries[0].status).toBe('present')
+    for (const status of ['present', 'notFound', 'unknown']) {
+      const entry = {
+        ...entries[0],
+        status,
+        issue: status === 'unknown' ? 'unavailable' : null,
+        protectionReasons: ['clientDirectory'],
+      }
+      expect(
+        parse({
+          ...valid(),
+          associations: { ...associations, entries: [entry, ...entries.slice(1)] },
+        }).associations.entries[0].protectionReasons,
+      ).toEqual(['clientDirectory'])
+    }
+
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 2 },
+      { ...associations, version: 3 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -408,6 +432,9 @@ describe('application inspection boundary', () => {
         { relativePath: 'Library/Application Support/../org.example.app' },
         { relativePath: 'Library/Application Support/org.other.app' },
         { status: 'owned' },
+        { protectionReasons: undefined },
+        { protectionReasons: ['safe'] },
+        { protectionReasons: ['clientDirectory', 'clientDirectory'] },
         { status: 'unknown', issue: null },
         { issue: 'changed' },
       ].map((entry) => ({
