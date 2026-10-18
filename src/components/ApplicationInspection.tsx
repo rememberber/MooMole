@@ -224,12 +224,24 @@ export function ApplicationInspection({
                     rulesUnavailable: '规则资源无法确认，请检查引擎状态后重试。',
                     registryUnavailable: '系统登记来源无法读取，已保留其他有效结果，请重试。',
                     listUnavailable: '本次 Mole 清单已不可用，已保留其他有效结果，请重新读取列表。',
-                    limitReached:
-                      '候选超过来源上限，只核对 Mole 清单前 64 项及系统登记前 32 项，结果不完整。',
+                    limitReached: '候选或命中达到上限，结果不完整；请保留关联数据。',
+                    rootsIncomplete: '安装目录扫描未完整完成，请保留并查看下方原因。',
                     candidateUnavailable: '部分候选位置已失效、不可读或布局暂不支持，结果不完整。',
                     candidatesChanged: '部分位置在检查期间发生变化，已撤下对应结果，请重查。',
                   }[value.installations.issue]
                 }
+              </p>
+            )}
+            {value.installations.roots.code !== 'notChecked' && (
+              <p className="muted">
+                已探查 {value.installations.roots.rootCount} 个常用安装根
+                {value.installations.roots.issue &&
+                  ` · ${{ unavailable: '部分目录无法访问或布局不支持', changed: '目录在检查期间发生变化，请重查', limitReached: '扫描达到数量或时间上限' }[value.installations.roots.issue]}`}
+                {value.installations.roots.firstUncertainPath && (
+                  <span className="mono association-path">
+                    {value.installations.roots.firstUncertainPath}
+                  </span>
+                )}
               </p>
             )}
             {value.installations.copies.map((copy) => (
@@ -249,8 +261,8 @@ export function ApplicationInspection({
               </p>
             ))}
             <p className="muted">
-              仅核对本次 Mole 清单前 64 项与系统登记前 32
-              项；未遍历安装目录、外接卷或安装收据。未命中不代表数据独占，签名与发布者未认证。
+              核对 Mole 清单前 64 项、系统登记前 32 项及常用安装根最多 3 层、128 个候选；最多显示 32
+              个命中。外接卷枚举与安装收据尚未检查，未命中不代表数据独占。
             </p>
           </details>
           <details className="application-associations">
@@ -321,8 +333,8 @@ export function ApplicationInspection({
               / should_protect_from_uninstall / official_uninstaller_vendor /
               uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
-              ；名称取自本次 Mole
-              清单，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
+              ；官方卸载器名称取自本次 Mole
+              清单，共享保留使用已核对路径的包名，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
             </p>
           </details>
           <dl>

@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 8 ||
+    data.protocol !== 9 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -41,11 +41,11 @@ export function parseApplicationInspection(
   const installations = data.installations
   if (
     !installations ||
-    installations.version !== 2 ||
-    installations.source !== 'launchServicesAndMoleList' ||
+    installations.version !== 3 ||
+    installations.source !== 'moleListRegistryAndRoots' ||
     installations.revision !== moleUninstallRevision ||
     !Array.isArray(installations.copies) ||
-    installations.copies.length > 96 ||
+    installations.copies.length > 32 ||
     new Set(installations.copies.map((copy) => copy?.path)).size !== installations.copies.length ||
     (installations.code === 'unknown'
       ? installations.copies.length !== 0 ||
@@ -63,6 +63,7 @@ export function parseApplicationInspection(
               'candidatesChanged',
               'registryUnavailable',
               'listUnavailable',
+              'rootsIncomplete',
             ].includes(installations.issue ?? ''))) ||
     (data.identity === 'different' && installations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && installations.issue !== 'identityUnavailable') ||
@@ -94,6 +95,37 @@ export function parseApplicationInspection(
             (copy.relation === 'relatedIdentifier')) ||
         ![copy.version, copy.build].every((v) => v === null || text(v, 128)),
     )
+  )
+    return fail()
+  const roots = installations.roots
+  if (
+    !roots ||
+    !['observed', 'partial', 'notChecked'].includes(roots.code) ||
+    !Number.isInteger(roots.rootCount) ||
+    roots.rootCount < 0 ||
+    roots.rootCount > 9 ||
+    !Number.isInteger(roots.entries) ||
+    roots.entries < 0 ||
+    roots.entries > 2048 ||
+    !Number.isInteger(roots.candidates) ||
+    roots.candidates < 0 ||
+    roots.candidates > 128 ||
+    roots.candidates > roots.entries ||
+    !(
+      roots.firstUncertainPath === null ||
+      (text(roots.firstUncertainPath, 4096) &&
+        roots.firstUncertainPath.startsWith('/') &&
+        !roots.firstUncertainPath.split('/').some((part) => part === '..' || part === '.'))
+    ) ||
+    (roots.code === 'partial'
+      ? !['unavailable', 'changed', 'limitReached'].includes(roots.issue ?? '') ||
+        installations.code !== 'partial'
+      : roots.issue !== null || roots.firstUncertainPath !== null) ||
+    (roots.code === 'observed' && roots.rootCount !== 9) ||
+    (roots.code === 'notChecked' &&
+      (roots.rootCount !== 0 || roots.entries !== 0 || roots.candidates !== 0)) ||
+    (roots.code === 'notChecked') !== (installations.code === 'unknown') ||
+    (installations.issue === 'rootsIncomplete' && roots.code !== 'partial')
   )
     return fail()
   const associations = data.associations

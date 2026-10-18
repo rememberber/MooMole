@@ -85,15 +85,15 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 8
+  protocol: 9
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
   installations: {
-    version: 2
-    source: 'launchServicesAndMoleList'
+    version: 3
+    source: 'moleListRegistryAndRoots'
     revision: string
     code: 'observed' | 'partial' | 'unknown'
     issue:
@@ -102,10 +102,19 @@ export interface ApplicationInspection {
       | 'rulesUnavailable'
       | 'registryUnavailable'
       | 'listUnavailable'
+      | 'rootsIncomplete'
       | 'limitReached'
       | 'candidateUnavailable'
       | 'candidatesChanged'
       | null
+    roots: {
+      code: 'observed' | 'partial' | 'notChecked'
+      issue: 'unavailable' | 'changed' | 'limitReached' | null
+      rootCount: number
+      entries: number
+      candidates: number
+      firstUncertainPath: string | null
+    }
     copies: {
       path: string
       bundleId: string

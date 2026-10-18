@@ -1,5 +1,6 @@
 mod app_associations;
 mod app_background;
+mod app_discovery;
 mod app_icons;
 mod app_inspection;
 mod app_protection;

@@ -4,13 +4,13 @@
 
 ## 发现范围
 
-候选来自同一成功 Mole apps 任务的前 64 项，以及 NSWorkspace URLsForApplicationsWithBundleIdentifier 返回的前 32 个系统登记位置。两来源先限额再去重；分别最多取 65/33 项判断超限，不把多余项视为不存在。总候选预算至多 96，当前对象不重复计入结果。
+候选来自同一成功 Mole apps 任务的前 64 项，以及 NSWorkspace URLsForApplicationsWithBundleIdentifier 返回的前 32 个系统登记位置。两来源先限额再去重；分别最多取 65/33 项判断超限，不把多余项视为不存在。另有常用安装根最多 128 个候选，总输入至多 224；最终最多显示 32 个共享命中。
 
 Mole 清单路径由后端根据原 taskId/index 所在任务取得，不接受前端路径/ID/HOME 覆盖。不用其他清单条目的缓存 ID、显示名称或来源字段判断共享；每个候选重新读取实际 Info.plist。异常行保留未知占位，超限、失效和来源错误产生 partial。清单过期/淘汰仍按原机制要求重新读取，取得上下文后不将后续缓存变化当成持久授权。
 
 系统登记查询只使用所选包的新鲜本地 ID；当前身份不同/不可用或规则资源不可用不查询任何候选。Mole 未报告 ID 时保留未比对说明。查询 API 由系统决定覆盖范围，不能承诺包含所有大小写变体、未登记的新副本或已离线位置。登记位置若在已挂载本地外接卷，仍可按精确路径核对；没有枚举所有卷。
 
-这两份来源都不代表完整安装扫描。Mole 清单本身可能缓存/去重/省略路径；固定 uninstall_live_bundle_has_other_install 还有安装根、Homebrew Caskroom、Setapp/PlayCover、外接卷和安装收据扫描。本轮未适配这些完整发现流程，未命中不能证明数据独占。
+这两份来源都不代表完整安装扫描。Mole 清单本身可能缓存/去重/省略路径；固定 uninstall_live_bundle_has_other_install 还有安装根、Homebrew Caskroom、Setapp/PlayCover、外接卷和安装收据扫描。常用安装根已补充有界发现，完整卷与收据流程仍待完成，未命中不能证明数据独占。
 
 ## Mole 保留语义
 
@@ -30,18 +30,20 @@ Mole 清单路径由后端根据原 taskId/index 所在任务取得，不接受�
 
 只接受有界、无控制字符、可读取的本地绝对 .app 路径，拒绝可识别链接、网络/已知 dataless 布局和嵌套辅助应用。复用 Bundle/Evidence 的本地目录、单链接 Info.plist、最多 1MiB XML/binary 读取和复核；平面 PlayCover、Wrapper 等布局仍可能无法读取。
 
-先按路径、再按设备/inode 去重，排除当前对象。保留候选目录、Contents/Info.plist 句柄和元数据，包括未命中候选；返回前再次核对。变化项撤下，有效其他项继续展示；当前所选包变化仍整份拒绝。没有重新查询全部登记状态，读取不是事务，返回后仍可能变化，不能用于执行前身份凭据。
+先按路径、再按设备/inode 去重，排除当前对象。命中项保留候选目录、Contents/Info.plist 句柄和元数据；未命中保存三个元数据快照并释放句柄，返回前重新无链接打开复核。变化项撤下，有效其他项继续展示；当前所选包变化仍整份拒绝。没有重新查询全部登记状态，读取不是事务，返回后仍可能变化，不能用于执行前身份凭据。
 
 - observed 仅表示本次有界来源集合已核对，不表示全机安装扫描完整。
 - partial 表示来源失败/不可用、超限、候选不可读取或变化。折叠摘要直接标出检查不完整，可保留已核实的其他有效命中；没有结果时也不能断言没有其他应用。
 - unknown 表示所选身份或固定规则资源不可用，不携带命中。
 
-沿用 2 个实际工作器和 5 秒停止等待，实际阻塞操作结束前持有名额。没有新增 Shell、子进程、目录遍历、Launch Services 注册、目标应用启动/终止、权限修改、提权、数据库写入或额外历史。
+沿用 2 个实际工作器和 5 秒停止等待，实际阻塞操作结束前持有名额。常用安装根按独立数量和时间预算遍历，没有新增 Shell、子进程、Launch Services 注册、目标应用启动/终止、权限修改、提权、数据库写入或额外历史。
 
 ## 协议与后续
 
-应用检查协议 v8 的 installations 升为 version=2，source=launchServicesAndMoleList，增加固定 revision；copies 至多 96 项，每项 path、bundleId、version/build 及 relation。registryUnavailable/listUnavailable 归为 partial，允许保留另一来源的有效命中。前端校验精确版本/来源/修订、身份关系、数量/去重、路径、有界 ASCII ID、relation 与 ID 边界的一致性；channelName 的包名依据由后端固定规则验证，不由前端重建另一套后缀规则。
+应用检查协议 v9 的 installations 升为 version=3，source=moleListRegistryAndRoots，增加固定 revision；copies 至多 32 项，每项 path、bundleId、version/build 及 relation。registryUnavailable/listUnavailable 归为 partial，允许保留另一来源的有效命中。前端校验精确版本/来源/修订、身份关系、数量/去重、路径、有界 ASCII ID、relation 与 ID 边界的一致性；channelName 的包名依据由后端固定规则验证，不由前端重建另一套后缀规则。
 
 未知协议/矛盾结果整体拒绝；重查撤下旧观察、一分钟较早提示、任务绑定、保护设置变更后重查和迟到响应处理沿用原机制。
 
 完整 Mole 安装根/卷/收据发现、完整关联候选与保护、个人数据默认保留的计划交互、退出协调和执行前复核仍待完成，见 [发布路线图](release-roadmap.md) 和 [精确关联位置](application-associations.md)。
+
+常用安装根的三层范围、数量/时间预算、目录变化与 roots 字段见 [安装根发现](application-discovery.md)。完整外接卷枚举和安装收据仍待完成。

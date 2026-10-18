@@ -29,6 +29,7 @@ struct Installations {
     code: &'static str,
     issue: Option<&'static str>,
     copies: Vec<InstalledCopy>,
+    roots: crate::app_discovery::Observation,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -510,9 +511,36 @@ mod mac {
             })
         }
         struct Candidate {
-            bundle: Bundle,
-            evidence: Evidence,
+            path: PathBuf,
+            root_meta: Metadata,
+            contents_meta: Metadata,
+            plist_meta: Metadata,
+            held: Option<(Bundle, Evidence)>,
             copy: Option<InstalledCopy>,
+        }
+        impl Candidate {
+            fn verify(&self) -> bool {
+                if let Some((bundle, evidence)) = &self.held {
+                    return evidence.verify(bundle);
+                }
+                let Ok(mut bundle) = Bundle::open(self.path.to_str().unwrap_or("")) else {
+                    return false;
+                };
+                let Ok(contents) = child(&bundle.root, c"Contents", true) else {
+                    return false;
+                };
+                let Ok(plist) = child(&contents, c"Info.plist", false) else {
+                    return false;
+                };
+                bundle.metadata = self.root_meta.clone();
+                Evidence {
+                    contents,
+                    plist,
+                    contents_meta: self.contents_meta.clone(),
+                    plist_meta: self.plist_meta.clone(),
+                }
+                .verify(&bundle)
+            }
         }
         pub(super) struct Check {
             observation: Installations,
@@ -529,6 +557,7 @@ mod mac {
             ) -> Self {
                 Self::begin_sources(selected, id, identity, rules_ready, query, Some(vec![]))
             }
+            #[cfg(test)]
             pub(super) fn begin_sources(
                 selected: &Bundle,
                 id: Option<&str>,
@@ -536,6 +565,25 @@ mod mac {
                 rules_ready: bool,
                 query: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
                 mole_paths: Option<Vec<Option<String>>>,
+            ) -> Self {
+                Self::begin_all_sources(
+                    selected,
+                    id,
+                    identity,
+                    rules_ready,
+                    query,
+                    mole_paths,
+                    vec![],
+                )
+            }
+            pub(super) fn begin_all_sources(
+                selected: &Bundle,
+                id: Option<&str>,
+                identity: &str,
+                rules_ready: bool,
+                query: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+                mole_paths: Option<Vec<Option<String>>>,
+                root_paths: Vec<Option<String>>,
             ) -> Self {
                 let issue = if identity == "different" {
                     Some("identityChanged")
@@ -548,12 +596,13 @@ mod mac {
                 };
                 let mut result = Self {
                     observation: Installations {
-                        version: 2,
-                        source: "launchServicesAndMoleList",
+                        version: 3,
+                        source: "moleListRegistryAndRoots",
                         revision: crate::engine::REVISION,
                         code: "unknown",
                         issue,
                         copies: vec![],
+                        roots: crate::app_discovery::Observation::not_checked(),
                     },
                     candidates: vec![],
                 };
@@ -593,6 +642,7 @@ mod mac {
                     .into_iter()
                     .take(LIMIT)
                     .chain(mole_paths.into_iter().take(64))
+                    .chain(root_paths.into_iter().take(128))
                 {
                     let Some(path) = path else {
                         result.partial("candidateUnavailable");
@@ -644,11 +694,30 @@ mod mac {
                             None
                         }
                     };
-                    result.candidates.push(Candidate {
-                        bundle,
-                        evidence,
+                    if copy.is_some()
+                        && result
+                            .candidates
+                            .iter()
+                            .filter(|c| c.copy.is_some())
+                            .count()
+                            >= 32
+                    {
+                        result.partial("limitReached");
+                        break;
+                    }
+                    let candidate = Candidate {
+                        path: bundle.path.clone(),
+                        root_meta: bundle.metadata.clone(),
+                        contents_meta: evidence.contents_meta.clone(),
+                        plist_meta: evidence.plist_meta.clone(),
+                        held: if copy.is_some() {
+                            Some((bundle, evidence))
+                        } else {
+                            None
+                        },
                         copy,
-                    });
+                    };
+                    result.candidates.push(candidate);
                 }
                 result
             }
@@ -659,7 +728,7 @@ mod mac {
             pub(super) fn finish(mut self) -> Installations {
                 let candidates = std::mem::take(&mut self.candidates);
                 for candidate in candidates {
-                    if !candidate.evidence.verify(&candidate.bundle) {
+                    if !candidate.verify() {
                         self.partial("candidatesChanged");
                         continue;
                     }
@@ -682,6 +751,69 @@ mod mac {
             }
             fn value(check: Check) -> serde_json::Value {
                 serde_json::to_value(check.finish()).unwrap()
+            }
+            #[test]
+            fn root_only_candidates_are_verified_and_scope_changes_remain_partial() {
+                let tmp = tempfile::tempdir().unwrap();
+                let root = tmp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let other = fixture(&root, "Other", "org.example.app.share");
+                let scan = crate::app_discovery::mac::Check::for_test(std::slice::from_ref(&root));
+                let check = Check::begin_all_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![]),
+                    Some(vec![]),
+                    scan.paths.clone(),
+                );
+                std::fs::write(root.join("neighbor"), "fixture").unwrap();
+                let v = value(check);
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+                assert_eq!(v["copies"][0]["path"], other.to_str().unwrap());
+                assert_eq!(scan.finish().issue, Some("changed"));
+            }
+            #[test]
+            fn negative_snapshots_release_handles_and_recheck_changes_and_match_limits() {
+                let tmp = tempfile::tempdir().unwrap();
+                let root = tmp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let other = fixture(&root, "Other", "org.unrelated.app");
+                let check = Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![Some(other.to_str().unwrap().into())]),
+                    Some(vec![]),
+                );
+                assert!(check.candidates.iter().all(|c| c.held.is_none()));
+                std::fs::write(other.join("Contents/Info.plist"), "changed").unwrap();
+                assert_eq!(value(check)["issue"], "candidatesChanged");
+                let paths = (0..33)
+                    .map(|i| {
+                        Some(
+                            fixture(&root, &format!("Copy{i}"), "org.example.app")
+                                .to_str()
+                                .unwrap()
+                                .to_owned(),
+                        )
+                    })
+                    .collect();
+                let v = value(Check::begin_all_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![]),
+                    Some(vec![]),
+                    paths,
+                ));
+                assert_eq!(v["copies"].as_array().unwrap().len(), 32);
+                assert_eq!(v["issue"], "limitReached");
             }
             #[test]
             fn combines_bound_mole_paths_with_registry_and_explains_retention_matches() {
@@ -926,6 +1058,7 @@ mod mac {
             rules_ready,
             registry,
             Some(vec![]),
+            false,
         )
     }
     fn inspect_context_with_sources(
@@ -937,6 +1070,7 @@ mod mac {
         rules_ready: bool,
         registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
         candidates: Option<Vec<Option<String>>>,
+        scan_roots: bool,
     ) -> Result<Inspection, String> {
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
@@ -960,13 +1094,23 @@ mod mac {
             identity,
             rules_ready,
         );
-        let installations = copies::Check::begin_sources(
+        let root_scan = (scan_roots
+            && rules_ready
+            && matches!(identity, "matches" | "unreported")
+            && fields.id.is_some())
+        .then(|| crate::app_discovery::mac::Check::begin(home));
+        let root_paths = root_scan
+            .as_ref()
+            .map(|check| check.paths.clone())
+            .unwrap_or_default();
+        let installations = copies::Check::begin_all_sources(
             &bundle,
             fields.id.as_deref(),
             identity,
             rules_ready,
             registry,
             candidates,
+            root_paths,
         );
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
@@ -981,12 +1125,19 @@ mod mac {
         hook();
         let background = background.finish();
         let associations = associations.finish();
-        let installations = installations.finish();
+        let mut installations = installations.finish();
+        installations.roots = root_scan
+            .map(|scan| scan.finish())
+            .unwrap_or_else(crate::app_discovery::Observation::not_checked);
+        if installations.roots.code == "partial" && installations.code == "observed" {
+            installations.code = "partial";
+            installations.issue = Some("rootsIncomplete");
+        }
         if !evidence.verify(&bundle) {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 8,
+            protocol: 9,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -1035,6 +1186,7 @@ mod mac {
             rules_ready,
             copies::registered,
             candidates,
+            true,
         )
     }
     #[cfg(test)]

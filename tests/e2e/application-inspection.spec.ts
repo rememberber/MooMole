@@ -56,7 +56,7 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 9 : 8,
+        protocol: mode === 'future' ? 10 : 9,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -64,13 +64,44 @@ async function setup(page: Page) {
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
         installations: {
-          version: mode === 'copiesFuture' ? 3 : 2,
-          source: 'launchServicesAndMoleList',
+          version: mode === 'copiesFuture' ? 4 : 3,
+          source: 'moleListRegistryAndRoots',
+          roots: mode?.startsWith('roots')
+            ? {
+                code: 'partial',
+                issue:
+                  mode === 'rootsChanged'
+                    ? 'changed'
+                    : mode === 'rootsLimit'
+                      ? 'limitReached'
+                      : 'unavailable',
+                rootCount: mode === 'rootsLimit' ? 3 : 9,
+                entries: mode === 'rootsLimit' ? 2048 : 200,
+                candidates: 80,
+                firstUncertainPath: '/Applications',
+              }
+            : mode === 'mismatch'
+              ? {
+                  code: 'notChecked',
+                  issue: null,
+                  rootCount: 0,
+                  entries: 0,
+                  candidates: 0,
+                  firstUncertainPath: null,
+                }
+              : {
+                  code: 'observed',
+                  issue: null,
+                  rootCount: 9,
+                  entries: 40,
+                  candidates: 4,
+                  firstUncertainPath: null,
+                },
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode === 'mismatch'
               ? 'unknown'
-              : mode === 'copiesPartial' || mode === 'copiesChanged'
+              : mode === 'copiesPartial' || mode === 'copiesChanged' || mode?.startsWith('roots')
                 ? 'partial'
                 : 'observed',
           issue:
@@ -80,7 +111,9 @@ async function setup(page: Page) {
                 ? 'candidateUnavailable'
                 : mode === 'copiesChanged'
                   ? 'candidatesChanged'
-                  : null,
+                  : mode?.startsWith('roots')
+                    ? 'rootsIncomplete'
+                    : null,
           copies: ['copiesFound', 'copiesPartial', 'sharedRelated', 'sharedChannel'].includes(
             mode ?? '',
           )
@@ -630,7 +663,7 @@ test('registered installation copies explain shared data and keep incomplete or 
   await expect(copies).toContainText('/Applications/Example Beta.app')
   await expect(copies).toContainText('版本 3.0 · 构建 70')
   await expect(copies).toContainText('可能共用关联数据，请保留')
-  await expect(copies).toContainText('未遍历安装目录、外接卷或安装收据')
+  await expect(copies).toContainText('外接卷枚举与安装收据尚未检查')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -674,7 +707,7 @@ test('Mole retention reasons distinguish derived identifiers and channel names w
   await shared.locator('summary').click()
   await expect(inspection).toContainText('关联数据可能共用')
   await expect(shared).toContainText('派生标识，需保留关联数据')
-  await expect(shared).toContainText('仅核对本次 Mole 清单前 64 项与系统登记前 32 项')
+  await expect(shared).toContainText('核对 Mole 清单前 64 项、系统登记前 32 项')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'sharedChannel'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
   await shared.locator('summary').click()
@@ -696,4 +729,44 @@ test('Mole retention reasons distinguish derived identifiers and channel names w
   }
   await expect(shared.getByRole('checkbox')).toHaveCount(0)
   await expect(shared.getByRole('button')).toHaveCount(0)
+})
+
+test('installation-root discovery exposes inaccessible, changed and limited scope without clearing retention', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'rootsUnavailable'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const shared = inspection.locator('.application-installations')
+  await shared.locator('summary').click()
+  await expect(shared.locator('summary')).toContainText('检查不完整')
+  await expect(shared).toContainText('已探查 9 个常用安装根')
+  await expect(shared).toContainText('部分目录无法访问或布局不支持')
+  await expect(shared).toContainText('/Applications')
+  await expect(shared).toContainText('本次未命中不代表数据独占')
+  for (const [mode, reason] of [
+    ['rootsChanged', '目录在检查期间发生变化，请重查'],
+    ['rootsLimit', '扫描达到数量或时间上限'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(shared.locator('summary')).toContainText('检查不完整')
+    await expect(shared).toContainText(reason)
+  }
+  if ((await shared.getAttribute('open')) === null) await shared.locator('summary').click()
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await shared.screenshot({
+      path: `test-results/application-roots-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await expect(shared.getByRole('button')).toHaveCount(0)
+  await expect(shared.getByRole('checkbox')).toHaveCount(0)
 })

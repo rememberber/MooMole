@@ -2,15 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 8,
+  protocol: 9,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
   installations: {
-    version: 2,
-    source: 'launchServicesAndMoleList',
+    version: 3,
+    source: 'moleListRegistryAndRoots',
+    roots: {
+      code: 'observed',
+      issue: null,
+      rootCount: 9,
+      entries: 40,
+      candidates: 4,
+      firstUncertainPath: null,
+    },
     revision: moleUninstallRevision,
     code: 'observed',
     issue: null,
@@ -72,7 +80,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 9 },
+      { protocol: 10 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -86,7 +94,19 @@ describe('application inspection boundary', () => {
     const mismatch = {
       ...valid(),
       identity: 'different',
-      installations: { ...valid().installations, code: 'unknown', issue: 'identityChanged' },
+      installations: {
+        ...valid().installations,
+        code: 'unknown',
+        issue: 'identityChanged',
+        roots: {
+          code: 'notChecked',
+          issue: null,
+          rootCount: 0,
+          entries: 0,
+          candidates: 0,
+          firstUncertainPath: null,
+        },
+      },
       associations: { ...valid().associations, issue: 'identityChanged' },
       background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
       officialUninstaller: {
@@ -102,7 +122,19 @@ describe('application inspection boundary', () => {
     const missing = {
       ...valid(),
       identity: 'unavailable',
-      installations: { ...valid().installations, code: 'unknown', issue: 'identityUnavailable' },
+      installations: {
+        ...valid().installations,
+        code: 'unknown',
+        issue: 'identityUnavailable',
+        roots: {
+          code: 'notChecked',
+          issue: null,
+          rootCount: 0,
+          entries: 0,
+          candidates: 0,
+          firstUncertainPath: null,
+        },
+      },
       associations: { ...valid().associations, issue: 'identityUnavailable' },
       bundleId: null,
       background: { ...valid().background, code: 'unknown', issue: 'identityUnavailable' },
@@ -372,7 +404,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...installations, version: 3 },
+      { ...installations, version: 4 },
       { ...installations, source: 'inventory' },
       { ...installations, code: 'onlyCopy' },
       { ...installations, code: 'partial' },
@@ -429,5 +461,43 @@ describe('application inspection boundary', () => {
           installations: { ...installations, copies: [{ ...copy, ...change }] },
         }),
       ).toThrow('无法识别')
+  })
+  it('keeps root-scan scope and partial budgets explicit and rejects contradictions', () => {
+    const installations = valid().installations
+    const partial = { ...installations, code: 'partial', issue: 'rootsIncomplete' }
+    const roots = {
+      ...installations.roots,
+      code: 'partial',
+      issue: 'changed',
+      firstUncertainPath: '/Applications',
+    }
+    expect(
+      parse({ ...valid(), installations: { ...partial, roots } }).installations.roots.issue,
+    ).toBe('changed')
+    for (const invalid of [
+      undefined,
+      {},
+      { ...roots, code: 'complete' },
+      { ...roots, rootCount: 10 },
+      { ...roots, rootCount: -1 },
+      { ...roots, entries: 2049 },
+      { ...roots, candidates: 129 },
+      { ...roots, candidates: 41 },
+      { ...roots, firstUncertainPath: 'relative' },
+      { ...roots, firstUncertainPath: '/Apps/../Applications' },
+      { ...roots, issue: 'safe' },
+      { ...roots, code: 'observed' },
+      { ...roots, code: 'notChecked' },
+      { ...installations.roots, rootCount: 8 },
+    ])
+      expect(() => parse({ ...valid(), installations: { ...partial, roots: invalid } })).toThrow(
+        '无法识别',
+      )
+    expect(() => parse({ ...valid(), installations: { ...installations, roots } })).toThrow(
+      '无法识别',
+    )
+    expect(() =>
+      parse({ ...valid(), installations: { ...partial, roots: installations.roots } }),
+    ).toThrow('无法识别')
   })
 })
