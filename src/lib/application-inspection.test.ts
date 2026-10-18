@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 3,
+  protocol: 4,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
   moleProtection: { version: 1, revision: moleUninstallRevision, code: 'notMatched', issue: null },
+  officialUninstaller: {
+    version: 1,
+    revision: moleUninstallRevision,
+    code: 'notMatched',
+    vendor: null,
+    issue: null,
+  },
   protection: { reasons: [] as string[], matchedPaths: [] as string[] },
   running: {
     code: 'observed',
@@ -35,7 +42,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 4 },
+      { protocol: 5 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -49,6 +56,11 @@ describe('application inspection boundary', () => {
     const mismatch = {
       ...valid(),
       identity: 'different',
+      officialUninstaller: {
+        ...valid().officialUninstaller,
+        code: 'unknown',
+        issue: 'identityChanged',
+      },
       moleProtection: { ...valid().moleProtection, code: 'unknown', issue: 'identityChanged' },
       running: { code: 'unknown', pids: [], otherCopies: 0, reason: '标识已变化。' },
     }
@@ -58,6 +70,11 @@ describe('application inspection boundary', () => {
       ...valid(),
       identity: 'unavailable',
       bundleId: null,
+      officialUninstaller: {
+        ...valid().officialUninstaller,
+        code: 'unknown',
+        issue: 'identityUnavailable',
+      },
       moleProtection: { ...valid().moleProtection, code: 'unknown', issue: 'identityUnavailable' },
       running: { code: 'unknown', pids: [], otherCopies: 0, reason: '无法读取。' },
     }
@@ -135,5 +152,37 @@ describe('application inspection boundary', () => {
         'other.id',
       ),
     ).toThrow()
+  })
+  it('validates official vendors, no-match, missing context and unknown without inventing an uninstall method', () => {
+    const base = valid().officialUninstaller
+    expect(
+      parse({
+        ...valid(),
+        officialUninstaller: { ...base, code: 'officialRequired', vendor: 'ESET' },
+      }).officialUninstaller.vendor,
+    ).toBe('ESET')
+    expect(
+      parse({
+        ...valid(),
+        officialUninstaller: { ...base, code: 'unknown', issue: 'nameUnavailable' },
+      }).officialUninstaller.code,
+    ).toBe('unknown')
+    for (const official of [
+      undefined,
+      {},
+      { ...base, version: 2 },
+      { ...base, revision: '0'.repeat(40) },
+      { ...base, code: 'allowed' },
+      { ...base, code: 'officialRequired' },
+      { ...base, code: 'officialRequired', vendor: 'Unknown vendor' },
+      { ...base, vendor: 'ESET' },
+      { ...base, code: 'unknown' },
+      { ...base, issue: 'nameUnavailable' },
+      { ...base, code: 'unknown', issue: 'other' },
+      { ...base, code: 'unknown', issue: 'nameUnavailable', vendor: 'ESET' },
+      { ...base, code: 'unknown', issue: 'identityChanged' },
+      { ...base, code: 'unknown', issue: 'identityUnavailable' },
+    ])
+      expect(() => parse({ ...valid(), officialUninstaller: official })).toThrow('无法识别')
   })
 })

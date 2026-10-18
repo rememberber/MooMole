@@ -25,7 +25,7 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 
 使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
 
-协议 v3 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）及 moleProtection（固定修订系统组件规则观察）。规则先于应用文件观察读取，资源不可用仅使 Mole 单项保持未知；检查范围、版本绑定和未完成边界见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
+协议 v4 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）及 officialUninstaller（原清单名称绑定的官方卸载器提示）。规则先于应用文件观察读取，资源不可用仅使 Mole 单项保持未知；检查范围、版本绑定和未完成边界见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 
 ## 验证与后续
 

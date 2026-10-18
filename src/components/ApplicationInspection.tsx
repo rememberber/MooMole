@@ -88,9 +88,13 @@ export function ApplicationInspection({
                 ? '已命中客户端保护'
                 : value.moleProtection.code === 'protected'
                   ? 'Mole 要求保留'
-                  : '归属待确认'}
+                  : value.officialUninstaller.code === 'officialRequired'
+                    ? '请使用官方卸载器'
+                    : '归属待确认'}
             </strong>
-            {(value.protection.reasons.length > 0 || value.moleProtection.code === 'protected') &&
+            {(value.protection.reasons.length > 0 ||
+              value.moleProtection.code === 'protected' ||
+              value.officialUninstaller.code === 'officialRequired') &&
               ' · 当前仅供查看'}
           </p>
           {value.protection.reasons.length > 0 && (
@@ -125,24 +129,33 @@ export function ApplicationInspection({
                   ? '本次未命中系统组件禁用规则'
                   : 'Mole 系统组件规则无法确认'}
             </dd>
+            <dt>卸载方式</dt>
+            <dd>
+              {value.officialUninstaller.code === 'officialRequired'
+                ? `Mole 要求使用 ${value.officialUninstaller.vendor} 官方卸载器`
+                : value.officialUninstaller.code === 'notMatched'
+                  ? '本次未命中官方卸载器限制'
+                  : '官方卸载器要求无法确认'}
+            </dd>
           </dl>
-          {value.moleProtection.issue && (
-            <p className="muted">
-              {
-                {
-                  identityChanged: '本地标识与清单不同，请重新读取应用列表。',
-                  identityUnavailable: '本地标识无法读取，请确认应用仍在原位置后重试。',
-                  rulesUnavailable: '内置规则资源未通过校验或无法读取，请检查引擎状态后重试。',
-                }[value.moleProtection.issue]
-              }
-            </p>
+          {value.officialUninstaller.code === 'officialRequired' && (
+            <p>请按厂商说明操作；组织管理的应用请联系管理员。</p>
           )}
-          <p className="muted">厂商卸载方式、后台应用条件、共享数据和个人数据归属尚未检查。</p>
+          {value.officialUninstaller.issue === 'nameUnavailable' && (
+            <p className="muted">Mole 清单名称缺失或无法识别，请重新读取列表。</p>
+          )}
+          {(value.moleProtection.issue === 'rulesUnavailable' ||
+            value.officialUninstaller.issue === 'rulesUnavailable') && (
+            <p className="muted">内置规则资源未通过校验或无法读取，请检查引擎状态后重试。</p>
+          )}
+          <p className="muted">后台应用条件、共享数据和个人数据归属尚未检查。</p>
           <details>
             <summary>规则来源</summary>
             <p className="muted">
-              Mole should_protect_from_uninstall · {value.moleProtection.revision.slice(0, 12)}
-              ；客户端目录与自身保护继续生效，未命中不代表可卸载。
+              Mole should_protect_from_uninstall / official_uninstaller_vendor ·{' '}
+              {value.moleProtection.revision.slice(0, 12)}
+              ；名称取自本次 Mole
+              清单，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
             </p>
           </details>
           <dl>

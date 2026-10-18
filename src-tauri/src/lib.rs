@@ -357,7 +357,7 @@ async fn inspect_application(
         return Err("当前暂不能检查应用状态，请稍后重试。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "应用清单无效，请重新读取。")?;
-    let (path, bundle_id) = state
+    let (path, bundle_id, name) = state
         .results
         .lock()
         .map_err(|_| "无法读取应用清单。")?
@@ -366,6 +366,7 @@ async fn inspect_application(
     let mut result = app_inspection::load(
         path.clone(),
         bundle_id,
+        name,
         state.engine_root.clone(),
         state.inspection_slots.clone(),
     )

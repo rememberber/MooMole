@@ -29,6 +29,7 @@ async function setup(page: Page) {
         reasons:
           saved?.protectedPaths.includes('/Applications') ||
           mode === 'protected' ||
+          mode === 'officialProtected' ||
           mode === 'moleUnknownProtected'
             ? ['clientDirectory']
             : mode === 'system'
@@ -39,6 +40,7 @@ async function setup(page: Page) {
         matchedPaths:
           saved?.protectedPaths.includes('/Applications') ||
           mode === 'protected' ||
+          mode === 'officialProtected' ||
           mode === 'moleUnknownProtected'
             ? ['/Applications']
             : [],
@@ -52,13 +54,32 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 4 : 3,
+        protocol: mode === 'future' ? 5 : 4,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        officialUninstaller: {
+          version: mode === 'officialFuture' ? 2 : 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode === 'mismatch' || mode?.startsWith('moleUnknown') || mode === 'officialMissingName'
+              ? 'unknown'
+              : mode === 'official' || mode === 'officialProtected'
+                ? 'officialRequired'
+                : 'notMatched',
+          vendor: mode === 'official' || mode === 'officialProtected' ? 'ESET' : null,
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode?.startsWith('moleUnknown')
+                ? 'rulesUnavailable'
+                : mode === 'officialMissingName'
+                  ? 'nameUnavailable'
+                  : null,
+        },
         moleProtection: {
           version: mode === 'moleFuture' ? 2 : 1,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
@@ -125,9 +146,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText(
-    '厂商卸载方式、后台应用条件、共享数据和个人数据归属尚未检查',
-  )
+  await expect(inspection).toContainText('后台应用条件、共享数据和个人数据归属尚未检查')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -179,6 +198,58 @@ test('a refreshed list discards a delayed observation from its old task', async 
   )
   expect(calls).toHaveLength(2)
   expect(calls[0].taskId).not.toBe(calls[1].taskId)
+})
+
+test('official uninstaller hints explain the next step and preserve protection and unknown boundaries', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const { row, inspection } = await setup(page)
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('本次未命中官方卸载器限制')
+  await expect(inspection).toContainText('归属待确认')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'official'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('请使用官方卸载器 · 当前仅供查看')
+  await expect(inspection).toContainText('Mole 要求使用 ESET 官方卸载器')
+  await expect(inspection).toContainText('组织管理的应用请联系管理员')
+  await expect(inspection).not.toContainText('归属待确认')
+  await inspection.getByText('规则来源', { exact: true }).click()
+  await expect(inspection).toContainText('official_uninstaller_vendor')
+  await expect(inspection).toContainText('厂商身份未认证')
+  await inspection.getByText('规则来源', { exact: true }).click()
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/application-official-uninstaller-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'officialProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('已命中客户端保护')
+  await expect(inspection).toContainText('Mole 要求使用 ESET 官方卸载器')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'officialMissingName'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('官方卸载器要求无法确认')
+  await expect(inspection).toContainText('Mole 清单名称缺失或无法识别，请重新读取列表')
+  await expect(inspection).not.toContainText('ESET')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleUnknownProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('官方卸载器要求无法确认')
+  await expect(
+    inspection.getByText('内置规则资源未通过校验或无法读取，请检查引擎状态后重试。', {
+      exact: true,
+    }),
+  ).toHaveCount(1)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'officialFuture'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('已命中客户端保护')
+  await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
 })
 
 test('Mole protections, no-match and unavailable rules remain distinct while client guards survive', async ({

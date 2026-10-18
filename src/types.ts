@@ -85,7 +85,7 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 3
+  protocol: 4
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -96,6 +96,13 @@ export interface ApplicationInspection {
     revision: string
     code: 'protected' | 'notMatched' | 'unknown'
     issue: 'identityChanged' | 'identityUnavailable' | 'rulesUnavailable' | null
+  }
+  officialUninstaller: {
+    version: 1
+    revision: string
+    code: 'officialRequired' | 'notMatched' | 'unknown'
+    vendor: string | null
+    issue: 'identityChanged' | 'identityUnavailable' | 'rulesUnavailable' | 'nameUnavailable' | null
   }
   protection: {
     reasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]

@@ -15,6 +15,7 @@ pub struct Inspection {
     running: Running,
     protection: crate::app_protection::Protection,
     mole_protection: crate::app_uninstall_rules::Observation,
+    official_uninstaller: crate::app_uninstall_rules::OfficialObservation,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -55,6 +56,7 @@ impl Running {
 pub async fn load(
     path: String,
     expected: String,
+    name: Option<String>,
     engine_root: std::path::PathBuf,
     slots: Arc<Semaphore>,
 ) -> Result<Inspection, String> {
@@ -69,6 +71,13 @@ pub async fn load(
             policy.as_ref().ok(),
             result.bundle_id.as_deref(),
             result.identity,
+        );
+        result.official_uninstaller = crate::app_uninstall_rules::observe_official(
+            policy.as_ref().ok(),
+            result.bundle_id.as_deref(),
+            result.identity,
+            name.as_deref(),
+            &path,
         );
         Ok(result)
     });
@@ -432,7 +441,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 3,
+            protocol: 4,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -441,6 +450,9 @@ mod mac {
             running,
             protection: crate::app_protection::Protection::default(),
             mole_protection: crate::app_uninstall_rules::Observation::unknown("rulesUnavailable"),
+            official_uninstaller: crate::app_uninstall_rules::OfficialObservation::unknown(
+                "rulesUnavailable",
+            ),
         })
     }
     pub(super) fn inspect(path: &str, expected: &str) -> Result<Inspection, String> {

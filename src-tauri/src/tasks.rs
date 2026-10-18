@@ -112,7 +112,11 @@ impl Results {
             .map(str::to_owned)
     }
 
-    pub fn app_target(&mut self, id: &str, index: usize) -> Option<(String, String)> {
+    pub fn app_target(
+        &mut self,
+        id: &str,
+        index: usize,
+    ) -> Option<(String, String, Option<String>)> {
         let path = self.app_path(id, index)?;
         let row = self
             .entries
@@ -124,7 +128,14 @@ impl Results {
             .as_array()?
             .get(index)?;
         let bundle_id = row.get("bundle_id")?.as_str()?;
-        (bundle_id.len() <= 255).then(|| (path, bundle_id.to_owned()))
+        let name = row
+            .get("name")
+            .and_then(|v| v.as_str())
+            .filter(|name| {
+                !name.is_empty() && name.len() <= 1024 && !name.chars().any(char::is_control)
+            })
+            .map(str::to_owned);
+        (bundle_id.len() <= 255).then(|| (path, bundle_id.to_owned(), name))
     }
 
     pub fn get(&mut self, id: &str) -> Option<Snapshot> {
@@ -247,24 +258,34 @@ mod tests {
         let mut apps = snapshot(
             1,
             serde_json::json!([
-                {"path":"/Applications/一.app","bundle_id":"org.example.first"},
+                {"path":"/Applications/一.app","bundle_id":"org.example.first","name":"中文 应用"},
                 {"path":"/Applications/二.app","bundle_id":""},
                 {"path":"/Applications/三.app","bundle_id":17},
-                {"path":"/Applications/四.app","bundle_id":"x".repeat(256)}
+                {"path":"/Applications/四.app","bundle_id":"x".repeat(256)},
+                {"path":"/Applications/五.app","bundle_id":"valid.id","name":17},
+                {"path":"/Applications/六.app","bundle_id":"valid.id","name":"bad\nname"},
+                {"path":"/Applications/七.app","bundle_id":"valid.id","name":"x".repeat(1025)}
             ]),
         );
         apps.kind = "apps".into();
         cache.remember(&apps);
         assert_eq!(
             cache.app_target("1", 0),
-            Some(("/Applications/一.app".into(), "org.example.first".into()))
+            Some((
+                "/Applications/一.app".into(),
+                "org.example.first".into(),
+                Some("中文 应用".into())
+            ))
         );
         assert_eq!(
             cache.app_target("1", 1),
-            Some(("/Applications/二.app".into(), "".into()))
+            Some(("/Applications/二.app".into(), "".into(), None))
         );
         for index in [2, 3, usize::MAX] {
             assert!(cache.app_target("1", index).is_none());
+        }
+        for index in [4, 5, 6] {
+            assert!(cache.app_target("1", index).unwrap().2.is_none());
         }
         apps.kind = "analyze".into();
         cache.remember(&apps);

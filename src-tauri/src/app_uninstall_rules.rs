@@ -1,4 +1,4 @@
-//! Fixed-revision, read-only adaptation of should_protect_from_uninstall.
+//! Fixed-revision read-only component / official-uninstaller observations.
 //! No Shell execution in production; no data ownership or uninstall eligibility.
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -35,6 +35,34 @@ impl Observation {
 pub struct Policy {
     critical: Vec<String>,
     allowed: Vec<String>,
+    official: Vec<OfficialRule>,
+}
+
+struct OfficialRule {
+    vendor: String,
+    prefixes: Vec<String>,
+    fragments: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficialObservation {
+    version: u32,
+    revision: &'static str,
+    code: &'static str,
+    vendor: Option<String>,
+    issue: Option<&'static str>,
+}
+impl OfficialObservation {
+    pub fn unknown(issue: &'static str) -> Self {
+        Self {
+            version: 1,
+            revision: crate::engine::REVISION,
+            code: "unknown",
+            vendor: None,
+            issue: Some(issue),
+        }
+    }
 }
 
 fn pinned_text(path: &Path, digest: &str) -> Result<String, String> {
@@ -57,9 +85,9 @@ fn pinned_text(path: &Path, digest: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|e| e.to_string())
 }
 
-// This grammar is intentionally narrower than Bash: only the fixed revision's
-// quoted literal IDs / trailing-star prefixes. Reject syntax drift, never eval.
-fn patterns(source: &str, name: &str) -> Result<Vec<String>, String> {
+// Read quoted literal rows only; the two field grammars below reject unsupported
+// syntax. This never interpolates or evaluates the data as Shell code.
+fn literal_rows(source: &str, name: &str) -> Result<Vec<String>, String> {
     let header = format!("readonly {name}=(");
     if source.lines().filter(|line| *line == header).count() != 1 {
         return Err("规则数组无法识别。".into());
@@ -82,13 +110,10 @@ fn patterns(source: &str, name: &str) -> Result<Vec<String>, String> {
             .strip_prefix('"')
             .and_then(|line| line.split_once('"'))
             .ok_or("规则格式无法识别。")?;
-        let literal = value.strip_suffix('*').unwrap_or(value);
-        if literal.is_empty()
-            || value.len() > 255
+        if value.is_empty()
+            || value.len() > 1024
             || result.len() >= 256
-            || !literal
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+            || value.chars().any(char::is_control)
             || !(tail.trim().is_empty() || tail.trim().starts_with('#'))
         {
             return Err("规则语法不受支持。".into());
@@ -96,6 +121,66 @@ fn patterns(source: &str, name: &str) -> Result<Vec<String>, String> {
         result.push(value.into());
     }
     Err("规则数组未结束。".into())
+}
+fn patterns(source: &str, name: &str) -> Result<Vec<String>, String> {
+    let rows = literal_rows(source, name)?;
+    for value in &rows {
+        let literal = value.strip_suffix('*').unwrap_or(value);
+        if literal.is_empty()
+            || value.len() > 255
+            || !literal
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+        {
+            return Err("规则语法不受支持。".into());
+        }
+    }
+    Ok(rows)
+}
+impl OfficialRule {
+    fn parse(row: &str) -> Result<Self, String> {
+        let fields: Vec<_> = row.split('|').collect();
+        if fields.len() != 3
+            || fields[0].is_empty()
+            || fields[0].len() > 64
+            || !fields[0]
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b' ')
+        {
+            return Err("官方卸载器规则无法识别。".into());
+        }
+        let list = |raw: &str, fragment: bool| -> Result<Vec<String>, String> {
+            if raw.is_empty() {
+                return Ok(vec![]);
+            }
+            let values: Vec<_> = raw.split(',').collect();
+            if values.len() > 32
+                || values.iter().any(|v| {
+                    v.is_empty()
+                        || v.len() > 255
+                        || !v.bytes().all(|b| {
+                            b.is_ascii_lowercase()
+                                || b.is_ascii_digit()
+                                || matches!(b, b'.' | b'_' | b'-')
+                                || (fragment && b == b' ')
+                        })
+                })
+            {
+                return Err("官方卸载器匹配语法不受支持。".into());
+            }
+            Ok(values.into_iter().map(str::to_owned).collect())
+        };
+        let prefixes = list(fields[1], false)?;
+        let fragments = list(fields[2], true)?;
+        if prefixes.is_empty() && fragments.is_empty() {
+            return Err("官方卸载器规则为空。".into());
+        }
+        Ok(Self {
+            vendor: fields[0].into(),
+            prefixes,
+            fragments,
+        })
+    }
 }
 fn matches(id: &str, pattern: &str) -> bool {
     pattern
@@ -107,11 +192,36 @@ impl Policy {
         Ok(Self {
             critical: patterns(source, "SYSTEM_CRITICAL_BUNDLES")?,
             allowed: patterns(source, "APPLE_UNINSTALLABLE_APPS")?,
+            official: literal_rows(source, "OFFICIAL_UNINSTALLER_RULES")?
+                .iter()
+                .map(|row| OfficialRule::parse(row))
+                .collect::<Result<_, _>>()?,
         })
     }
     fn protected(&self, id: &str) -> bool {
         // The upstream exception is checked first, even if both arrays match.
         !self.allowed.iter().any(|p| matches(id, p)) && self.critical.iter().any(|p| matches(id, p))
+    }
+    fn official_vendor(&self, id: &str, name: &str, path: &str) -> Option<&str> {
+        // Upstream LC_ALL=C tr lowercases ASCII only; Unicode remains unchanged.
+        let id = id.to_ascii_lowercase();
+        let name = name.to_ascii_lowercase();
+        let basename = path
+            .rsplit('/')
+            .find(|part| !part.is_empty())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let basename = basename.strip_suffix(".app").unwrap_or(&basename);
+        self.official
+            .iter()
+            .find(|rule| {
+                rule.prefixes.iter().any(|prefix| id.starts_with(prefix))
+                    || rule
+                        .fragments
+                        .iter()
+                        .any(|fragment| name.contains(fragment) || basename.contains(fragment))
+            })
+            .map(|rule| rule.vendor.as_str())
     }
 }
 pub fn load(root: &Path) -> Result<Policy, String> {
@@ -127,9 +237,9 @@ pub fn load(root: &Path) -> Result<Policy, String> {
         DATA,
     )?)
 }
-pub fn observe(policy: Option<&Policy>, id: Option<&str>, identity: &str) -> Observation {
+fn observed_id<'a>(id: Option<&'a str>, identity: &str) -> Result<&'a str, &'static str> {
     if identity == "different" {
-        return Observation::unknown("identityChanged");
+        return Err("identityChanged");
     }
     let Some(id) = id.filter(|id| {
         !id.is_empty()
@@ -138,7 +248,14 @@ pub fn observe(policy: Option<&Policy>, id: Option<&str>, identity: &str) -> Obs
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
     }) else {
-        return Observation::unknown("identityUnavailable");
+        return Err("identityUnavailable");
+    };
+    Ok(id)
+}
+pub fn observe(policy: Option<&Policy>, id: Option<&str>, identity: &str) -> Observation {
+    let id = match observed_id(id, identity) {
+        Ok(id) => id,
+        Err(issue) => return Observation::unknown(issue),
     };
     let Some(policy) = policy else {
         return Observation::unknown("rulesUnavailable");
@@ -155,11 +272,44 @@ pub fn observe(policy: Option<&Policy>, id: Option<&str>, identity: &str) -> Obs
     }
 }
 
+pub fn observe_official(
+    policy: Option<&Policy>,
+    id: Option<&str>,
+    identity: &str,
+    name: Option<&str>,
+    path: &str,
+) -> OfficialObservation {
+    let id = match observed_id(id, identity) {
+        Ok(id) => id,
+        Err(issue) => return OfficialObservation::unknown(issue),
+    };
+    let Some(name) = name.filter(|name| {
+        !name.is_empty() && name.len() <= 1024 && !name.chars().any(char::is_control)
+    }) else {
+        return OfficialObservation::unknown("nameUnavailable");
+    };
+    let Some(policy) = policy else {
+        return OfficialObservation::unknown("rulesUnavailable");
+    };
+    let vendor = policy.official_vendor(id, name, path).map(str::to_owned);
+    OfficialObservation {
+        version: 1,
+        revision: crate::engine::REVISION,
+        code: if vendor.is_some() {
+            "officialRequired"
+        } else {
+            "notMatched"
+        },
+        vendor,
+        issue: None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     fn policy() -> Policy {
-        Policy::parse("readonly SYSTEM_CRITICAL_BUNDLES=(\n \"com.apple.*\"\n \"security*\"\n)\nreadonly APPLE_UNINSTALLABLE_APPS=(\n \"com.apple.dt.*\" # exception\n \"com.apple.Motion\"\n)\n").unwrap()
+        Policy::parse("readonly SYSTEM_CRITICAL_BUNDLES=(\n \"com.apple.*\"\n \"security*\"\n)\nreadonly APPLE_UNINSTALLABLE_APPS=(\n \"com.apple.dt.*\" # exception\n \"com.apple.Motion\"\n)\nreadonly OFFICIAL_UNINSTALLER_RULES=(\n \"First|com.first.|managed agent\"\n \"Second|com.second.|falcon\"\n \"Third|com.third.|\"\n)\n").unwrap()
     }
     #[test]
     fn upstream_exception_precedes_critical_and_matching_is_case_sensitive() {
@@ -232,6 +382,124 @@ mod tests {
         );
     }
     #[test]
+    fn official_rules_preserve_ascii_case_prefixes_name_fragments_and_vendor_order() {
+        let p = policy();
+        for (id, name, path, expected) in [
+            (
+                "COM.FIRST.Agent",
+                "普通应用",
+                "/Applications/Other.app",
+                Some("First"),
+            ),
+            (
+                "other.id",
+                "中文 MANAGED AGENT 工具",
+                "/Applications/Other.app",
+                Some("First"),
+            ),
+            (
+                "other.id",
+                "ordinary",
+                "/Applications/中文 FALCON.ApP",
+                Some("Second"),
+            ),
+            (
+                "com.second.agent",
+                "managed agent",
+                "/Applications/Other.app",
+                Some("First"),
+            ),
+            (
+                "com.third.agent",
+                "ordinary",
+                "/Applications/Other.app",
+                Some("Third"),
+            ),
+            (
+                "xcom.first.agent",
+                "ordinary",
+                "/Applications/Other.app",
+                None,
+            ),
+            ("other.id", "falcön", "/Applications/ordinary.app", None),
+        ] {
+            assert_eq!(
+                p.official_vendor(id, name, path),
+                expected,
+                "{id} {name} {path}"
+            );
+        }
+    }
+    #[test]
+    fn official_rules_require_complete_bound_context_and_do_not_turn_unknown_into_no_match() {
+        let p = policy();
+        for (id, identity, name, issue) in [
+            (
+                Some("com.first.agent"),
+                "different",
+                Some("managed agent"),
+                "identityChanged",
+            ),
+            (
+                None,
+                "unavailable",
+                Some("managed agent"),
+                "identityUnavailable",
+            ),
+            (Some("com.first.agent"), "matches", None, "nameUnavailable"),
+            (
+                Some("com.first.agent"),
+                "matches",
+                Some("bad\nname"),
+                "nameUnavailable",
+            ),
+        ] {
+            let value = observe_official(Some(&p), id, identity, name, "/Applications/Agent.app");
+            assert_eq!(value.code, "unknown");
+            assert_eq!(value.issue, Some(issue));
+            assert!(value.vendor.is_none());
+        }
+        assert_eq!(
+            observe_official(
+                None,
+                Some("com.first.agent"),
+                "matches",
+                Some("Agent"),
+                "/Applications/A.app"
+            )
+            .issue,
+            Some("rulesUnavailable")
+        );
+        assert_eq!(
+            observe_official(
+                Some(&p),
+                Some("com.first.agent"),
+                "unreported",
+                Some("Agent"),
+                "/Applications/A.app"
+            )
+            .code,
+            "officialRequired"
+        );
+    }
+    #[test]
+    fn unsupported_vendor_fields_and_match_syntax_fail_closed() {
+        for row in [
+            "No fields",
+            "Vendor||",
+            "Vendor|prefix|fragment|extra",
+            "Vendor|prefix,,other|",
+            "Vendor|PREFIX|",
+            "Vendor|prefix*|",
+            "Vendor|$(anything)|",
+            "Vendor||fragment?",
+            "|prefix|",
+        ] {
+            assert!(OfficialRule::parse(row).is_err(), "{row}");
+        }
+        assert!(OfficialRule::parse(&format!("Vendor|{}|", "a".repeat(256))).is_err());
+    }
+    #[test]
     #[ignore = "Explicit read-only differential check against the prepared pinned Mole engine"]
     fn prepared_rules_match_actual_mole_predicate() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
@@ -265,6 +533,78 @@ mod tests {
         println!(
             "Compared {} IDs against pinned should_protect_from_uninstall",
             ids.len()
+        );
+        let mut cases = vec![(
+            "org.example.app".into(),
+            "普通应用".into(),
+            "/Applications/普通.app".into(),
+        )];
+        for rule in &policy.official {
+            for prefix in &rule.prefixes {
+                cases.extend([
+                    (
+                        format!("{prefix}agent"),
+                        "ordinary".into(),
+                        "/Applications/ordinary.app".into(),
+                    ),
+                    (
+                        format!("{prefix}agent").to_uppercase(),
+                        "ordinary".into(),
+                        "/Applications/ordinary.app".into(),
+                    ),
+                    (
+                        format!("x{prefix}agent"),
+                        "ordinary".into(),
+                        "/Applications/ordinary.app".into(),
+                    ),
+                ]);
+            }
+            for fragment in &rule.fragments {
+                cases.extend([
+                    (
+                        "other.id".into(),
+                        fragment.clone(),
+                        "/Applications/ordinary.app".into(),
+                    ),
+                    (
+                        "other.id".into(),
+                        format!("中文 {} 工具", fragment.to_uppercase()),
+                        "/Applications/ordinary.app".into(),
+                    ),
+                    (
+                        "other.id".into(),
+                        "ordinary".into(),
+                        format!("/Applications/中文 {}.ApP", fragment.to_uppercase()),
+                    ),
+                ]);
+            }
+        }
+        cases.push((
+            "com.cisco.secureclient.agent".into(),
+            "eset management agent".into(),
+            "/Applications/Falcon.app".into(),
+        ));
+        let output = std::process::Command::new("/bin/bash").env_clear()
+            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin").env("HOME", tmp.path()).env("TMPDIR", tmp.path())
+            .arg("-c").arg("source \"$1/lib/core/app_protection.sh\"; shift; while [[ $# -gt 0 ]]; do vendor=''; if vendor=$(official_uninstaller_vendor \"$1\" \"$2\" \"$3\"); then printf '%s\\n' \"$vendor\"; else status=$?; [[ $status == 1 ]] || exit 2; printf '%s\\n' none; fi; shift 3; done")
+            .arg("moomole-official-test").arg(&root).args(cases.iter().flat_map(|(id,name,path)| [id,name,path])).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let actual = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(actual.lines().count(), cases.len());
+        for ((id, name, path), vendor) in cases.iter().zip(actual.lines()) {
+            assert_eq!(
+                policy.official_vendor(id, name, path).unwrap_or("none"),
+                vendor,
+                "{id} {name} {path}"
+            );
+        }
+        println!(
+            "Compared {} contexts against pinned official_uninstaller_vendor",
+            cases.len()
         );
     }
 }

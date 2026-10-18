@@ -1,6 +1,15 @@
 import type { ApplicationInspection } from '../types'
 
 export const moleUninstallRevision = 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f'
+const officialVendors = [
+  'ESET',
+  'Jamf',
+  'CrowdStrike',
+  'SentinelOne',
+  'GlobalProtect',
+  'Cisco',
+  'Alibaba Cloud Security',
+]
 
 export function parseApplicationInspection(
   value: unknown,
@@ -17,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 3 ||
+    data.protocol !== 4 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -27,6 +36,29 @@ export function parseApplicationInspection(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
     )
+  )
+    return fail()
+  const official = data.officialUninstaller
+  if (
+    !official ||
+    official.version !== 1 ||
+    official.revision !== moleUninstallRevision ||
+    !['officialRequired', 'notMatched', 'unknown'].includes(official.code) ||
+    (official.code === 'unknown'
+      ? official.vendor !== null ||
+        !['identityChanged', 'identityUnavailable', 'rulesUnavailable', 'nameUnavailable'].includes(
+          official.issue ?? '',
+        )
+      : official.issue !== null ||
+        !data.bundleId ||
+        ['different', 'unavailable'].includes(data.identity)) ||
+    (official.code === 'officialRequired'
+      ? !officialVendors.includes(official.vendor ?? '')
+      : official.vendor !== null) ||
+    (data.identity === 'different' && official.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && official.issue !== 'identityUnavailable') ||
+    (official.issue === 'identityChanged' && data.identity !== 'different') ||
+    (official.issue === 'identityUnavailable' && data.identity !== 'unavailable')
   )
     return fail()
   const mole = data.moleProtection
