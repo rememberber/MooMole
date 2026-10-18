@@ -3,6 +3,7 @@ mod app_background;
 mod app_icons;
 mod app_inspection;
 mod app_protection;
+mod app_shared_rules;
 mod app_uninstall_rules;
 mod clean_preview;
 mod db;
@@ -359,16 +360,18 @@ async fn inspect_application(
         return Err("当前暂不能检查应用状态，请稍后重试。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "应用清单无效，请重新读取。")?;
-    let (path, bundle_id, name) = state
-        .results
-        .lock()
-        .map_err(|_| "无法读取应用清单。")?
-        .app_target(&task_id, index)
-        .ok_or("这份应用清单已不可用，请重新读取列表。")?;
+    let (path, bundle_id, name, candidates) = {
+        let mut results = state.results.lock().map_err(|_| "无法读取应用清单。")?;
+        let (path, id, name) = results
+            .app_target(&task_id, index)
+            .ok_or("这份应用清单已不可用，请重新读取列表。")?;
+        (path, id, name, results.app_candidates(&task_id))
+    };
     let mut result = app_inspection::load(
         path.clone(),
         bundle_id,
         name,
+        candidates,
         state.engine_root.clone(),
         state.home.clone(),
         state.inspection_slots.clone(),

@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 7 ||
+    data.protocol !== 8 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -41,27 +41,29 @@ export function parseApplicationInspection(
   const installations = data.installations
   if (
     !installations ||
-    installations.version !== 1 ||
-    installations.source !== 'launchServices' ||
+    installations.version !== 2 ||
+    installations.source !== 'launchServicesAndMoleList' ||
+    installations.revision !== moleUninstallRevision ||
     !Array.isArray(installations.copies) ||
-    installations.copies.length > 32 ||
+    installations.copies.length > 96 ||
     new Set(installations.copies.map((copy) => copy?.path)).size !== installations.copies.length ||
     (installations.code === 'unknown'
       ? installations.copies.length !== 0 ||
-        ![
-          'identityChanged',
-          'identityUnavailable',
-          'rulesUnavailable',
-          'registryUnavailable',
-        ].includes(installations.issue ?? '')
+        !['identityChanged', 'identityUnavailable', 'rulesUnavailable'].includes(
+          installations.issue ?? '',
+        )
       : !['observed', 'partial'].includes(installations.code) ||
         !data.bundleId ||
         ['different', 'unavailable'].includes(data.identity) ||
         (installations.code === 'observed'
           ? installations.issue !== null
-          : !['limitReached', 'candidateUnavailable', 'candidatesChanged'].includes(
-              installations.issue ?? '',
-            ))) ||
+          : ![
+              'limitReached',
+              'candidateUnavailable',
+              'candidatesChanged',
+              'registryUnavailable',
+              'listUnavailable',
+            ].includes(installations.issue ?? ''))) ||
     (data.identity === 'different' && installations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && installations.issue !== 'identityUnavailable') ||
     (installations.issue === 'identityChanged' && data.identity !== 'different') ||
@@ -82,7 +84,14 @@ export function parseApplicationInspection(
           ) ||
         !text(copy.bundleId, 255) ||
         !/^[A-Za-z0-9_.-]+$/.test(copy.bundleId) ||
-        copy.bundleId.toLowerCase() !== data.bundleId?.toLowerCase() ||
+        !['sameIdentifier', 'relatedIdentifier', 'channelName'].includes(copy.relation) ||
+        (copy.relation === 'sameIdentifier'
+          ? copy.bundleId.toLowerCase() !== data.bundleId?.toLowerCase()
+          : copy.bundleId.toLowerCase() === data.bundleId?.toLowerCase()) ||
+        (copy.relation !== 'sameIdentifier' &&
+          (copy.bundleId.toLowerCase().startsWith(`${data.bundleId?.toLowerCase()}.`) ||
+            data.bundleId?.toLowerCase().startsWith(`${copy.bundleId.toLowerCase()}.`)) !==
+            (copy.relation === 'relatedIdentifier')) ||
         ![copy.version, copy.build].every((v) => v === null || text(v, 128)),
     )
   )

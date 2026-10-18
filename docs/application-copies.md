@@ -1,32 +1,47 @@
-# 同标识登记位置的只读观察
+# 应用共享关联的只读观察
 
-应用详情增加默认折叠的「安装副本」。发现其他已核实位置时，主结论提示「关联数据可能共用」；已有客户端、系统组件、后台范围或官方卸载器限制优先保留。展开可看其他位置、当地版本/构建号和检查不完整的原因。全部关联数据仍保留，没有退出、卸载或文件修改入口。
+应用详情默认折叠「共享关联」。发现其他有效位置命中 Mole 保留规则时，主结论提示「关联数据可能共用」；已有客户端、系统组件、后台范围和官方卸载器限制继续优先显示。展开查看路径、本地版本/构建和同标识、派生标识、渠道包名三类原因。关联数据全部保留，没有退出、卸载或文件修改入口。
 
 ## 发现范围
 
-本轮使用已锁定 AppKit NSWorkspace 的 URLsForApplicationsWithBundleIdentifier，经 Launch Services 获得当前标识的系统登记位置。标识取自 taskId/index 对应应用的新鲜 Info.plist，不接受前端路径、标识或查询来源。身份不同/不可用或规则资源不可用时不查询。Mole 清单未报告 ID 时仍保留「未比对」说明。
+候选来自同一成功 Mole apps 任务的前 64 项，以及 NSWorkspace URLsForApplicationsWithBundleIdentifier 返回的前 32 个系统登记位置。两来源先限额再去重；分别最多取 65/33 项判断超限，不把多余项视为不存在。总候选预算至多 96，当前对象不重复计入结果。
 
-登记位置若在已挂载的本地外接卷上，仍可按精确路径核对；没有枚举所有卷。该来源是客户端的只读补充，不是 Mole 完整安装扫描。固定 Mole 的 uninstall_live_bundle_has_other_install 还检查常用安装根、Homebrew Caskroom、Setapp/PlayCover、外接卷和安装收据；uninstall_bundles_share_remnants 还保留点分派生 ID 与渠道名称等共享情况。本轮均未适配这些完整规则，不把登记列表当全机安装清单。
+Mole 清单路径由后端根据原 taskId/index 所在任务取得，不接受前端路径/ID/HOME 覆盖。不用其他清单条目的缓存 ID、显示名称或来源字段判断共享；每个候选重新读取实际 Info.plist。异常行保留未知占位，超限、失效和来源错误产生 partial。清单过期/淘汰仍按原机制要求重新读取，取得上下文后不将后续缓存变化当成持久授权。
 
-- 「未发现其他登记位置」只针对当次返回且已核对的集合；不能证明只有一个安装副本或数据独占。
-- 系统登记可能失效、遗漏新复制的应用、离线卷或未登记位置；不读取或写入 Launch Services 数据库，不注册 fixture 或刷新系统登记。
-- 查找 API 由系统决定标识查询的覆盖范围；本地候选标识采用 ASCII 大小写不敏感比对，与固定 Mole 的同标识保留语义一致。不能据此承诺登记查询完整覆盖所有大小写变体。
-- 不使用主应用运行观察替代安装副本检查；未运行的登记副本也可被发现，运行在其他位置的实例仍单列，二者不推导彼此缺失。
+系统登记查询只使用所选包的新鲜本地 ID；当前身份不同/不可用或规则资源不可用不查询任何候选。Mole 未报告 ID 时保留未比对说明。查询 API 由系统决定覆盖范围，不能承诺包含所有大小写变体、未登记的新副本或已离线位置。登记位置若在已挂载本地外接卷，仍可按精确路径核对；没有枚举所有卷。
 
-## 核对与预算
+这两份来源都不代表完整安装扫描。Mole 清单本身可能缓存/去重/省略路径；固定 uninstall_live_bundle_has_other_install 还有安装根、Homebrew Caskroom、Setapp/PlayCover、外接卷和安装收据扫描。本轮未适配这些完整发现流程，未命中不能证明数据独占。
 
-最多核对前 32 个返回项（取最多 33 项判断超限）。超限为 partial，不把剩余位置视为不存在。仅接受文件 URL、有界无控制字符的绝对 .app 路径；拒绝可识别链接、网络/已知 dataless 布局以及嵌套在其他 .app 中的辅助应用。复用应用检查器的本地目录、单链接 Info.plist、最多 1MiB XML/binary 解码和元数据复核约束；平面 PlayCover、Wrapper 布局当前仍可能无法读取。
+## Mole 保留语义
 
-先按路径去重，再按设备/inode 排除当前安装与同一对象重复记录。每个候选重新读取包内 ID，不能用登记名称或 ID 声明直接确认为副本；标识不同的不列为同标识副本，也不因此认证它的其他共享关系。未知 ID、无效/缺失 plist、失效路径和访问失败使结果不完整，已核实的其他副本可以保留展示。
+适配固定修订 ba3a0f57f78e4c22818fda701219cc3dd4d6953f 的 uninstall_bundles_share_remnants 与 _uninstall_strip_version_suffix_into。生产环境不执行 Shell；除既有引擎清单/摘要外，绑定 lib/uninstall/batch.sh 的 SHA-256 f44ed6a61ec5074f8efe89e65dd3d9fbc48dd78533b4d529d8220dd9660bcc54。资源变化必须显式审查，否则保持未知。
 
-保留候选目录、Contents/Info.plist 句柄与元数据，包含本次 ID 不匹配的候选；返回前再次验证。变化的候选撤下，观察标为 candidatesChanged；有效副本继续展示。随后复核当前所选应用身份，当前包变化仍整份拒绝。没有重新查询全部登记状态；查询集合有时间窗口、文件系统不是事务，返回后仍可能安装、移走或变化，不能用作执行身份凭据。
+按原函数顺序返回首类命中：
 
-沿用 2 个实际工作器及 5 秒停止等待；已开始的阻塞操作在真正结束前持有名额。关闭面板或超时不被解释为内核 I/O 已取消。没有新子进程、终端文案解析、目录遍历、应用启动/终止、安装收据扫描、提权、额外持久化或历史写入。API 所需 NSWorkspace feature 原已启用，依赖/CSP/schema 不变。
+1. ID 仅作 ASCII 大小写归一后相同：sameIdentifier。
+2. 任一 ID 是另一 ID 的点分延续：relatedIdentifier。例如 org.example.app 与 org.example.app.share，不能把 org.example.apple 当延续。
+3. 以上未命中时，用实际路径的 .app 包名，经一次渠道后缀处理和 ASCII 大小写归一后相同，且两边至少 2 字节：channelName。此类仅提示保留，不认证产品关系或所有权。
 
-## 协议与界面
+后缀保留原大小写敏感、LC_ALL=C 字节和 POSIX 贪婪匹配语义：Nightly/Beta/Alpha/Dev/Canary/Preview/Insider/Edge/Stable/Release/RC/LTS/Developer Edition/Technology Preview。不折叠连续空白、不反复去后缀、不做 Unicode 大小写折叠；Foo  Beta 留下一处空格，Foo Technology Preview 按原贪婪捕获得到 Foo Technology。不能为更直观而改变原保护范围。显式只读对照用 1,620 组上下文核对原函数，没有进入卸载生命周期。
 
-应用检查协议 v7 新增 installations：version=1、source=launchServices、code、issue 和至多 32 个 copies；每个副本含 path、bundleId、version/build。observed 表示返回集合已核对，partial 表示超限/候选不可用/候选变化，unknown 表示身份/资源/登记来源不可用；unknown 不携带副本，partial 允许保留有效副本。observed 永远不表示全机扫描完整。
+保留谓词不能用于发现删除对象或建立独占归属；所有 8 个精确 ID 关联位置继续保留，即使命中缓存/日志。没有把渠道名字相似解释成可以删除其数据。
 
-前端验证版本/来源、身份关系、数量/去重、路径形态、标识大小写关系及有界版本。矛盾结果整体拒绝，不保留旧正面观察；手动重查、一分钟较早标记、任务/条目绑定、设置变化后重查和迟到响应处理沿用原机制。
+## 核对、变化与结果
 
-完整关联归属、多副本扫描与共享数据任务仍待完成，见 [发布路线图](release-roadmap.md)。相关的 [8 个精确关联位置](application-associations.md) 全部保留，不因本次未见其他登记位置而变为可删除。
+只接受有界、无控制字符、可读取的本地绝对 .app 路径，拒绝可识别链接、网络/已知 dataless 布局和嵌套辅助应用。复用 Bundle/Evidence 的本地目录、单链接 Info.plist、最多 1MiB XML/binary 读取和复核；平面 PlayCover、Wrapper 等布局仍可能无法读取。
+
+先按路径、再按设备/inode 去重，排除当前对象。保留候选目录、Contents/Info.plist 句柄和元数据，包括未命中候选；返回前再次核对。变化项撤下，有效其他项继续展示；当前所选包变化仍整份拒绝。没有重新查询全部登记状态，读取不是事务，返回后仍可能变化，不能用于执行前身份凭据。
+
+- observed 仅表示本次有界来源集合已核对，不表示全机安装扫描完整。
+- partial 表示来源失败/不可用、超限、候选不可读取或变化。折叠摘要直接标出检查不完整，可保留已核实的其他有效命中；没有结果时也不能断言没有其他应用。
+- unknown 表示所选身份或固定规则资源不可用，不携带命中。
+
+沿用 2 个实际工作器和 5 秒停止等待，实际阻塞操作结束前持有名额。没有新增 Shell、子进程、目录遍历、Launch Services 注册、目标应用启动/终止、权限修改、提权、数据库写入或额外历史。
+
+## 协议与后续
+
+应用检查协议 v8 的 installations 升为 version=2，source=launchServicesAndMoleList，增加固定 revision；copies 至多 96 项，每项 path、bundleId、version/build 及 relation。registryUnavailable/listUnavailable 归为 partial，允许保留另一来源的有效命中。前端校验精确版本/来源/修订、身份关系、数量/去重、路径、有界 ASCII ID、relation 与 ID 边界的一致性；channelName 的包名依据由后端固定规则验证，不由前端重建另一套后缀规则。
+
+未知协议/矛盾结果整体拒绝；重查撤下旧观察、一分钟较早提示、任务绑定、保护设置变更后重查和迟到响应处理沿用原机制。
+
+完整 Mole 安装根/卷/收据发现、完整关联候选与保护、个人数据默认保留的计划交互、退出协调和执行前复核仍待完成，见 [发布路线图](release-roadmap.md) 和 [精确关联位置](application-associations.md)。

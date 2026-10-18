@@ -85,26 +85,34 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 7
+  protocol: 8
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
   installations: {
-    version: 1
-    source: 'launchServices'
+    version: 2
+    source: 'launchServicesAndMoleList'
+    revision: string
     code: 'observed' | 'partial' | 'unknown'
     issue:
       | 'identityChanged'
       | 'identityUnavailable'
       | 'rulesUnavailable'
       | 'registryUnavailable'
+      | 'listUnavailable'
       | 'limitReached'
       | 'candidateUnavailable'
       | 'candidatesChanged'
       | null
-    copies: { path: string; bundleId: string; version: string | null; build: string | null }[]
+    copies: {
+      path: string
+      bundleId: string
+      version: string | null
+      build: string | null
+      relation: 'sameIdentifier' | 'relatedIdentifier' | 'channelName'
+    }[]
   }
   associations: {
     version: 1

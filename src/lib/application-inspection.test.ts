@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 7,
+  protocol: 8,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
   installations: {
-    version: 1,
-    source: 'launchServices',
+    version: 2,
+    source: 'launchServicesAndMoleList',
+    revision: moleUninstallRevision,
     code: 'observed',
     issue: null,
     copies: [] as {
@@ -18,6 +19,7 @@ const valid = () => ({
       bundleId: string
       version: string | null
       build: string | null
+      relation: string
     }[],
   },
   associations: {
@@ -70,7 +72,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 8 },
+      { protocol: 9 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -342,6 +344,7 @@ describe('application inspection boundary', () => {
       bundleId: 'ORG.EXAMPLE.APP',
       version: '3.0',
       build: null,
+      relation: 'sameIdentifier',
     }
     const installations = { ...valid().installations, copies: [copy] }
     expect(parse({ ...valid(), installations }).installations.copies).toEqual([copy])
@@ -353,9 +356,9 @@ describe('application inspection boundary', () => {
     expect(
       parse({
         ...valid(),
-        installations: { ...valid().installations, code: 'unknown', issue: 'registryUnavailable' },
+        installations: { ...valid().installations, code: 'partial', issue: 'registryUnavailable' },
       }).installations.code,
-    ).toBe('unknown')
+    ).toBe('partial')
     expect(() =>
       parse(
         {
@@ -369,7 +372,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...installations, version: 2 },
+      { ...installations, version: 3 },
       { ...installations, source: 'inventory' },
       { ...installations, code: 'onlyCopy' },
       { ...installations, code: 'partial' },
@@ -378,7 +381,7 @@ describe('application inspection boundary', () => {
       { ...installations, copies: [copy, copy] },
       {
         ...installations,
-        copies: Array.from({ length: 33 }, (_, i) => ({
+        copies: Array.from({ length: 97 }, (_, i) => ({
           ...copy,
           path: `/Applications/Copy${i}.app`,
         })),
@@ -394,5 +397,37 @@ describe('application inspection boundary', () => {
       ].map((change) => ({ ...installations, copies: [{ ...copy, ...change }] })),
     ])
       expect(() => parse({ ...valid(), installations: invalid })).toThrow('无法识别')
+  })
+  it('retains derived identifier and channel matches without accepting contradictory reasons', () => {
+    const copy = {
+      path: '/Applications/Example Beta.app',
+      bundleId: 'org.example.app.share',
+      version: null,
+      build: null,
+      relation: 'relatedIdentifier',
+    }
+    const installations = { ...valid().installations, copies: [copy] }
+    expect(parse({ ...valid(), installations }).installations.copies[0].relation).toBe(
+      'relatedIdentifier',
+    )
+    const channel = { ...copy, bundleId: 'org.other.app', relation: 'channelName' }
+    expect(
+      parse({ ...valid(), installations: { ...installations, copies: [channel] } }).installations
+        .copies[0].relation,
+    ).toBe('channelName')
+    for (const change of [
+      { relation: 'sameIdentifier' },
+      { relation: 'channelName' },
+      { relation: 'owned' },
+      { relation: undefined },
+      { bundleId: 'org.example.apple' },
+      { bundleId: 'org.example.app' },
+    ])
+      expect(() =>
+        parse({
+          ...valid(),
+          installations: { ...installations, copies: [{ ...copy, ...change }] },
+        }),
+      ).toThrow('无法识别')
   })
 })

@@ -12,6 +12,7 @@ use std::{
 const LOGIC: &str = "75cb9db37d26656c01e6c2298d3907c0a7b3b0a2d73fec1494ae522447c37d37";
 const DATA: &str = "ac2cdaf4e71d35756ae861ed1e1a9ca7efeeea4e8806e0365c20ebb839615f51";
 const UNINSTALL: &str = "1ffcd3f39735013210346e106c7ade367078faaefa3a6e072e20c1234ca37a31";
+const BATCH: &str = "f44ed6a61ec5074f8efe89e65dd3d9fbc48dd78533b4d529d8220dd9660bcc54";
 const LIMIT: u64 = 256 * 1024;
 
 #[derive(Debug, Serialize)]
@@ -234,6 +235,7 @@ pub fn load(root: &Path) -> Result<Policy, String> {
     // prepared manifest. Upstream upgrades need explicit adaptation and tests.
     pinned_text(&root.join("lib/core/app_protection.sh"), LOGIC)?;
     pinned_text(&root.join("bin/uninstall.sh"), UNINSTALL)?;
+    pinned_text(&root.join("lib/uninstall/batch.sh"), BATCH)?;
     Policy::parse(&pinned_text(
         &root.join("lib/core/app_protection_data.sh"),
         DATA,

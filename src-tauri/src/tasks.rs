@@ -112,6 +112,35 @@ impl Results {
             .map(str::to_owned)
     }
 
+    // Only retained source rows, not frontend paths or cached IDs/names. Keep
+    // invalid rows as unknown and the 65th item as a bounded overflow marker.
+    pub fn app_candidates(&mut self, id: &str) -> Option<Vec<Option<String>>> {
+        self.prune(Instant::now());
+        let snapshot = &self.entries.iter().find(|e| e.snapshot.id == id)?.snapshot;
+        if snapshot.kind != "apps" || snapshot.state != "succeeded" {
+            return None;
+        }
+        Some(
+            snapshot
+                .result
+                .as_ref()?
+                .as_array()?
+                .iter()
+                .take(65)
+                .map(|row| {
+                    row.get("path")
+                        .and_then(|v| v.as_str())
+                        .filter(|path| {
+                            !path.is_empty()
+                                && path.len() <= 4096
+                                && !path.chars().any(char::is_control)
+                        })
+                        .map(str::to_owned)
+                })
+                .collect(),
+        )
+    }
+
     pub fn app_target(
         &mut self,
         id: &str,
@@ -252,6 +281,38 @@ mod tests {
         assert!(cache.app_path("1", 0).is_none());
     }
 
+    #[test]
+    fn shared_candidates_are_bound_bounded_and_keep_malformed_rows_unknown() {
+        let mut cache = Results::default();
+        let mut apps = snapshot(
+            1,
+            serde_json::json!([
+                {"path":"/Applications/Example.app","bundle_id":"cached.id.must.not.be.used"},
+                {"path":17}, {"path":"bad\nname"}, {"path":"x".repeat(4097)}
+            ]),
+        );
+        apps.kind = "apps".into();
+        cache.remember(&apps);
+        assert_eq!(
+            cache.app_candidates("1").unwrap(),
+            vec![Some("/Applications/Example.app".into()), None, None, None]
+        );
+        assert!(cache.app_candidates("other").is_none());
+        apps.result = Some(serde_json::json!((0..100)
+            .map(|i| serde_json::json!({"path":format!("/Apps/{i}.app")}))
+            .collect::<Vec<_>>()));
+        cache.remember(&apps);
+        assert_eq!(cache.app_candidates("1").unwrap().len(), 65);
+        cache.entries.back_mut().unwrap().finished = Instant::now() - TTL;
+        assert!(cache.app_candidates("1").is_none());
+        apps.state = "failed".into();
+        cache.remember(&apps);
+        assert!(cache.app_candidates("1").is_none());
+        apps.state = "succeeded".into();
+        apps.kind = "analyze".into();
+        cache.remember(&apps);
+        assert!(cache.app_candidates("1").is_none());
+    }
     #[test]
     fn inspection_targets_bind_the_mole_identifier_without_accepting_other_task_results() {
         let mut cache = Results::default();

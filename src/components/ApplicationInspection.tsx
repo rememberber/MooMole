@@ -202,18 +202,18 @@ export function ApplicationInspection({
           )}
           <details className="application-installations">
             <summary>
-              {stale ? '较早安装副本' : '安装副本'} ·{' '}
+              {stale ? '较早共享关联' : '共享关联'} ·{' '}
               {value.installations.code === 'unknown'
                 ? '无法确认'
                 : value.installations.copies.length > 0
-                  ? `发现 ${value.installations.copies.length} 个其他登记位置`
-                  : '未发现其他登记位置'}
+                  ? `发现 ${value.installations.copies.length} 个其他位置`
+                  : '本次未发现其他关联位置'}
               {value.installations.code === 'partial' && ' · 检查不完整'}
             </summary>
             <p>
               {value.installations.copies.length > 0
-                ? '这些位置的本地标识相同，关联数据可能共用，请保留。'
-                : '仍需保留关联数据；未发现其他登记位置不代表只有这一个安装副本。'}
+                ? 'Mole 提示这些应用可能共用关联数据，请保留。'
+                : '仍需保留关联数据；本次未命中不代表数据独占。'}
             </p>
             {value.installations.issue && (
               <p className="muted">
@@ -222,9 +222,11 @@ export function ApplicationInspection({
                     identityChanged: '本地标识已变化，请重新读取应用列表。',
                     identityUnavailable: '本地标识无法读取，请重新检查。',
                     rulesUnavailable: '规则资源无法确认，请检查引擎状态后重试。',
-                    registryUnavailable: '系统登记位置无法读取，请保留并重试。',
-                    limitReached: '登记位置超过 32 项，只核对了前 32 项，结果不完整。',
-                    candidateUnavailable: '部分登记位置已失效、不可读或布局暂不支持，结果不完整。',
+                    registryUnavailable: '系统登记来源无法读取，已保留其他有效结果，请重试。',
+                    listUnavailable: '本次 Mole 清单已不可用，已保留其他有效结果，请重新读取列表。',
+                    limitReached:
+                      '候选超过来源上限，只核对 Mole 清单前 64 项及系统登记前 32 项，结果不完整。',
+                    candidateUnavailable: '部分候选位置已失效、不可读或布局暂不支持，结果不完整。',
                     candidatesChanged: '部分位置在检查期间发生变化，已撤下对应结果，请重查。',
                   }[value.installations.issue]
                 }
@@ -234,13 +236,21 @@ export function ApplicationInspection({
               <p key={copy.path}>
                 <span className="mono association-path">{copy.path}</span>
                 <span className="muted">
-                  版本 {copy.version ?? '未提供'}
+                  {
+                    {
+                      sameIdentifier: '同标识位置',
+                      relatedIdentifier: '派生标识，需保留关联数据',
+                      channelName: '渠道包名命中，需保留关联数据',
+                    }[copy.relation]
+                  }{' '}
+                  · 版本 {copy.version ?? '未提供'}
                   {copy.build ? ` · 构建 ${copy.build}` : ''}
                 </span>
               </p>
             ))}
             <p className="muted">
-              仅核对系统登记的同标识位置，不包含完整目录、外接卷和安装收据扫描，也未核实不同标识应用之间的共享数据。没有认证签名或发布者。
+              仅核对本次 Mole 清单前 64 项与系统登记前 32
+              项；未遍历安装目录、外接卷或安装收据。未命中不代表数据独占，签名与发布者未认证。
             </p>
           </details>
           <details className="application-associations">
@@ -307,9 +317,9 @@ export function ApplicationInspection({
           <details>
             <summary>规则来源</summary>
             <p className="muted">
-              Mole find_app_files（精确标识位置子集） / should_protect_from_uninstall /
-              official_uninstaller_vendor / uninstall_app_is_background_only /
-              uninstall_app_is_directly_in_search_root ·{' '}
+              Mole uninstall_bundles_share_remnants（共享保留） / find_app_files（精确标识位置子集）
+              / should_protect_from_uninstall / official_uninstaller_vendor /
+              uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
               ；名称取自本次 Mole
               清单，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。

@@ -25,6 +25,7 @@ pub struct Inspection {
 struct Installations {
     version: u32,
     source: &'static str,
+    revision: &'static str,
     code: &'static str,
     issue: Option<&'static str>,
     copies: Vec<InstalledCopy>,
@@ -36,6 +37,7 @@ struct InstalledCopy {
     bundle_id: String,
     version: Option<String>,
     build: Option<String>,
+    relation: &'static str,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -77,6 +79,7 @@ pub async fn load(
     path: String,
     expected: String,
     name: Option<String>,
+    candidates: Option<Vec<Option<String>>>,
     engine_root: std::path::PathBuf,
     home: std::path::PathBuf,
     slots: Arc<Semaphore>,
@@ -87,7 +90,7 @@ pub async fn load(
     let worker = tokio::task::spawn_blocking(move || {
         let _slot = slot;
         let policy = crate::app_uninstall_rules::load(&engine_root);
-        let mut result = inspect(&path, &expected, &home, policy.is_ok())?;
+        let mut result = inspect(&path, &expected, &home, policy.is_ok(), candidates)?;
         result.mole_protection = crate::app_uninstall_rules::observe(
             policy.as_ref().ok(),
             result.bundle_id.as_deref(),
@@ -112,14 +115,15 @@ fn inspect(
     expected: &str,
     home: &std::path::Path,
     rules_ready: bool,
+    candidates: Option<Vec<Option<String>>>,
 ) -> Result<Inspection, String> {
     #[cfg(target_os = "macos")]
     {
-        mac::inspect(path, expected, home, rules_ready)
+        mac::inspect(path, expected, home, rules_ready, candidates)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (path, expected, home, rules_ready);
+        let _ = (path, expected, home, rules_ready, candidates);
         Err("当前系统不支持此应用状态检查。".into())
     }
 }
@@ -515,12 +519,23 @@ mod mac {
             candidates: Vec<Candidate>,
         }
         impl Check {
+            #[cfg(test)]
             pub(super) fn begin(
                 selected: &Bundle,
                 id: Option<&str>,
                 identity: &str,
                 rules_ready: bool,
                 query: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+            ) -> Self {
+                Self::begin_sources(selected, id, identity, rules_ready, query, Some(vec![]))
+            }
+            pub(super) fn begin_sources(
+                selected: &Bundle,
+                id: Option<&str>,
+                identity: &str,
+                rules_ready: bool,
+                query: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+                mole_paths: Option<Vec<Option<String>>>,
             ) -> Self {
                 let issue = if identity == "different" {
                     Some("identityChanged")
@@ -533,8 +548,9 @@ mod mac {
                 };
                 let mut result = Self {
                     observation: Installations {
-                        version: 1,
-                        source: "launchServices",
+                        version: 2,
+                        source: "launchServicesAndMoleList",
+                        revision: crate::engine::REVISION,
                         code: "unknown",
                         issue,
                         copies: vec![],
@@ -545,18 +561,39 @@ mod mac {
                     return result;
                 }
                 let id = id.unwrap();
-                let Ok(paths) = query(id) else {
-                    result.observation.issue = Some("registryUnavailable");
-                    return result;
-                };
                 result.observation.code = "observed";
-                if paths.len() > LIMIT {
-                    result.partial("limitReached");
-                }
+                let paths = match query(id) {
+                    Ok(paths) => {
+                        if paths.len() > LIMIT {
+                            result.partial("limitReached");
+                        }
+                        paths
+                    }
+                    Err(()) => {
+                        result.partial("registryUnavailable");
+                        vec![]
+                    }
+                };
+                let mole_paths = match mole_paths {
+                    Some(paths) => {
+                        if paths.len() > 64 {
+                            result.partial("limitReached");
+                        }
+                        paths
+                    }
+                    None => {
+                        result.partial("listUnavailable");
+                        vec![]
+                    }
+                };
                 let mut seen_paths = std::collections::HashSet::new();
                 let mut seen_objects = std::collections::HashSet::new();
                 seen_objects.insert((selected.metadata.dev(), selected.metadata.ino()));
-                for path in paths.into_iter().take(LIMIT) {
+                for path in paths
+                    .into_iter()
+                    .take(LIMIT)
+                    .chain(mole_paths.into_iter().take(64))
+                {
                     let Some(path) = path else {
                         result.partial("candidateUnavailable");
                         continue;
@@ -589,13 +626,19 @@ mod mac {
                         continue;
                     };
                     let copy = match fields.id {
-                        Some(other) if other.eq_ignore_ascii_case(id) => Some(InstalledCopy {
+                        Some(other) => crate::app_shared_rules::relation(
+                            id,
+                            &other,
+                            selected.path.to_str().unwrap_or(""),
+                            &path,
+                        )
+                        .map(|relation| InstalledCopy {
                             path,
                             bundle_id: other,
                             version: fields.version,
                             build: fields.build,
+                            relation,
                         }),
-                        Some(_) => None,
                         None => {
                             result.partial("candidateUnavailable");
                             None
@@ -639,6 +682,86 @@ mod mac {
             }
             fn value(check: Check) -> serde_json::Value {
                 serde_json::to_value(check.finish()).unwrap()
+            }
+            #[test]
+            fn combines_bound_mole_paths_with_registry_and_explains_retention_matches() {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Example", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let derived = fixture(&root, "Extension", "org.example.app.share");
+                let channel = fixture(&root, "Example Beta", "org.other.app");
+                let unrelated = fixture(&root, "Other", "org.unrelated.app");
+                let paths = [&app, &derived, &channel, &unrelated]
+                    .map(|p| Some(p.to_str().unwrap().into()));
+                let v = value(Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![Some(derived.to_str().unwrap().into())]),
+                    Some(paths.into()),
+                ));
+                assert_eq!(v["code"], "observed");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 2);
+                assert!(v["copies"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|e| e["relation"] == "relatedIdentifier"));
+                assert!(v["copies"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|e| e["relation"] == "channelName"));
+            }
+            #[test]
+            fn source_failures_and_mole_limits_preserve_other_verified_results() {
+                let temp = tempfile::tempdir().unwrap();
+                let root = temp.path().canonicalize().unwrap();
+                let app = fixture(&root, "Selected", "org.example.app");
+                let selected = Bundle::open(app.to_str().unwrap()).unwrap();
+                let other = fixture(&root, "Other", "org.example.app.share");
+                let path = Some(other.to_str().unwrap().to_owned());
+                let v = value(Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Err(()),
+                    Some(vec![path.clone()]),
+                ));
+                assert_eq!(v["issue"], "registryUnavailable");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+                let v = value(Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![path]),
+                    None,
+                ));
+                assert_eq!(v["issue"], "listUnavailable");
+                assert_eq!(v["copies"].as_array().unwrap().len(), 1);
+                let v = value(Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![]),
+                    Some(vec![Some(app.to_str().unwrap().into()); 65]),
+                ));
+                assert_eq!(v["issue"], "limitReached");
+                assert_eq!(v["code"], "partial");
+                let v = value(Check::begin_sources(
+                    &selected,
+                    Some("org.example.app"),
+                    "matches",
+                    true,
+                    |_| Ok(vec![]),
+                    Some(vec![None]),
+                ));
+                assert_eq!(v["issue"], "candidateUnavailable");
             }
             #[test]
             fn verifies_ids_case_insensitively_deduplicates_and_keeps_nonrunning_copies() {
@@ -784,6 +907,7 @@ mod mac {
             Ok(vec![])
         })
     }
+    #[cfg(test)]
     fn inspect_context_with_registry(
         path: &str,
         expected: &str,
@@ -792,6 +916,27 @@ mod mac {
         home: &Path,
         rules_ready: bool,
         registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+    ) -> Result<Inspection, String> {
+        inspect_context_with_sources(
+            path,
+            expected,
+            query,
+            hook,
+            home,
+            rules_ready,
+            registry,
+            Some(vec![]),
+        )
+    }
+    fn inspect_context_with_sources(
+        path: &str,
+        expected: &str,
+        query: impl FnOnce(&str) -> Result<Vec<Process>, String>,
+        hook: impl FnOnce(),
+        home: &Path,
+        rules_ready: bool,
+        registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+        candidates: Option<Vec<Option<String>>>,
     ) -> Result<Inspection, String> {
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
@@ -815,12 +960,13 @@ mod mac {
             identity,
             rules_ready,
         );
-        let installations = copies::Check::begin(
+        let installations = copies::Check::begin_sources(
             &bundle,
             fields.id.as_deref(),
             identity,
             rules_ready,
             registry,
+            candidates,
         );
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
@@ -840,7 +986,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 7,
+            protocol: 8,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -878,8 +1024,9 @@ mod mac {
         expected: &str,
         home: &Path,
         rules_ready: bool,
+        candidates: Option<Vec<Option<String>>>,
     ) -> Result<Inspection, String> {
-        inspect_context_with_registry(
+        inspect_context_with_sources(
             path,
             expected,
             processes,
@@ -887,6 +1034,7 @@ mod mac {
             home,
             rules_ready,
             copies::registered,
+            candidates,
         )
     }
     #[cfg(test)]

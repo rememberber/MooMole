@@ -56,7 +56,7 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 8 : 7,
+        protocol: mode === 'future' ? 9 : 8,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -64,8 +64,9 @@ async function setup(page: Page) {
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
         installations: {
-          version: mode === 'copiesFuture' ? 2 : 1,
-          source: 'launchServices',
+          version: mode === 'copiesFuture' ? 3 : 2,
+          source: 'launchServicesAndMoleList',
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode === 'mismatch'
               ? 'unknown'
@@ -80,17 +81,29 @@ async function setup(page: Page) {
                 : mode === 'copiesChanged'
                   ? 'candidatesChanged'
                   : null,
-          copies:
-            mode === 'copiesFound' || mode === 'copiesPartial'
-              ? [
-                  {
-                    path: '/Applications/Example Beta.app',
-                    bundleId: 'ORG.EXAMPLE.SAME',
-                    version: '3.0',
-                    build: '70',
-                  },
-                ]
-              : [],
+          copies: ['copiesFound', 'copiesPartial', 'sharedRelated', 'sharedChannel'].includes(
+            mode ?? '',
+          )
+            ? [
+                {
+                  path: '/Applications/Example Beta.app',
+                  bundleId:
+                    mode === 'sharedRelated'
+                      ? 'org.example.same.share'
+                      : mode === 'sharedChannel'
+                        ? 'org.other.app'
+                        : 'ORG.EXAMPLE.SAME',
+                  relation:
+                    mode === 'sharedRelated'
+                      ? 'relatedIdentifier'
+                      : mode === 'sharedChannel'
+                        ? 'channelName'
+                        : 'sameIdentifier',
+                  version: '3.0',
+                  build: '70',
+                },
+              ]
+            : [],
         },
         associations: {
           version: mode === 'associationFuture' ? 2 : 1,
@@ -613,11 +626,11 @@ test('registered installation copies explain shared data and keep incomplete or 
   await expect(inspection).toContainText('关联数据可能共用')
   const copies = inspection.locator('.application-installations')
   await copies.locator('summary').click()
-  await expect(copies).toContainText('发现 1 个其他登记位置')
+  await expect(copies).toContainText('发现 1 个其他位置')
   await expect(copies).toContainText('/Applications/Example Beta.app')
   await expect(copies).toContainText('版本 3.0 · 构建 70')
-  await expect(copies).toContainText('关联数据可能共用，请保留')
-  await expect(copies).toContainText('不包含完整目录、外接卷和安装收据扫描')
+  await expect(copies).toContainText('可能共用关联数据，请保留')
+  await expect(copies).toContainText('未遍历安装目录、外接卷或安装收据')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -642,11 +655,45 @@ test('registered installation copies explain shared data and keep incomplete or 
   await expect(copies).not.toContainText('/Applications/Example Beta.app')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'other'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
-  await expect(copies).toContainText('未发现其他登记位置不代表只有这一个安装副本')
+  await expect(copies).toContainText('本次未命中不代表数据独占')
   await expect(inspection).toContainText('另有 1 个同标识安装位置的主应用在运行')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'copiesFuture'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
   await expect(inspection.getByRole('alert')).toContainText('无法识别')
   await expect(inspection.locator('.application-installations')).toHaveCount(0)
   await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
+})
+
+test('Mole retention reasons distinguish derived identifiers and channel names without claiming ownership', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'sharedRelated'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const shared = inspection.locator('.application-installations')
+  await shared.locator('summary').click()
+  await expect(inspection).toContainText('关联数据可能共用')
+  await expect(shared).toContainText('派生标识，需保留关联数据')
+  await expect(shared).toContainText('仅核对本次 Mole 清单前 64 项与系统登记前 32 项')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'sharedChannel'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await shared.locator('summary').click()
+  await expect(shared).toContainText('渠道包名命中，需保留关联数据')
+  await expect(shared).not.toContainText('派生标识，需保留关联数据')
+  await expect(shared).toContainText('未命中不代表数据独占')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await shared.screenshot({
+      path: `test-results/application-shared-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await expect(shared.getByRole('checkbox')).toHaveCount(0)
+  await expect(shared.getByRole('button')).toHaveCount(0)
 })
