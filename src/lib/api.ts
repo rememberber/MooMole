@@ -21,6 +21,8 @@ import { taskResult } from './task-result'
 export const desktop = isTauri()
 export const bootstrap = (): Promise<Bootstrap> =>
   desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
+export const applicationIcon = (taskId: string, index: number): Promise<string | null> =>
+  invoke('application_icon', { taskId, index })
 export const history = (): Promise<TaskRecord[]> =>
   desktop ? invoke('get_history') : Promise.resolve([])
 export const prepareTaskDiagnostic = (taskId: string): Promise<string> =>

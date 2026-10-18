@@ -1,3 +1,4 @@
+mod app_icons;
 mod clean_preview;
 mod db;
 mod descendant_rules;
@@ -47,6 +48,7 @@ struct AppState {
     db: Arc<Mutex<db::Database>>,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     results: Arc<Mutex<tasks::Results>>,
+    icon_slots: Arc<tokio::sync::Semaphore>,
     engine_root: PathBuf,
     home: PathBuf,
     // 0 accepts tasks, 1 drains cancellations, 2 permits the final exit.
@@ -322,6 +324,24 @@ fn start_task(
     Ok(())
 }
 
+// Optional decoration: failure leaves the list usable with its generic icon.
+// Permits live in the actual worker, including after a UI/timeout stops waiting.
+#[tauri::command]
+async fn application_icon(
+    task_id: String,
+    index: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    Ok(async {
+        if state.shutdown.load(Ordering::SeqCst) != 0 || state.updates.installation.active() {
+            return None;
+        }
+        uuid::Uuid::parse_str(&task_id).ok()?;
+        let path = state.results.lock().ok()?.app_path(&task_id, index)?;
+        app_icons::load(path, state.icon_slots.clone()).await
+    }
+    .await)
+}
 #[tauri::command]
 fn list_review_plans(
     state: tauri::State<'_, AppState>,
@@ -674,6 +694,7 @@ pub fn run() {
                 db: Arc::new(Mutex::new(connection)),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
                 results: Arc::new(Mutex::new(tasks::Results::default())),
+                icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(AtomicU8::new(0)),
@@ -690,6 +711,7 @@ pub fn run() {
             list_executions,
             get_execution,
             get_task_snapshot,
+            application_icon,
             list_review_plans,
             create_review_plan,
             get_review_plan,

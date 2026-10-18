@@ -148,6 +148,7 @@ export default function App() {
     api.desktop ? null : demoCleanPreview,
   )
   const [apps, setApps] = useState<AppEntry[] | null>(null)
+  const [appsTaskId, setAppsTaskId] = useState<string | null>(null)
   const [moleHistory, setMoleHistory] = useState<MoleHistory | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
   const [analysisTask, setAnalysisTask] = useState<AnalysisTask | null>(null)
@@ -252,11 +253,13 @@ export default function App() {
       state: 'starting',
     }
     if (kind === 'analyze') setAnalysisTask(trackedAnalysis)
+    let resultTaskId: string | null = null
     try {
       const result = await api.runTask(
         kind,
         target,
         (id) => {
+          resultTaskId = id
           setBusy({ id, kind })
           if (kind === 'analyze') {
             trackedAnalysis = { ...trackedAnalysis, id, state: 'running' }
@@ -266,7 +269,7 @@ export default function App() {
         },
         observation.current.signal,
       )
-      applyTaskResult(kind, result, analysisTarget)
+      applyTaskResult(kind, result, analysisTarget, resultTaskId)
     } catch (error) {
       if (!observation.current.signal.aborted) {
         if (kind === 'analyze') setAnalysisTask(failedAnalysisTask(trackedAnalysis, error))
@@ -290,6 +293,7 @@ export default function App() {
     kind: TaskKind,
     result: TaskResults[TaskKind],
     analysisTarget?: AnalysisHistoryTarget,
+    taskId?: string | null,
   ) {
     if (kind === 'status') setSnapshot(result as Snapshot)
     if (kind === 'analyze') {
@@ -300,7 +304,10 @@ export default function App() {
       setPath(value.path)
       setAnalysisNavigation((current) => recordAnalysisVisit(current, value.path, analysisTarget))
     }
-    if (kind === 'apps') setApps([...(result as AppEntry[])])
+    if (kind === 'apps') {
+      setApps([...(result as AppEntry[])])
+      setAppsTaskId(taskId ?? null)
+    }
     if (kind === 'cleanup') setCleanup(result as Cleanup)
     if (kind === 'clean') setCleanPreview(result as CleanPreview)
     if (kind === 'history') setMoleHistory(result as MoleHistory)
@@ -333,7 +340,7 @@ export default function App() {
       tasks.map(async (task) => {
         try {
           const result = await api.resumeTask(task.id, task.kind, observation.current.signal)
-          applyTaskResult(task.kind, result)
+          applyTaskResult(task.kind, result, undefined, task.id)
         } catch (error) {
           if (!observation.current.signal.aborted) {
             if (task.kind === 'analyze')
@@ -957,6 +964,7 @@ export default function App() {
               {apps ? (
                 <ApplicationLibrary
                   apps={apps}
+                  taskId={appsTaskId}
                   home={data.home}
                   refreshing={busy?.kind === 'apps'}
                   canReveal={api.desktop}

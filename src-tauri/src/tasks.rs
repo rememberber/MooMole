@@ -92,6 +92,26 @@ impl Results {
             .retain(|entry| now.saturating_duration_since(entry.finished) < TTL);
     }
 
+    // Resolve an index only against a retained, successful Mole application list.
+    // The icon IPC never accepts a path from the WebView or clones the full list.
+    pub fn app_path(&mut self, id: &str, index: usize) -> Option<String> {
+        self.prune(Instant::now());
+        let entry = self.entries.iter().find(|e| e.snapshot.id == id)?;
+        let snapshot = &entry.snapshot;
+        if snapshot.kind != "apps" || snapshot.state != "succeeded" {
+            return None;
+        }
+        snapshot
+            .result
+            .as_ref()?
+            .as_array()?
+            .get(index)?
+            .get("path")?
+            .as_str()
+            .filter(|path| path.len() <= 4096)
+            .map(str::to_owned)
+    }
+
     pub fn get(&mut self, id: &str) -> Option<Snapshot> {
         self.prune(Instant::now());
         self.entries
@@ -167,6 +187,45 @@ mod tests {
         assert!(large.result.is_none());
         assert!(large.result_unavailable.is_some());
     }
+    #[test]
+    fn icons_resolve_indices_only_from_retained_successful_application_results() {
+        let mut cache = Results::default();
+        let mut apps = snapshot(
+            1,
+            serde_json::json!([
+                {"path":"/Applications/一.app"}, {"path":"/Applications/二.app"}, {"path":17}, {"path":"x".repeat(4097)}
+            ]),
+        );
+        apps.kind = "apps".into();
+        cache.remember(&apps);
+        assert_eq!(
+            cache.app_path("1", 1).as_deref(),
+            Some("/Applications/二.app")
+        );
+        assert_eq!(
+            cache.app_path("1", 0).as_deref(),
+            Some("/Applications/一.app")
+        );
+        for index in [2, 3, usize::MAX] {
+            assert!(cache.app_path("1", index).is_none());
+        }
+        assert!(cache.app_path("unknown", 0).is_none());
+        apps.state = "failed".into();
+        cache.remember(&apps);
+        assert!(cache.app_path("1", 0).is_none());
+        apps.state = "succeeded".into();
+        apps.kind = "analyze".into();
+        cache.remember(&apps);
+        assert!(cache.app_path("1", 0).is_none());
+        apps.kind = "apps".into();
+        cache.remember(&apps);
+        cache.entries.back_mut().unwrap().finished = Instant::now() - TTL;
+        assert!(cache.app_path("1", 0).is_none());
+        apps.result = None;
+        cache.remember(&apps);
+        assert!(cache.app_path("1", 0).is_none());
+    }
+
     #[test]
     fn persisted_status_does_not_invent_a_result_or_restart_lost_jobs() {
         let record = crate::db::TaskRecord {

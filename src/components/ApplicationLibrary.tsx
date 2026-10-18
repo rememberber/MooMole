@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, ExternalLink, Search } from 'lucide-react'
+import { ExternalLink, Search } from 'lucide-react'
+import { ApplicationIcon } from './ApplicationIcon'
 import type { AppEntry } from '../types'
 import { shortPath } from '../lib/format'
 import {
@@ -11,12 +12,14 @@ import {
 
 export function ApplicationLibrary({
   apps,
+  taskId,
   home,
   refreshing = false,
   canReveal,
   onReveal,
 }: {
   apps: AppEntry[]
+  taskId?: string | null
   home: string
   refreshing?: boolean
   canReveal: boolean
@@ -34,6 +37,7 @@ export function ApplicationLibrary({
     () => (selection.apps === apps ? selection.paths : new Set<string>()),
     [apps, selection],
   )
+  const indices = useMemo(() => new Map(apps.map((app, index) => [app.path, index])), [apps])
   const pageCheck = useRef<HTMLInputElement>(null)
   const matching = useMemo(
     () =>
@@ -195,9 +199,7 @@ export function ApplicationLibrary({
                 checked={selected.has(app.path)}
                 onChange={(event) => toggle([app.path], event.target.checked)}
               />
-              <span className="app-icon" aria-hidden="true">
-                <Box size={20} strokeWidth={1.4} />
-              </span>
+              <ApplicationIcon taskId={taskId} index={indices.get(app.path)!} />
               <div className="app-info">
                 <strong>{app.name}</strong>
                 <small className="mono">{shortPath(app.path, home)}</small>

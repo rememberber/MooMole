@@ -1242,6 +1242,16 @@ h3 {
   place-items: center;
   border-radius: 9px;
 }
+.app-icon.has-image {
+  background: transparent;
+  border-color: transparent;
+}
+.app-icon img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
 .app-info {
   flex: 1;
   min-width: 0;

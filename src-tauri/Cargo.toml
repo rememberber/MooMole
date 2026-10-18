@@ -31,9 +31,10 @@ semver = "=1.0.28"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation-sys = "=0.8.7"
 
-[dev-dependencies]
 objc2 = "=0.6.5"
-objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL", "NSData", "NSDictionary", "NSGeometry"] }
+
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "objc2-core-foundation"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
