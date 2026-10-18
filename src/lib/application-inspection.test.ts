@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 5,
+  protocol: 6,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
+  associations: {
+    version: 1,
+    revision: moleUninstallRevision,
+    code: 'unknown',
+    issue: 'homeUnavailable',
+    entries: [],
+  },
   background: {
     version: 1,
     revision: moleUninstallRevision,
@@ -51,7 +58,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 6 },
+      { protocol: 7 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -65,6 +72,7 @@ describe('application inspection boundary', () => {
     const mismatch = {
       ...valid(),
       identity: 'different',
+      associations: { ...valid().associations, issue: 'identityChanged' },
       background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
       officialUninstaller: {
         ...valid().officialUninstaller,
@@ -79,6 +87,7 @@ describe('application inspection boundary', () => {
     const missing = {
       ...valid(),
       identity: 'unavailable',
+      associations: { ...valid().associations, issue: 'identityUnavailable' },
       bundleId: null,
       background: { ...valid().background, code: 'unknown', issue: 'identityUnavailable' },
       officialUninstaller: {
@@ -262,5 +271,55 @@ describe('application inspection boundary', () => {
       },
     ])
       expect(() => parse({ ...valid(), background })).toThrow('无法识别')
+  })
+  it('bounds exact candidate paths and never accepts an ownership or deletion claim', () => {
+    const locations = [
+      ['support', 'Library/Application Support', ''],
+      ['cache', 'Library/Caches', ''],
+      ['logs', 'Library/Logs', ''],
+      ['preferences', 'Library/Preferences', '.plist'],
+      ['savedState', 'Library/Saved Application State', '.savedState'],
+      ['container', 'Library/Containers', ''],
+      ['webKit', 'Library/WebKit', ''],
+      ['httpStorage', 'Library/HTTPStorages', ''],
+    ]
+    const entries = locations.map(([kind, root, suffix], index) => ({
+      kind,
+      relativePath: `${root}/org.example.app${suffix}`,
+      status: index === 0 ? 'present' : index === 1 ? 'unknown' : 'notFound',
+      issue: index === 1 ? 'unsupported' : null,
+    }))
+    const associations = {
+      version: 1,
+      revision: moleUninstallRevision,
+      code: 'observed',
+      issue: null,
+      entries,
+    }
+    expect(parse({ ...valid(), associations }).associations.entries[0].status).toBe('present')
+    for (const invalid of [
+      undefined,
+      {},
+      { ...associations, version: 2 },
+      { ...associations, revision: 'other' },
+      { ...associations, code: 'safe' },
+      { ...associations, issue: 'homeUnavailable' },
+      { ...associations, entries: entries.slice(1) },
+      { ...associations, entries: [...entries, entries[0]] },
+      ...[
+        { kind: 'other' },
+        { relativePath: '/etc/passwd' },
+        { relativePath: 'Library/Application Support/../org.example.app' },
+        { relativePath: 'Library/Application Support/org.other.app' },
+        { status: 'owned' },
+        { status: 'unknown', issue: null },
+        { issue: 'changed' },
+      ].map((entry) => ({
+        ...associations,
+        entries: [{ ...entries[0], ...entry }, ...entries.slice(1)],
+      })),
+      { ...associations, code: 'unknown', issue: 'homeUnavailable' },
+    ])
+      expect(() => parse({ ...valid(), associations: invalid })).toThrow('无法识别')
   })
 })

@@ -47,3 +47,5 @@
 用户没有付费 Apple 开发者签名能力。正式发布以免费分发为前提，参考 MooTool Electron 的“检查更新 → 下载匹配架构 DMG → 校验大小和 SHA-512 → 用户打开 DMG 并手动替换 App”流程。保持 Tauri 技术栈，由 Rust 实现对应能力。
 
 不将 Developer ID、Apple 公证或自动覆盖安装作为发布门槛。采用适合 Tauri 的 ad-hoc 签名与真实安装验证，并如实说明首次打开可能出现的系统提示。方案、参考源码及验收要求见 [distribution.md](distribution.md)。
+
+应用关联位置先以只读方式提供精确标识的常见位置观察，默认折叠并全部保留。位置存在不代表独占归属，未发现不代表没有其他数据；多副本、共享与个人数据判断及执行前验证仍是完整卸载的前置工作。见 [关联位置](application-associations.md)。

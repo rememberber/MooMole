@@ -17,6 +17,7 @@ pub struct Inspection {
     mole_protection: crate::app_uninstall_rules::Observation,
     official_uninstaller: crate::app_uninstall_rules::OfficialObservation,
     background: crate::app_background::Observation,
+    associations: crate::app_associations::Observation,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -489,6 +490,12 @@ mod mac {
             &crate::app_background::mac::Scope::new(home),
             rules_ready,
         );
+        let associations = crate::app_associations::mac::Check::begin(
+            home,
+            fields.id.as_deref(),
+            identity,
+            rules_ready,
+        );
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
                 Running::unknown("本地应用标识与 Mole 清单不同，请重新读取列表。")
@@ -501,11 +508,12 @@ mod mac {
         };
         hook();
         let background = background.finish();
+        let associations = associations.finish();
         if !evidence.verify(&bundle) {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 5,
+            protocol: 6,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -518,6 +526,7 @@ mod mac {
                 "rulesUnavailable",
             ),
             background,
+            associations,
         })
     }
     #[cfg(test)]
@@ -631,6 +640,56 @@ mod mac {
                     "binary {xml}"
                 );
             }
+        }
+        #[test]
+        fn associations_are_bound_to_fresh_identity_and_withdraw_changed_paths() {
+            let tmp = tempfile::tempdir().unwrap();
+            let home = tmp.path().canonicalize().unwrap();
+            let app = fixture(&home, "Association", &fields());
+            let cache = home.join(format!("Library/Caches/{ID}"));
+            std::fs::create_dir_all(&cache).unwrap();
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {},
+                &home,
+                true,
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["associations"]["entries"][1]["status"], "present");
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::rename(&cache, home.join("retained-cache")).unwrap();
+                    std::fs::create_dir(&cache).unwrap();
+                },
+                &home,
+                true,
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["associations"]["entries"][1]["issue"], "changed");
+            assert_eq!(result["identity"], "matches");
+            assert_eq!(result["version"], "2.3");
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                "org.other.app",
+                |_| panic!("changed identity must not query runtime"),
+                || {},
+                &home,
+                true,
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["associations"]["issue"], "identityChanged");
+            assert!(result["associations"]["entries"]
+                .as_array()
+                .unwrap()
+                .is_empty());
         }
         #[test]
         fn background_context_keeps_local_identity_when_only_the_parent_observation_changes() {

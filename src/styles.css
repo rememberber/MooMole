@@ -2738,3 +2738,17 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+.application-associations dl {
+  display: block;
+}
+.application-associations dl > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 9px 12px;
+  margin-block: 0.6rem;
+}
+.association-path {
+  display: block;
+  overflow-wrap: anywhere;
+}

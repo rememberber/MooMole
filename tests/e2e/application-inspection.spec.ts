@@ -56,13 +56,53 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 6 : 5,
+        protocol: mode === 'future' ? 7 : 6,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        associations: {
+          version: mode === 'associationFuture' ? 2 : 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode?.startsWith('association') && mode !== 'associationFuture'
+              ? 'observed'
+              : 'unknown',
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode?.startsWith('association') && mode !== 'associationFuture'
+                ? null
+                : 'homeUnavailable',
+          entries:
+            mode?.startsWith('association') && mode !== 'associationFuture'
+              ? [
+                  ['support', 'Library/Application Support', ''],
+                  ['cache', 'Library/Caches', ''],
+                  ['logs', 'Library/Logs', ''],
+                  ['preferences', 'Library/Preferences', '.plist'],
+                  ['savedState', 'Library/Saved Application State', '.savedState'],
+                  ['container', 'Library/Containers', ''],
+                  ['webKit', 'Library/WebKit', ''],
+                  ['httpStorage', 'Library/HTTPStorages', ''],
+                ].map(([kind, root, suffix], index) => ({
+                  kind,
+                  relativePath: `${root}/org.example.same${suffix}`,
+                  status:
+                    mode === 'associationChanged'
+                      ? 'unknown'
+                      : index === 0
+                        ? 'present'
+                        : index === 1
+                          ? 'unknown'
+                          : 'notFound',
+                  issue:
+                    mode === 'associationChanged' ? 'changed' : index === 1 ? 'unsupported' : null,
+                }))
+              : [],
+        },
         background: {
           version: mode === 'backgroundFuture' ? 2 : 1,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
@@ -185,7 +225,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('关联文件、共享数据和个人数据归属尚未检查')
+  await expect(inspection).toContainText('同标识安装副本、共享数据及个人数据归属仍待核实')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -354,7 +394,7 @@ test('Mole protections, no-match and unavailable rules remain distinct while cli
   await expect(inspection).toContainText('归属待确认')
   await expect(inspection).toContainText('本次未命中系统组件禁用规则')
   await inspection.getByText('规则来源', { exact: true }).click()
-  await expect(inspection.getByText(/Mole should_protect_from_uninstall/)).toBeVisible()
+  await expect(inspection.getByText(/should_protect_from_uninstall/)).toBeVisible()
   await expect(inspection).toContainText('ba3a0f57f78e')
   await inspection.getByText('规则来源', { exact: true }).click()
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleProtected'))
@@ -404,7 +444,7 @@ test('guards explain system location, current client and protected directories w
     await expect(inspection).toContainText('已命中客户端保护 · 当前仅供查看')
     await expect(inspection).toContainText(reason)
     await expect(inspection).not.toContainText('归属待确认')
-    await expect(inspection).toContainText('共享数据和个人数据归属尚未检查')
+    await expect(inspection).toContainText('共享数据及个人数据归属仍待核实')
   }
   await expect(inspection).toContainText('/Applications')
   await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
@@ -489,4 +529,48 @@ test('an open observation becomes visibly older and rechecking withdraws the old
   await expect(inspection).not.toContainText('主应用 PID')
   await page.evaluate(() => sessionStorage.setItem('inspection-release', 'yes'))
   await expect(inspection.getByRole('status')).toHaveText('发现主应用运行')
+})
+
+test('exact association locations stay retained, partial and revocable', async ({ page }) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationObserved'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(
+    inspection.getByText('关联位置 · 1 处发现 · 1 处无法确认', { exact: true }),
+  ).toBeVisible()
+  await inspection.locator('.application-associations summary').click()
+  const associations = inspection.locator('.application-associations')
+  await expect(associations).toContainText('全部保留')
+  await expect(associations).toContainText('缓存也可能含有个人数据')
+  await expect(associations).toContainText('发现位置 · 归属待确认')
+  await expect(associations).toContainText('~/Library/Application Support/org.example.same')
+  await expect(associations).toContainText('链接、挂载或文件类型暂不支持')
+  await expect(associations).toContainText('6 处常见位置本次未发现，不代表没有其他关联文件')
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-associations-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('0 处发现 · 8 处无法确认')
+  await expect(associations).toContainText('检查期间发生变化，请重查')
+  await expect(associations).not.toContainText('发现位置 · 归属待确认')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'mismatch'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('本地标识已变化，请重新读取应用列表')
+  await expect(associations.locator('.association-path')).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationFuture'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection.locator('.application-associations')).toHaveCount(0)
 })

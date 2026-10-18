@@ -19,16 +19,18 @@
 
 目标限可读取的本地绝对 .app 目录。拒绝可识别的链接/别名、父级跳转、网络卷及带 SF_DATALESS 的目标目录。保留应用目录句柄，用 openat/O_NOFOLLOW/O_NONBLOCK 相对读取 Contents 和 Info.plist；要求普通文件、单链接、同设备，拒绝链接、特殊文件、跨挂载和已知 dataless 元数据。不遍历关联内容、解析可执行文件或尝试写入，也不更改权限。
 
-Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Foundation 解码 XML/binary plist 字典，仅取三个有界字符串。未知类型/无效标识保留未知，不把数字或任意值转成版本；本轮测试拒绝 XML 外部实体，不读取外部文件。返回前复核保留的目录/文件、相对名字及原目标的设备/inode、大小和 mtime/ctime，变化时整份观察撤回。这些复核不构成文件系统事务，不能消除最终观察后的替换窗口，也不为未来修改提供文件身份凭据。
+Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Foundation 解码 XML/binary plist 字典，提取三个有界字符串及受支持的 LSBackgroundOnly 标记。未知类型/无效标识保留未知，不把数字或任意值转成版本；本轮测试拒绝 XML 外部实体，不读取外部文件。返回前复核保留的目录/文件、相对名字及原目标的设备/inode、大小和 mtime/ctime，变化时整份观察撤回。这些复核不构成文件系统事务，不能消除最终观察后的替换窗口，也不为未来修改提供文件身份凭据。
 
 运行观察使用 Apple [NSRunningApplication](https://developer.apple.com/documentation/appkit/nsrunningapplication) 的 runningApplications(withBundleIdentifier:)，只以刚读取的本地 ID 查询，最多 32 个返回实例。读取 bundleURL、bundleIdentifier、PID 与 terminated，位置不完整或目标不可读取保持未知；不按名称、厂商或标识相同就认为属于当前路径。运行属性受主运行循环更新和并发变化影响，查询结束后应用仍可能退出或重启。本轮不使用 PID 执行任何控制操作，也没有向系统查询全部辅助进程。
 
 使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
 
-协议 v5 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）及 background（后台标记与目录条件）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
+协议 v6 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）及 associations（8 个精确标识位置的只读结果）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 
 ## 验证与后续
 
 隔离文件系统验证 XML/binary、未知类型、标识不一致/未提供、运行路径与同标识副本、终止/无效 PID/缺位置、来源失败、符号链接/硬链接/FIFO/缺失/超大文件、外部实体及文件/Contents/应用包替换；只对自身临时目录写入。任务缓存验证原条目与 ID 绑定；前端协议和浏览器 fixture 验证未知/错误/重试、关闭重开、列表刷新后的迟到响应、一分钟较早提示和浅深色布局。真实主机验收和测试数见开发记录第四十七阶段。
 
 后续仍需精确关联数据、共享归属、完整 Mole 卸载保护规则、完整活动/文件占用、退出提示与取消、拒绝退出/自动重启、计划和逐项执行。客户端系统目录/自身/保护目录已补充只读提示，当前检查不提供卸载按钮或自动退出行为，也不替代 Mole 规则与执行前复核。
+
+应用详情现可按需查看 [8 个精确标识关联位置](application-associations.md)，显示发现、未发现和无法确认；全部保留，不证明归属或提供执行资格。共享、个人数据与完整发现/保护仍待完成。

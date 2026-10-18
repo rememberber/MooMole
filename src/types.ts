@@ -85,12 +85,30 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 5
+  protocol: 6
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  associations: {
+    version: 1
+    revision: string
+    code: 'observed' | 'unknown'
+    issue:
+      | 'identityChanged'
+      | 'identityUnavailable'
+      | 'rulesUnavailable'
+      | 'bundleIdUnsupported'
+      | 'homeUnavailable'
+      | null
+    entries: {
+      kind: string
+      relativePath: string
+      status: 'present' | 'notFound' | 'unknown'
+      issue: 'unavailable' | 'unsupported' | 'changed' | null
+    }[]
+  }
   background: {
     version: 1
     revision: string

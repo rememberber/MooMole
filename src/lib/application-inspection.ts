@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 5 ||
+    data.protocol !== 6 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -35,6 +35,54 @@ export function parseApplicationInspection(
     !(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
+    )
+  )
+    return fail()
+  const associations = data.associations
+  const locations = [
+    ['support', 'Library/Application Support', ''],
+    ['cache', 'Library/Caches', ''],
+    ['logs', 'Library/Logs', ''],
+    ['preferences', 'Library/Preferences', '.plist'],
+    ['savedState', 'Library/Saved Application State', '.savedState'],
+    ['container', 'Library/Containers', ''],
+    ['webKit', 'Library/WebKit', ''],
+    ['httpStorage', 'Library/HTTPStorages', ''],
+  ]
+  if (
+    !associations ||
+    associations.version !== 1 ||
+    associations.revision !== moleUninstallRevision ||
+    !Array.isArray(associations.entries) ||
+    (associations.code === 'unknown'
+      ? associations.entries.length !== 0 ||
+        ![
+          'identityChanged',
+          'identityUnavailable',
+          'rulesUnavailable',
+          'bundleIdUnsupported',
+          'homeUnavailable',
+        ].includes(associations.issue ?? '')
+      : associations.code !== 'observed' ||
+        associations.issue !== null ||
+        ['different', 'unavailable'].includes(data.identity) ||
+        !data.bundleId ||
+        !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
+        associations.entries.length !== locations.length) ||
+    (data.identity === 'different' && associations.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
+    (associations.issue === 'identityChanged' && data.identity !== 'different') ||
+    (associations.issue === 'identityUnavailable' && data.identity !== 'unavailable') ||
+    associations.entries.some(
+      (entry, index) =>
+        !entry ||
+        entry.kind !== locations[index]?.[0] ||
+        entry.relativePath !==
+          `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}` ||
+        !['present', 'notFound', 'unknown'].includes(entry.status) ||
+        (entry.status === 'unknown'
+          ? !['unavailable', 'unsupported', 'changed'].includes(entry.issue ?? '')
+          : entry.issue !== null),
     )
   )
     return fail()

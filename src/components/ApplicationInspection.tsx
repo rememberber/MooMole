@@ -198,12 +198,73 @@ export function ApplicationInspection({
             value.officialUninstaller.issue === 'rulesUnavailable') && (
             <p className="muted">内置规则资源未通过校验或无法读取，请检查引擎状态后重试。</p>
           )}
-          <p className="muted">关联文件、共享数据和个人数据归属尚未检查。</p>
+          <details className="application-associations">
+            <summary>
+              {stale ? '较早关联位置' : '关联位置'} ·{' '}
+              {value.associations.code === 'unknown'
+                ? '无法确认'
+                : `${value.associations.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.associations.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
+            </summary>
+            <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
+            {value.associations.code === 'unknown' ? (
+              <p className="muted">
+                {
+                  {
+                    identityChanged: '本地标识已变化，请重新读取应用列表。',
+                    identityUnavailable: '本地标识无法读取，请保留并重新检查。',
+                    rulesUnavailable: '规则资源无法确认，请检查引擎状态后重试。',
+                    bundleIdUnsupported: '标识不符合 Mole 关联位置规则，暂不查询。',
+                    homeUnavailable: '用户目录无法确认，请保留并重试。',
+                  }[value.associations.issue!]
+                }
+              </p>
+            ) : (
+              <>
+                <dl>
+                  {value.associations.entries
+                    .filter((entry) => entry.status !== 'notFound')
+                    .map((entry) => (
+                      <div key={entry.kind}>
+                        <dt>
+                          {
+                            {
+                              support: '应用数据',
+                              cache: '缓存',
+                              logs: '日志',
+                              preferences: '设置',
+                              savedState: '恢复状态',
+                              container: '沙盒数据',
+                              webKit: '网页数据',
+                              httpStorage: '网络存储',
+                            }[entry.kind]
+                          }
+                        </dt>
+                        <dd>
+                          {entry.status === 'present'
+                            ? '发现位置 · 归属待确认'
+                            : `无法确认 · ${{ unavailable: '请检查访问权限后重试', unsupported: '链接、挂载或文件类型暂不支持', changed: '检查期间发生变化，请重查' }[entry.issue!]}`}
+                          <span className="mono association-path">~/{entry.relativePath}</span>
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+                <p className="muted">
+                  {value.associations.entries.filter((entry) => entry.status === 'notFound').length}{' '}
+                  处常见位置本次未发现，不代表没有其他关联文件。
+                </p>
+              </>
+            )}
+            <p className="muted">
+              仅查询精确标识的 8
+              个常见位置，未测量大小；同标识安装副本、共享数据及个人数据归属仍待核实。
+            </p>
+          </details>
           <details>
             <summary>规则来源</summary>
             <p className="muted">
-              Mole should_protect_from_uninstall / official_uninstaller_vendor /
-              uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
+              Mole find_app_files（精确标识位置子集） / should_protect_from_uninstall /
+              official_uninstaller_vendor / uninstall_app_is_background_only /
+              uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
               ；名称取自本次 Mole
               清单，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
