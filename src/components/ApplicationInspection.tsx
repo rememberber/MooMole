@@ -86,7 +86,8 @@ export function ApplicationInspection({
               {stale && '较早保护结果 · '}
               {value.protection.reasons.length
                 ? '已命中客户端保护'
-                : value.moleProtection.code === 'protected'
+                : value.moleProtection.code === 'protected' ||
+                    value.background.code === 'restricted'
                   ? 'Mole 要求保留'
                   : value.officialUninstaller.code === 'officialRequired'
                     ? '请使用官方卸载器'
@@ -94,6 +95,7 @@ export function ApplicationInspection({
             </strong>
             {(value.protection.reasons.length > 0 ||
               value.moleProtection.code === 'protected' ||
+              value.background.code === 'restricted' ||
               value.officialUninstaller.code === 'officialRequired') &&
               ' · 当前仅供查看'}
           </p>
@@ -129,6 +131,25 @@ export function ApplicationInspection({
                   ? '本次未命中系统组件禁用规则'
                   : 'Mole 系统组件规则无法确认'}
             </dd>
+            <dt>后台应用条件</dt>
+            <dd>
+              {value.background.code === 'notRequired'
+                ? '未标记为后台专用应用'
+                : value.background.code === 'directRoot'
+                  ? `后台专用应用，位于 Mole 搜索目录（${
+                      {
+                        systemApplications: '系统 Applications',
+                        userApplications: '用户 Applications',
+                        systemInputMethods: '系统输入法',
+                        userInputMethods: '用户输入法',
+                        playCover: 'PlayCover',
+                        externalApplications: '外接卷 Applications',
+                      }[value.background.rootKind!]
+                    }）`
+                  : value.background.code === 'restricted'
+                    ? '此后台应用受 Mole 目录范围限制'
+                    : '后台应用条件无法确认'}
+            </dd>
             <dt>卸载方式</dt>
             <dd>
               {value.officialUninstaller.code === 'officialRequired'
@@ -138,6 +159,34 @@ export function ApplicationInspection({
                   : '官方卸载器要求无法确认'}
             </dd>
           </dl>
+          {value.background.reason && (
+            <p>
+              {
+                {
+                  outsideRoots:
+                    '此后台应用未直接位于 Mole 搜索目录中，可能是辅助组件；请保留并通过所属应用处理。',
+                  duplicateRoot:
+                    '此卷目录与系统或用户应用目录是同一对象，Mole 会排除这个重复搜索位置。',
+                  unreadableRoot:
+                    '当前卷的 Applications 目录不可读，Mole 不将它列入搜索目录；请先检查访问权限后重试。',
+                }[value.background.reason]
+              }
+            </p>
+          )}
+          {value.background.issue &&
+            ['markerUnknown', 'rootsUnavailable', 'rootsChanged'].includes(
+              value.background.issue,
+            ) && (
+              <p className="muted">
+                {
+                  {
+                    markerUnknown: '后台专用标记格式无法识别，请保留并重新检查。',
+                    rootsUnavailable: '应用目录、搜索位置或访问状态无法确认，请保留并重试。',
+                    rootsChanged: '搜索目录或访问状态在检查期间发生变化，请重新检查。',
+                  }[value.background.issue as 'markerUnknown' | 'rootsUnavailable' | 'rootsChanged']
+                }
+              </p>
+            )}
           {value.officialUninstaller.code === 'officialRequired' && (
             <p>请按厂商说明操作；组织管理的应用请联系管理员。</p>
           )}
@@ -145,14 +194,16 @@ export function ApplicationInspection({
             <p className="muted">Mole 清单名称缺失或无法识别，请重新读取列表。</p>
           )}
           {(value.moleProtection.issue === 'rulesUnavailable' ||
+            value.background.issue === 'rulesUnavailable' ||
             value.officialUninstaller.issue === 'rulesUnavailable') && (
             <p className="muted">内置规则资源未通过校验或无法读取，请检查引擎状态后重试。</p>
           )}
-          <p className="muted">后台应用条件、共享数据和个人数据归属尚未检查。</p>
+          <p className="muted">关联文件、共享数据和个人数据归属尚未检查。</p>
           <details>
             <summary>规则来源</summary>
             <p className="muted">
-              Mole should_protect_from_uninstall / official_uninstaller_vendor ·{' '}
+              Mole should_protect_from_uninstall / official_uninstaller_vendor /
+              uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
               ；名称取自本次 Mole
               清单，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。

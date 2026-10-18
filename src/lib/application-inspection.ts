@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 4 ||
+    data.protocol !== 5 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -36,6 +36,55 @@ export function parseApplicationInspection(
       data.bundleId === null ||
       (text(data.bundleId, 255) && /^[A-Za-z0-9_.-]+$/.test(data.bundleId))
     )
+  )
+    return fail()
+  const background = data.background
+  if (
+    !background ||
+    background.version !== 1 ||
+    background.revision !== moleUninstallRevision ||
+    !['notRequired', 'directRoot', 'restricted', 'unknown'].includes(background.code) ||
+    !['absent', 'enabled', 'disabled', 'unknown'].includes(background.marker) ||
+    (background.code === 'unknown'
+      ? background.rootKind !== null ||
+        background.reason !== null ||
+        ![
+          'identityChanged',
+          'identityUnavailable',
+          'rulesUnavailable',
+          'markerUnknown',
+          'rootsUnavailable',
+          'rootsChanged',
+        ].includes(background.issue ?? '')
+      : background.issue !== null ||
+        !data.bundleId ||
+        ['different', 'unavailable'].includes(data.identity)) ||
+    (background.code === 'notRequired' &&
+      (!['absent', 'disabled'].includes(background.marker) ||
+        background.rootKind !== null ||
+        background.reason !== null)) ||
+    (background.code === 'directRoot' &&
+      (background.marker !== 'enabled' ||
+        background.reason !== null ||
+        ![
+          'systemApplications',
+          'userApplications',
+          'systemInputMethods',
+          'userInputMethods',
+          'playCover',
+          'externalApplications',
+        ].includes(background.rootKind ?? ''))) ||
+    (background.code === 'restricted' &&
+      (background.marker !== 'enabled' ||
+        background.rootKind !== null ||
+        !['outsideRoots', 'unreadableRoot', 'duplicateRoot'].includes(background.reason ?? ''))) ||
+    (background.issue === 'markerUnknown' && background.marker !== 'unknown') ||
+    (['rootsUnavailable', 'rootsChanged'].includes(background.issue ?? '') &&
+      background.marker !== 'enabled') ||
+    (data.identity === 'different' && background.issue !== 'identityChanged') ||
+    (data.identity === 'unavailable' && background.issue !== 'identityUnavailable') ||
+    (background.issue === 'identityChanged' && data.identity !== 'different') ||
+    (background.issue === 'identityUnavailable' && data.identity !== 'unavailable')
   )
     return fail()
   const official = data.officialUninstaller

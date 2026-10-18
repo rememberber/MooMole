@@ -5,7 +5,7 @@
 ## 用户看到的结果
 
 - 命中客户端规则：显示“已命中客户端保护 · 当前仅供查看”，列出原因及实际重叠的保护目录。多个原因可以同时存在。只命中 Mole 系统组件规则时显示“Mole 要求保留”；官方卸载器限制给出厂商与下一步，不解除其他保护。
-- 未命中：显示“归属待确认”。Mole 系统组件和官方卸载器规则分别显示本次未命中；后台应用条件、共享数据和个人数据归属尚未检查，不能解释为可卸载。
+- 未命中：显示“归属待确认”。Mole 系统组件和官方卸载器规则分别显示本次未命中；后台目录条件单独观察，关联文件、共享数据和个人数据归属尚未检查，不能解释为可卸载。
 - 新检查开始撤下旧结论，单项规则不可读保留未知及已确认的其他保护；整份检查失败或协议异常则不发布部分结果。正常结果一分钟后标为较早；不会后台逐行轮询。
 
 ## 客户端规则
@@ -24,7 +24,7 @@
 
 结果为 protected/notMatched/unknown。标识缺失、与原清单不同或资源不可用分别保留身份无法读取、身份变化、规则无法读取的原因；Mole 未提供原标识但本地标识有效时仍可观察此单项规则，标识未比对状态继续显示。规则不可用不会撤下已经确认的客户端目录/自身保护；协议本身异常则整份观察拒绝。规则来源和修订按需展开，日常视图先显示结论及未完成范围。
 
-`bin/uninstall.sh` 的 `uninstall_app_is_currently_eligible` 还检查路径存在及后台应用/搜索根条件。Mole 清单会预先排除部分项目，不能从“已出现在清单”推导完整规则通过。完整卸载判定、关联文件、白名单与执行前检查仍未适配。
+`bin/uninstall.sh` 的 `uninstall_app_is_currently_eligible` 还检查路径存在及后台应用/搜索根条件；第五十一阶段已补充有限范围的后台条件观察，见下文。Mole 清单会预先排除部分项目，不能从“已出现在清单”推导完整规则通过。完整卸载判定、关联文件、白名单与执行前检查仍未适配。
 
 ## 官方卸载器提示（第五十阶段）
 
@@ -38,13 +38,15 @@
 
 没有新增下载链接、打开网页、启动卸载器、关闭服务、修改组织管理配置或申请管理员权限。真实厂商是否安装、服务/组织管理状态及厂商工具的可用性仍未检查。
 
-后台应用条件另行适配：上游搜索根还包含 PlayCover 目录及当时可读的 /Volumes/*/Applications，并判断与 /Applications、用户 Applications 的同一对象关系。不能只按固定父目录或路径前缀推定资格，本轮未发布这部分通过判断。
+## 后台标记与动态目录（第五十一阶段）
+
+已补充后台专用标记和所选应用的精确父目录观察，保留 PlayCover、可读外接卷和同对象排除条件；不枚举所有卷，不按路径前缀推定资格。区分未标记、直接位于搜索根、受目录范围限制和无法确认；规则读取失败或目录变化不作为通过。只读范围、支持类型、元数据/访问复核及上游对照证据见 [后台应用条件](application-background.md)。完整卸载资格继续关闭。
 
 ## 协议与时序
 
 沿用 `inspect_application(taskId, index)`，不新增前端路径、标识、规则、PID 或执行参数。在原有两个实际工作器及 5 秒等待预算内先读取引擎规则，再完成本地包身份/运行观察及文件证据复核；随后从 SQLite 读取最新保存的保护目录。锁只用于短时读取，不跨异步文件/AppKit 工作。设置读取失败则不发布这次观察。规则判定不写数据库/历史、不扫描关联文件或申请新授权。引擎资源校验增加有界只读 I/O；等待超时仍由真实工作器持有名额到结束。
 
-应用检查协议为 v4。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。新增 `officialUninstaller`：version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；有厂商的未知或未命中等矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
+应用检查协议为 v5。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。`officialUninstaller` 保留 version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。新增 background 的标记/目录条件观察，结构与约束见 [后台应用条件](application-background.md)。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
 
 父组件将已保存保护目录绑定到观察组件身份。添加/移除保护目录后重新检查，即使列表任务不变；旧请求和旧计时器不能覆盖新一代结果。主题或历史保留天数变更不触发无关重查。设置与文件系统不是同一事务，返回后的变化仍可能发生；这些提示不替代未来真正修改前再次读取规则、身份及归属。
 

@@ -85,12 +85,35 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 4
+  protocol: 5
   checkedAt: number
   bundleId: string | null
   version: string | null
   build: string | null
   identity: 'matches' | 'different' | 'unreported' | 'unavailable'
+  background: {
+    version: 1
+    revision: string
+    code: 'notRequired' | 'directRoot' | 'restricted' | 'unknown'
+    marker: 'absent' | 'enabled' | 'disabled' | 'unknown'
+    rootKind:
+      | 'systemApplications'
+      | 'userApplications'
+      | 'systemInputMethods'
+      | 'userInputMethods'
+      | 'playCover'
+      | 'externalApplications'
+      | null
+    reason: 'outsideRoots' | 'unreadableRoot' | 'duplicateRoot' | null
+    issue:
+      | 'identityChanged'
+      | 'identityUnavailable'
+      | 'rulesUnavailable'
+      | 'markerUnknown'
+      | 'rootsUnavailable'
+      | 'rootsChanged'
+      | null
+  }
   moleProtection: {
     version: 1
     revision: string

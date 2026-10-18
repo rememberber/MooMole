@@ -1,3 +1,4 @@
+mod app_background;
 mod app_icons;
 mod app_inspection;
 mod app_protection;
@@ -368,6 +369,7 @@ async fn inspect_application(
         bundle_id,
         name,
         state.engine_root.clone(),
+        state.home.clone(),
         state.inspection_slots.clone(),
     )
     .await?;

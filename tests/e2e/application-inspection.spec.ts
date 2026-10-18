@@ -30,6 +30,7 @@ async function setup(page: Page) {
           saved?.protectedPaths.includes('/Applications') ||
           mode === 'protected' ||
           mode === 'officialProtected' ||
+          mode === 'backgroundProtected' ||
           mode === 'moleUnknownProtected'
             ? ['clientDirectory']
             : mode === 'system'
@@ -41,6 +42,7 @@ async function setup(page: Page) {
           saved?.protectedPaths.includes('/Applications') ||
           mode === 'protected' ||
           mode === 'officialProtected' ||
+          mode === 'backgroundProtected' ||
           mode === 'moleUnknownProtected'
             ? ['/Applications']
             : [],
@@ -54,13 +56,50 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       return {
-        protocol: mode === 'future' ? 5 : 4,
+        protocol: mode === 'future' ? 6 : 5,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
         build: '42',
         identity: mode === 'mismatch' ? 'different' : 'matches',
         protection,
+        background: {
+          version: mode === 'backgroundFuture' ? 2 : 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode === 'mismatch' ||
+            mode?.startsWith('moleUnknown') ||
+            mode === 'backgroundUnknown' ||
+            mode === 'backgroundMarkerUnknown' ||
+            mode === 'backgroundChanged' ||
+            mode === 'backgroundProtected'
+              ? 'unknown'
+              : mode === 'backgroundRoot'
+                ? 'directRoot'
+                : mode === 'backgroundRestricted'
+                  ? 'restricted'
+                  : 'notRequired',
+          marker:
+            mode === 'backgroundMarkerUnknown'
+              ? 'unknown'
+              : mode?.startsWith('background') && mode !== 'backgroundFuture'
+                ? 'enabled'
+                : 'absent',
+          rootKind: mode === 'backgroundRoot' ? 'externalApplications' : null,
+          reason: mode === 'backgroundRestricted' ? 'outsideRoots' : null,
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : mode?.startsWith('moleUnknown')
+                ? 'rulesUnavailable'
+                : mode === 'backgroundUnknown' || mode === 'backgroundProtected'
+                  ? 'rootsUnavailable'
+                  : mode === 'backgroundMarkerUnknown'
+                    ? 'markerUnknown'
+                    : mode === 'backgroundChanged'
+                      ? 'rootsChanged'
+                      : null,
+        },
         officialUninstaller: {
           version: mode === 'officialFuture' ? 2 : 1,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
@@ -146,7 +185,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('后台应用条件、共享数据和个人数据归属尚未检查')
+  await expect(inspection).toContainText('关联文件、共享数据和个人数据归属尚未检查')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -198,6 +237,60 @@ test('a refreshed list discards a delayed observation from its old task', async 
   )
   expect(calls).toHaveLength(2)
   expect(calls[0].taskId).not.toBe(calls[1].taskId)
+})
+
+test('background-only restrictions keep root observations, unknowns and client protection separate', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const { row, inspection } = await setup(page)
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('未标记为后台专用应用')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'backgroundRoot'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('后台专用应用，位于 Mole 搜索目录（外接卷 Applications）')
+  await expect(inspection).toContainText('归属待确认')
+  await expect(inspection).toContainText('不代表可卸载')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'backgroundRestricted'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('Mole 要求保留 · 当前仅供查看')
+  await expect(inspection).toContainText('此后台应用受 Mole 目录范围限制')
+  await expect(inspection).toContainText('请保留并通过所属应用处理')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(inspection.getByRole('button', { name: '重新检查状态' })).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(33, 34, 39)' : 'rgb(255, 255, 255)',
+    )
+    await page.screenshot({
+      path: `test-results/application-background-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, reason] of [
+    ['backgroundUnknown', '应用目录、搜索位置或访问状态无法确认'],
+    ['backgroundChanged', '搜索目录或访问状态在检查期间发生变化'],
+    ['backgroundMarkerUnknown', '后台专用标记格式无法识别'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(inspection).toContainText('后台应用条件无法确认')
+    await expect(inspection).toContainText(reason)
+    await expect(inspection).toContainText('归属待确认')
+    await expect(inspection).not.toContainText('Mole 要求保留')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'backgroundProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('后台应用条件无法确认')
+  await expect(inspection).toContainText('已命中客户端保护')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'backgroundFuture'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('已命中客户端保护')
+  await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
 })
 
 test('official uninstaller hints explain the next step and preserve protection and unknown boundaries', async ({

@@ -16,6 +16,7 @@ pub struct Inspection {
     protection: crate::app_protection::Protection,
     mole_protection: crate::app_uninstall_rules::Observation,
     official_uninstaller: crate::app_uninstall_rules::OfficialObservation,
+    background: crate::app_background::Observation,
 }
 impl Inspection {
     pub fn attach_protection(
@@ -58,6 +59,7 @@ pub async fn load(
     expected: String,
     name: Option<String>,
     engine_root: std::path::PathBuf,
+    home: std::path::PathBuf,
     slots: Arc<Semaphore>,
 ) -> Result<Inspection, String> {
     let slot = slots
@@ -66,7 +68,7 @@ pub async fn load(
     let worker = tokio::task::spawn_blocking(move || {
         let _slot = slot;
         let policy = crate::app_uninstall_rules::load(&engine_root);
-        let mut result = inspect(&path, &expected)?;
+        let mut result = inspect(&path, &expected, &home, policy.is_ok())?;
         result.mole_protection = crate::app_uninstall_rules::observe(
             policy.as_ref().ok(),
             result.bundle_id.as_deref(),
@@ -86,14 +88,19 @@ pub async fn load(
         .map_err(|_| "应用状态读取超时，结果无法确认；请稍后重试。")?
         .map_err(|_| "应用状态读取未完成，请重试。")?
 }
-fn inspect(path: &str, expected: &str) -> Result<Inspection, String> {
+fn inspect(
+    path: &str,
+    expected: &str,
+    home: &std::path::Path,
+    rules_ready: bool,
+) -> Result<Inspection, String> {
     #[cfg(target_os = "macos")]
     {
-        mac::inspect(path, expected)
+        mac::inspect(path, expected, home, rules_ready)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (path, expected);
+        let _ = (path, expected, home, rules_ready);
         Err("当前系统不支持此应用状态检查。".into())
     }
 }
@@ -104,7 +111,8 @@ mod mac {
     use objc2::{rc::autoreleasepool, runtime::AnyObject};
     use objc2_app_kit::NSRunningApplication;
     use objc2_foundation::{
-        NSData, NSDictionary, NSPropertyListReadOptions, NSPropertyListSerialization, NSString,
+        NSData, NSDictionary, NSNumber, NSPropertyListReadOptions, NSPropertyListSerialization,
+        NSString,
     };
     use std::{
         fs::{File, Metadata, OpenOptions},
@@ -288,6 +296,47 @@ mod mac {
         id: Option<String>,
         version: Option<String>,
         build: Option<String>,
+        background: crate::app_background::Marker,
+    }
+    fn background_marker(value: Option<&AnyObject>) -> crate::app_background::Marker {
+        use crate::app_background::Marker;
+        use core_foundation_sys::{
+            base::CFGetTypeID,
+            number::{
+                CFBooleanGetTypeID, CFBooleanGetValue, CFNumberGetTypeID, CFNumberIsFloatType,
+            },
+        };
+        let Some(value) = value else {
+            return Marker::Absent;
+        };
+        let enabled = if let Some(string) = value.downcast_ref::<NSString>() {
+            let string = string.to_string();
+            if string.len() > 128 || string.chars().any(char::is_control) {
+                return Marker::Unknown;
+            }
+            matches!(string.as_str(), "1" | "YES" | "yes" | "TRUE" | "true")
+        } else if let Some(number) = value.downcast_ref::<NSNumber>() {
+            let pointer = value as *const AnyObject as *const std::ffi::c_void;
+            // Foundation plist numbers/booleans are toll-free bridged CF values.
+            unsafe {
+                if CFGetTypeID(pointer) == CFBooleanGetTypeID() {
+                    CFBooleanGetValue(pointer.cast())
+                } else if CFGetTypeID(pointer) == CFNumberGetTypeID()
+                    && CFNumberIsFloatType(pointer.cast()) == 0
+                {
+                    number.stringValue().to_string() == "1"
+                } else {
+                    return Marker::Unknown;
+                }
+            }
+        } else {
+            return Marker::Unknown;
+        };
+        if enabled {
+            Marker::Enabled
+        } else {
+            Marker::Disabled
+        }
     }
     fn text(value: &AnyObject, max: usize) -> Option<String> {
         let value = value.downcast_ref::<NSString>()?.to_string();
@@ -323,6 +372,11 @@ mod mac {
                 id: field("CFBundleIdentifier", 255).filter(|v| valid_id(v)),
                 version: field("CFBundleShortVersionString", 128),
                 build: field("CFBundleVersion", 128),
+                background: background_marker(
+                    dictionary
+                        .objectForKey(&NSString::from_str("LSBackgroundOnly"))
+                        .as_deref(),
+                ),
             })
         })
     }
@@ -411,11 +465,13 @@ mod mac {
             reason: reason.into(),
         }
     }
-    fn inspect_with(
+    fn inspect_context(
         path: &str,
         expected: &str,
         query: impl FnOnce(&str) -> Result<Vec<Process>, String>,
         hook: impl FnOnce(),
+        home: &Path,
+        rules_ready: bool,
     ) -> Result<Inspection, String> {
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
@@ -426,6 +482,13 @@ mod mac {
             Some(id) if id == expected => "matches",
             Some(_) => "different",
         };
+        let background = crate::app_background::mac::Check::begin(
+            fields.background,
+            identity,
+            &bundle.path,
+            &crate::app_background::mac::Scope::new(home),
+            rules_ready,
+        );
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
                 Running::unknown("本地应用标识与 Mole 清单不同，请重新读取列表。")
@@ -437,11 +500,12 @@ mod mac {
             },
         };
         hook();
+        let background = background.finish();
         if !evidence.verify(&bundle) {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 4,
+            protocol: 5,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -453,10 +517,32 @@ mod mac {
             official_uninstaller: crate::app_uninstall_rules::OfficialObservation::unknown(
                 "rulesUnavailable",
             ),
+            background,
         })
     }
-    pub(super) fn inspect(path: &str, expected: &str) -> Result<Inspection, String> {
-        inspect_with(path, expected, processes, || {})
+    #[cfg(test)]
+    fn inspect_with(
+        path: &str,
+        expected: &str,
+        query: impl FnOnce(&str) -> Result<Vec<Process>, String>,
+        hook: impl FnOnce(),
+    ) -> Result<Inspection, String> {
+        inspect_context(
+            path,
+            expected,
+            query,
+            hook,
+            Path::new("/unneeded-test-home"),
+            true,
+        )
+    }
+    pub(super) fn inspect(
+        path: &str,
+        expected: &str,
+        home: &Path,
+        rules_ready: bool,
+    ) -> Result<Inspection, String> {
+        inspect_context(path, expected, processes, || {}, home, rules_ready)
     }
     #[cfg(test)]
     mod tests {
@@ -476,6 +562,176 @@ mod mac {
         }
         fn fields() -> String {
             format!("<key>CFBundleIdentifier</key><string>{ID}</string><key>CFBundleShortVersionString</key><string>2.3</string><key>CFBundleVersion</key><string>42</string>")
+        }
+        fn background_cases() -> Vec<(&'static str, crate::app_background::Marker)> {
+            use crate::app_background::Marker::*;
+            vec![
+                ("", Absent),
+                ("<true/>", Enabled),
+                ("<false/>", Disabled),
+                ("<integer>1</integer>", Enabled),
+                ("<integer>0</integer>", Disabled),
+                ("<integer>2</integer>", Disabled),
+                ("<integer>-1</integer>", Disabled),
+                ("<string>YES</string>", Enabled),
+                ("<string>yes</string>", Enabled),
+                ("<string>TRUE</string>", Enabled),
+                ("<string>true</string>", Enabled),
+                ("<string>1</string>", Enabled),
+                ("<string>True</string>", Disabled),
+                ("<string>false</string>", Disabled),
+                ("<string></string>", Disabled),
+                ("<string> true </string>", Disabled),
+                ("<string>真</string>", Disabled),
+                ("<real>1.0</real>", Unknown),
+                ("<array><true/></array>", Unknown),
+                ("<dict/>", Unknown),
+                ("<data>MQ==</data>", Unknown),
+                ("<string>true\n</string>", Unknown),
+            ]
+        }
+        fn binary(bytes: &[u8]) -> Vec<u8> {
+            autoreleasepool(|_| unsafe {
+                let object =
+                    NSPropertyListSerialization::propertyListWithData_options_format_error(
+                        &NSData::with_bytes(bytes),
+                        NSPropertyListReadOptions::Immutable,
+                        std::ptr::null_mut(),
+                    )
+                    .unwrap();
+                NSPropertyListSerialization::dataWithPropertyList_format_options_error(
+                    &object,
+                    objc2_foundation::NSPropertyListFormat::BinaryFormat_v1_0,
+                    0,
+                )
+                .unwrap()
+                .to_vec()
+            })
+        }
+        #[test]
+        fn background_metadata_preserves_bool_integer_and_string_types_in_xml_and_binary() {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            for (index, (xml, expected)) in background_cases().iter().enumerate() {
+                let body = format!(
+                    "{}{}",
+                    fields(),
+                    if xml.is_empty() {
+                        String::new()
+                    } else {
+                        format!("<key>LSBackgroundOnly</key>{xml}")
+                    }
+                );
+                let app = fixture(&root, &format!("Marker{index}"), &body);
+                let bytes = std::fs::read(app.join("Contents/Info.plist")).unwrap();
+                assert_eq!(parse(&bytes).unwrap().background, *expected, "{xml}");
+                assert_eq!(
+                    parse(&binary(&bytes)).unwrap().background,
+                    *expected,
+                    "binary {xml}"
+                );
+            }
+        }
+        #[test]
+        fn background_context_keeps_local_identity_when_only_the_parent_observation_changes() {
+            let tmp = tempfile::tempdir().unwrap();
+            let home = tmp.path().canonicalize().unwrap();
+            let applications = home.join("Applications");
+            std::fs::create_dir(&applications).unwrap();
+            let app = fixture(
+                &applications,
+                "Background",
+                &format!("{}<key>LSBackgroundOnly</key><true/>", fields()),
+            );
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {},
+                &home,
+                true,
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["background"]["code"], "directRoot");
+            assert_eq!(result["background"]["rootKind"], "userApplications");
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::write(applications.join("unrelated-neighbor"), "fixture").unwrap();
+                },
+                &home,
+                true,
+            )
+            .unwrap();
+            let result = serde_json::to_value(result).unwrap();
+            assert_eq!(result["background"]["code"], "unknown");
+            assert_eq!(result["background"]["issue"], "rootsChanged");
+            assert_eq!(result["identity"], "matches");
+            assert_eq!(result["version"], "2.3");
+        }
+        #[test]
+        #[ignore = "Explicit read-only marker comparison with pinned function and isolated XML/binary fixtures"]
+        fn prepared_background_marker_matches_mole_on_supported_types() {
+            let engine = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+            crate::app_uninstall_rules::load(&engine).unwrap();
+            let source = std::fs::read_to_string(engine.join("bin/uninstall.sh")).unwrap();
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            let mut cases = vec![];
+            for (index, (xml, expected)) in background_cases().iter().enumerate() {
+                if *expected == crate::app_background::Marker::Unknown {
+                    continue;
+                }
+                let body = format!(
+                    "{}{}",
+                    fields(),
+                    if xml.is_empty() {
+                        String::new()
+                    } else {
+                        format!("<key>LSBackgroundOnly</key>{xml}")
+                    }
+                );
+                let app = fixture(&root, &format!("Marker{index}"), &body);
+                let bytes = std::fs::read(app.join("Contents/Info.plist")).unwrap();
+                cases.push((app, *expected));
+                let app = fixture(&root, &format!("Binary{index}"), &body);
+                std::fs::write(app.join("Contents/Info.plist"), binary(&bytes)).unwrap();
+                cases.push((app, *expected));
+            }
+            let script = format!("set -euo pipefail\n{}\nfor target do if uninstall_app_is_background_only \"$target\"; then printf '1\\n'; else status=$?; [[ $status == 1 ]] || exit 2; printf '0\\n'; fi; done",crate::app_background::test_function(&source,"uninstall_app_is_background_only"));
+            let output = std::process::Command::new("/bin/bash")
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+                .env("HOME", &root)
+                .env("TMPDIR", &root)
+                .arg("-c")
+                .arg(script)
+                .arg("moomole-marker-test")
+                .args(cases.iter().map(|(path, _)| path))
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let actual = String::from_utf8(output.stdout).unwrap();
+            assert_eq!(actual.lines().count(), cases.len());
+            for ((path, expected), code) in cases.iter().zip(actual.lines()) {
+                assert_eq!(
+                    *expected == crate::app_background::Marker::Enabled,
+                    code == "1",
+                    "{}",
+                    path.display()
+                );
+            }
+            println!(
+                "Compared {} typed XML/binary markers against pinned Mole",
+                cases.len()
+            );
         }
         fn process(path: &Path, pid: i32) -> Process {
             Process {

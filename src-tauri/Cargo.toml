@@ -32,7 +32,7 @@ semver = "=1.0.28"
 core-foundation-sys = "=0.8.7"
 
 objc2 = "=0.6.5"
-objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL", "NSData", "NSDictionary", "NSGeometry", "NSPropertyList"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL", "NSData", "NSDictionary", "NSGeometry", "NSPropertyList", "NSValue"] }
 
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "objc2-core-foundation"] }
 

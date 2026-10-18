@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 4,
+  protocol: 5,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
   build: '42',
   identity: 'matches',
+  background: {
+    version: 1,
+    revision: moleUninstallRevision,
+    code: 'notRequired',
+    marker: 'absent',
+    rootKind: null,
+    reason: null,
+    issue: null,
+  },
   moleProtection: { version: 1, revision: moleUninstallRevision, code: 'notMatched', issue: null },
   officialUninstaller: {
     version: 1,
@@ -42,7 +51,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 5 },
+      { protocol: 6 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -56,6 +65,7 @@ describe('application inspection boundary', () => {
     const mismatch = {
       ...valid(),
       identity: 'different',
+      background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
       officialUninstaller: {
         ...valid().officialUninstaller,
         code: 'unknown',
@@ -70,6 +80,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       identity: 'unavailable',
       bundleId: null,
+      background: { ...valid().background, code: 'unknown', issue: 'identityUnavailable' },
       officialUninstaller: {
         ...valid().officialUninstaller,
         code: 'unknown',
@@ -184,5 +195,72 @@ describe('application inspection boundary', () => {
       { ...base, code: 'unknown', issue: 'identityUnavailable' },
     ])
       expect(() => parse({ ...valid(), officialUninstaller: official })).toThrow('无法识别')
+  })
+  it('keeps background marker, root membership, restrictions and unknown evidence consistent', () => {
+    const base = valid().background
+    for (const rootKind of [
+      'systemApplications',
+      'userApplications',
+      'systemInputMethods',
+      'userInputMethods',
+      'playCover',
+      'externalApplications',
+    ])
+      expect(
+        parse({
+          ...valid(),
+          background: { ...base, code: 'directRoot', marker: 'enabled', rootKind },
+        }).background.rootKind,
+      ).toBe(rootKind)
+    for (const reason of ['outsideRoots', 'unreadableRoot', 'duplicateRoot'])
+      expect(
+        parse({
+          ...valid(),
+          background: { ...base, code: 'restricted', marker: 'enabled', reason },
+        }).background.reason,
+      ).toBe(reason)
+    expect(
+      parse({
+        ...valid(),
+        background: { ...base, code: 'unknown', marker: 'unknown', issue: 'markerUnknown' },
+      }).background.code,
+    ).toBe('unknown')
+    for (const background of [
+      undefined,
+      {},
+      { ...base, version: 2 },
+      { ...base, revision: '0'.repeat(40) },
+      { ...base, code: 'eligible' },
+      { ...base, marker: 'enabled' },
+      { ...base, code: 'directRoot' },
+      { ...base, code: 'directRoot', marker: 'enabled', rootKind: 'other' },
+      {
+        ...base,
+        code: 'directRoot',
+        marker: 'enabled',
+        rootKind: 'playCover',
+        reason: 'outsideRoots',
+      },
+      { ...base, code: 'restricted', marker: 'enabled' },
+      {
+        ...base,
+        code: 'restricted',
+        marker: 'enabled',
+        reason: 'outsideRoots',
+        rootKind: 'playCover',
+      },
+      { ...base, code: 'unknown' },
+      { ...base, code: 'unknown', issue: 'markerUnknown' },
+      { ...base, code: 'unknown', issue: 'rootsChanged' },
+      { ...base, code: 'unknown', issue: 'identityChanged' },
+      {
+        ...base,
+        code: 'unknown',
+        marker: 'enabled',
+        issue: 'rootsUnavailable',
+        rootKind: 'playCover',
+      },
+    ])
+      expect(() => parse({ ...valid(), background })).toThrow('无法识别')
   })
 })
