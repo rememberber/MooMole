@@ -55,6 +55,27 @@ async function setup(page: Page) {
         String(Number(sessionStorage.getItem('inspection-completed') ?? 0) + 1),
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
+      const pathRule = (status: string, index = -1) => ({
+        version: 1,
+        revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+        source: 'moleUninstallLiteralPath',
+        code:
+          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index)
+            ? 'protected'
+            : status === 'unknown' || (mode?.endsWith('MoleUnknown') && [0, 1, 3].includes(index))
+              ? 'unknown'
+              : 'notMatched',
+        reason:
+          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index) ? 'systemComponent' : null,
+        issue:
+          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index)
+            ? null
+            : mode?.endsWith('MoleUnknown') && [0, 1, 3].includes(index)
+              ? 'rulesUnavailable'
+              : status === 'unknown'
+                ? 'locationUnverified'
+                : null,
+      })
       const dataMode = mode?.startsWith('extension') ?? false
       const sourceChanged = mode === 'extensionSourceChanged'
       const sourcePartial = mode === 'extensionPartialSource'
@@ -101,7 +122,7 @@ async function setup(page: Page) {
           protectionReasons: [],
         })
       return {
-        protocol: mode === 'future' ? 16 : 15,
+        protocol: mode === 'future' ? 17 : 16,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -159,7 +180,7 @@ async function setup(page: Page) {
                 ],
         },
         extensionData: {
-          version: 1,
+          version: 2,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode === 'mismatch'
@@ -186,7 +207,10 @@ async function setup(page: Page) {
                     ? 'byHostIncomplete'
                     : null,
           identifiers: sourceIds,
-          entries: dataEntries,
+          entries: dataEntries.map((entry, index) => ({
+            ...entry,
+            molePathProtection: pathRule(entry.status, index),
+          })),
           byHost: {
             code: !sourceIds.length
               ? 'notChecked'
@@ -346,7 +370,7 @@ async function setup(page: Page) {
             : [],
         },
         associations: {
-          version: mode === 'associationFuture' ? 4 : 3,
+          version: mode === 'associationFuture' ? 5 : 4,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -407,6 +431,10 @@ async function setup(page: Page) {
                 ]
                   .map(([kind, root, suffix], index) => ({
                     kind,
+                    molePathProtection: pathRule(
+                      mode === 'associationChanged' || index === 1 ? 'unknown' : 'notFound',
+                      index,
+                    ),
                     relativePath: `${root}/org.example.same${suffix}`,
                     status:
                       mode === 'associationChanged'
@@ -432,6 +460,9 @@ async function setup(page: Page) {
                       ? [
                           {
                             kind: 'groupContainer',
+                            molePathProtection: pathRule(
+                              mode === 'associationRelatedChanged' ? 'unknown' : 'present',
+                            ),
                             relativePath: 'Library/Group Containers/TEAM.org.example.same.shared',
                             status: mode === 'associationRelatedChanged' ? 'unknown' : 'present',
                             issue: mode === 'associationRelatedChanged' ? 'changed' : null,
@@ -439,6 +470,9 @@ async function setup(page: Page) {
                           },
                           {
                             kind: 'groupContainer',
+                            molePathProtection: pathRule(
+                              mode === 'associationRelatedChanged' ? 'unknown' : 'present',
+                            ),
                             relativePath: 'Library/Group Containers/group.org.example.same.shared',
                             status: mode === 'associationRelatedChanged' ? 'unknown' : 'present',
                             issue: mode === 'associationRelatedChanged' ? 'changed' : null,
@@ -882,7 +916,9 @@ test('exact association locations stay retained, partial and revocable', async (
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationObserved'))
   await row.getByText('位置与来源', { exact: true }).click()
   await expect(
-    inspection.getByText('关联位置 · 1 处发现 · 1 处无法确认', { exact: true }),
+    inspection.getByText('关联位置 · 1 处发现 · 1 处无法确认 · 1 处路径保护未确认', {
+      exact: true,
+    }),
   ).toBeVisible()
   await inspection.locator('.application-associations summary').click()
   const associations = inspection.locator('.application-associations')
@@ -1280,4 +1316,52 @@ test('extension data keeps found, unknown and protected missing locations distin
   await expect(inspection).not.toContainText('关联位置受保护')
   await expect(data.getByRole('checkbox')).toHaveCount(0)
   await expect(data.getByRole('button')).toHaveCount(0)
+})
+
+test('Mole literal uninstall path retention stays visible for unknown and missing locations and resets on recheck', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationMoleProtected'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('Mole 要求保留')
+  const associations = inspection.locator('.application-associations')
+  await expect(associations.locator('summary')).toContainText('Mole 保留 3 处')
+  await associations.locator('summary').click()
+  await expect(associations.getByText('Mole：系统组件路径，保留', { exact: true })).toHaveCount(3)
+  await expect(associations).toContainText('本次未发现')
+  await expect(associations).toContainText('无法确认')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-mole-path-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationMoleUnknown'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('请检查内置规则后重试')
+  await expect(associations).not.toContainText('Mole：系统组件路径，保留')
+  await expect(inspection).not.toContainText('Mole 要求保留')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'extensionMoleProtected'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('Mole 要求保留')
+  const embedded = inspection.getByLabel('嵌入扩展', { exact: true })
+  await embedded.locator('summary').click()
+  const data = embedded.getByLabel('扩展关联数据', { exact: true })
+  await expect(data).toContainText('Mole 保留 3 处')
+  await expect(data.getByText('Mole：系统组件路径，保留', { exact: true })).toHaveCount(3)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'extensionFound'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(data).not.toContainText('Mole：系统组件路径，保留')
+  await expect(data).toContainText('已保存保护目录覆盖，保留')
+  await expect(data.getByRole('checkbox')).toHaveCount(0)
+  await expect(data.getByRole('button')).toHaveCount(0)
+  const source = inspection
+    .locator('details')
+    .filter({ has: page.locator('summary').getByText('规则来源', { exact: true }) })
+  await source.locator('summary').click()
+  await expect(source).toContainText('不含白名单、别名解析或执行许可')
 })

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
+const pathRule = (status = 'notFound') => ({
+  version: 1,
+  revision: moleUninstallRevision,
+  source: 'moleUninstallLiteralPath',
+  code: status === 'unknown' ? 'unknown' : 'notMatched',
+  reason: null as string | null,
+  issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
+})
 const valid = () => ({
-  protocol: 15,
+  protocol: 16,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -19,7 +27,7 @@ const valid = () => ({
     bundles: [] as { relativePath: string; bundleId: string; kind: string }[],
   },
   extensionData: {
-    version: 1,
+    version: 2,
     revision: moleUninstallRevision,
     code: 'observed',
     issue: null as string | null,
@@ -30,6 +38,7 @@ const valid = () => ({
       status: string
       issue: string | null
       protectionReasons: string[]
+      molePathProtection: ReturnType<typeof pathRule>
     }[],
     byHost: { code: 'notChecked', issue: null, entries: 0, candidates: 0 },
   },
@@ -72,7 +81,7 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 3,
+    version: 4,
     revision: moleUninstallRevision,
     code: 'unknown',
     issue: 'homeUnavailable',
@@ -133,6 +142,101 @@ const associationLocations = [
 const parse = (value: unknown, expected = 'org.example.app') =>
   parseApplicationInspection(value, expected)
 describe('application inspection boundary', () => {
+  it('keeps literal uninstall path guards separate from existence and rejects wider or contradictory claims', () => {
+    const entries = associationLocations.map(([kind, root, suffix]) => ({
+      kind,
+      relativePath: `${root}/org.example.app${suffix}`,
+      status: 'notFound',
+      issue: null,
+      protectionReasons: [],
+      molePathProtection: pathRule(),
+    }))
+    const base = {
+      ...valid(),
+      associations: {
+        ...valid().associations,
+        version: 4,
+        code: 'observed',
+        issue: null,
+        entries,
+        discovery: {
+          code: 'observed',
+          issue: null,
+          rootCount: 4,
+          entries: 0,
+          candidates: 0,
+          firstUncertainRoot: null,
+        },
+      },
+    }
+    const protectedRule = { ...pathRule(), code: 'protected', reason: 'criticalData' }
+    for (const status of ['present', 'notFound', 'unknown']) {
+      const entry = {
+        ...entries[0],
+        status,
+        issue: status === 'unknown' ? 'unavailable' : null,
+        molePathProtection: protectedRule,
+      }
+      expect(
+        parse({
+          ...base,
+          associations: { ...base.associations, entries: [entry, ...entries.slice(1)] },
+        }).associations.entries[0].molePathProtection.code,
+      ).toBe('protected')
+    }
+    for (const rule of [
+      undefined,
+      { ...protectedRule, version: 2 },
+      { ...protectedRule, revision: 'other' },
+      { ...protectedRule, source: 'moleCleanupPath' },
+      { ...protectedRule, code: 'safe' },
+      { ...protectedRule, reason: null },
+      { ...protectedRule, reason: 'whitelist' },
+      { ...protectedRule, issue: 'rulesUnavailable' },
+      { ...pathRule(), reason: 'criticalData' },
+      { ...pathRule(), code: 'unknown', issue: null },
+      { ...pathRule(), code: 'unknown', issue: 'locationUnverified' },
+      { ...pathRule(), code: 'unknown', issue: 'passed' },
+    ]) {
+      expect(() =>
+        parse({
+          ...base,
+          associations: {
+            ...base.associations,
+            entries: [{ ...entries[0], molePathProtection: rule }, ...entries.slice(1)],
+          },
+        }),
+      ).toThrow()
+    }
+    expect(
+      parse({
+        ...base,
+        associations: {
+          ...base.associations,
+          entries: [
+            {
+              ...entries[0],
+              molePathProtection: { ...pathRule(), code: 'unknown', issue: 'rulesUnavailable' },
+            },
+            ...entries.slice(1),
+          ],
+        },
+      }).associations.entries[0].status,
+    ).toBe('notFound')
+    expect(() =>
+      parse({
+        ...base,
+        associations: {
+          ...base.associations,
+          entries: [
+            { ...entries[0], status: 'unknown', issue: 'unavailable' },
+            ...entries.slice(1),
+          ],
+        },
+      }),
+    ).toThrow()
+  })
+
   it('requires complete exact extension sources, merges collisions, and binds ByHost files to fresh IDs', () => {
     const data = valid()
     const ids = ['org.example.extension', 'org.example.extension.binarycookies']
@@ -170,6 +274,7 @@ describe('application inspection boundary', () => {
             status: 'notFound',
             issue: null,
             protectionReasons: [],
+            molePathProtection: pathRule(),
           })
       }
     const device = {
@@ -178,6 +283,7 @@ describe('application inspection boundary', () => {
       status: 'unknown',
       issue: 'unavailable',
       protectionReasons: ['clientDirectory'],
+      molePathProtection: pathRule('unknown'),
     }
     entries.push(device)
     data.extensionData = {
@@ -188,7 +294,7 @@ describe('application inspection boundary', () => {
     }
     expect(parse(data).extensionData.entries).toHaveLength(16)
     const invalids = [
-      { ...data.extensionData, version: 2 },
+      { ...data.extensionData, version: 3 },
       { ...data.extensionData, revision: 'other' },
       { ...data.extensionData, code: 'observed', issue: 'embeddedIncomplete' },
       { ...data.extensionData, identifiers: [ids[0]] },
@@ -366,7 +472,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 16 },
+      { protocol: 17 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -664,9 +770,10 @@ describe('application inspection boundary', () => {
       status: index === 0 ? 'present' : index === 1 ? 'unknown' : 'notFound',
       issue: index === 1 ? 'unsupported' : null,
       protectionReasons: [] as string[],
+      molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 3,
+      version: 4,
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,
@@ -685,6 +792,7 @@ describe('application inspection boundary', () => {
       const entry = {
         ...entries[0],
         status,
+        molePathProtection: pathRule(status),
         issue: status === 'unknown' ? 'unavailable' : null,
         protectionReasons: ['clientDirectory'],
       }
@@ -699,7 +807,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 4 },
+      { ...associations, version: 5 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -933,6 +1041,7 @@ describe('application inspection boundary', () => {
       status: 'notFound',
       issue: null,
       protectionReasons: [] as string[],
+      molePathProtection: pathRule(),
     }))
     const entry = {
       kind: 'groupContainer',
@@ -940,6 +1049,7 @@ describe('application inspection boundary', () => {
       status: 'present',
       issue: null,
       protectionReasons: ['clientDirectory'],
+      molePathProtection: pathRule(),
     }
     const discovery = {
       code: 'observed',
@@ -950,7 +1060,7 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 3,
+      version: 4,
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,

@@ -1,5 +1,7 @@
 //! Fixed-revision read-only component / official-uninstaller observations.
 //! No Shell execution in production; no data ownership or uninstall eligibility.
+mod path;
+pub use path::Observation as PathObservation;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -40,6 +42,7 @@ pub struct Policy {
     critical: Vec<String>,
     allowed: Vec<String>,
     official: Vec<OfficialRule>,
+    paths: Option<path::Policy>,
 }
 
 struct OfficialRule {
@@ -194,6 +197,7 @@ fn matches(id: &str, pattern: &str) -> bool {
 impl Policy {
     fn parse(source: &str) -> Result<Self, String> {
         Ok(Self {
+            paths: None,
             critical: patterns(source, "SYSTEM_CRITICAL_BUNDLES")?,
             allowed: patterns(source, "APPLE_UNINSTALLABLE_APPS")?,
             official: literal_rows(source, "OFFICIAL_UNINSTALLER_RULES")?
@@ -235,15 +239,23 @@ pub fn load(root: &Path) -> Result<Policy, String> {
     }
     // Bind both semantics and data to the audited revision, beyond the mutable
     // prepared manifest. Upstream upgrades need explicit adaptation and tests.
-    pinned_text(&root.join("lib/core/app_protection.sh"), LOGIC)?;
+    let logic = pinned_text(&root.join("lib/core/app_protection.sh"), LOGIC)?;
     pinned_text(&root.join("bin/uninstall.sh"), UNINSTALL)?;
     pinned_text(&root.join("lib/uninstall/batch.sh"), BATCH)?;
     pinned_text(&root.join("lib/core/pkg_receipts.sh"), RECEIPTS)?;
     pinned_text(&root.join("lib/core/base.sh"), BASE)?;
-    Policy::parse(&pinned_text(
-        &root.join("lib/core/app_protection_data.sh"),
-        DATA,
-    )?)
+    let data = pinned_text(&root.join("lib/core/app_protection_data.sh"), DATA)?;
+    let mut policy = Policy::parse(&data)?;
+    policy.paths = Some(path::Policy::parse(&logic, &data)?);
+    Ok(policy)
+}
+pub fn observe_path(
+    policy: Option<&Policy>,
+    home: &Path,
+    path: &Path,
+    location: &str,
+) -> PathObservation {
+    path::observe(policy.and_then(|p| p.paths.as_ref()), home, path, location)
 }
 fn observed_id<'a>(id: Option<&'a str>, identity: &str) -> Result<&'a str, &'static str> {
     if identity == "different" {

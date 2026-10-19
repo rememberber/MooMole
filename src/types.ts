@@ -84,8 +84,22 @@ export interface AppEntry {
   path: string
   size: string
 }
+export interface MolePathProtection {
+  version: 1
+  revision: string
+  source: 'moleUninstallLiteralPath'
+  code: 'protected' | 'notMatched' | 'unknown'
+  reason:
+    | 'sharedRoot'
+    | 'containerRuntime'
+    | 'systemComponent'
+    | 'criticalData'
+    | 'endpointSecurity'
+    | null
+  issue: 'rulesUnavailable' | 'locationUnverified' | 'pathUnsupported' | null
+}
 export interface ApplicationInspection {
-  protocol: 15
+  protocol: 16
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -111,7 +125,7 @@ export interface ApplicationInspection {
     bundles: { relativePath: string; bundleId: string; kind: 'appex' | 'xpc' | 'loginItem' }[]
   }
   extensionData: {
-    version: 1
+    version: 2
     revision: string
     code: 'observed' | 'partial' | 'notChecked' | 'unknown'
     issue:
@@ -145,6 +159,7 @@ export interface ApplicationInspection {
       status: 'present' | 'notFound' | 'unknown'
       issue: 'unavailable' | 'unsupported' | 'changed' | null
       protectionReasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
+      molePathProtection: MolePathProtection
     }[]
     byHost: {
       code: 'observed' | 'partial' | 'notChecked'
@@ -204,7 +219,7 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 3
+    version: 4
     revision: string
     code: 'observed' | 'unknown'
     issue:
@@ -228,6 +243,7 @@ export interface ApplicationInspection {
       status: 'present' | 'notFound' | 'unknown'
       issue: 'unavailable' | 'unsupported' | 'changed' | null
       protectionReasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
+      molePathProtection: MolePathProtection
     }[]
   }
   background: {

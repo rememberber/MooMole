@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 15 ||
+    data.protocol !== 16 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -38,6 +38,35 @@ export function parseApplicationInspection(
     )
   )
     return fail()
+  const pathProtection = (
+    entry:
+      | ApplicationInspection['associations']['entries'][number]
+      | ApplicationInspection['extensionData']['entries'][number],
+  ) => {
+    const protection = entry.molePathProtection
+    return Boolean(
+      protection &&
+      protection.version === 1 &&
+      protection.revision === moleUninstallRevision &&
+      protection.source === 'moleUninstallLiteralPath' &&
+      (protection.code === 'protected'
+        ? [
+            'sharedRoot',
+            'containerRuntime',
+            'systemComponent',
+            'criticalData',
+            'endpointSecurity',
+          ].includes(protection.reason ?? '') && protection.issue === null
+        : protection.code === 'notMatched'
+          ? protection.reason === null && protection.issue === null && entry.status !== 'unknown'
+          : protection.code === 'unknown' &&
+            protection.reason === null &&
+            ['rulesUnavailable', 'locationUnverified', 'pathUnsupported'].includes(
+              protection.issue ?? '',
+            ) &&
+            (protection.issue !== 'locationUnverified' || entry.status === 'unknown')),
+    )
+  }
   const embedded = data.embedded
   const reverseDns = (value: unknown): value is string =>
     text(value, 255) &&
@@ -124,7 +153,7 @@ export function parseApplicationInspection(
   const availableIds = [...new Set(embedded.bundles.map((bundle) => bundle.bundleId))].sort()
   if (
     !extensionData ||
-    extensionData.version !== 1 ||
+    extensionData.version !== 2 ||
     extensionData.revision !== moleUninstallRevision ||
     !['observed', 'partial', 'notChecked', 'unknown'].includes(extensionData.code) ||
     !Array.isArray(extensionData.identifiers) ||
@@ -179,6 +208,7 @@ export function parseApplicationInspection(
   for (const entry of extensionData.entries) {
     if (
       !entry ||
+      !pathProtection(entry) ||
       !text(entry.relativePath, 1024) ||
       /[\u007f-\u009f]/.test(entry.relativePath) ||
       !Array.isArray(entry.sources) ||
@@ -441,7 +471,7 @@ export function parseApplicationInspection(
   }
   if (
     !associations ||
-    associations.version !== 3 ||
+    associations.version !== 4 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -467,6 +497,7 @@ export function parseApplicationInspection(
     associations.entries.some(
       (entry, index) =>
         !entry ||
+        !pathProtection(entry) ||
         (index < locations.length
           ? entry.kind !== locations[index]?.[0] ||
             entry.relativePath !==

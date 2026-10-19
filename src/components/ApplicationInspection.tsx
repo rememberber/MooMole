@@ -1,7 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { desktop, inspectApplication } from '../lib/api'
 import { parseApplicationInspection } from '../lib/application-inspection'
-import type { ApplicationInspection as Inspection } from '../types'
+import type { ApplicationInspection as Inspection, MolePathProtection } from '../types'
+
+function MolePathNotice({ value }: { value: MolePathProtection }) {
+  if (value.code === 'notMatched') return null
+  return (
+    <span className={`association-path${value.code === 'unknown' ? ' muted' : ''}`}>
+      {value.code === 'protected'
+        ? `Mole：${
+            {
+              sharedRoot: '共享状态根目录',
+              containerRuntime: '容器运行数据',
+              systemComponent: '系统组件路径',
+              criticalData: '关键设置或持久数据',
+              endpointSecurity: '终端安全组件数据',
+            }[value.reason!]
+          }，保留`
+        : `Mole 路径保护无法确认 · ${
+            {
+              rulesUnavailable: '请检查内置规则后重试',
+              locationUnverified: '位置尚未核实，请保留并重查',
+              pathUnsupported: '路径形式暂不支持，请保留',
+            }[value.issue!]
+          }`}
+    </span>
+  )
+}
 
 export function ApplicationInspection({
   taskId,
@@ -63,6 +88,11 @@ export function ApplicationInspection({
         (entry) => entry.protectionReasons.length > 0,
       ).length
     : 0
+  const moleProtectedLocations = value
+    ? [...value.associations.entries, ...value.extensionData.entries].filter(
+        (entry) => entry.molePathProtection.code === 'protected',
+      ).length
+    : 0
   const labels = {
     observed: '发现主应用运行',
     notObserved: '未发现匹配主应用',
@@ -92,7 +122,8 @@ export function ApplicationInspection({
               {value.protection.reasons.length
                 ? '已命中客户端保护'
                 : value.moleProtection.code === 'protected' ||
-                    value.background.code === 'restricted'
+                    value.background.code === 'restricted' ||
+                    moleProtectedLocations > 0
                   ? 'Mole 要求保留'
                   : value.officialUninstaller.code === 'officialRequired'
                     ? '请使用官方卸载器'
@@ -109,6 +140,7 @@ export function ApplicationInspection({
             {(value.protection.reasons.length > 0 ||
               value.moleProtection.code === 'protected' ||
               value.background.code === 'restricted' ||
+              moleProtectedLocations > 0 ||
               value.officialUninstaller.code === 'officialRequired' ||
               protectedAssociations > 0) &&
               ' · 当前仅供查看'}
@@ -308,6 +340,14 @@ export function ApplicationInspection({
                 : `${value.associations.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.associations.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
               {value.associations.entries.some((entry) => entry.protectionReasons.length > 0) &&
                 ` · ${value.associations.entries.filter((entry) => entry.protectionReasons.length > 0).length} 处受保护`}
+              {value.associations.entries.some(
+                (entry) => entry.molePathProtection.code === 'protected',
+              ) &&
+                ` · Mole 保留 ${value.associations.entries.filter((entry) => entry.molePathProtection.code === 'protected').length} 处`}
+              {value.associations.entries.some(
+                (entry) => entry.molePathProtection.code === 'unknown',
+              ) &&
+                ` · ${value.associations.entries.filter((entry) => entry.molePathProtection.code === 'unknown').length} 处路径保护未确认`}
               {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
@@ -340,7 +380,10 @@ export function ApplicationInspection({
                 <dl>
                   {value.associations.entries
                     .filter(
-                      (entry) => entry.status !== 'notFound' || entry.protectionReasons.length > 0,
+                      (entry) =>
+                        entry.status !== 'notFound' ||
+                        entry.protectionReasons.length > 0 ||
+                        entry.molePathProtection.code !== 'notMatched',
                     )
                     .map((entry) => (
                       <div key={entry.relativePath}>
@@ -400,6 +443,7 @@ export function ApplicationInspection({
                                 .join('；')}
                             </span>
                           )}
+                          <MolePathNotice value={entry.molePathProtection} />
                           <span className="mono association-path">~/{entry.relativePath}</span>
                         </dd>
                       </div>
@@ -482,6 +526,14 @@ export function ApplicationInspection({
                 </strong>
                 {value.extensionData.entries.some((entry) => entry.protectionReasons.length > 0) &&
                   ` · ${value.extensionData.entries.filter((entry) => entry.protectionReasons.length > 0).length} 处受保护`}
+                {value.extensionData.entries.some(
+                  (entry) => entry.molePathProtection.code === 'protected',
+                ) &&
+                  ` · Mole 保留 ${value.extensionData.entries.filter((entry) => entry.molePathProtection.code === 'protected').length} 处`}
+                {value.extensionData.entries.some(
+                  (entry) => entry.molePathProtection.code === 'unknown',
+                ) &&
+                  ` · ${value.extensionData.entries.filter((entry) => entry.molePathProtection.code === 'unknown').length} 处路径保护未确认`}
               </p>
               {value.extensionData.issue && (
                 <p className="muted">
@@ -517,7 +569,10 @@ export function ApplicationInspection({
               <dl>
                 {value.extensionData.entries
                   .filter(
-                    (entry) => entry.status !== 'notFound' || entry.protectionReasons.length > 0,
+                    (entry) =>
+                      entry.status !== 'notFound' ||
+                      entry.protectionReasons.length > 0 ||
+                      entry.molePathProtection.code !== 'notMatched',
                   )
                   .map((entry) => (
                     <div key={entry.relativePath}>
@@ -556,6 +611,7 @@ export function ApplicationInspection({
                               .join('；')}
                           </span>
                         )}
+                        <MolePathNotice value={entry.molePathProtection} />
                         <span className="mono association-path">
                           {[...new Set(entry.sources.map((source) => source.bundleId))].join('、')}
                         </span>
@@ -584,7 +640,8 @@ export function ApplicationInspection({
               / should_protect_from_uninstall / official_uninstaller_vendor /
               uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
-              ；官方卸载器名称取自本次 Mole
+              ；路径保留提示仅覆盖 should_protect_path
+              的卸载模式字面规则，不含白名单、别名解析或执行许可。 官方卸载器名称取自本次 Mole
               清单，共享保留使用已核对路径的包名，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
             </p>
           </details>

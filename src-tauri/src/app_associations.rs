@@ -96,11 +96,27 @@ struct Entry {
     status: &'static str,
     issue: Option<&'static str>,
     protection_reasons: Vec<&'static str>,
+    mole_path_protection: crate::app_uninstall_rules::PathObservation,
 }
 impl Observation {
+    pub fn attach_mole_paths(
+        &mut self,
+        policy: Option<&crate::app_uninstall_rules::Policy>,
+        home: &Path,
+    ) {
+        for entry in &mut self.entries {
+            entry.mole_path_protection = crate::app_uninstall_rules::observe_path(
+                policy,
+                home,
+                &home.join(&entry.relative_path),
+                entry.status,
+            );
+        }
+    }
+
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 3,
+            version: 4,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -151,6 +167,7 @@ struct ExtensionEntry {
     status: &'static str,
     issue: Option<&'static str>,
     protection_reasons: Vec<&'static str>,
+    mole_path_protection: crate::app_uninstall_rules::PathObservation,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,9 +194,24 @@ impl ByHost {
     }
 }
 impl ExtensionData {
+    pub fn attach_mole_paths(
+        &mut self,
+        policy: Option<&crate::app_uninstall_rules::Policy>,
+        home: &Path,
+    ) {
+        for entry in &mut self.entries {
+            entry.mole_path_protection = crate::app_uninstall_rules::observe_path(
+                policy,
+                home,
+                &home.join(&entry.relative_path),
+                entry.status,
+            );
+        }
+    }
+
     fn empty(code: &'static str, issue: Option<&'static str>) -> Self {
         Self {
-            version: 1,
+            version: 2,
             revision: crate::engine::REVISION,
             code,
             issue,
@@ -572,6 +604,9 @@ pub mod mac {
                     status: "unknown",
                     issue: Some("unavailable"),
                     protection_reasons: vec![],
+                    mole_path_protection: crate::app_uninstall_rules::PathObservation::unknown(
+                        "rulesUnavailable",
+                    ),
                 });
             }
             let mut discovery = Discovery::not_checked();
@@ -619,12 +654,15 @@ pub mod mac {
                     status: "unknown",
                     issue: Some("unavailable"),
                     protection_reasons: vec![],
+                    mole_path_protection: crate::app_uninstall_rules::PathObservation::unknown(
+                        "rulesUnavailable",
+                    ),
                 });
             }
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 3,
+                    version: 4,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,

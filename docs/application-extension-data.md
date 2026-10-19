@@ -35,10 +35,12 @@
 
 ## 协议与界面
 
-应用协议 v15 新增 extensionData version=1、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries 与 byHost。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
+应用协议 v16 新增 extensionData version=2、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries 与 byHost。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons、molePathProtection。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
 
-前端要求已选 ID 来自本次最终 embedded，已查询状态必须对应排序前 8 个；校验完整精确模板及合并来源、ByHost 全部匹配来源、路径唯一/直属名称、数量、保护和状态关系。来源丢失、遗漏精确位置、越界路径或矛盾协议整体拒绝。原 associations version=3 与 installations version=5 不变，IPC 仍只接受 taskId/index，没有前端目录、ID 或 HOME 覆盖。
+前端要求已选 ID 来自本次最终 embedded，已查询状态必须对应排序前 8 个；校验完整精确模板及合并来源、ByHost 全部匹配来源、路径唯一/直属名称、数量、保护和状态关系。来源丢失、遗漏精确位置、越界路径或矛盾协议整体拒绝。原 associations version=4 与 installations version=5 不变，IPC 仍只接受 taskId/index，没有前端目录、ID 或 HOME 覆盖。
 
 数据状态在原嵌入扩展区内显示；扩展数据的客户端保护参与主保留结论，范围不完整不会隐藏身份限制。用户可查看具体问题并重新检查；一分钟较早状态、任务/设置绑定和迟到响应隔离继续生效。
 
 本阶段仍未认证签名/entitlements、应用组成员或共享/个人数据归属，也不覆盖完整 Mole 候选/白名单/保护、退出协调或执行前验证。全部数据保持保留；未发现或没有命中保护不构成安全清理资格。
+
+第六十二阶段 extensionData version=2 的路径同样附加 [Mole 卸载字面路径保留](application-uninstall-paths.md)，与来源 ID、存在状态和客户端保护独立。来源身份撤回仍整体撤下路径及保护观察；规则未知不取消客户端已有保留原因。

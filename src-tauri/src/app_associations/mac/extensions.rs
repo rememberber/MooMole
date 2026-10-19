@@ -41,6 +41,9 @@ fn add(entries: &mut Vec<ExtensionEntry>, relative_path: String, id: &str, kind:
             status: "unknown",
             issue: Some("unavailable"),
             protection_reasons: vec![],
+            mole_path_protection: crate::app_uninstall_rules::PathObservation::unknown(
+                "rulesUnavailable",
+            ),
         });
     }
 }

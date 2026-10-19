@@ -66,11 +66,11 @@
 
 每项 protectionReasons 可包含 systemLocation/currentApplication/clientDirectory；不回传重复的绝对保护目录。命中独立于 present/notFound/unknown，不把路径保护当作存在或独占归属。摘要提示受保护位置数；默认展示发现/未知与受保护的未发现位置。未命中也全部保留，没有安全、可清理或可执行状态。
 
-保持原设置变更后的重查和迟到响应隔离；再次附加新规则会替换旧原因。设置读取失败、规则异常仍整份拒绝，不能把未知规则当作空规则。当前仅适配客户端保护，不把 Mole cleanup 的 should_protect_data 当作卸载资格；完整 should_protect_path、白名单和归属检查仍待完成。路径别名、大小写与挂载同对象关系不由这份字面规则证明。
+保持原设置变更后的重查和迟到响应隔离；再次附加新规则会替换旧原因。设置读取失败、规则异常仍整份拒绝，不能把未知规则当作空规则。当前仅适配客户端保护，不把 Mole cleanup 的 should_protect_data 当作卸载资格；完整 should_protect_path、白名单和归属检查仍待完成；已支持的卸载模式字面保留子集见 [路径保留](application-uninstall-paths.md)。路径别名、大小写与挂载同对象关系不由这份字面规则证明。
 
 ## 协议与后续
 
-应用检查协议 v15 的 associations 包含 version=3、固定 revision、observed/unknown、issue 和 entries。观测成功时先按固定顺序返回 16 项，后接最多 64 个动态目录候选；每项 kind、relativePath、present/notFound/unknown、issue 和唯一/有界的 protectionReasons 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态路径必须位于 4 个声明根直属且符合名称边界，不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v16 的 associations 包含 version=4、固定 revision、observed/unknown、issue 和 entries。观测成功时先按固定顺序返回 16 项，后接最多 64 个动态目录候选；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态路径必须位于 4 个声明根直属且符合名称边界，不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，16 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 
@@ -81,3 +81,5 @@ observed 只表示进行了有界查询，16 项仍可能全部未知。共享�
 共享关联已增加 [常用安装根的有界发现](application-discovery.md)，补查未登记/被清单省略的位置；目录问题、变化和上限保持不完整。命中仍持有证据，未命中释放句柄并在返回前重新核对元数据，不提供执行资格。本地卷和收据也已有有界补查，完整语义/权限/故障矩阵仍待验收。
 
 [扩展数据位置](application-extension-data.md) 按已取得标识查询八类精确位置和一层 ByHost 文件，单独记录范围与身份撤回；没有扩大本节主 ID 四根的匹配规则。全部新位置同样在异步结束后附加最新客户端保护。
+
+第六十二阶段 associations version=4 在每项返回独立的 molePathProtection，绑定固定资源的卸载模式字面路径规则。正面保留不取决于位置存在；非命中且位置未知时保持 locationUnverified，不从未知位置推出保护已通过，详见 [路径保留](application-uninstall-paths.md)。
