@@ -140,7 +140,7 @@ async function setup(page: Page) {
           protectionReasons: [],
         })
       return {
-        protocol: mode === 'future' ? 18 : 17,
+        protocol: mode === 'future' ? 19 : 18,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -388,7 +388,23 @@ async function setup(page: Page) {
             : [],
         },
         associations: {
-          version: mode === 'associationFuture' ? 5 : 4,
+          byHost: {
+            code:
+              mode?.startsWith('associationMainFiles') && mode !== 'associationMainFiles'
+                ? 'partial'
+                : mode?.startsWith('association') && mode !== 'associationFuture'
+                  ? 'observed'
+                  : 'notChecked',
+            issue:
+              mode === 'associationMainFilesChanged'
+                ? 'changed'
+                : mode === 'associationMainFilesLimit'
+                  ? 'limitReached'
+                  : null,
+            entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
+            candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
+          },
+          version: mode === 'associationFuture' ? 6 : 5,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -446,6 +462,23 @@ async function setup(page: Page) {
                   ['autosave', 'Library/Autosave Information', ''],
                   ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
                   ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
+                  ['preferencesDirectory', 'Library/Preferences', ''],
+                  ['downloadCache', 'Library/Caches/com.apple.nsurlsessiond/Downloads', ''],
+                  [
+                    'recentDocuments',
+                    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+                    '.sfl2',
+                  ],
+                  [
+                    'recentDocuments',
+                    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+                    '.sfl3',
+                  ],
+                  [
+                    'recentDocuments',
+                    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+                    '.sfl4',
+                  ],
                 ]
                   .map(([kind, root, suffix], index) => ({
                     kind,
@@ -457,7 +490,7 @@ async function setup(page: Page) {
                     status:
                       mode === 'associationChanged'
                         ? 'unknown'
-                        : index === 0
+                        : index === 0 || (mode?.startsWith('associationMainFiles') && index >= 16)
                           ? 'present'
                           : index === 1
                             ? 'unknown'
@@ -495,6 +528,31 @@ async function setup(page: Page) {
                             status: mode === 'associationRelatedChanged' ? 'unknown' : 'present',
                             issue: mode === 'associationRelatedChanged' ? 'changed' : null,
                             protectionReasons: [],
+                          },
+                        ]
+                      : [],
+                  )
+                  .concat(
+                    mode?.startsWith('associationMainFiles')
+                      ? [
+                          {
+                            kind: 'byHost',
+                            relativePath: 'Library/Preferences/ByHost/org.example.same.plist',
+                            status: mode === 'associationMainFilesChanged' ? 'unknown' : 'present',
+                            issue: mode === 'associationMainFilesChanged' ? 'changed' : null,
+                            protectionReasons: ['clientDirectory'],
+                            molePathProtection: pathRule(
+                              mode === 'associationMainFilesChanged' ? 'unknown' : 'present',
+                            ),
+                          },
+                          {
+                            kind: 'byHost',
+                            relativePath:
+                              'Library/Preferences/ByHost/org.example.same.DEVICE.plist',
+                            status: 'present',
+                            issue: null,
+                            protectionReasons: [],
+                            molePathProtection: pathRule(),
                           },
                         ]
                       : [],
@@ -945,7 +1003,7 @@ test('exact association locations stay retained, partial and revocable', async (
   await expect(associations).toContainText('发现位置 · 归属待确认')
   await expect(associations).toContainText('~/Library/Application Support/org.example.same')
   await expect(associations).toContainText('链接、挂载或文件类型暂不支持')
-  await expect(associations).toContainText('14 处常见位置本次未发现，不代表没有其他关联文件')
+  await expect(associations).toContainText('19 处常见位置本次未发现，不代表没有其他关联文件')
   await expect(associations.getByRole('checkbox')).toHaveCount(0)
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
@@ -962,7 +1020,7 @@ test('exact association locations stay retained, partial and revocable', async (
   }
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationChanged'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
-  await expect(associations).toContainText('0 处发现 · 16 处无法确认')
+  await expect(associations).toContainText('0 处发现 · 21 处无法确认')
   await expect(associations).toContainText('检查期间发生变化，请重查')
   await expect(associations).not.toContainText('发现位置 · 归属待确认')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'mismatch'))
@@ -1184,7 +1242,7 @@ test('per-location protection stays visible for found, unknown and missing data 
   await expect(associations).toContainText('无法确认')
   await expect(associations).toContainText('本次未发现')
   await expect(associations).toContainText('~/Library/Application Scripts/org.example.same')
-  await expect(associations).toContainText('16 个常见位置')
+  await expect(associations).toContainText('21 个常见位置')
   await expect(associations.getByRole('checkbox')).toHaveCount(0)
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
@@ -1424,4 +1482,56 @@ test('endpoint ancestor identity retention and unknown budgets remain explicit w
   await expect(data).toContainText('已保存保护目录覆盖，保留')
   await expect(data.getByRole('checkbox')).toHaveCount(0)
   await expect(data.getByRole('button')).toHaveCount(0)
+})
+
+test('main device settings and recent document records stay retained with explicit incomplete scope', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationMainFiles'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('设置目录')
+  await expect(associations).toContainText('下载缓存')
+  await expect(
+    associations.getByText('个人使用记录，保留；不读取或处理原文档。', { exact: true }),
+  ).toHaveCount(3)
+  await expect(associations.getByText('设备专用设置，保留。', { exact: true })).toHaveCount(2)
+  await expect(associations).toContainText('~/Library/Preferences/ByHost/org.example.same.plist')
+  await expect(associations).toContainText('已保存保护目录覆盖，保留')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((elements) =>
+          elements.every((element) => element.scrollWidth <= element.clientWidth + 1),
+        ),
+    ).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-main-files-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, message] of [
+    ['associationMainFilesChanged', '目录或设置在检查期间变化'],
+    ['associationMainFilesLimit', '扫描达到数量或时间上限'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(associations.locator('summary')).toContainText('设备设置检查不完整')
+    await expect(associations).toContainText(message)
+    await expect(associations).toContainText('设备专用设置，保留。')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationFound'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).not.toContainText('设备设置检查不完整')
+  await expect(associations).not.toContainText(
+    '~/Library/Preferences/ByHost/org.example.same.plist',
+  )
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  await expect(associations.getByRole('button')).toHaveCount(0)
 })

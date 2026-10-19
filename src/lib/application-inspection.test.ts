@@ -10,7 +10,7 @@ const pathRule = (status = 'notFound') => ({
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 17,
+  protocol: 18,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -81,7 +81,8 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 4,
+    version: 5,
+    byHost: { code: 'notChecked', issue: null, entries: 0, candidates: 0 },
     revision: moleUninstallRevision,
     code: 'unknown',
     issue: 'homeUnavailable',
@@ -137,6 +138,23 @@ const associationLocations = [
   ['autosave', 'Library/Autosave Information', ''],
   ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
   ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
+  ['preferencesDirectory', 'Library/Preferences', ''],
+  ['downloadCache', 'Library/Caches/com.apple.nsurlsessiond/Downloads', ''],
+  [
+    'recentDocuments',
+    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+    '.sfl2',
+  ],
+  [
+    'recentDocuments',
+    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+    '.sfl3',
+  ],
+  [
+    'recentDocuments',
+    'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+    '.sfl4',
+  ],
 ]
 
 const parse = (value: unknown, expected = 'org.example.app') =>
@@ -155,9 +173,10 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 4,
+        version: 5,
         code: 'observed',
         issue: null,
+        byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
         entries,
         discovery: {
           code: 'observed',
@@ -498,7 +517,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 18 },
+      { protocol: 19 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -800,7 +819,8 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 4,
+      version: 5,
+      byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,
@@ -834,7 +854,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 5 },
+      { ...associations, version: 6 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -858,6 +878,69 @@ describe('application inspection boundary', () => {
       { ...associations, code: 'unknown', issue: 'homeUnavailable' },
     ])
       expect(() => parse({ ...valid(), associations: invalid })).toThrow('无法识别')
+  })
+  it('bounds main ByHost independently and keeps settings, recent records and protections explicit', () => {
+    const fixed = associationLocations.map(([kind, root, suffix]) => ({
+      kind,
+      relativePath: `${root}/org.example.app${suffix}`,
+      status: 'notFound',
+      issue: null,
+      protectionReasons: [],
+      molePathProtection: pathRule(),
+    }))
+    const entry = {
+      kind: 'byHost',
+      relativePath: 'Library/Preferences/ByHost/org.example.app.plist',
+      status: 'present',
+      issue: null,
+      protectionReasons: ['clientDirectory'],
+      molePathProtection: pathRule(),
+    }
+    const associations = {
+      ...valid().associations,
+      code: 'observed',
+      issue: null,
+      entries: [...fixed, entry],
+      discovery: {
+        code: 'observed',
+        issue: null,
+        rootCount: 4,
+        entries: 0,
+        candidates: 0,
+        firstUncertainRoot: null,
+      },
+      byHost: { code: 'observed', issue: null, entries: 7, candidates: 1 },
+    }
+    expect(parse({ ...valid(), associations }).associations.entries).toHaveLength(22)
+    for (const issue of ['unavailable', 'unsupported', 'changed', 'limitReached'])
+      expect(
+        parse({
+          ...valid(),
+          associations: {
+            ...associations,
+            byHost: { ...associations.byHost, code: 'partial', issue },
+          },
+        }).associations.byHost.issue,
+      ).toBe(issue)
+    for (const invalid of [
+      { ...associations, byHost: undefined },
+      { ...associations, byHost: { ...associations.byHost, candidates: 0 } },
+      { ...associations, byHost: { ...associations.byHost, candidates: 65 } },
+      { ...associations, byHost: { ...associations.byHost, entries: 1025 } },
+      { ...associations, byHost: { ...associations.byHost, code: 'notChecked' } },
+      { ...associations, byHost: { ...associations.byHost, issue: 'changed' } },
+      ...[
+        'Library/Preferences/ByHost/org.example.apple.A.plist',
+        'Library/Preferences/ByHost/TEAM.org.example.app.A.plist',
+        'Library/Preferences/ByHost/org.example.app.A.PLIST',
+        'Library/Preferences/ByHost/org.example.app.A/child.plist',
+      ].map((relativePath) => ({
+        ...associations,
+        entries: [...fixed, { ...entry, relativePath }],
+      })),
+      { ...associations, discovery: { ...associations.discovery, candidates: 1 } },
+    ])
+      expect(() => parse({ ...valid(), associations: invalid })).toThrow()
   })
   it('keeps partial registered copies separate from exhaustive absence and rejects mismatched identities', () => {
     const copy = {
@@ -1087,14 +1170,15 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 4,
+      version: 5,
+      byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
       revision: moleUninstallRevision,
       code: 'observed',
       issue: null,
       entries: [...fixed, entry],
       discovery,
     }
-    expect(parse({ ...valid(), associations }).associations.entries).toHaveLength(17)
+    expect(parse({ ...valid(), associations }).associations.entries).toHaveLength(22)
     for (const issue of ['unavailable', 'unsupported', 'changed', 'limitReached'])
       expect(
         parse({

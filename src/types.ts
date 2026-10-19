@@ -106,7 +106,7 @@ export interface MolePathProtection {
     | null
 }
 export interface ApplicationInspection {
-  protocol: 17
+  protocol: 18
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -226,7 +226,8 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 4
+    version: 5
+    byHost: ApplicationInspection['extensionData']['byHost']
     revision: string
     code: 'observed' | 'unknown'
     issue:

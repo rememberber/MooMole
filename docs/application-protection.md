@@ -46,7 +46,7 @@
 
 沿用 `inspect_application(taskId, index)`，不新增前端路径、标识、规则、PID 或执行参数。在原有两个实际工作器及 5 秒等待预算内先读取引擎规则，再完成本地包身份/运行观察及文件证据复核；随后从 SQLite 读取最新保存的保护目录。锁只用于短时读取，不跨异步文件/AppKit 工作。设置读取失败则不发布这次观察。规则判定不写数据库/历史、不扫描关联文件或申请新授权。引擎资源校验增加有界只读 I/O；等待超时仍由真实工作器持有名额到结束。
 
-当前应用检查协议为 v17。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。`officialUninstaller` 保留 version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。新增 background 的标记/目录条件观察，结构与约束见 [后台应用条件](application-background.md)。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
+当前应用检查协议为 v18。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。`officialUninstaller` 保留 version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。新增 background 的标记/目录条件观察，结构与约束见 [后台应用条件](application-background.md)。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
 
 父组件将已保存保护目录绑定到观察组件身份。添加/移除保护目录后重新检查，即使列表任务不变；旧请求和旧计时器不能覆盖新一代结果。主题或历史保留天数变更不触发无关重查。设置与文件系统不是同一事务，返回后的变化仍可能发生；这些提示不替代未来真正修改前再次读取规则、身份及归属。
 
@@ -56,7 +56,7 @@ Mole 适配新增字面规则、例外优先级、大小写、资源/语法失�
 
 第五十阶段为官方卸载器补充顺序/匹配/未知上下文和语法失败测试，同一显式对照项另与原 `official_uninstaller_vendor` 核对 74 组上下文；输入为数据参数，HOME/TMPDIR 是临时目录，不调用卸载生命周期。任务缓存新增名称绑定/异常边界，前端协议与浏览器验证行动提示、来源、保护共存、缺名称/未知/未来协议与重复原因去重；原生与打包证据见开发记录第五十阶段。
 
-应用详情现可按需查看 [16 个精确标识关联位置](application-associations.md)，显示发现、未发现和无法确认；全部保留，不证明归属或提供执行资格。共享、个人数据与完整发现/保护仍待完成。
+应用详情现可按需查看 [21 个精确标识关联位置](application-associations.md)，显示发现、未发现和无法确认；全部保留，不证明归属或提供执行资格。共享、个人数据与完整发现/保护仍待完成。
 
 应用详情可按需核对 [同标识系统登记位置](application-copies.md)，发现时提示关联数据可能共用；失效、超限和变化保留不完整，未发现不代表数据独占。完整 Mole 多副本/共享规则仍待适配。
 
@@ -67,7 +67,7 @@ Mole 适配新增字面规则、例外优先级、大小写、资源/语法失�
 
 ## 关联位置的逐项保护（第五十八阶段）
 
-已扩展至 16 个固定精确 ID 位置，附加最新客户端保护目录及自身/系统位置原因。所选 App 没有客户端限制、但数据位置命中时，主结论可显示「关联位置受保护」；原系统组件、后台限制和官方卸载器提示继续优先。每项存在状态保持独立，受保护但未发现的位置也展示保留意图；未知不被保护提示改成存在。所有数据继续保留，完整 Mole 路径保护与执行前资格仍未完成，见 [关联位置](application-associations.md)。
+已扩展至 21 个固定精确 ID 位置，附加最新客户端保护目录及自身/系统位置原因。所选 App 没有客户端限制、但数据位置命中时，主结论可显示「关联位置受保护」；原系统组件、后台限制和官方卸载器提示继续优先。每项存在状态保持独立，受保护但未发现的位置也展示保留意图；未知不被保护提示改成存在。所有数据继续保留，完整 Mole 路径保护与执行前资格仍未完成，见 [关联位置](application-associations.md)。
 
 
 第五十九阶段补充 4 个应用组/派生根的一层名称边界扫描，动态候选同样受最新客户端路径保护；不以名称证明成员关系或独占归属，链接与不完整范围可见。自身提示表述为「客户端自身保护」，避免将候选描述成已确认属于当前 App 的数据，见 [应用组与派生位置](application-associations.md)。

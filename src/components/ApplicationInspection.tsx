@@ -352,6 +352,7 @@ export function ApplicationInspection({
               ) &&
                 ` · ${value.associations.entries.filter((entry) => entry.molePathProtection.code === 'unknown').length} 处路径保护未确认`}
               {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
+              {value.associations.byHost.code === 'partial' && ' · 设备设置检查不完整'}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
             {value.associations.discovery.code !== 'notChecked' && (
@@ -364,6 +365,20 @@ export function ApplicationInspection({
                     ~/{value.associations.discovery.firstUncertainRoot}
                   </span>
                 )}
+              </p>
+            )}
+            {value.associations.byHost.code === 'partial' && (
+              <p className="muted">
+                设备设置检查不完整 ·{' '}
+                {
+                  {
+                    unavailable: '无法完整读取，请保留并重试',
+                    unsupported: '部分名称、链接或文件布局暂不支持',
+                    changed: '目录或设置在检查期间变化，请重查',
+                    limitReached: '扫描达到数量或时间上限，请保留',
+                  }[value.associations.byHost.issue!]
+                }
+                <span className="mono association-path">~/Library/Preferences/ByHost</span>
               </p>
             )}
             {value.associations.code === 'unknown' ? (
@@ -397,6 +412,10 @@ export function ApplicationInspection({
                               cache: '缓存',
                               logs: '日志',
                               preferences: '设置',
+                              preferencesDirectory: '设置目录',
+                              downloadCache: '下载缓存',
+                              recentDocuments: '最近文档记录',
+                              byHost: '设备设置',
                               savedState: '恢复状态',
                               container: '沙盒数据',
                               webKit: '网页数据',
@@ -446,6 +465,14 @@ export function ApplicationInspection({
                                 .join('；')}
                             </span>
                           )}
+                          {entry.kind === 'recentDocuments' && (
+                            <span className="association-path muted">
+                              个人使用记录，保留；不读取或处理原文档。
+                            </span>
+                          )}
+                          {entry.kind === 'byHost' && (
+                            <span className="association-path muted">设备专用设置，保留。</span>
+                          )}
                           <MolePathNotice value={entry.molePathProtection} />
                           <span className="mono association-path">~/{entry.relativePath}</span>
                         </dd>
@@ -459,7 +486,8 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 16 个常见位置，另检查应用组与扩展的 4 个目录各一层、合计最多 64
+              仅查询精确标识的 21 个常见位置及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
+              个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>
           </details>

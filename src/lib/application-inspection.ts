@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 17 ||
+    data.protocol !== 18 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -448,6 +448,23 @@ export function parseApplicationInspection(
     ['autosave', 'Library/Autosave Information', ''],
     ['syncedPreferences', 'Library/SyncedPreferences', '.plist'],
     ['crashReports', 'Library/Caches/com.plausiblelabs.crashreporter.data', ''],
+    ['preferencesDirectory', 'Library/Preferences', ''],
+    ['downloadCache', 'Library/Caches/com.apple.nsurlsessiond/Downloads', ''],
+    [
+      'recentDocuments',
+      'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+      '.sfl2',
+    ],
+    [
+      'recentDocuments',
+      'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+      '.sfl3',
+    ],
+    [
+      'recentDocuments',
+      'Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments',
+      '.sfl4',
+    ],
   ]
   const relatedRoots: Record<string, string> = {
     groupContainer: 'Library/Group Containers',
@@ -474,9 +491,39 @@ export function parseApplicationInspection(
       !locations.some(([, path, suffix]) => entry.relativePath === `${path}/${id}${suffix}`)
     )
   }
+  const mainByHostPath = (path: unknown) => {
+    if (!text(path, 1024) || /[\u007f-\u009f]/.test(path as string)) return false
+    const root = 'Library/Preferences/ByHost/'
+    if (!(path as string).startsWith(root)) return false
+    const name = (path as string).slice(root.length)
+    return !name.includes('/') && name.startsWith(`${data.bundleId}.`) && name.endsWith('.plist')
+  }
+  const mainByHost = associations?.byHost
+  const mainByHostCount = Array.isArray(associations?.entries)
+    ? associations.entries.filter((e) => e?.kind === 'byHost').length
+    : 0
+  if (
+    !mainByHost ||
+    !['observed', 'partial', 'notChecked'].includes(mainByHost.code) ||
+    !Number.isInteger(mainByHost.entries) ||
+    mainByHost.entries < 0 ||
+    mainByHost.entries > 1024 ||
+    !Number.isInteger(mainByHost.candidates) ||
+    mainByHost.candidates < 0 ||
+    mainByHost.candidates > 64 ||
+    mainByHost.candidates > mainByHost.entries ||
+    mainByHost.candidates !== mainByHostCount ||
+    (mainByHost.code === 'notChecked') !== (associations.code === 'unknown') ||
+    (mainByHost.code === 'notChecked' &&
+      (mainByHost.entries !== 0 || mainByHost.candidates !== 0)) ||
+    (mainByHost.code === 'partial'
+      ? !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(mainByHost.issue ?? '')
+      : mainByHost.issue !== null)
+  )
+    return fail()
   if (
     !associations ||
-    associations.version !== 4 ||
+    associations.version !== 5 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -494,7 +541,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 64) ||
+        associations.entries.length > locations.length + 128) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||
@@ -507,7 +554,9 @@ export function parseApplicationInspection(
           ? entry.kind !== locations[index]?.[0] ||
             entry.relativePath !==
               `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}`
-          : !relatedPath(entry)) ||
+          : entry.kind === 'byHost'
+            ? !mainByHostPath(entry.relativePath)
+            : !relatedPath(entry)) ||
         !Array.isArray(entry.protectionReasons) ||
         entry.protectionReasons.length > 3 ||
         new Set(entry.protectionReasons).size !== entry.protectionReasons.length ||
@@ -540,7 +589,8 @@ export function parseApplicationInspection(
     (discovery.code === 'notChecked') !== (associations.code === 'unknown') ||
     (discovery.code === 'notChecked'
       ? discovery.rootCount !== 0 || discovery.entries !== 0 || discovery.candidates !== 0
-      : discovery.candidates !== associations.entries.length - locations.length) ||
+      : discovery.candidates !==
+        associations.entries.length - locations.length - mainByHostCount) ||
     (discovery.code === 'observed' && discovery.rootCount !== 4) ||
     (discovery.code === 'partial'
       ? !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(

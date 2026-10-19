@@ -3,7 +3,7 @@
 use serde::Serialize;
 use std::path::Path;
 
-const LOCATIONS: [(&str, &str, &str); 16] = [
+const LOCATIONS: [(&str, &str, &str); 21] = [
     ("support", "Library/Application Support", ""),
     ("cache", "Library/Caches", ""),
     ("logs", "Library/Logs", ""),
@@ -32,6 +32,11 @@ const LOCATIONS: [(&str, &str, &str); 16] = [
         "Library/Caches/com.plausiblelabs.crashreporter.data",
         "",
     ),
+    ("preferencesDirectory", "Library/Preferences", ""),
+    ("downloadCache", "Library/Caches/com.apple.nsurlsessiond/Downloads", ""),
+    ("recentDocuments", "Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments", ".sfl2"),
+    ("recentDocuments", "Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments", ".sfl3"),
+    ("recentDocuments", "Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments", ".sfl4"),
 ];
 
 const RELATED_ROOTS: [(&str, &str); 4] = [
@@ -87,6 +92,7 @@ pub struct Observation {
     issue: Option<&'static str>,
     entries: Vec<Entry>,
     discovery: Discovery,
+    by_host: ByHost,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,12 +124,13 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 4,
+            version: 5,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
             entries: vec![],
             discovery: Discovery::not_checked(),
+            by_host: ByHost::not_checked(),
         }
     }
     pub fn attach_protection(
@@ -286,6 +293,7 @@ fn valid_id(id: &str) -> bool {
 #[cfg(target_os = "macos")]
 pub mod mac {
     pub mod extensions;
+    mod main_files;
     use super::*;
     use std::{
         collections::HashMap,
@@ -371,6 +379,18 @@ pub mod mac {
         issue: Option<&'static str>,
     }
     impl Probe {
+        fn require_type(&mut self, expected: libc::mode_t) {
+            if self.status == "present"
+                && self
+                    .links
+                    .last()
+                    .and_then(|link| link.value.as_ref())
+                    .is_some_and(|s| s.st_mode & libc::S_IFMT != expected)
+            {
+                self.status = "unknown";
+                self.issue = Some("unsupported");
+            }
+        }
         fn begin(
             path: &Path,
             home_depth: usize,
@@ -556,6 +576,7 @@ pub mod mac {
         observation: Observation,
         probes: Vec<Probe>,
         roots: Vec<(&'static str, Probe)>,
+        by_host: Option<main_files::Check>,
     }
     impl Check {
         pub fn begin(home: &Path, id: Option<&str>, identity: &str, rules_ready: bool) -> Self {
@@ -587,6 +608,7 @@ pub mod mac {
                     observation: Observation::unknown(issue),
                     probes: vec![],
                     roots: vec![],
+                    by_host: None,
                 };
             }
             let id = id.unwrap();
@@ -595,13 +617,20 @@ pub mod mac {
             let mut pool = HashMap::new();
             for (kind, root, suffix) in LOCATIONS {
                 let relative_path = format!("{root}/{id}{suffix}");
-                probes.push(Probe::begin(
+                let mut probe = Probe::begin(
                     &home.join(&relative_path),
                     home.components()
                         .filter(|c| matches!(c, Component::Normal(_)))
                         .count(),
                     &mut pool,
-                ));
+                );
+                if matches!(kind, "preferencesDirectory" | "downloadCache") {
+                    probe.require_type(libc::S_IFDIR);
+                }
+                if kind == "recentDocuments" {
+                    probe.require_type(libc::S_IFREG);
+                }
+                probes.push(probe);
                 entries.push(Entry {
                     kind,
                     relative_path,
@@ -666,15 +695,17 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 4,
+                    version: 5,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,
                     entries,
                     discovery,
+                    by_host: ByHost::not_checked(),
                 },
                 probes,
                 roots,
+                by_host: Some(main_files::Check::begin(home, id, depth, &mut pool)),
             }
         }
         fn scan_root(
@@ -782,6 +813,11 @@ pub mod mac {
                         .partial(issue.unwrap_or("unavailable"), root);
                 }
             }
+            if let Some(check) = self.by_host {
+                let (state, entries) = check.finish();
+                self.observation.by_host = state;
+                self.observation.entries.extend(entries);
+            }
             self.observation
         }
     }
@@ -820,13 +856,13 @@ pub mod mac {
                 home.join("Library/Group Containers/TEAM.org.example.app.shared/personal");
             fs::write(&personal, "keep me").unwrap();
             let result = observe(home);
-            assert_eq!(result["entries"].as_array().unwrap().len(), 20);
+            assert_eq!(result["entries"].as_array().unwrap().len(), 25);
             assert_eq!(result["discovery"]["candidates"], 4);
             assert_eq!(result["discovery"]["code"], "observed");
-            assert!(result["entries"].as_array().unwrap()[16..]
+            assert!(result["entries"].as_array().unwrap()[21..]
                 .iter()
                 .all(|entry| entry["status"] == "present"));
-            assert!(!result["entries"].as_array().unwrap()[16..]
+            assert!(!result["entries"].as_array().unwrap()[21..]
                 .iter()
                 .any(
                     |entry| entry["relativePath"].as_str().unwrap().contains("apple")
@@ -854,9 +890,9 @@ pub mod mac {
                 .unwrap();
             let value = serde_json::to_value(result).unwrap();
             assert_eq!(value["discovery"]["issue"], "unsupported");
-            assert_eq!(value["entries"][16]["issue"], "unsupported");
+            assert_eq!(value["entries"][21]["issue"], "unsupported");
             assert_eq!(
-                value["entries"][16]["protectionReasons"][0],
+                value["entries"][21]["protectionReasons"][0],
                 "clientDirectory"
             );
             let check = Check::begin(home, Some("org.example.app"), "matches", true);
@@ -1037,7 +1073,7 @@ pub mod mac {
             )
             .unwrap();
             let v = observe(home);
-            assert_eq!(v["entries"].as_array().unwrap().len(), 16);
+            assert_eq!(v["entries"].as_array().unwrap().len(), 21);
             assert_eq!(v["entries"][0]["status"], "present");
             assert_eq!(v["entries"][1]["status"], "notFound");
             assert_eq!(v["entries"][3]["status"], "present");
@@ -1225,7 +1261,12 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
         crate::app_uninstall_rules::load(&root).unwrap();
         let source = std::fs::read_to_string(root.join("lib/core/app_protection.sh")).unwrap();
-        for (_, directory, suffix) in LOCATIONS {
+        for (kind, directory, suffix) in LOCATIONS {
+            if kind == "recentDocuments" {
+                assert!(source.contains(&format!("$HOME/{directory}")));
+                assert!(source.contains(&format!("\"${{bundle_id}}{suffix}\"")));
+                continue;
+            }
             assert!(
                 source.contains(&format!("$HOME/{directory}/$bundle_id{suffix}"))
                     || source.contains(&format!("~/{}/\"$bundle_id\"{}", directory, suffix))
