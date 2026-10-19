@@ -409,7 +409,7 @@ export function ApplicationInspection({
                 <p className="muted">
                   另按 Mole 清单名称「{value.associations.names.name}」查询{' '}
                   {value.associations.names.candidates}{' '}
-                  个位置，仅为名称线索，本地显示名称和归属未认证。
+                  个位置（含适用的空格变体），仅为名称线索，本地显示名称和归属未认证。
                 </p>
               )}
             {value.associations.byHost.code === 'partial' && (
@@ -463,6 +463,18 @@ export function ApplicationInspection({
                               namePreferencesDirectory: '设置位置（名称）',
                               namePreferences: '设置（名称）',
                               nameSavedState: '恢复状态（名称）',
+                              nameCompactSupport: '应用数据',
+                              nameCompactCache: '缓存',
+                              nameCompactLogs: '日志',
+                              nameCompactPreferencesDirectory: '设置位置',
+                              nameCompactPreferences: '设置',
+                              nameCompactSavedState: '恢复状态',
+                              nameUnderscoreSupport: '应用数据',
+                              nameHyphenSupport: '应用数据',
+                              nameUnderscorePreferencesDirectory: '设置位置',
+                              nameUnderscorePreferences: '设置',
+                              nameHyphenPreferencesDirectory: '设置位置',
+                              nameHyphenPreferences: '设置',
                               nameService: '服务工作流',
                               nameQuickLook: 'Quick Look',
                               nameInternetPlugin: '网络插件',
@@ -536,16 +548,20 @@ export function ApplicationInspection({
                           )}
                           {entry.kind.startsWith('name') && (
                             <span className="association-path muted">
-                              {[
-                                'nameSupport',
-                                'nameCache',
-                                'nameLogs',
-                                'namePreferencesDirectory',
-                                'namePreferences',
-                                'nameSavedState',
-                              ].includes(entry.kind)
-                                ? '名称线索，不证明归属，保留。'
-                                : '名称线索，注册、使用状态和归属未确认，保留。'}
+                              {['nameCompact', 'nameUnderscore', 'nameHyphen'].some((prefix) =>
+                                entry.kind.startsWith(prefix),
+                              )
+                                ? '空格变体线索，可能共用，不证明归属，保留。'
+                                : [
+                                      'nameSupport',
+                                      'nameCache',
+                                      'nameLogs',
+                                      'namePreferencesDirectory',
+                                      'namePreferences',
+                                      'nameSavedState',
+                                    ].includes(entry.kind)
+                                  ? '名称线索，不证明归属，保留。'
+                                  : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
                           {entry.kind === 'recentDocuments' && (
@@ -569,8 +585,9 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置、24 类 Library 名称位置及一层设备设置（最多 64
-              个文件），另检查应用组与扩展的 4 个目录各一层、合计最多 64
+              仅查询精确标识的 21 个常见位置、Library 名称与空格变体（最多 36
+              个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
+              个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>
           </details>

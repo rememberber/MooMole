@@ -100,6 +100,8 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+浏览器测试单独启动本项目的 1431 端口服务，不复用其他开发服务；端口已占用时停止，可用 `MOOMOLE_E2E_PORT=1432 npm run test:e2e` 指定其他空闲端口。App 开发服务仍使用 1420。
+
 Rust 测试覆盖 SQLite 迁移/中断恢复、无效设置拒绝、路径限制、取消和超时。浏览器测试覆盖预览隔离、导航、筛选、主题、设置弹窗及用途说明。
 
 ## 结构与数据

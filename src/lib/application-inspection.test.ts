@@ -10,7 +10,7 @@ const pathRule = (status = 'notFound') => ({
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 21,
+  protocol: 22,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -89,10 +89,10 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 7,
+    version: 8,
     names: {
-      version: 2,
-      source: 'moleLiteralAppNameLibrary',
+      version: 3,
+      source: 'moleAppNameLibrary',
       code: 'notChecked',
       issue: 'nameUnavailable',
       name: null,
@@ -189,7 +189,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 7,
+        version: 8,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -661,8 +661,8 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 2,
-      source: 'moleLiteralAppNameLibrary',
+      version: 3,
+      source: 'moleAppNameLibrary',
       code: 'observed',
       name: 'Example',
       issue: null,
@@ -687,10 +687,11 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 3 } },
-      { ...associations, names: { ...names, version: 1 } },
+      { ...associations, names: { ...names, version: 4 } },
+      { ...associations, names: { ...names, version: 2 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
       { ...associations, names: { ...names, source: 'moleBaseAppNameLibrary' } },
+      { ...associations, names: { ...names, source: 'moleLiteralAppNameLibrary' } },
       {
         ...associations,
         entries: [
@@ -737,6 +738,94 @@ describe('application inspection boundary', () => {
       parse({ ...data, associations: duplicate }, 'org.example.app', 'org.example.app').associations
         .names.candidates,
     ).toBe(17)
+    // Independent expected paths cover C byte length, literal separators, deny roots and ID precedence.
+    const compound = (name: string) => {
+      const compact = name.replaceAll(' ', '')
+      const underscore = name.replaceAll(' ', '_')
+      const hyphen = name.replaceAll(' ', '-')
+      const extras =
+        new TextEncoder().encode(name).length > 3 && name.includes(' ')
+          ? [
+              ['nameCompactSupport', `Library/Application Support/${compact}`],
+              ['nameCompactCache', `Library/Caches/${compact}`],
+              ['nameCompactLogs', `Library/Logs/${compact}`],
+              ['nameCompactPreferencesDirectory', `Library/Preferences/${compact}`],
+              ['nameCompactPreferences', `Library/Preferences/${compact}.plist`],
+              ['nameCompactSavedState', `Library/Saved Application State/${compact}.savedState`],
+              ['nameUnderscoreSupport', `Library/Application Support/${underscore}`],
+              ['nameHyphenSupport', `Library/Application Support/${hyphen}`],
+              ['nameUnderscorePreferencesDirectory', `Library/Preferences/${underscore}`],
+              ['nameUnderscorePreferences', `Library/Preferences/${underscore}.plist`],
+              ['nameHyphenPreferencesDirectory', `Library/Preferences/${hyphen}`],
+              ['nameHyphenPreferences', `Library/Preferences/${hyphen}.plist`],
+            ]
+          : []
+      const all = [
+        ...templates.map(([kind, root, suffix]) => [kind, `${root}/${name}${suffix}`]),
+        ...extras,
+      ]
+        .filter(
+          ([, path]) =>
+            !['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path) &&
+            !fixed.some((entry) => entry.relativePath === path),
+        )
+        .map(([kind, relativePath], index) => ({
+          ...entries[0],
+          kind,
+          relativePath,
+          status: index === 24 ? 'unknown' : 'present',
+          issue: index === 24 ? 'unsupported' : null,
+          protectionReasons: index === 30 ? ['clientDirectory'] : [],
+          molePathProtection: pathRule(index === 24 ? 'unknown' : 'present'),
+        }))
+      return {
+        ...associations,
+        names: { ...names, name, candidates: all.length },
+        entries: [...fixed, ...all],
+      }
+    }
+    for (const [name, count] of [
+      ['Suite Studio', 36],
+      ['Suite  Studio', 36],
+      ['A B', 24],
+      ['中 X', 36],
+      ['Suite\u00a0Studio', 24],
+      ['By Host', 35],
+      ['Epic', 23],
+      ['Ep ic', 35],
+      ['org.example. app', 30],
+    ] as const) {
+      const result = compound(name)
+      expect(
+        parse({ ...data, associations: result }, 'org.example.app', name).associations.names
+          .candidates,
+      ).toBe(count)
+    }
+    const space = compound('Suite Studio')
+    for (const invalid of [
+      { ...space, entries: space.entries.slice(0, -1) },
+      { ...space, names: { ...space.names, candidates: 35 }, entries: space.entries.slice(0, -1) },
+      { ...space, entries: [...space.entries, { ...space.entries.at(-1) }] },
+      ...[
+        { kind: 'nameSupport' },
+        { relativePath: 'Library/Application Support/suitestudio' },
+        { relativePath: 'Library/Application Support/Suite--Studio' },
+        { relativePath: 'Library/Application Support/..' },
+        { relativePath: '.config/suitestudio' },
+      ].map((change) => ({
+        ...space,
+        entries: space.entries.map((entry, index) =>
+          index === 45 ? { ...entry, ...change } : entry,
+        ),
+      })),
+    ])
+      expect(() =>
+        parse({ ...data, associations: invalid }, 'org.example.app', 'Suite Studio'),
+      ).toThrow()
+    for (const name of ['    ', ' .  ', ' .. ', 'A\tB', 'A\nB'])
+      expect(() =>
+        parse({ ...data, associations: compound(name) }, 'org.example.app', name),
+      ).toThrow()
     for (const [code, issue] of [
       ['notChecked', 'nameUnavailable'],
       ['notChecked', 'nameUnsupported'],
@@ -755,8 +844,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 22 },
-      { protocol: 20 },
+      { protocol: 23 },
+      { protocol: 21 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -1058,10 +1147,10 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 7,
+      version: 8,
       names: {
-        version: 2,
-        source: 'moleLiteralAppNameLibrary',
+        version: 3,
+        source: 'moleAppNameLibrary',
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,
@@ -1101,8 +1190,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 8 },
-      { ...associations, version: 6 },
+      { ...associations, version: 9 },
+      { ...associations, version: 7 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -1418,10 +1507,10 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 7,
+      version: 8,
       names: {
-        version: 2,
-        source: 'moleLiteralAppNameLibrary',
+        version: 3,
+        source: 'moleAppNameLibrary',
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,

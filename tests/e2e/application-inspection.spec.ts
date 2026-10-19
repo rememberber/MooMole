@@ -2,9 +2,14 @@ import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { applications } from './fixtures/application-library'
 
-async function setup(page: Page) {
-  await installTaskMock(page, 'apps', undefined, applications)
-  await page.addInitScript(() => {
+async function setup(page: Page, appName = 'Example') {
+  await installTaskMock(
+    page,
+    'apps',
+    undefined,
+    applications.map((app, index) => (index === 0 ? { ...app, name: appName } : app)),
+  )
+  await page.addInitScript((appName) => {
     const internal = (
       window as unknown as {
         __TAURI_INTERNALS__: {
@@ -176,7 +181,7 @@ async function setup(page: Page) {
         }
       }
       return {
-        protocol: mode === 'future' ? 22 : 21,
+        protocol: mode === 'future' ? 23 : 22,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -444,11 +449,11 @@ async function setup(page: Page) {
         },
         associations: {
           names: {
-            version: mode === 'associationNamesLegacy' ? 1 : 2,
+            version: mode === 'associationNamesLegacy' ? 2 : 3,
             source:
               mode === 'associationNamesOldSource'
-                ? 'moleBaseAppNameLibrary'
-                : 'moleLiteralAppNameLibrary',
+                ? 'moleLiteralAppNameLibrary'
+                : 'moleAppNameLibrary',
             code:
               mode === 'associationNamesLimit'
                 ? 'unknown'
@@ -466,12 +471,14 @@ async function setup(page: Page) {
                 ? 'Another'
                 : mode?.startsWith('associationNames') &&
                     !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
-                  ? 'Example'
+                  ? appName
                   : null,
             candidates:
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
-                ? 24
+                ? new TextEncoder().encode(appName).length > 3 && appName.includes(' ')
+                  ? 36
+                  : 24
                 : 0,
           },
           byHost: {
@@ -490,7 +497,7 @@ async function setup(page: Page) {
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 8 : 7,
+          version: mode === 'associationFuture' ? 9 : 8,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -671,40 +678,92 @@ async function setup(page: Page) {
                           ['nameAddressBookPlugin', 'Library/Address Book Plug-Ins', '.bundle'],
                           ['nameAccessibility', 'Library/Accessibility', '.bundle'],
                           ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
-                        ].map(([kind, root, suffix], index) => ({
-                          kind,
-                          relativePath: `${root}/Example${suffix}`,
-                          status:
-                            mode === 'associationNamesChanged' ||
-                            index === 1 ||
-                            (mode === 'associationNamesComponents' && index === 7)
-                              ? 'unknown'
-                              : index === 0 ||
-                                  (mode === 'associationNamesComponents' && [6, 11].includes(index))
-                                ? 'present'
-                                : 'notFound',
-                          issue:
-                            mode === 'associationNamesChanged'
-                              ? 'changed'
-                              : index === 1 ||
-                                  (mode === 'associationNamesComponents' && index === 7)
-                                ? 'unavailable'
-                                : null,
-                          protectionReasons:
-                            index === 3 || (mode === 'associationNamesComponents' && index === 23)
-                              ? ['clientDirectory']
+                        ]
+                          .concat(
+                            new TextEncoder().encode(appName).length > 3 && appName.includes(' ')
+                              ? [
+                                  ['nameCompactSupport', 'Library/Application Support', '', ''],
+                                  ['nameCompactCache', 'Library/Caches', '', ''],
+                                  ['nameCompactLogs', 'Library/Logs', '', ''],
+                                  [
+                                    'nameCompactPreferencesDirectory',
+                                    'Library/Preferences',
+                                    '',
+                                    '',
+                                  ],
+                                  ['nameCompactPreferences', 'Library/Preferences', '.plist', ''],
+                                  [
+                                    'nameCompactSavedState',
+                                    'Library/Saved Application State',
+                                    '.savedState',
+                                    '',
+                                  ],
+                                  ['nameUnderscoreSupport', 'Library/Application Support', '', '_'],
+                                  ['nameHyphenSupport', 'Library/Application Support', '', '-'],
+                                  [
+                                    'nameUnderscorePreferencesDirectory',
+                                    'Library/Preferences',
+                                    '',
+                                    '_',
+                                  ],
+                                  [
+                                    'nameUnderscorePreferences',
+                                    'Library/Preferences',
+                                    '.plist',
+                                    '_',
+                                  ],
+                                  [
+                                    'nameHyphenPreferencesDirectory',
+                                    'Library/Preferences',
+                                    '',
+                                    '-',
+                                  ],
+                                  ['nameHyphenPreferences', 'Library/Preferences', '.plist', '-'],
+                                ]
                               : [],
-                          molePathProtection: pathRule(
-                            mode === 'associationNamesChanged' ||
+                          )
+                          .map(([kind, root, suffix, separator], index) => ({
+                            kind,
+                            relativePath: `${root}/${separator === undefined ? appName : appName.replaceAll(' ', separator)}${suffix}`,
+                            status:
+                              mode === 'associationNamesChanged' ||
                               index === 1 ||
+                              index === 26 ||
                               (mode === 'associationNamesComponents' && index === 7)
-                              ? 'unknown'
-                              : index === 0 ||
-                                  (mode === 'associationNamesComponents' && [6, 11].includes(index))
-                                ? 'present'
-                                : 'notFound',
-                          ),
-                        }))
+                                ? 'unknown'
+                                : [0, 24, 30, 31].includes(index) ||
+                                    (mode === 'associationNamesComponents' &&
+                                      [6, 11].includes(index))
+                                  ? 'present'
+                                  : 'notFound',
+                            issue:
+                              mode === 'associationNamesChanged'
+                                ? 'changed'
+                                : index === 1 ||
+                                    index === 26 ||
+                                    (mode === 'associationNamesComponents' && index === 7)
+                                  ? 'unavailable'
+                                  : null,
+                            protectionReasons:
+                              index === 3 ||
+                              index === 35 ||
+                              (mode === 'associationNamesComponents' && index === 23)
+                                ? ['clientDirectory']
+                                : [],
+                            molePathProtection: pathRule(
+                              mode === 'associationNamesChanged' ||
+                                index === 1 ||
+                                index === 26 ||
+                                (mode === 'associationNamesComponents' && index === 7)
+                                ? 'unknown'
+                                : [0, 24, 30, 31].includes(index) ||
+                                    (mode === 'associationNamesComponents' &&
+                                      [6, 11].includes(index))
+                                  ? 'present'
+                                  : 'notFound',
+                            ),
+                          }))
+                          .slice(0, mode === 'associationNamesSpaceMissing' ? -1 : undefined)
                       : [],
                   )
               : [],
@@ -804,7 +863,7 @@ async function setup(page: Page) {
                 },
       }
     }
-  })
+  }, appName)
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
@@ -815,7 +874,7 @@ async function setup(page: Page) {
   const library = page.getByRole('region', { name: 'Mole 应用清单' })
   await expect(library.getByRole('article')).toHaveCount(5)
   const row = library.getByRole('article', {
-    name: 'Example · /Applications/Example.app',
+    name: `${appName} · /Applications/Example.app`,
     exact: true,
   })
   return { library, row, inspection: row.getByRole('region', { name: '应用状态检查' }) }
@@ -1890,4 +1949,67 @@ test('literal service and plugin locations retain registration unknowns and reje
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
   await expect(associations.locator('summary')).toContainText('名称位置未检查')
   await expect(inspection).not.toContainText('Example.vst3')
+})
+
+test('space name variants show preservation, withdraw changed evidence and reject an incomplete set', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page, 'Suite Studio')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesFound'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 36 个位置（含适用的空格变体）')
+  await expect(associations).toContainText('Library 名称与空格变体（最多 36 个位置）')
+  const compact = associations
+    .locator('dl > div')
+    .filter({ hasText: '~/Library/Application Support/SuiteStudio' })
+  await expect(compact).toContainText('发现位置 · 归属待确认')
+  for (const name of ['Suite_Studio', 'Suite-Studio'])
+    await expect(associations).toContainText(`~/Library/Application Support/${name}`)
+  await expect(associations).toContainText('~/Library/Logs/SuiteStudio')
+  await expect(associations).toContainText('无法确认 · 请检查访问权限后重试')
+  const protectedMissing = associations
+    .locator('dl > div')
+    .filter({ hasText: '~/Library/Preferences/Suite-Studio.plist' })
+  await expect(protectedMissing).toContainText('本次未发现')
+  await expect(protectedMissing).toContainText('已保存保护目录覆盖，保留')
+  await expect(
+    associations.getByText('空格变体线索，可能共用，不证明归属，保留。', { exact: true }),
+  ).toHaveCount(5)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1100 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((nodes) => nodes.every((node) => node.scrollWidth <= node.clientWidth + 1)),
+    ).toBe(true)
+    await associations.evaluate((node) => node.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-space-name-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(compact).toContainText('检查期间发生变化，请重查')
+  await expect(compact).not.toContainText('发现位置')
+  await page.evaluate(() =>
+    sessionStorage.setItem('inspection-mode', 'associationNamesSpaceMissing'),
+  )
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('SuiteStudio')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesFound'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await associations.locator('summary').click()
+  await expect(compact).toContainText('发现位置 · 归属待确认')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLimit'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('检查达到时间上限，请保留并重查')
+  await expect(associations).not.toContainText('SuiteStudio')
 })

@@ -118,8 +118,8 @@ struct NameDiscovery {
 impl NameDiscovery {
     fn not_checked(issue: &'static str) -> Self {
         Self {
-            version: 2,
-            source: "moleLiteralAppNameLibrary",
+            version: 3,
+            source: "moleAppNameLibrary",
             code: "notChecked",
             issue: Some(issue),
             name: None,
@@ -147,7 +147,7 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 7,
+            version: 8,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -741,7 +741,7 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 7,
+                    version: 8,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,

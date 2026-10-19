@@ -1,4 +1,4 @@
-//! Literal Library name paths from pinned Mole, using its original list name literally.
+//! Bounded Library name paths from pinned Mole, including literal ASCII-space variants.
 //! A name hint never certifies identity, exclusive ownership or execution eligibility.
 use super::*;
 const LOCATIONS: [(&str, &str, &str); 24] = [
@@ -47,12 +47,106 @@ const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameAccessibility", "Library/Accessibility", ".bundle"),
     ("nameMailPlugin", "Library/Mail/Bundles", ".mailbundle"),
 ];
+// Order follows the original compound-name block; only Library entries are adapted.
+const SPACE_LOCATIONS: [(&str, &str, &str, char); 12] = [
+    (
+        "nameCompactSupport",
+        "Library/Application Support",
+        "",
+        '\0',
+    ),
+    ("nameCompactCache", "Library/Caches", "", '\0'),
+    ("nameCompactLogs", "Library/Logs", "", '\0'),
+    (
+        "nameCompactPreferencesDirectory",
+        "Library/Preferences",
+        "",
+        '\0',
+    ),
+    (
+        "nameCompactPreferences",
+        "Library/Preferences",
+        ".plist",
+        '\0',
+    ),
+    (
+        "nameCompactSavedState",
+        "Library/Saved Application State",
+        ".savedState",
+        '\0',
+    ),
+    (
+        "nameUnderscoreSupport",
+        "Library/Application Support",
+        "",
+        '_',
+    ),
+    ("nameHyphenSupport", "Library/Application Support", "", '-'),
+    (
+        "nameUnderscorePreferencesDirectory",
+        "Library/Preferences",
+        "",
+        '_',
+    ),
+    (
+        "nameUnderscorePreferences",
+        "Library/Preferences",
+        ".plist",
+        '_',
+    ),
+    (
+        "nameHyphenPreferencesDirectory",
+        "Library/Preferences",
+        "",
+        '-',
+    ),
+    (
+        "nameHyphenPreferences",
+        "Library/Preferences",
+        ".plist",
+        '-',
+    ),
+];
+fn space_variants(name: &str) -> bool {
+    // Mole runs in the C locale. Control whitespace is already rejected below;
+    // Unicode whitespace is not C [:space:], and only literal ASCII spaces change.
+    name.len() > 3 && name.contains(' ')
+}
+fn component(name: &str) -> bool {
+    !name.is_empty() && !matches!(name, "." | "..")
+}
+fn excluded(path: &str) -> bool {
+    // Reachable common-root and shared-home-state exclusions from pinned Mole.
+    matches!(
+        path,
+        "Library/Preferences/ByHost" | "Library/Application Support/Epic"
+    )
+}
+fn paths(name: &str) -> Vec<(&'static str, String)> {
+    let mut paths = LOCATIONS
+        .into_iter()
+        .map(|(kind, root, suffix)| (kind, format!("{root}/{name}{suffix}")))
+        .collect::<Vec<_>>();
+    if space_variants(name) {
+        for (kind, root, suffix, separator) in SPACE_LOCATIONS {
+            let derived = if separator == '\0' {
+                name.replace(' ', "")
+            } else {
+                name.replace(' ', &separator.to_string())
+            };
+            paths.push((kind, format!("{root}/{derived}{suffix}")));
+        }
+    }
+    paths
+}
 fn supported(name: &str) -> bool {
     name.len() >= 2
         && name.len() <= 240
         && !matches!(name, "." | "..")
         && !name.contains('/')
         && !name.chars().any(char::is_control)
+        // Reject the entire name scope if its compact component could escape a root.
+        && (!space_variants(name) || component(&name.replace(' ', "")))
 }
 pub(super) struct Check {
     scope: NameDiscovery,
@@ -78,11 +172,13 @@ impl Check {
         check.scope.name = Some(name.into());
         let started = Instant::now();
         let mut pool = HashMap::new();
-        for (kind, root, suffix) in LOCATIONS {
-            let relative_path = format!("{root}/{name}{suffix}");
-            // The original expanded-path common-root deny arm excludes ByHost.
-            if relative_path == "Library/Preferences/ByHost"
+        for (kind, relative_path) in paths(name) {
+            if excluded(&relative_path)
                 || existing.iter().any(|e| e.relative_path == relative_path)
+                || check
+                    .entries
+                    .iter()
+                    .any(|e| e.relative_path == relative_path)
             {
                 continue;
             }
@@ -171,7 +267,10 @@ mod tests {
             let result = observe(home, Some(name));
             assert_eq!(result.names.code, "observed");
             assert_eq!(result.names.name.as_deref(), Some(name));
-            assert_eq!(result.names.candidates, 24);
+            assert_eq!(
+                result.names.candidates,
+                if space_variants(name) { 36 } else { 24 }
+            );
             let entry = result
                 .entries
                 .iter()
@@ -204,7 +303,10 @@ mod tests {
             }
         }
         let result = observe(home, Some(name));
-        assert_eq!(result.names.candidates, 24);
+        assert_eq!(
+            result.names.candidates,
+            if space_variants(name) { 36 } else { 24 }
+        );
         for (kind, root, suffix) in LOCATIONS {
             let entry = result.entries.iter().find(|e| e.kind == kind).unwrap();
             assert_eq!(entry.relative_path, format!("{root}/{name}{suffix}"));
@@ -239,6 +341,119 @@ mod tests {
             entries.iter().find(|e| e.kind == "nameVst3").unwrap().issue,
             Some("unsupported")
         );
+    }
+    #[test]
+    fn space_variants_preserve_metadata_content_and_withdraw_on_replacement() {
+        let t = temp();
+        let home = t.path();
+        let name = "Suite  Studio";
+        for (_, path) in paths(name) {
+            fs::create_dir_all(home.join(&path)).unwrap();
+            fs::write(home.join(path).join("personal"), "keep data").unwrap();
+        }
+        let result = observe(home, Some(name));
+        assert_eq!(result.names.candidates, 36);
+        assert!(result
+            .entries
+            .iter()
+            .filter(|e| e.kind.starts_with("name"))
+            .all(|e| e.status == "present"));
+        for (_, path) in paths(name) {
+            assert_eq!(
+                fs::read_to_string(home.join(path).join("personal")).unwrap(),
+                "keep data"
+            );
+        }
+        assert!(result
+            .entries
+            .iter()
+            .any(|e| e.relative_path == "Library/Application Support/Suite__Studio"));
+        assert!(result
+            .entries
+            .iter()
+            .any(|e| e.relative_path == "Library/Preferences/Suite--Studio.plist"));
+        let check = Check::begin(home, Some(name), &[]);
+        let path = home.join("Library/Application Support/SuiteStudio");
+        let saved = home.join("saved-compact-data");
+        fs::rename(&path, &saved).unwrap();
+        symlink(&saved, &path).unwrap();
+        let (_, entries) = check.finish();
+        assert_eq!(
+            entries
+                .iter()
+                .find(|e| e.kind == "nameCompactSupport")
+                .unwrap()
+                .issue,
+            Some("changed")
+        );
+        let (_, entries) = Check::begin(home, Some(name), &[]).finish();
+        assert_eq!(
+            entries
+                .iter()
+                .find(|e| e.kind == "nameCompactSupport")
+                .unwrap()
+                .issue,
+            Some("unsupported")
+        );
+    }
+    #[test]
+    fn space_gate_common_and_shared_roots_and_exact_sources_are_preserved() {
+        let t = temp();
+        let home = t.path();
+        for (name, count) in [
+            ("A B", 24),
+            ("中 X", 36),
+            ("Suite\u{a0}Studio", 24),
+            ("By Host", 35),
+            ("Epic", 23),
+            ("Ep ic", 35),
+            ("org.example. app", 30),
+            (" X  ", 36),
+        ] {
+            let result = observe(home, Some(name));
+            assert_eq!(result.names.code, "observed", "{name}");
+            assert_eq!(result.names.candidates, count, "{name}");
+            assert!(result.entries.iter().all(|e| !excluded(&e.relative_path)));
+            assert_eq!(
+                result
+                    .entries
+                    .iter()
+                    .map(|e| &e.relative_path)
+                    .collect::<std::collections::HashSet<_>>()
+                    .len(),
+                result.entries.len()
+            );
+        }
+        for name in ["    ", " .  ", " .. ", "A\tB", "A\rB", "A\nB"] {
+            let result = observe(home, Some(name));
+            assert_eq!(result.names.issue, Some("nameUnsupported"), "{name:?}");
+            assert_eq!(result.entries.len(), 21);
+            assert!(result.names.name.is_none());
+        }
+        let mut result = observe(home, Some("Suite Studio"));
+        result
+            .attach_protection(
+                home,
+                Some("org.example.app"),
+                "org.client",
+                &[home
+                    .join("Library/Application Support/Suite_Studio")
+                    .to_string_lossy()
+                    .into_owned()],
+            )
+            .unwrap();
+        result.attach_mole_paths(
+            None,
+            home,
+            &mut crate::app_uninstall_rules::PathBudget::default(),
+        );
+        let entry = result
+            .entries
+            .iter()
+            .find(|e| e.kind == "nameUnderscoreSupport")
+            .unwrap();
+        assert!(entry.protection_reasons.contains(&"clientDirectory"));
+        assert_eq!(entry.mole_path_protection.code, "unknown");
     }
     #[test]
     fn maximum_utf8_name_leaves_room_for_plugin_suffixes() {
@@ -400,7 +615,14 @@ mod tests {
             .split("esac")
             .next()
             .unwrap();
-        let script=format!("set -euo pipefail\napp_name=$1\nuser_patterns=()\nif [[ -n \"$app_name\" && ${{#app_name}} -ge 2 ]]; then user_patterns+=(\n{}\n); fi\nfor expanded_path in \"${{user_patterns[@]+\"${{user_patterns[@]}}\"}}\"; do case \"$expanded_path\" in\n{}\nesac\nprintf '%s\\0' \"$expanded_path\"; done",templates.join("\n").replace("$HOME","$MOOMOLE_TEST_ROOT"),common.replace("$HOME","$MOOMOLE_TEST_ROOT"));
+        let shared = source
+            .split("_mole_is_shared_home_state_root() {")
+            .nth(1)
+            .unwrap()
+            .split("\n}")
+            .next()
+            .unwrap();
+        let script=format!("set -euo pipefail\napp_name=$1\n_mole_is_shared_home_state_root() {{{shared}\n}}\nuser_patterns=()\nif [[ -n \"$app_name\" && ${{#app_name}} -ge 2 ]]; then user_patterns+=(\n{}\n); fi\nfor expanded_path in \"${{user_patterns[@]+\"${{user_patterns[@]}}\"}}\"; do case \"$expanded_path\" in\n{}\nesac\nif _mole_is_shared_home_state_root \"$expanded_path\"; then continue; fi\nprintf '%s\\0' \"$expanded_path\"; done",templates.join("\n"),common).replace("$HOME", "$MOOMOLE_TEST_ROOT");
         let t = temp();
         let home = t.path();
         let names = [
@@ -413,6 +635,7 @@ mod tests {
             "$(printf danger)",
             "App\\Name",
             "ByHost",
+            "Epic",
             ".hidden",
             "Beta Preview",
             "Name_With-Dash",
@@ -448,12 +671,130 @@ mod tests {
                 .finish()
                 .1
                 .into_iter()
+                .filter(|e| LOCATIONS.iter().any(|(kind, _, _)| *kind == e.kind))
                 .map(|e| e.relative_path)
                 .collect::<Vec<_>>();
             assert_eq!(actual, expected, "{name}");
         }
         eprintln!(
             "{} names matched original 24 Library templates and common-root filter",
+            names.len()
+        );
+    }
+    #[test]
+    #[ignore = "requires fixed Mole source; compares compound Library templates, ASCII-space gate and shared-root exclusion"]
+    fn prepared_space_variants_match_original_c_locale_with_shared_root_filter() {
+        let resources = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+        crate::app_uninstall_rules::load(&resources).unwrap();
+        let source = fs::read_to_string(resources.join("lib/core/app_protection.sh")).unwrap();
+        let gate = "if [[ ${#app_name} -gt 3 && \"$app_name\" =~ [[:space:]] ]]; then";
+        let templates = source
+            .split(gate)
+            .nth(1)
+            .unwrap()
+            .split("user_patterns+=(")
+            .nth(1)
+            .unwrap()
+            .lines()
+            .map(str::trim)
+            .take_while(|line| *line != ")")
+            .filter(|line| line.starts_with("\"$HOME/Library/"))
+            .collect::<Vec<_>>();
+        assert_eq!(templates.len(), 12);
+        for ((_, root, suffix, separator), line) in SPACE_LOCATIONS.iter().zip(&templates) {
+            let var = match separator {
+                '\0' => "nospace_name",
+                '_' => "underscore_name",
+                '-' => "hyphen_name",
+                _ => unreachable!(),
+            };
+            assert_eq!(*line, format!("\"$HOME/{root}/${var}{suffix}\""));
+        }
+        let assignments = ["nospace_name", "underscore_name", "hyphen_name"]
+            .map(|var| {
+                source
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| line.starts_with(&format!("local {var}=")))
+                    .unwrap()
+                    .trim_start_matches("local ")
+            })
+            .join("\n");
+        let shared = source
+            .split("_mole_is_shared_home_state_root() {")
+            .nth(1)
+            .unwrap()
+            .split("\n}")
+            .next()
+            .unwrap();
+        let common = source
+            .split("case \"$expanded_path\" in")
+            .nth(1)
+            .unwrap()
+            .split("esac")
+            .next()
+            .unwrap();
+        let script = format!("set -euo pipefail\napp_name=$1\n{assignments}\n_mole_is_shared_home_state_root() {{{shared}\n}}\nuser_patterns=()\n{gate} user_patterns+=(\n{}\n); fi\nfor expanded_path in \"${{user_patterns[@]+\"${{user_patterns[@]}}\"}}\"; do case \"$expanded_path\" in\n{common}\nesac\nif _mole_is_shared_home_state_root \"$expanded_path\"; then continue; fi\nprintf '%s\\0' \"$expanded_path\"; done", templates.join("\n")).replace("$HOME", "$MOOMOLE_TEST_ROOT");
+        let t = temp();
+        let home = t.path();
+        let names = [
+            "Suite Studio",
+            "Suite  Studio",
+            "A B",
+            "中 X",
+            "By Host",
+            "Ep ic",
+            "Suite\u{a0}Studio",
+            "Suite　Studio",
+            "$(printf danger)",
+            "[A *]?",
+            " X  ",
+            "A\\ B",
+        ];
+        for name in names {
+            let output = std::process::Command::new("/bin/bash")
+                .args(["-c", &script, "space-templates", name])
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .env("LC_ALL", "C")
+                .env("MOOMOLE_TEST_ROOT", home)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let expected = output
+                .stdout
+                .split(|b| *b == 0)
+                .filter(|b| !b.is_empty())
+                .map(|b| {
+                    Path::new(std::str::from_utf8(b).unwrap())
+                        .strip_prefix(home)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .collect::<Vec<_>>();
+            let actual = Check::begin(home, Some(name), &[])
+                .finish()
+                .1
+                .into_iter()
+                .filter(|e| {
+                    SPACE_LOCATIONS
+                        .iter()
+                        .any(|(kind, _, _, _)| *kind == e.kind)
+                })
+                .map(|e| e.relative_path)
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected, "{name}");
+        }
+        // The raw Epic location is filtered by this same upstream shared-root guard.
+        assert!(source.contains("\"$HOME/Library/Application Support/Epic\""));
+        eprintln!(
+            "{} names matched original 12 compound Library templates and filters",
             names.len()
         );
     }

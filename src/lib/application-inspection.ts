@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 21 ||
+    data.protocol !== 22 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -527,30 +527,53 @@ export function parseApplicationInspection(
     ['nameAccessibility', 'Library/Accessibility', '.bundle'],
     ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
   ]
-  const nameKinds = new Set(nameLocations.map(([kind]) => kind))
+  const spaceLocations = [
+    ['nameCompactSupport', 'Library/Application Support', '', ''],
+    ['nameCompactCache', 'Library/Caches', '', ''],
+    ['nameCompactLogs', 'Library/Logs', '', ''],
+    ['nameCompactPreferencesDirectory', 'Library/Preferences', '', ''],
+    ['nameCompactPreferences', 'Library/Preferences', '.plist', ''],
+    ['nameCompactSavedState', 'Library/Saved Application State', '.savedState', ''],
+    ['nameUnderscoreSupport', 'Library/Application Support', '', '_'],
+    ['nameHyphenSupport', 'Library/Application Support', '', '-'],
+    ['nameUnderscorePreferencesDirectory', 'Library/Preferences', '', '_'],
+    ['nameUnderscorePreferences', 'Library/Preferences', '.plist', '_'],
+    ['nameHyphenPreferencesDirectory', 'Library/Preferences', '', '-'],
+    ['nameHyphenPreferences', 'Library/Preferences', '.plist', '-'],
+  ]
+  const nameKinds = new Set([...nameLocations, ...spaceLocations].map(([kind]) => kind))
   const names = associations?.names
   const nameEntries = Array.isArray(associations?.entries)
     ? associations.entries.filter((e) => nameKinds.has(e?.kind))
     : []
   const namePaths = new Map<string, string>()
+  const hasSpaceVariants =
+    typeof names?.name === 'string' &&
+    new TextEncoder().encode(names.name).length > 3 &&
+    names.name.includes(' ')
   if (names?.code === 'observed' && typeof names.name === 'string') {
-    for (const [kind, root, suffix] of nameLocations) {
-      const path = `${root}/${names.name}${suffix}`
+    const add = (kind: string, root: string, suffix: string, name: string) => {
+      const path = `${root}/${name}${suffix}`
       if (
-        path !== 'Library/Preferences/ByHost' &&
-        !locations.some(([, root, suffix]) => path === `${root}/${data.bundleId}${suffix}`)
+        !['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path) &&
+        !locations.some(([, root, suffix]) => path === `${root}/${data.bundleId}${suffix}`) &&
+        !namePaths.has(path)
       )
         namePaths.set(path, kind)
     }
+    for (const [kind, root, suffix] of nameLocations) add(kind, root, suffix, names.name)
+    if (hasSpaceVariants)
+      for (const [kind, root, suffix, separator] of spaceLocations)
+        add(kind, root, suffix, names.name.replaceAll(' ', separator))
   }
   if (
     !names ||
-    names.version !== 2 ||
-    names.source !== 'moleLiteralAppNameLibrary' ||
+    names.version !== 3 ||
+    names.source !== 'moleAppNameLibrary' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 24 ||
+    names.candidates > 36 ||
     names.candidates !== nameEntries.length ||
     (names.code === 'observed'
       ? associations.code !== 'observed' ||
@@ -563,6 +586,7 @@ export function parseApplicationInspection(
         /[\u007f-\u009f]/.test(names.name) ||
         names.name.includes('/') ||
         ['.', '..'].includes(names.name) ||
+        (hasSpaceVariants && ['', '.', '..'].includes(names.name.replaceAll(' ', ''))) ||
         names.candidates !== namePaths.size
       : names.name !== null ||
         names.candidates !== 0 ||
@@ -638,7 +662,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 7 ||
+    associations.version !== 8 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -656,7 +680,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 152) ||
+        associations.entries.length > locations.length + 164) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||
