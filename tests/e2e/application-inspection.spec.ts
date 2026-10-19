@@ -54,7 +54,8 @@ async function setup(page: Page) {
         'inspection-completed',
         String(Number(sessionStorage.getItem('inspection-completed') ?? 0) + 1),
       )
-      if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
+      if (mode === 'error')
+        throw new Error('应用状态读取超时（核对安装收据），结果无法确认；请稍后重试。')
       const pathRule = (status: string, index = -1) => ({
         version: 2,
         revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
@@ -1074,10 +1075,21 @@ test('read errors and unrecognized protocol stay unknown and retry without keepi
   await expect(inspection).toContainText('已命中客户端保护')
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'error'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()
-  await expect(inspection.getByRole('alert')).toContainText('读取超时')
+  await expect(inspection.getByRole('alert')).toHaveText(
+    '应用状态读取超时（核对安装收据），结果无法确认；请稍后重试。',
+  )
   await expect(inspection.getByRole('status')).toHaveText('应用状态无法确认')
   await expect(inspection).not.toContainText('主应用 PID')
   await expect(inspection).not.toContainText('已命中客户端保护')
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await inspection.screenshot({
+      path: `test-results/application-timeout-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'future'))
   await inspection.getByRole('button', { name: '重试检查' }).click()
   await expect(inspection.getByRole('alert')).toContainText('无法识别')

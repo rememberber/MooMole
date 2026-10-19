@@ -23,7 +23,9 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 
 运行观察使用 Apple [NSRunningApplication](https://developer.apple.com/documentation/appkit/nsrunningapplication) 的 runningApplications(withBundleIdentifier:)，只以刚读取的本地 ID 查询，最多 32 个返回实例。读取 bundleURL、bundleIdentifier、PID 与 terminated，位置不完整或目标不可读取保持未知；不按名称、厂商或标识相同就认为属于当前路径。运行属性受主运行循环更新和并发变化影响，查询结束后应用仍可能退出或重启。本轮不使用 PID 执行任何控制操作，也没有向系统查询全部辅助进程。
 
-使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
+使用独立于图标的两个真实工作器名额；5 秒停止等待，已开始的阻塞读取继续持有名额直到真正结束，超额请求提示稍后重试。超时提示记录当时的静态检查环节，例如「核对安装收据」；它是观察位置，不表示已找到根因。该请求同时标记停止：仍在队列中的工作器不开始读取，已开始的工作器在当前阶段返回后的下个检查点退出，不继续后续发现/复核或发布部分结果。已阻塞的阶段仍按自身规则完成和释放资源，不能声称当前单次读取、阶段或进程清理被硬中断。面板关闭不强制终止 AppKit/文件 I/O，期限不是内核操作的硬上限。入口观察到安装准备或退出时拒绝新请求；已接受的纯读取不作为数据保存任务或退出阻断条件。没有启动/关闭应用、提权、服务注册、HTTP 或新授权弹窗。
+
+正式程序每请求只增加一个静态阶段编号和停止标记，不存储路径、应用标识、分段耗时或诊断日志，不新增 IPC、设置或历史。显式真实只读测量、受控超时验证与未完成范围见 [详情检查性能](application-inspection-performance.md)。
 
 协议 v20 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）、associations（21 个精确位置、六类基础名称位置及有界组/派生目录的只读结果与客户端保护）、embedded（包内扩展实际标识的有界观察）、extensionData（已取得扩展标识的精确位置、有界 ByHost 及客户端应用组名称观察）及 installations（本次清单、系统登记、常用目录、本地卷与收据位置的共享保留核对）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 

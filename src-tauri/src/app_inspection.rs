@@ -2,6 +2,18 @@
 use serde::Serialize;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
+#[cfg(test)]
+mod profile;
+mod worker;
+use worker::{Phase, Progress};
+// Only a static per-request phase and stop flag in production; no log or timings.
+macro_rules! checkpoint {
+    ($progress:expr, $phase:ident) => {
+        $progress.enter(Phase::$phase)?;
+        #[cfg(test)]
+        profile::checkpoint(stringify!($phase));
+    };
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,46 +129,64 @@ pub async fn load(
     home: std::path::PathBuf,
     slots: Arc<Semaphore>,
 ) -> Result<Inspection, String> {
-    let slot = slots
-        .try_acquire_owned()
-        .map_err(|_| "已有应用状态检查正在进行，请稍后重试。")?;
-    let worker = tokio::task::spawn_blocking(move || {
-        let _slot = slot;
-        let policy = crate::app_uninstall_rules::load(&engine_root);
-        let mut result = inspect(
+    worker::run(slots, Duration::from_secs(5), move |progress| {
+        inspect_worker(
             &path,
             &expected,
-            &home,
-            policy.is_ok(),
+            name.as_deref(),
             candidates,
-            name.as_deref(),
-        )?;
-        let mut path_budget = crate::app_uninstall_rules::PathBudget::default();
-        result
-            .associations
-            .attach_mole_paths(policy.as_ref().ok(), &home, &mut path_budget);
-        result
-            .extension_data
-            .attach_mole_paths(policy.as_ref().ok(), &home, &mut path_budget);
-        result.mole_protection = crate::app_uninstall_rules::observe(
-            policy.as_ref().ok(),
-            result.bundle_id.as_deref(),
-            result.identity,
-        );
-        result.official_uninstaller = crate::app_uninstall_rules::observe_official(
-            policy.as_ref().ok(),
-            result.bundle_id.as_deref(),
-            result.identity,
-            name.as_deref(),
-            &path,
-        );
-        Ok(result)
-    });
-    tokio::time::timeout(Duration::from_secs(5), worker)
-        .await
-        .map_err(|_| "应用状态读取超时，结果无法确认；请稍后重试。")?
-        .map_err(|_| "应用状态读取未完成，请重试。")?
+            &engine_root,
+            &home,
+            progress,
+        )
+    })
+    .await
 }
+fn inspect_worker(
+    path: &str,
+    expected: &str,
+    name: Option<&str>,
+    candidates: Option<Vec<Option<String>>>,
+    engine_root: &std::path::Path,
+    home: &std::path::Path,
+    progress: &Progress,
+) -> Result<Inspection, String> {
+    checkpoint!(progress, Rules);
+    let policy = crate::app_uninstall_rules::load(engine_root);
+    let mut result = inspect(
+        path,
+        expected,
+        home,
+        policy.is_ok(),
+        candidates,
+        name,
+        progress,
+    )?;
+    checkpoint!(progress, PathProtection);
+    let mut path_budget = crate::app_uninstall_rules::PathBudget::default();
+    result
+        .associations
+        .attach_mole_paths(policy.as_ref().ok(), home, &mut path_budget);
+    result
+        .extension_data
+        .attach_mole_paths(policy.as_ref().ok(), home, &mut path_budget);
+    checkpoint!(progress, ComponentRules);
+    result.mole_protection = crate::app_uninstall_rules::observe(
+        policy.as_ref().ok(),
+        result.bundle_id.as_deref(),
+        result.identity,
+    );
+    result.official_uninstaller = crate::app_uninstall_rules::observe_official(
+        policy.as_ref().ok(),
+        result.bundle_id.as_deref(),
+        result.identity,
+        name,
+        path,
+    );
+    checkpoint!(progress, Done);
+    Ok(result)
+}
+
 fn inspect(
     path: &str,
     expected: &str,
@@ -164,14 +194,31 @@ fn inspect(
     rules_ready: bool,
     candidates: Option<Vec<Option<String>>>,
     name: Option<&str>,
+    progress: &Progress,
 ) -> Result<Inspection, String> {
     #[cfg(target_os = "macos")]
     {
-        mac::inspect(path, expected, home, rules_ready, candidates, name)
+        mac::inspect(
+            path,
+            expected,
+            home,
+            rules_ready,
+            candidates,
+            name,
+            progress,
+        )
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (path, expected, home, rules_ready, candidates, name);
+        let _ = (
+            path,
+            expected,
+            home,
+            rules_ready,
+            candidates,
+            name,
+            progress,
+        );
         Err("当前系统不支持此应用状态检查。".into())
     }
 }
@@ -1112,6 +1159,7 @@ mod mac {
             None,
         )
     }
+    #[cfg(test)]
     fn inspect_context_with_sources(
         path: &str,
         expected: &str,
@@ -1124,6 +1172,34 @@ mod mac {
         scan_roots: bool,
         name: Option<&str>,
     ) -> Result<Inspection, String> {
+        inspect_context_with_progress(
+            path,
+            expected,
+            query,
+            hook,
+            home,
+            rules_ready,
+            registry,
+            candidates,
+            scan_roots,
+            name,
+            &Progress::default(),
+        )
+    }
+    fn inspect_context_with_progress(
+        path: &str,
+        expected: &str,
+        query: impl FnOnce(&str) -> Result<Vec<Process>, String>,
+        hook: impl FnOnce(),
+        home: &Path,
+        rules_ready: bool,
+        registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
+        candidates: Option<Vec<Option<String>>>,
+        scan_roots: bool,
+        name: Option<&str>,
+        progress: &Progress,
+    ) -> Result<Inspection, String> {
+        checkpoint!(progress, Identity);
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
         let fields = parse(&bytes)?;
@@ -1133,6 +1209,7 @@ mod mac {
             Some(id) if id == expected => "matches",
             Some(_) => "different",
         };
+        checkpoint!(progress, Background);
         let background = crate::app_background::mac::Check::begin(
             fields.background,
             identity,
@@ -1140,7 +1217,9 @@ mod mac {
             &crate::app_background::mac::Scope::new(home),
             rules_ready,
         );
+        checkpoint!(progress, Embedded);
         let embedded = embedded::Check::begin(&bundle, fields.id.as_deref(), identity, rules_ready);
+        checkpoint!(progress, Associations);
         let associations = crate::app_associations::mac::Check::begin(
             home,
             fields.id.as_deref(),
@@ -1148,6 +1227,7 @@ mod mac {
             rules_ready,
         )
         .with_name(home, name);
+        checkpoint!(progress, ExtensionData);
         let (extension_ids, extension_code, extension_issue) = embedded.basis();
         let extension_data = crate::app_associations::mac::extensions::Check::begin(
             home,
@@ -1155,17 +1235,21 @@ mod mac {
             extension_code,
             extension_issue,
         );
+        checkpoint!(progress, Roots);
         let root_scan = (scan_roots
             && rules_ready
             && matches!(identity, "matches" | "unreported")
             && fields.id.is_some())
         .then(|| crate::app_discovery::mac::Check::begin(home));
+        checkpoint!(progress, Volumes);
         let volume_scan = root_scan
             .as_ref()
             .map(|_| crate::app_discovery::mac::Check::begin_volumes());
+        checkpoint!(progress, Receipts);
         let receipt_scan = root_scan
             .as_ref()
             .map(|_| crate::app_receipts::mac::Check::begin());
+        checkpoint!(progress, Copies);
         let mut root_paths = root_scan
             .as_ref()
             .map(|check| check.paths.clone())
@@ -1191,6 +1275,7 @@ mod mac {
             candidates,
             root_paths,
         );
+        checkpoint!(progress, Running);
         let running = match fields.id.as_deref() {
             _ if identity == "different" => {
                 Running::unknown("本地应用标识与 Mole 清单不同，请重新读取列表。")
@@ -1201,10 +1286,14 @@ mod mac {
                 Err(reason) => Running::unknown(&reason),
             },
         };
+        checkpoint!(progress, VerifyBackground);
         hook();
         let background = background.finish();
+        checkpoint!(progress, VerifyExtensionData);
         let mut extension_data = extension_data.finish();
+        checkpoint!(progress, VerifyEmbedded);
         let embedded = embedded.finish();
+        checkpoint!(progress, VerifyAssociations);
         let final_ids = embedded
             .bundles
             .iter()
@@ -1212,16 +1301,21 @@ mod mac {
             .collect::<Vec<_>>();
         extension_data.bind(&final_ids, embedded.code, embedded.issue);
         let associations = associations.finish();
+        checkpoint!(progress, VerifyCopies);
         let mut installations = installations.finish();
+        checkpoint!(progress, VerifyRoots);
         installations.roots = root_scan
             .map(|scan| scan.finish())
             .unwrap_or_else(crate::app_discovery::Observation::not_checked);
+        checkpoint!(progress, VerifyVolumes);
         installations.volumes = volume_scan
             .map(|scan| scan.finish())
             .unwrap_or_else(crate::app_discovery::Observation::not_checked);
+        checkpoint!(progress, VerifyReceipts);
         installations.receipts = receipt_scan
             .map(|scan| scan.finish())
             .unwrap_or_else(crate::app_receipts::Observation::not_checked);
+        checkpoint!(progress, VerifyIdentity);
         if installations.receipts.code == "partial" && installations.code == "observed" {
             installations.code = "partial";
             installations.issue = Some("receiptsIncomplete");
@@ -1280,8 +1374,9 @@ mod mac {
         rules_ready: bool,
         candidates: Option<Vec<Option<String>>>,
         name: Option<&str>,
+        progress: &Progress,
     ) -> Result<Inspection, String> {
-        inspect_context_with_sources(
+        inspect_context_with_progress(
             path,
             expected,
             processes,
@@ -1292,6 +1387,7 @@ mod mac {
             candidates,
             true,
             name,
+            progress,
         )
     }
     #[cfg(test)]
