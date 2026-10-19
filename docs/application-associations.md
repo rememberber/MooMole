@@ -51,7 +51,7 @@
 
 最多扫描 1024 个直属条目、4 个根、64 个不同候选，枚举检查点预算 500ms；达到边界保守标为不完整，不把未访问范围视为不存在。根缺失时保存缺失证据，无法访问、链接/布局不支持、目录或访问状态变化分别保持可见。结束前复核根及已见候选，目录变化不能留下完整扫描声明；有效的独立候选观察可保留，未知状态不被覆盖。元数据 I/O 不承诺硬中断，整体仍受原工作器/停止等待约束。
 
-目录名规则命中不证明应用组成员、已安装扩展、发布者、共享关系或数据独占。UI 提示「可能由多个应用共用，保留」，不打开内容、不提供勾选或删除。未按主 ID 命名的共享组、签名/entitlements 和完整归属仍待完成。已另行支持选中 App 内 appex/XPC/LoginItems 的有界标识读取，见 [嵌入扩展](application-embedded.md)；已取得并返回前复核的标识另用于 [扩展数据位置](application-extension-data.md)，不改变本节目录名候选的证据或归属。
+目录名规则命中不证明应用组成员、已安装扩展、发布者、共享关系或数据独占。UI 提示「可能由多个应用共用，保留」，不打开内容、不提供勾选或删除。未命中主 ID 或已取得扩展 ID 名称边界的共享组、签名/entitlements 和完整归属仍待完成。已另行支持选中 App 内 appex/XPC/LoginItems 的有界标识读取，见 [嵌入扩展](application-embedded.md)；已取得并返回前复核的标识另用于 [扩展数据位置](application-extension-data.md)，不改变本节目录名候选的证据或归属。
 
 ## 主应用设备设置与个人记录
 
@@ -83,7 +83,7 @@
 
 ## 协议与后续
 
-应用检查协议 v18 的 associations 包含 version=5、固定 revision、observed/unknown、issue、entries 与 byHost。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选和最多 64 个设备设置文件；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v19 的 associations 包含 version=5、固定 revision、observed/unknown、issue、entries 与 byHost。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选和最多 64 个设备设置文件；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，21 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 
@@ -96,3 +96,5 @@ observed 只表示进行了有界查询，21 项仍可能全部未知。共享�
 [扩展数据位置](application-extension-data.md) 按已取得标识查询八类精确位置和一层 ByHost 文件，单独记录范围与身份撤回；没有扩大本节主 ID 四根的匹配规则。全部新位置同样在异步结束后附加最新客户端保护。
 
 第六十二阶段 associations version=4 在每项返回独立的 molePathProtection，绑定固定资源的卸载模式字面路径规则。正面保留不取决于位置存在；非命中且位置未知时保持 locationUnverified，不从未知位置推出保护已通过，详见 [路径保留](application-uninstall-paths.md)。
+
+第六十五阶段已为取得的扩展 ID 增加 [客户端应用组名称补查](application-extension-data.md)，只在 Group Containers 直属名称上复用同一 Mole 点分边界；不认证组成员，也不将结果称为原 CLI 已有的扩展组发现。主 ID 四根规则仍独立，全部保留。

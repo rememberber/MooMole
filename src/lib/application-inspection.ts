@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 18 ||
+    data.protocol !== 19 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -158,7 +158,7 @@ export function parseApplicationInspection(
   const availableIds = [...new Set(embedded.bundles.map((bundle) => bundle.bundleId))].sort()
   if (
     !extensionData ||
-    extensionData.version !== 2 ||
+    extensionData.version !== 3 ||
     extensionData.revision !== moleUninstallRevision ||
     !['observed', 'partial', 'notChecked', 'unknown'].includes(extensionData.code) ||
     !Array.isArray(extensionData.identifiers) ||
@@ -166,7 +166,7 @@ export function parseApplicationInspection(
     !extensionData.identifiers.every((id) => reverseDns(id) && availableIds.includes(id)) ||
     new Set(extensionData.identifiers).size !== extensionData.identifiers.length ||
     !Array.isArray(extensionData.entries) ||
-    extensionData.entries.length > 128 ||
+    extensionData.entries.length > 192 ||
     new Set(extensionData.entries.map((entry) => entry?.relativePath)).size !==
       extensionData.entries.length ||
     (['notChecked', 'unknown'].includes(extensionData.code)
@@ -189,9 +189,12 @@ export function parseApplicationInspection(
         JSON.stringify(extensionData.identifiers) !== JSON.stringify(availableIds.slice(0, 8)) ||
         (extensionData.code === 'observed'
           ? extensionData.issue !== null || embedded.code === 'partial' || availableIds.length > 8
-          : !['embeddedIncomplete', 'byHostIncomplete', 'limitReached'].includes(
-              extensionData.issue ?? '',
-            ))) ||
+          : ![
+              'embeddedIncomplete',
+              'byHostIncomplete',
+              'groupsIncomplete',
+              'limitReached',
+            ].includes(extensionData.issue ?? ''))) ||
     (extensionData.issue === 'embeddedIncomplete' && embedded.code !== 'partial') ||
     (extensionData.issue === 'embeddedChanged' && embedded.issue !== 'changed') ||
     (embedded.code === 'notChecked' &&
@@ -209,6 +212,9 @@ export function parseApplicationInspection(
     name.endsWith('.plist') &&
     name.length >= id.length + 7 &&
     !name.includes('/')
+  const groupMatch = (name: string, id: string) =>
+    name === id || name.startsWith(`${id}.`) || name.endsWith(`.${id}`) || name.includes(`.${id}.`)
+  let groupCount = 0
   let byHostCount = 0
   for (const entry of extensionData.entries) {
     if (
@@ -240,15 +246,20 @@ export function parseApplicationInspection(
       if (JSON.stringify(sources) !== JSON.stringify([...expected].sort())) return fail()
       expectedExtension.delete(entry.relativePath)
     } else {
-      const root = 'Library/Preferences/ByHost/'
+      const byHostRoot = 'Library/Preferences/ByHost/'
+      const groupRoot = 'Library/Group Containers/'
+      const isGroup = entry.relativePath.startsWith(groupRoot)
+      const root = isGroup ? groupRoot : byHostRoot
       if (!entry.relativePath.startsWith(root)) return fail()
       const name = entry.relativePath.slice(root.length)
+      if (!name || name.includes('/') || name === '.' || name === '..') return fail()
       const matching = extensionData.identifiers
-        .filter((id) => byHostMatch(name, id))
-        .map((id) => `${id}:byHost`)
+        .filter((id) => (isGroup ? groupMatch(name, id) : byHostMatch(name, id)))
+        .map((id) => `${id}:${isGroup ? 'groupContainer' : 'byHost'}`)
         .sort()
       if (!matching.length || JSON.stringify(sources) !== JSON.stringify(matching)) return fail()
-      byHostCount++
+      if (isGroup) groupCount++
+      else byHostCount++
     }
   }
   const byHost = extensionData.byHost
@@ -271,6 +282,29 @@ export function parseApplicationInspection(
         !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(byHost.issue ?? '')
       : byHost.issue !== null) ||
     (extensionData.issue === 'byHostIncomplete' && byHost.code !== 'partial')
+  )
+    return fail()
+  const groups = extensionData.groups
+  if (
+    !groups ||
+    groups.version !== 1 ||
+    groups.source !== 'clientEmbeddedIdNameBoundary' ||
+    !['observed', 'partial', 'notChecked'].includes(groups.code) ||
+    !Number.isInteger(groups.entries) ||
+    groups.entries < 0 ||
+    groups.entries > 1024 ||
+    !Number.isInteger(groups.candidates) ||
+    groups.candidates < 0 ||
+    groups.candidates > 64 ||
+    groups.candidates > groups.entries ||
+    groups.candidates !== groupCount ||
+    (groups.code === 'notChecked') !== (extensionData.identifiers.length === 0) ||
+    (groups.code === 'notChecked' && (groups.entries !== 0 || groups.candidates !== 0)) ||
+    (groups.code === 'partial'
+      ? extensionData.code !== 'partial' ||
+        !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(groups.issue ?? '')
+      : groups.issue !== null) ||
+    (extensionData.issue === 'groupsIncomplete' && groups.code !== 'partial')
   )
     return fail()
   const installations = data.installations

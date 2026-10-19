@@ -167,6 +167,7 @@ pub struct ExtensionData {
     identifiers: Vec<String>,
     entries: Vec<ExtensionEntry>,
     by_host: ByHost,
+    groups: GroupDiscovery,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,6 +192,23 @@ struct ByHost {
     issue: Option<&'static str>,
     entries: usize,
     candidates: usize,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GroupDiscovery {
+    version: u32,
+    source: &'static str,
+    #[serde(flatten)]
+    scope: ByHost,
+}
+impl GroupDiscovery {
+    fn not_checked() -> Self {
+        Self {
+            version: 1,
+            source: "clientEmbeddedIdNameBoundary",
+            scope: ByHost::not_checked(),
+        }
+    }
 }
 impl ByHost {
     fn not_checked() -> Self {
@@ -222,13 +240,14 @@ impl ExtensionData {
 
     fn empty(code: &'static str, issue: Option<&'static str>) -> Self {
         Self {
-            version: 2,
+            version: 3,
             revision: crate::engine::REVISION,
             code,
             issue,
             identifiers: vec![],
             entries: vec![],
             by_host: ByHost::not_checked(),
+            groups: GroupDiscovery::not_checked(),
         }
     }
     pub fn bind(&mut self, ids: &[String], code: &str, issue: Option<&str>) {

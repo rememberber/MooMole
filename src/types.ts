@@ -106,7 +106,7 @@ export interface MolePathProtection {
     | null
 }
 export interface ApplicationInspection {
-  protocol: 18
+  protocol: 19
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -132,7 +132,11 @@ export interface ApplicationInspection {
     bundles: { relativePath: string; bundleId: string; kind: 'appex' | 'xpc' | 'loginItem' }[]
   }
   extensionData: {
-    version: 2
+    version: 3
+    groups: ApplicationInspection['extensionData']['byHost'] & {
+      version: 1
+      source: 'clientEmbeddedIdNameBoundary'
+    }
     revision: string
     code: 'observed' | 'partial' | 'notChecked' | 'unknown'
     issue:
@@ -146,6 +150,7 @@ export interface ApplicationInspection {
       | 'embeddedUnavailable'
       | 'limitReached'
       | 'byHostIncomplete'
+      | 'groupsIncomplete'
       | null
     identifiers: string[]
     entries: {
@@ -162,6 +167,7 @@ export interface ApplicationInspection {
           | 'preferences'
           | 'webKit'
           | 'byHost'
+          | 'groupContainer'
       }[]
       status: 'present' | 'notFound' | 'unknown'
       issue: 'unavailable' | 'unsupported' | 'changed' | null

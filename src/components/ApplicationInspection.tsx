@@ -87,14 +87,18 @@ export function ApplicationInspection({
     return () => clearTimeout(timer)
   }, [value])
   const protectedAssociations = value
-    ? [...value.associations.entries, ...value.extensionData.entries].filter(
-        (entry) => entry.protectionReasons.length > 0,
-      ).length
+    ? new Set(
+        [...value.associations.entries, ...value.extensionData.entries]
+          .filter((entry) => entry.protectionReasons.length > 0)
+          .map((entry) => entry.relativePath),
+      ).size
     : 0
   const moleProtectedLocations = value
-    ? [...value.associations.entries, ...value.extensionData.entries].filter(
-        (entry) => entry.molePathProtection.code === 'protected',
-      ).length
+    ? new Set(
+        [...value.associations.entries, ...value.extensionData.entries]
+          .filter((entry) => entry.molePathProtection.code === 'protected')
+          .map((entry) => entry.relativePath),
+      ).size
     : 0
   const labels = {
     observed: '发现主应用运行',
@@ -136,6 +140,11 @@ export function ApplicationInspection({
                           value.associations.entries.some(
                             (entry) =>
                               entry.kind === 'groupContainer' && entry.status === 'present',
+                          ) ||
+                          value.extensionData.entries.some(
+                            (entry) =>
+                              entry.status === 'present' &&
+                              entry.sources.some((source) => source.kind === 'groupContainer'),
                           )
                         ? '关联数据可能共用'
                         : '归属待确认'}
@@ -580,7 +589,21 @@ export function ApplicationInspection({
                       embeddedUnavailable: '扩展身份未能复核，已撤下数据位置，请重试。',
                       limitReached: '扩展数据检查达到数量或时间上限，范围不完整。',
                       byHostIncomplete: '部分设备设置文件无法完整确认，请查看下方原因。',
+                      groupsIncomplete: '扩展关联的应用组目录未完整检查，请保留并查看下方原因。',
                     }[value.extensionData.issue]
+                  }
+                </p>
+              )}
+              {value.extensionData.groups.code === 'partial' && (
+                <p className="muted">
+                  ~/Library/Group Containers ·{' '}
+                  {
+                    {
+                      unavailable: '无法完整读取，请保留并重试',
+                      unsupported: '部分名称、链接或目录布局暂不支持',
+                      changed: '目录在检查期间变化，请重查',
+                      limitReached: '扫描达到数量或时间上限，请保留',
+                    }[value.extensionData.groups.issue!]
                   }
                 </p>
               )}
@@ -619,6 +642,7 @@ export function ApplicationInspection({
                             preferences: '扩展设置',
                             webKit: '扩展网页数据',
                             byHost: '设备设置',
+                            groupContainer: '扩展关联应用组',
                           }[entry.sources[0].kind]
                         }
                       </dt>
@@ -642,6 +666,11 @@ export function ApplicationInspection({
                               .join('；')}
                           </span>
                         )}
+                        {entry.sources.some((source) => source.kind === 'groupContainer') && (
+                          <span className="association-path muted">
+                            目录名与扩展标识关联，可能由多个应用共用，保留；组成员身份未认证。
+                          </span>
+                        )}
                         <MolePathNotice value={entry.molePathProtection} />
                         <span className="mono association-path">
                           {[...new Set(entry.sources.map((source) => source.bundleId))].join('、')}
@@ -660,7 +689,8 @@ export function ApplicationInspection({
               )}
               <p className="muted">
                 全部保留。仅检查已取得标识的前 8 个、各 8 类精确位置与一层 ByHost
-                设置文件；不测量大小，不证明数据独占或可卸载。
+                设置文件，以及一层应用组目录（最多 64
+                个候选）。应用组是客户端按已取得标识补查的名称线索；不测量大小，不证明组成员、数据独占或可卸载。
               </p>
             </div>
           </details>

@@ -1,5 +1,6 @@
 //! Exact embedded-ID data locations plus bounded ByHost metadata, all retained.
 use super::*;
+mod groups;
 const LOCATIONS: [(&str, &str, &str); 8] = [
     ("scripts", "Library/Application Scripts", ""),
     (
@@ -23,6 +24,7 @@ pub struct Check {
     observation: ExtensionData,
     probes: Vec<Probe>,
     root: Option<Probe>,
+    groups: Option<groups::Check>,
 }
 fn add(entries: &mut Vec<ExtensionEntry>, relative_path: String, id: &str, kind: &'static str) {
     let source = ExtensionSource {
@@ -69,6 +71,7 @@ impl Check {
             ),
             probes: vec![],
             root: None,
+            groups: None,
         };
         if code == "notChecked" {
             check.observation = ExtensionData::empty("notChecked", issue);
@@ -164,6 +167,13 @@ impl Check {
             }
             check.probes.push(probe);
         }
+        check.groups = Some(groups::Check::begin(
+            home,
+            &check.observation.identifiers,
+            depth,
+            &mut pool,
+            started,
+        ));
         check
     }
     fn partial(&mut self, issue: &'static str) {
@@ -277,6 +287,17 @@ impl Check {
             if status == "unknown" {
                 self.partial(issue.unwrap_or("unavailable"));
             }
+        }
+        if let Some(groups) = self.groups {
+            let Ok((scope, entries)) = groups.finish(started) else {
+                return ExtensionData::empty("unknown", Some("limitReached"));
+            };
+            if scope.scope.code == "partial" && self.observation.code == "observed" {
+                self.observation.code = "partial";
+                self.observation.issue = Some("groupsIncomplete");
+            }
+            self.observation.groups = scope;
+            self.observation.entries.extend(entries);
         }
         self.observation
     }

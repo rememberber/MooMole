@@ -10,7 +10,7 @@ const pathRule = (status = 'notFound') => ({
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 18,
+  protocol: 19,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -27,7 +27,15 @@ const valid = () => ({
     bundles: [] as { relativePath: string; bundleId: string; kind: string }[],
   },
   extensionData: {
-    version: 2,
+    version: 3,
+    groups: {
+      version: 1,
+      source: 'clientEmbeddedIdNameBoundary',
+      code: 'notChecked',
+      issue: null as string | null,
+      entries: 0,
+      candidates: 0,
+    },
     revision: moleUninstallRevision,
     code: 'observed',
     issue: null as string | null,
@@ -335,11 +343,12 @@ describe('application inspection boundary', () => {
       ...data.extensionData,
       identifiers: ids,
       entries,
+      groups: { ...data.extensionData.groups, code: 'observed' },
       byHost: { code: 'observed', issue: null, entries: 20, candidates: 1 },
     }
     expect(parse(data).extensionData.entries).toHaveLength(16)
     const invalids = [
-      { ...data.extensionData, version: 3 },
+      { ...data.extensionData, version: 4 },
       { ...data.extensionData, revision: 'other' },
       { ...data.extensionData, code: 'observed', issue: 'embeddedIncomplete' },
       { ...data.extensionData, identifiers: [ids[0]] },
@@ -515,9 +524,93 @@ describe('application inspection boundary', () => {
     other.running.code = 'unknown'
     expect(parse(other).running.code).toBe('unknown')
   })
+  it('bounds client embedded-ID group candidates and requires all matching sources', () => {
+    const data = valid()
+    const ids = ['org.other.helper', 'org.other.helper.share']
+    data.embedded = {
+      ...data.embedded,
+      entries: 10,
+      directories: 5,
+      plists: 2,
+      bundles: ids.map((bundleId, index) => ({
+        bundleId,
+        relativePath: `Contents/PlugIns/Helper${index}.appex`,
+        kind: 'appex',
+      })),
+    }
+    const locations = [
+      ['scripts', 'Library/Application Scripts', ''],
+      ['fileProvider', 'Library/Application Support/FileProvider', ''],
+      ['cache', 'Library/Caches', ''],
+      ['container', 'Library/Containers', ''],
+      ['httpStorage', 'Library/HTTPStorages', ''],
+      ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+      ['preferences', 'Library/Preferences', '.plist'],
+      ['webKit', 'Library/WebKit', ''],
+    ]
+    const fixed = ids.flatMap((bundleId) =>
+      locations.map(([kind, root, suffix]) => ({
+        relativePath: `${root}/${bundleId}${suffix}`,
+        sources: [{ bundleId, kind }],
+        status: 'notFound',
+        issue: null,
+        protectionReasons: [],
+        molePathProtection: pathRule(),
+      })),
+    )
+    const group = {
+      relativePath: 'Library/Group Containers/TEAM.org.other.helper.share',
+      sources: ids.map((bundleId) => ({ bundleId, kind: 'groupContainer' })),
+      status: 'present',
+      issue: null,
+      protectionReasons: ['clientDirectory'],
+      molePathProtection: pathRule(),
+    }
+    const groups = { ...data.extensionData.groups, code: 'observed', entries: 10, candidates: 1 }
+    const extensionData = {
+      ...data.extensionData,
+      identifiers: ids,
+      entries: [...fixed, group],
+      byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
+      groups,
+    }
+    expect(parse({ ...data, extensionData }).extensionData.entries.at(-1)?.sources).toHaveLength(2)
+    for (const issue of ['unavailable', 'unsupported', 'changed', 'limitReached'])
+      expect(
+        parse({
+          ...data,
+          extensionData: {
+            ...extensionData,
+            code: 'partial',
+            issue: 'groupsIncomplete',
+            groups: { ...groups, code: 'partial', issue },
+          },
+        }).extensionData.groups.issue,
+      ).toBe(issue)
+    for (const invalid of [
+      { ...extensionData, groups: undefined },
+      { ...extensionData, groups: { ...groups, version: 2 } },
+      { ...extensionData, groups: { ...groups, source: 'moleAuthenticatedGroups' } },
+      { ...extensionData, groups: { ...groups, candidates: 0 } },
+      { ...extensionData, groups: { ...groups, entries: 1025 } },
+      { ...extensionData, groups: { ...groups, candidates: 65 } },
+      { ...extensionData, groups: { ...groups, code: 'notChecked' } },
+      { ...extensionData, groups: { ...groups, code: 'partial', issue: 'changed' } },
+      { ...extensionData, code: 'partial', issue: 'groupsIncomplete' },
+      ...[
+        { sources: [group.sources[0]] },
+        { sources: [...group.sources, group.sources[0]] },
+        { relativePath: 'Library/Group Containers/TEAM.org.other.helperapple' },
+        { relativePath: 'Library/Group Containers/TEAM.ORG.other.helper.share' },
+        { relativePath: 'Library/Group Containers/TEAM.org.other.helper.share/child' },
+        { sources: ids.map((bundleId) => ({ bundleId, kind: 'byHost' })) },
+      ].map((change) => ({ ...extensionData, entries: [...fixed, { ...group, ...change }] })),
+    ])
+      expect(() => parse({ ...data, extensionData: invalid })).toThrow()
+  })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 19 },
+      { protocol: 20 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },

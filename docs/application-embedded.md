@@ -27,10 +27,10 @@
 
 ## 协议与界面
 
-应用协议 v18 的 embedded 包含 version=1、固定 revision、observed/partial/notChecked、issue、entries/directories/plists 计数及 bundles。每个 bundle 包含 relativePath、bundleId 与 appex/xpc/loginItem 类型；不包含绝对数据路径、执行参数或可删除状态。
+应用协议 v19 的 embedded 包含 version=1、固定 revision、observed/partial/notChecked、issue、entries/directories/plists 计数及 bundles。每个 bundle 包含 relativePath、bundleId 与 appex/xpc/loginItem 类型；不包含绝对数据路径、执行参数或可删除状态。
 
 前端校验版本/修订、身份/状态关系、计数与上限、相对 Contents 路径组件、深度、类型对应后缀、登录项范围、ID 语法与排除、路径唯一。changed 不允许残留扩展标识。未知协议或矛盾结果整份拒绝；重查撤旧结果、迟到响应隔离和一分钟较早状态沿用原流程。
 
-observed 只表示此固定有界范围未发现已知中断，空结果不代表无其他组件。身份观察只提供包内标识元数据；对应数据位置已支持 [扩展数据位置](application-extension-data.md) 的八类精确位置及有界 ByHost；仍未检查签名/entitlements、所有共享组、辅助进程或文件占用。完整关联候选、保护、共享与个人数据归属、计划及执行前验证仍按发布路线图推进。
+observed 只表示此固定有界范围未发现已知中断，空结果不代表无其他组件。身份观察只提供包内标识元数据；对应数据位置已支持 [扩展数据位置](application-extension-data.md) 的八类精确位置、有界 ByHost 及客户端应用组名称补查；仍未检查签名/entitlements、所有共享组、辅助进程或文件占用。完整关联候选、保护、共享与个人数据归属、计划及执行前验证仍按发布路线图推进。
 
 第六十一阶段在数据位置观察完成后才结束扩展身份复核；扩展标识撤回或变化会一并撤下 extensionData。部分扫描已取得且复核有效的标识可以继续观察数据位置，结果保持不完整，并不认证完整扩展集合。

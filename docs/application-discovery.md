@@ -54,11 +54,11 @@
 
 原「共享关联」摘要继续区分命中、未发现与检查不完整。展开显示探查根数量、原因及相关目录，保留共享数据的下一步；未命中也要求保留关联数据。
 
-应用检查协议 v18，installations version=5/source=moleListRegistryRootsVolumesAndReceipts，包含 roots 与 volumes：observed/partial/notChecked、issue、rootCount、entries、candidates、firstUncertainPath。observed 只表示固定有界目录集合本次未发现已知中断，其中 roots 的根数量应为 9；不代表完整安装发现。volumes 的 rootCount 是本次尝试的本地卷入口数（0..64），不是机器全部磁盘数；网络入口可在尝试打开前拒绝。未知身份/资源时两项均为 notChecked 且计数为 0。目录 partial 时总体必须 partial，既有其他来源/候选错误可继续作为总体原因；rootsIncomplete/volumesIncomplete 仅在没有其他总体错误时使用；每项的专属原因与路径独立保留。
+应用检查协议 v19，installations version=5/source=moleListRegistryRootsVolumesAndReceipts，包含 roots 与 volumes：observed/partial/notChecked、issue、rootCount、entries、candidates、firstUncertainPath。observed 只表示固定有界目录集合本次未发现已知中断，其中 roots 的根数量应为 9；不代表完整安装发现。volumes 的 rootCount 是本次尝试的本地卷入口数（0..64），不是机器全部磁盘数；网络入口可在尝试打开前拒绝。未知身份/资源时两项均为 notChecked 且计数为 0。目录 partial 时总体必须 partial，既有其他来源/候选错误可继续作为总体原因；rootsIncomplete/volumesIncomplete 仅在没有其他总体错误时使用；每项的专属原因与路径独立保留。
 
 前端校验精确协议/来源/修订、计数上限、路径形态与状态一致性，矛盾结果整体拒绝。共享命中继续受既有 Mole 保留谓词、客户端/系统保护、原运行观察与过期/迟到响应机制约束。
 
 后续仍需完整卷语义、收据完整性矩阵、真实网络/云/权限/重挂载矩阵及完整关联/执行前保护，见 [发布路线图](release-roadmap.md) 和 [共享关联](application-copies.md)。
 
 
-收据来源另有最多 128 个候选，所有来源合计最多 480 个输入；此处 352 是不含收据的目录/清单/登记集合。协议 v18 的 receipts 字段与变化检测见 [收据补查](application-receipts.md)。
+收据来源另有最多 128 个候选，所有来源合计最多 480 个输入；此处 352 是不含收据的目录/清单/登记集合。协议 v19 的 receipts 字段与变化检测见 [收据补查](application-receipts.md)。
