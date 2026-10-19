@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const valid = () => ({
-  protocol: 14,
+  protocol: 15,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -17,6 +17,21 @@ const valid = () => ({
     directories: 1,
     plists: 1,
     bundles: [] as { relativePath: string; bundleId: string; kind: string }[],
+  },
+  extensionData: {
+    version: 1,
+    revision: moleUninstallRevision,
+    code: 'observed',
+    issue: null as string | null,
+    identifiers: [] as string[],
+    entries: [] as {
+      relativePath: string
+      sources: { bundleId: string; kind: string }[]
+      status: string
+      issue: string | null
+      protectionReasons: string[]
+    }[],
+    byHost: { code: 'notChecked', issue: null, entries: 0, candidates: 0 },
   },
   installations: {
     version: 5,
@@ -118,6 +133,133 @@ const associationLocations = [
 const parse = (value: unknown, expected = 'org.example.app') =>
   parseApplicationInspection(value, expected)
 describe('application inspection boundary', () => {
+  it('requires complete exact extension sources, merges collisions, and binds ByHost files to fresh IDs', () => {
+    const data = valid()
+    const ids = ['org.example.extension', 'org.example.extension.binarycookies']
+    data.embedded = {
+      ...data.embedded,
+      entries: 20,
+      directories: 6,
+      plists: 3,
+      bundles: ids.map((id, index) => ({
+        bundleId: id,
+        relativePath: `Contents/PlugIns/Extension${index}.appex`,
+        kind: 'appex',
+      })),
+    }
+    const locations = [
+      ['scripts', 'Library/Application Scripts', ''],
+      ['fileProvider', 'Library/Application Support/FileProvider', ''],
+      ['cache', 'Library/Caches', ''],
+      ['container', 'Library/Containers', ''],
+      ['httpStorage', 'Library/HTTPStorages', ''],
+      ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+      ['preferences', 'Library/Preferences', '.plist'],
+      ['webKit', 'Library/WebKit', ''],
+    ]
+    const entries: typeof data.extensionData.entries = []
+    for (const id of ids)
+      for (const [kind, root, suffix] of locations) {
+        const path = `${root}/${id}${suffix}`
+        const found = entries.find((entry) => entry.relativePath === path)
+        if (found) found.sources.push({ bundleId: id, kind })
+        else
+          entries.push({
+            relativePath: path,
+            sources: [{ bundleId: id, kind }],
+            status: 'notFound',
+            issue: null,
+            protectionReasons: [],
+          })
+      }
+    const device = {
+      relativePath: 'Library/Preferences/ByHost/org.example.extension.binarycookies.DEVICE.plist',
+      sources: ids.map((id) => ({ bundleId: id, kind: 'byHost' })),
+      status: 'unknown',
+      issue: 'unavailable',
+      protectionReasons: ['clientDirectory'],
+    }
+    entries.push(device)
+    data.extensionData = {
+      ...data.extensionData,
+      identifiers: ids,
+      entries,
+      byHost: { code: 'observed', issue: null, entries: 20, candidates: 1 },
+    }
+    expect(parse(data).extensionData.entries).toHaveLength(16)
+    const invalids = [
+      { ...data.extensionData, version: 2 },
+      { ...data.extensionData, revision: 'other' },
+      { ...data.extensionData, code: 'observed', issue: 'embeddedIncomplete' },
+      { ...data.extensionData, identifiers: [ids[0]] },
+      { ...data.extensionData, entries: entries.slice(1) },
+      { ...data.extensionData, entries: [...entries, device] },
+      {
+        ...data.extensionData,
+        entries: [...entries.slice(0, -1), { ...device, sources: [device.sources[0]] }],
+      },
+      {
+        ...data.extensionData,
+        entries: [
+          ...entries.slice(0, -1),
+          { ...device, relativePath: 'Library/Preferences/ByHost/' + ids[0] + '.plist' },
+        ],
+      },
+      {
+        ...data.extensionData,
+        entries: [
+          ...entries.slice(0, -1),
+          { ...device, relativePath: 'Library/Preferences/ByHost/../' + ids[0] + '.A.plist' },
+        ],
+      },
+      {
+        ...data.extensionData,
+        entries: [
+          ...entries.slice(0, -1),
+          { ...device, sources: [{ bundleId: ids[0], kind: 'constructor' }] },
+        ],
+      },
+      {
+        ...data.extensionData,
+        entries: [
+          ...entries.slice(0, -1),
+          { ...device, protectionReasons: ['clientDirectory', 'clientDirectory'] },
+        ],
+      },
+      {
+        ...data.extensionData,
+        byHost: { code: 'partial', issue: 'changed', entries: 20, candidates: 1 },
+      },
+      {
+        ...data.extensionData,
+        byHost: { code: 'observed', issue: null, entries: 1025, candidates: 1 },
+      },
+      {
+        ...data.extensionData,
+        byHost: { code: 'observed', issue: null, entries: 20, candidates: 0 },
+      },
+    ]
+    for (const extensionData of invalids) expect(() => parse({ ...data, extensionData })).toThrow()
+    expect(
+      parse({
+        ...data,
+        extensionData: {
+          ...data.extensionData,
+          code: 'partial',
+          issue: 'byHostIncomplete',
+          byHost: { code: 'partial', issue: 'changed', entries: 20, candidates: 1 },
+        },
+      }).extensionData.code,
+    ).toBe('partial')
+    const changed = {
+      ...data,
+      embedded: { ...data.embedded, code: 'partial', issue: 'changed', bundles: [] },
+      extensionData: { ...valid().extensionData, code: 'unknown', issue: 'embeddedChanged' },
+    }
+    expect(parse(changed).extensionData.entries).toEqual([])
+    expect(() => parse({ ...changed, extensionData: data.extensionData })).toThrow()
+  })
+
   it('validates embedded identity scope without asserting ownership or accepting unsafe paths', () => {
     const data = valid()
     data.embedded = {
@@ -143,6 +285,8 @@ describe('application inspection boundary', () => {
         },
       ],
     }
+    data.extensionData.code = 'notChecked'
+    data.extensionData.issue = 'homeUnavailable'
     expect(parse(data).embedded.bundles).toHaveLength(3)
     for (const change of [
       { version: 2 },
@@ -222,7 +366,7 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 15 },
+      { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },
@@ -273,6 +417,7 @@ describe('application inspection boundary', () => {
         directories: 0,
         plists: 0,
       },
+      extensionData: { ...valid().extensionData, code: 'notChecked', issue: 'identityChanged' },
       associations: { ...valid().associations, issue: 'identityChanged' },
       background: { ...valid().background, code: 'unknown', issue: 'identityChanged' },
       officialUninstaller: {
@@ -325,6 +470,7 @@ describe('application inspection boundary', () => {
         directories: 0,
         plists: 0,
       },
+      extensionData: { ...valid().extensionData, code: 'notChecked', issue: 'identityUnavailable' },
       associations: { ...valid().associations, issue: 'identityUnavailable' },
       bundleId: null,
       background: { ...valid().background, code: 'unknown', issue: 'identityUnavailable' },

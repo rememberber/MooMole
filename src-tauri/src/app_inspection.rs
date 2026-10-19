@@ -19,6 +19,7 @@ pub struct Inspection {
     background: crate::app_background::Observation,
     associations: crate::app_associations::Observation,
     embedded: Embedded,
+    extension_data: crate::app_associations::ExtensionData,
     installations: Installations,
 }
 #[derive(Debug, Serialize)]
@@ -80,6 +81,12 @@ impl Inspection {
         )?;
         self.associations
             .attach_protection(home, self.bundle_id.as_deref(), current_id, rules)?;
+        self.extension_data.attach_protection(
+            home,
+            self.bundle_id.as_deref(),
+            current_id,
+            rules,
+        )?;
         Ok(())
     }
 }
@@ -1123,6 +1130,13 @@ mod mac {
             identity,
             rules_ready,
         );
+        let (extension_ids, extension_code, extension_issue) = embedded.basis();
+        let extension_data = crate::app_associations::mac::extensions::Check::begin(
+            home,
+            extension_ids,
+            extension_code,
+            extension_issue,
+        );
         let root_scan = (scan_roots
             && rules_ready
             && matches!(identity, "matches" | "unreported")
@@ -1171,7 +1185,14 @@ mod mac {
         };
         hook();
         let background = background.finish();
+        let mut extension_data = extension_data.finish();
         let embedded = embedded.finish();
+        let final_ids = embedded
+            .bundles
+            .iter()
+            .map(|b| b.bundle_id.clone())
+            .collect::<Vec<_>>();
+        extension_data.bind(&final_ids, embedded.code, embedded.issue);
         let associations = associations.finish();
         let mut installations = installations.finish();
         installations.roots = root_scan
@@ -1199,7 +1220,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 14,
+            protocol: 15,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -1214,6 +1235,7 @@ mod mac {
             background,
             associations,
             embedded,
+            extension_data,
             installations,
         })
     }
@@ -1383,6 +1405,53 @@ mod mac {
                 .is_empty());
             assert_eq!(result["identity"], "matches");
             assert_eq!(result["version"], "2.3");
+        }
+        #[test]
+        fn extension_data_is_withdrawn_when_nested_identity_changes_after_observation() {
+            let temp = tempfile::tempdir().unwrap();
+            let home = temp.path().canonicalize().unwrap();
+            let app = fixture(&home, "ExtensionData", &fields());
+            let extension = app.join("Contents/PlugIns/Share.appex/Contents");
+            std::fs::create_dir_all(&extension).unwrap();
+            let info = extension.join("Info.plist");
+            std::fs::write(&info,"<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>org.vendor.share</string></dict></plist>").unwrap();
+            std::fs::create_dir_all(home.join("Library/Caches/org.vendor.share")).unwrap();
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {},
+                &home,
+                true,
+            )
+            .unwrap();
+            let value = serde_json::to_value(result).unwrap();
+            assert_eq!(value["extensionData"]["identifiers"][0], "org.vendor.share");
+            assert!(value["extensionData"]["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["relativePath"] == "Library/Caches/org.vendor.share"
+                    && e["status"] == "present"));
+            let result = inspect_context(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::write(&info, "changed").unwrap();
+                },
+                &home,
+                true,
+            )
+            .unwrap();
+            let value = serde_json::to_value(result).unwrap();
+            assert_eq!(value["bundleId"], ID);
+            assert_eq!(value["embedded"]["issue"], "changed");
+            assert_eq!(value["extensionData"]["issue"], "embeddedChanged");
+            assert!(value["extensionData"]["entries"]
+                .as_array()
+                .unwrap()
+                .is_empty());
         }
         #[test]
         fn associations_are_bound_to_fresh_identity_and_withdraw_changed_paths() {

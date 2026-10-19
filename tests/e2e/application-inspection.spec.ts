@@ -55,8 +55,53 @@ async function setup(page: Page) {
         String(Number(sessionStorage.getItem('inspection-completed') ?? 0) + 1),
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
+      const dataMode = mode?.startsWith('extension') ?? false
+      const sourceChanged = mode === 'extensionSourceChanged'
+      const sourcePartial = mode === 'extensionPartialSource'
+      const sourceIds =
+        !sourceChanged &&
+        (dataMode ||
+          (mode?.startsWith('embedded') &&
+            !['embeddedChanged', 'embeddedUnavailable'].includes(mode)))
+          ? ['org.example.helper', 'org.example.same.share']
+          : []
+      const locations = [
+        ['scripts', 'Library/Application Scripts', ''],
+        ['fileProvider', 'Library/Application Support/FileProvider', ''],
+        ['cache', 'Library/Caches', ''],
+        ['container', 'Library/Containers', ''],
+        ['httpStorage', 'Library/HTTPStorages', ''],
+        ['httpCookies', 'Library/HTTPStorages', '.binarycookies'],
+        ['preferences', 'Library/Preferences', '.plist'],
+        ['webKit', 'Library/WebKit', ''],
+      ]
+      const dataEntries = sourceIds.flatMap((id) =>
+        locations.map(([kind, root, suffix]) => ({
+          relativePath: `${root}/${id}${suffix}`,
+          sources: [{ bundleId: id, kind }],
+          status:
+            dataMode && id === sourceIds[0] && kind === 'scripts'
+              ? 'present'
+              : dataMode && id === sourceIds[0] && kind === 'fileProvider'
+                ? 'unknown'
+                : 'notFound',
+          issue: dataMode && id === sourceIds[0] && kind === 'fileProvider' ? 'unavailable' : null,
+          protectionReasons:
+            dataMode && id === sourceIds[0] && ['scripts', 'preferences'].includes(kind)
+              ? ['clientDirectory']
+              : [],
+        })),
+      )
+      if (dataMode && sourceIds.length)
+        dataEntries.push({
+          relativePath: 'Library/Preferences/ByHost/org.example.same.share.DEVICE.plist',
+          sources: [{ bundleId: 'org.example.same.share', kind: 'byHost' }],
+          status: mode === 'extensionByHostChanged' ? 'unknown' : 'present',
+          issue: mode === 'extensionByHostChanged' ? 'changed' : null,
+          protectionReasons: [],
+        })
       return {
-        protocol: mode === 'future' ? 15 : 14,
+        protocol: mode === 'future' ? 16 : 15,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -69,19 +114,27 @@ async function setup(page: Page) {
           code:
             mode === 'mismatch'
               ? 'notChecked'
-              : ['embeddedChanged', 'embeddedLimit', 'embeddedUnavailable'].includes(mode ?? '')
+              : [
+                    'embeddedChanged',
+                    'embeddedLimit',
+                    'embeddedUnavailable',
+                    'extensionSourceChanged',
+                    'extensionPartialSource',
+                  ].includes(mode ?? '')
                 ? 'partial'
                 : 'observed',
           issue:
             mode === 'mismatch'
               ? 'identityChanged'
-              : mode === 'embeddedChanged'
+              : mode === 'embeddedChanged' || sourceChanged
                 ? 'changed'
                 : mode === 'embeddedLimit'
                   ? 'limitReached'
                   : mode === 'embeddedUnavailable'
                     ? 'unavailable'
-                    : null,
+                    : sourcePartial
+                      ? 'unsupported'
+                      : null,
           entries: mode === 'mismatch' ? 0 : 25,
           directories: mode === 'mismatch' ? 0 : 6,
           plists: mode === 'mismatch' ? 0 : 4,
@@ -89,7 +142,8 @@ async function setup(page: Page) {
             mode === 'embeddedUnavailable' ||
             mode === 'embeddedChanged' ||
             mode === 'mismatch' ||
-            !mode?.startsWith('embedded')
+            (!mode?.startsWith('embedded') && !dataMode) ||
+            sourceChanged
               ? []
               : [
                   {
@@ -103,6 +157,51 @@ async function setup(page: Page) {
                     kind: 'loginItem',
                   },
                 ],
+        },
+        extensionData: {
+          version: 1,
+          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          code:
+            mode === 'mismatch'
+              ? 'notChecked'
+              : sourceChanged || mode === 'embeddedChanged'
+                ? 'unknown'
+                : sourcePartial ||
+                    [
+                      'extensionByHostChanged',
+                      'extensionLimit',
+                      'embeddedLimit',
+                      'embeddedUnavailable',
+                    ].includes(mode ?? '')
+                  ? 'partial'
+                  : 'observed',
+          issue:
+            mode === 'mismatch'
+              ? 'identityChanged'
+              : sourceChanged || mode === 'embeddedChanged'
+                ? 'embeddedChanged'
+                : sourcePartial || ['embeddedLimit', 'embeddedUnavailable'].includes(mode ?? '')
+                  ? 'embeddedIncomplete'
+                  : ['extensionByHostChanged', 'extensionLimit'].includes(mode ?? '')
+                    ? 'byHostIncomplete'
+                    : null,
+          identifiers: sourceIds,
+          entries: dataEntries,
+          byHost: {
+            code: !sourceIds.length
+              ? 'notChecked'
+              : ['extensionByHostChanged', 'extensionLimit'].includes(mode ?? '')
+                ? 'partial'
+                : 'observed',
+            issue:
+              mode === 'extensionByHostChanged'
+                ? 'changed'
+                : mode === 'extensionLimit'
+                  ? 'limitReached'
+                  : null,
+            entries: sourceIds.length ? 30 : 0,
+            candidates: dataMode && sourceIds.length ? 1 : 0,
+          },
         },
         installations: {
           version: mode === 'copiesFuture' ? 6 : 5,
@@ -472,7 +571,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection).toContainText('2.3 · 构建 42')
   await expect(inspection).toContainText('未验证签名')
   await expect(inspection).toContainText('归属待确认')
-  await expect(inspection).toContainText('扩展数据目录与完整归属仍待核实')
+  await expect(inspection).toContainText('完整归属仍待核实')
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('inspection-calls') ?? '[]'),
   )
@@ -691,7 +790,7 @@ test('guards explain system location, current client and protected directories w
     await expect(inspection).toContainText('已命中客户端保护 · 当前仅供查看')
     await expect(inspection).toContainText(reason)
     await expect(inspection).not.toContainText('归属待确认')
-    await expect(inspection).toContainText('扩展数据目录与完整归属仍待核实')
+    await expect(inspection).toContainText('完整归属仍待核实')
   }
   await expect(inspection).toContainText('/Applications')
   await expect(inspection.getByRole('button', { name: /卸载|退出|删除/ })).toHaveCount(0)
@@ -1070,7 +1169,7 @@ test('group and derived directory candidates stay retained while source failures
   )
   await expect(associations).toContainText('目录名规则命中，可能由多个应用共用，保留')
   await expect(associations).toContainText('已保存保护目录覆盖，保留')
-  await expect(associations).toContainText('扩展数据目录与完整归属仍待核实')
+  await expect(associations).toContainText('完整归属仍待核实')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -1107,7 +1206,7 @@ test('embedded identities expose scope and withdraw changed results without offe
   await expect(embedded).toContainText('org.example.same.share')
   await expect(embedded).toContainText('Contents/Library/LoginItems/Helper.app')
   await expect(embedded).toContainText('签名、运行状态和数据归属未验证')
-  await expect(embedded).toContainText('本轮未据此查询扩展数据目录')
+  await expect(embedded).toContainText('不证明数据独占或可卸载')
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
@@ -1128,8 +1227,57 @@ test('embedded identities expose scope and withdraw changed results without offe
     await inspection.getByRole('button', { name: '重新检查状态' }).click()
     await expect(embedded.locator('summary')).toContainText('检查不完整')
     await expect(embedded).toContainText(message)
+    if (mode === 'embeddedUnavailable') await expect(embedded).toContainText('未取得可查询标识')
     if (mode !== 'embeddedLimit') await expect(embedded).not.toContainText('org.example.same.share')
   }
   await expect(embedded.getByRole('checkbox')).toHaveCount(0)
   await expect(embedded.getByRole('button')).toHaveCount(0)
+})
+
+test('extension data keeps found, unknown and protected missing locations distinct and withdraws changed identities', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'extensionFound'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('关联位置受保护')
+  const embedded = inspection.getByLabel('嵌入扩展', { exact: true })
+  await embedded.locator('summary').click()
+  const data = embedded.getByLabel('扩展关联数据', { exact: true })
+  await expect(data).toContainText('2 处发现 · 1 处无法确认')
+  await expect(data).toContainText('2 处受保护')
+  await expect(data).toContainText('本次未发现')
+  await expect(data).toContainText('~/Library/Preferences/org.example.helper.plist')
+  await expect(data).toContainText(
+    '~/Library/Preferences/ByHost/org.example.same.share.DEVICE.plist',
+  )
+  await expect(data).toContainText('全部保留')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect((await data.locator('dd').first().boundingBox())?.width).toBeGreaterThan(300)
+    await data.screenshot({
+      path: `test-results/application-extension-data-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, message] of [
+    ['extensionByHostChanged', '检查期间变化，请重查'],
+    ['extensionLimit', '扫描达到数量或时间上限'],
+    ['extensionPartialSource', '组件检查仍不完整'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(embedded.locator('summary')).toContainText('检查不完整')
+    await expect(data).toContainText(message)
+    await expect(data).toContainText('~/Library/Application Scripts/org.example.helper')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'extensionSourceChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(data).toContainText('已撤下数据位置')
+  await expect(data).not.toContainText('~/Library/Application Scripts/org.example.helper')
+  await expect(inspection).not.toContainText('关联位置受保护')
+  await expect(data.getByRole('checkbox')).toHaveCount(0)
+  await expect(data.getByRole('button')).toHaveCount(0)
 })

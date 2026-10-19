@@ -58,8 +58,11 @@ export function ApplicationInspection({
     }, 60000)
     return () => clearTimeout(timer)
   }, [value])
-  const protectedAssociations =
-    value?.associations.entries.filter((entry) => entry.protectionReasons.length > 0).length ?? 0
+  const protectedAssociations = value
+    ? [...value.associations.entries, ...value.extensionData.entries].filter(
+        (entry) => entry.protectionReasons.length > 0,
+      ).length
+    : 0
   const labels = {
     observed: '发现主应用运行',
     notObserved: '未发现匹配主应用',
@@ -303,7 +306,8 @@ export function ApplicationInspection({
               {value.associations.code === 'unknown'
                 ? '无法确认'
                 : `${value.associations.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.associations.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
-              {protectedAssociations > 0 && ` · ${protectedAssociations} 处受保护`}
+              {value.associations.entries.some((entry) => entry.protectionReasons.length > 0) &&
+                ` · ${value.associations.entries.filter((entry) => entry.protectionReasons.length > 0).length} 处受保护`}
               {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
@@ -409,7 +413,7 @@ export function ApplicationInspection({
             )}
             <p className="muted">
               仅查询精确标识的 16 个常见位置，另检查应用组与扩展的 4 个目录各一层、合计最多 64
-              个候选，未测量大小。目录名不证明扩展身份或数据独占；扩展数据目录与完整归属仍待核实。
+              个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>
           </details>
           <details className="application-embedded" aria-label="嵌入扩展">
@@ -419,7 +423,9 @@ export function ApplicationInspection({
               {value.embedded.code === 'notChecked'
                 ? '未检查'
                 : `${value.embedded.bundles.length} 个位置`}
-              {value.embedded.code === 'partial' && ' · 检查不完整'}
+              {(value.embedded.code === 'partial' ||
+                ['partial', 'unknown'].includes(value.extensionData.code)) &&
+                ' · 检查不完整'}
             </summary>
             <p>仅核对包内标识；签名、运行状态和数据归属未验证，关联数据继续保留。</p>
             {value.embedded.issue && (
@@ -459,10 +465,117 @@ export function ApplicationInspection({
             {value.embedded.code !== 'notChecked' && (
               <p className="muted">
                 已查看 {value.embedded.plists} 份身份文件所在位置。仅检查选中 App 的 Contents 内最多
-                12 层、128 份身份文件与 32 个扩展位置；不包含主标识与 Sparkle
-                共享服务。本轮未据此查询扩展数据目录。
+                12 层、128 份身份文件与 32 个扩展位置；不包含主标识与 Sparkle 共享服务。
               </p>
             )}
+            <div className="extension-data" aria-label="扩展关联数据">
+              <p>
+                <strong>
+                  扩展数据 ·{' '}
+                  {value.extensionData.code === 'notChecked'
+                    ? '未检查'
+                    : value.extensionData.code === 'unknown'
+                      ? '无法确认'
+                      : value.extensionData.identifiers.length === 0
+                        ? '未取得可查询标识'
+                        : `${value.extensionData.entries.filter((entry) => entry.status === 'present').length} 处发现 · ${value.extensionData.entries.filter((entry) => entry.status === 'unknown').length} 处无法确认`}
+                </strong>
+                {value.extensionData.entries.some((entry) => entry.protectionReasons.length > 0) &&
+                  ` · ${value.extensionData.entries.filter((entry) => entry.protectionReasons.length > 0).length} 处受保护`}
+              </p>
+              {value.extensionData.issue && (
+                <p className="muted">
+                  {
+                    {
+                      identityChanged: '主标识已变化，未查询扩展数据。',
+                      identityUnavailable: '主标识无法确认，未查询扩展数据。',
+                      rulesUnavailable: '规则无法确认，未查询扩展数据。',
+                      bundleIdUnsupported: '主标识格式暂不支持。',
+                      homeUnavailable: '用户目录无法确认，请保留并重试。',
+                      embeddedIncomplete: '仅查询本次已取得的扩展标识，组件检查仍不完整。',
+                      embeddedChanged: '扩展身份在检查期间变化，已撤下数据位置，请重查。',
+                      embeddedUnavailable: '扩展身份未能复核，已撤下数据位置，请重试。',
+                      limitReached: '扩展数据检查达到数量或时间上限，范围不完整。',
+                      byHostIncomplete: '部分设备设置文件无法完整确认，请查看下方原因。',
+                    }[value.extensionData.issue]
+                  }
+                </p>
+              )}
+              {value.extensionData.byHost.code === 'partial' && (
+                <p className="muted">
+                  ~/Library/Preferences/ByHost ·{' '}
+                  {
+                    {
+                      unavailable: '无法完整读取，请重试',
+                      unsupported: '部分名称、链接或布局暂不支持',
+                      changed: '检查期间变化，请重查',
+                      limitReached: '扫描达到数量或时间上限',
+                    }[value.extensionData.byHost.issue!]
+                  }
+                </p>
+              )}
+              <dl>
+                {value.extensionData.entries
+                  .filter(
+                    (entry) => entry.status !== 'notFound' || entry.protectionReasons.length > 0,
+                  )
+                  .map((entry) => (
+                    <div key={entry.relativePath}>
+                      <dt>
+                        {
+                          {
+                            scripts: '扩展脚本',
+                            fileProvider: '文件提供程序',
+                            cache: '扩展缓存',
+                            container: '扩展沙盒',
+                            httpStorage: '扩展网络存储',
+                            httpCookies: '扩展 Cookie',
+                            preferences: '扩展设置',
+                            webKit: '扩展网页数据',
+                            byHost: '设备设置',
+                          }[entry.sources[0].kind]
+                        }
+                      </dt>
+                      <dd>
+                        {entry.status === 'present'
+                          ? '发现位置 · 归属待确认'
+                          : entry.status === 'notFound'
+                            ? '本次未发现'
+                            : `无法确认 · ${{ unavailable: '请检查访问权限后重试', unsupported: '链接、挂载或文件类型暂不支持', changed: '检查期间发生变化，请重查' }[entry.issue!]}`}
+                        {entry.protectionReasons.length > 0 && (
+                          <span className="association-path">
+                            {entry.protectionReasons
+                              .map(
+                                (reason) =>
+                                  ({
+                                    systemLocation: '系统位置，保留',
+                                    currentApplication: '客户端自身保护，保留',
+                                    clientDirectory: '已保存保护目录覆盖，保留',
+                                  })[reason],
+                              )
+                              .join('；')}
+                          </span>
+                        )}
+                        <span className="mono association-path">
+                          {[...new Set(entry.sources.map((source) => source.bundleId))].join('、')}
+                        </span>
+                        <span className="mono association-path">~/{entry.relativePath}</span>
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+              {['observed', 'partial'].includes(value.extensionData.code) && (
+                <p className="muted">
+                  {value.extensionData.identifiers.length === 0
+                    ? '没有取得可查询的扩展标识，不代表不存在扩展数据。'
+                    : `本次查询 ${value.extensionData.identifiers.length} 个扩展标识，${value.extensionData.entries.filter((entry) => entry.status === 'notFound').length} 处位置未发现。`}
+                </p>
+              )}
+              <p className="muted">
+                全部保留。仅检查已取得标识的前 8 个、各 8 类精确位置与一层 ByHost
+                设置文件；不测量大小，不证明数据独占或可卸载。
+              </p>
+            </div>
           </details>
           <details>
             <summary>规则来源</summary>

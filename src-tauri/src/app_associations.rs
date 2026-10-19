@@ -132,6 +132,110 @@ impl Observation {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionData {
+    version: u32,
+    revision: &'static str,
+    code: &'static str,
+    issue: Option<&'static str>,
+    identifiers: Vec<String>,
+    entries: Vec<ExtensionEntry>,
+    by_host: ByHost,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtensionEntry {
+    relative_path: String,
+    sources: Vec<ExtensionSource>,
+    status: &'static str,
+    issue: Option<&'static str>,
+    protection_reasons: Vec<&'static str>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtensionSource {
+    bundle_id: String,
+    kind: &'static str,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ByHost {
+    code: &'static str,
+    issue: Option<&'static str>,
+    entries: usize,
+    candidates: usize,
+}
+impl ByHost {
+    fn not_checked() -> Self {
+        Self {
+            code: "notChecked",
+            issue: None,
+            entries: 0,
+            candidates: 0,
+        }
+    }
+}
+impl ExtensionData {
+    fn empty(code: &'static str, issue: Option<&'static str>) -> Self {
+        Self {
+            version: 1,
+            revision: crate::engine::REVISION,
+            code,
+            issue,
+            identifiers: vec![],
+            entries: vec![],
+            by_host: ByHost::not_checked(),
+        }
+    }
+    pub fn bind(&mut self, ids: &[String], code: &str, issue: Option<&str>) {
+        if self.code == "notChecked" {
+            return;
+        }
+        if code == "notChecked"
+            || issue == Some("changed")
+            || self.identifiers.iter().any(|id| !ids.contains(id))
+        {
+            *self = Self::empty(
+                "unknown",
+                Some(if issue == Some("changed") {
+                    "embeddedChanged"
+                } else {
+                    "embeddedUnavailable"
+                }),
+            );
+        } else if code == "partial" && self.code == "observed" {
+            self.code = "partial";
+            self.issue = Some("embeddedIncomplete");
+        }
+    }
+    pub fn attach_protection(
+        &mut self,
+        home: &Path,
+        local_id: Option<&str>,
+        current_id: &str,
+        rules: &[String],
+    ) -> Result<(), String> {
+        for entry in &mut self.entries {
+            let path = home.join(&entry.relative_path);
+            let id = if entry.sources.iter().any(|s| s.bundle_id == current_id) {
+                Some(current_id)
+            } else {
+                local_id
+            };
+            entry.protection_reasons = crate::app_protection::check(
+                path.to_str().ok_or("扩展保护目录无法确认，请重试。")?,
+                id,
+                None,
+                current_id,
+                rules,
+            )?
+            .reasons;
+        }
+        Ok(())
+    }
+}
+
 // Same accepted grammar as Mole's mole_is_reverse_dns_bundle_id; not proof of publisher.
 fn valid_id(id: &str) -> bool {
     id.len() <= 255
@@ -145,6 +249,7 @@ fn valid_id(id: &str) -> bool {
 
 #[cfg(target_os = "macos")]
 pub mod mac {
+    pub mod extensions;
     use super::*;
     use std::{
         collections::HashMap,

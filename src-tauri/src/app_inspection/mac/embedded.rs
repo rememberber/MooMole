@@ -294,6 +294,17 @@ impl<'a> Check<'a> {
             kind,
         });
     }
+    pub(super) fn basis(&self) -> (Vec<String>, &'static str, Option<&'static str>) {
+        (
+            self.observation
+                .bundles
+                .iter()
+                .map(|b| b.bundle_id.clone())
+                .collect(),
+            self.observation.code,
+            self.observation.issue,
+        )
+    }
     pub(super) fn finish(mut self) -> Embedded {
         if self.observation.code == "notChecked" {
             return self.observation;

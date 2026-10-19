@@ -85,7 +85,7 @@ export interface AppEntry {
   size: string
 }
 export interface ApplicationInspection {
-  protocol: 14
+  protocol: 15
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -109,6 +109,49 @@ export interface ApplicationInspection {
     directories: number
     plists: number
     bundles: { relativePath: string; bundleId: string; kind: 'appex' | 'xpc' | 'loginItem' }[]
+  }
+  extensionData: {
+    version: 1
+    revision: string
+    code: 'observed' | 'partial' | 'notChecked' | 'unknown'
+    issue:
+      | 'identityChanged'
+      | 'identityUnavailable'
+      | 'rulesUnavailable'
+      | 'bundleIdUnsupported'
+      | 'homeUnavailable'
+      | 'embeddedIncomplete'
+      | 'embeddedChanged'
+      | 'embeddedUnavailable'
+      | 'limitReached'
+      | 'byHostIncomplete'
+      | null
+    identifiers: string[]
+    entries: {
+      relativePath: string
+      sources: {
+        bundleId: string
+        kind:
+          | 'scripts'
+          | 'fileProvider'
+          | 'cache'
+          | 'container'
+          | 'httpStorage'
+          | 'httpCookies'
+          | 'preferences'
+          | 'webKit'
+          | 'byHost'
+      }[]
+      status: 'present' | 'notFound' | 'unknown'
+      issue: 'unavailable' | 'unsupported' | 'changed' | null
+      protectionReasons: ('systemLocation' | 'currentApplication' | 'clientDirectory')[]
+    }[]
+    byHost: {
+      code: 'observed' | 'partial' | 'notChecked'
+      issue: 'unavailable' | 'unsupported' | 'changed' | 'limitReached' | null
+      entries: number
+      candidates: number
+    }
   }
   installations: {
     version: 5
