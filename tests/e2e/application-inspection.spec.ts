@@ -53,12 +53,37 @@ async function setup(page: Page, appName = 'Example') {
         ([, path], index, all) =>
           !path.endsWith('/') && all.findIndex(([, previous]) => previous === path) === index,
       )
-      const cliPaths = rawXdg.filter(([, path]) =>
+      const match =
+        /^(.+)[ \t\n\r\v\f]+(Nightly|Beta|Alpha|Dev|Canary|Preview|Insider|Edge|Stable|Release|RC|LTS|Developer Edition|Technology Preview)$/.exec(
+          appName,
+        )
+      const baseName = match && new TextEncoder().encode(match[1]).length > 2 ? match[1] : null
+      const rawChannel = (
+        baseName === null
+          ? []
+          : [
+              ['nameChannelSupport', `Library/Application Support/${baseName}`],
+              ['nameChannelCache', `Library/Caches/${baseName}`],
+              ['nameChannelLogs', `Library/Logs/${baseName}`],
+              ['nameChannelPreferencesDirectory', `Library/Preferences/${baseName}`],
+              ['nameChannelPreferences', `Library/Preferences/${baseName}.plist`],
+              ['nameChannelSavedState', `Library/Saved Application State/${baseName}.savedState`],
+              ['nameChannelXdgConfig', `.config/${lowerName(baseName)}`],
+              ['nameChannelXdgCache', `.cache/${lowerName(baseName)}`],
+              ['nameChannelXdgShare', `.local/share/${lowerName(baseName)}`],
+            ]
+      ).filter(
+        ([, path]) =>
+          !path.endsWith('/') &&
+          !['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path),
+      )
+      const cliPaths = [...rawXdg, ...rawChannel].filter(([, path]) =>
         /^\.(?:config|cache)\/\.?(?:claude|codex|gemini|opencode)$|^\.local\/share\/\.?(?:claude|codex|gemini|opencode)$/i.test(
           path,
         ),
       )
       const xdg = rawXdg.filter((entry) => !cliPaths.includes(entry))
+      const channel = rawChannel.filter((entry) => !cliPaths.includes(entry))
       const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
       const protection = {
         reasons:
@@ -211,7 +236,7 @@ async function setup(page: Page, appName = 'Example') {
         }
       }
       return {
-        protocol: mode === 'future' ? 24 : 23,
+        protocol: mode === 'future' ? 25 : 24,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -479,7 +504,7 @@ async function setup(page: Page, appName = 'Example') {
         },
         associations: {
           names: {
-            version: mode === 'associationNamesLegacy' ? 3 : 4,
+            version: mode === 'associationNamesLegacy' ? 4 : 5,
             source:
               mode === 'associationNamesOldSource' ? 'moleAppNameLibrary' : 'moleAppNameUserPaths',
             code:
@@ -505,9 +530,16 @@ async function setup(page: Page, appName = 'Example') {
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
                 ? new TextEncoder().encode(appName).length > 3 && appName.includes(' ')
-                  ? 36 + xdg.length
-                  : 24 + xdg.length
+                  ? 36 + xdg.length + channel.length
+                  : 24 + xdg.length + channel.length
                 : 0,
+            baseName:
+              mode?.startsWith('associationNames') &&
+              !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                ? mode === 'associationNamesChannelWrong'
+                  ? 'Another'
+                  : baseName
+                : null,
             cliExcluded:
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
@@ -530,7 +562,7 @@ async function setup(page: Page, appName = 'Example') {
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 10 : 9,
+          version: mode === 'associationFuture' ? 11 : 10,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -818,6 +850,38 @@ async function setup(page: Page, appName = 'Example') {
                                 protectionReasons: active && index === 3 ? ['clientDirectory'] : [],
                                 molePathProtection:
                                   active && index === 2
+                                    ? {
+                                        ...pathRule('notFound'),
+                                        code: 'protected',
+                                        reason: 'criticalData',
+                                        issue: null,
+                                      }
+                                    : pathRule(status),
+                              }
+                            }),
+                          )
+                          .concat(
+                            channel.map(([kind, relativePath], index) => {
+                              const changed = mode === 'associationNamesChanged'
+                              const active = mode === 'associationNamesChannel'
+                              const status =
+                                changed || (active && index === 1)
+                                  ? 'unknown'
+                                  : active && [0, 6].includes(index)
+                                    ? 'present'
+                                    : 'notFound'
+                              return {
+                                kind,
+                                relativePath,
+                                status,
+                                issue: changed
+                                  ? 'changed'
+                                  : active && index === 1
+                                    ? 'unavailable'
+                                    : null,
+                                protectionReasons: active && index === 4 ? ['clientDirectory'] : [],
+                                molePathProtection:
+                                  active && index === 3
                                     ? {
                                         ...pathRule('notFound'),
                                         code: 'protected',
@@ -2025,7 +2089,7 @@ test('space name variants show preservation, withdraw changed evidence and rejec
   const associations = inspection.locator('.application-associations')
   await associations.locator('summary').click()
   await expect(associations).toContainText('查询 49 个位置')
-  await expect(associations).toContainText('Library/XDG 名称与空格变体（最多 49 个位置）')
+  await expect(associations).toContainText('Library/XDG 名称及空格、渠道变体（最多 58 个位置）')
   const compact = associations
     .locator('dl > div')
     .filter({ hasText: '~/Library/Application Support/SuiteStudio' })
@@ -2167,4 +2231,83 @@ test('independent CLI names are excluded from XDG clues while Library clues rema
   await expect(associations).not.toContainText('依 Mole 规则排除')
   await expect(associations.locator('summary')).not.toContainText('CLI 同名位置保留')
   await expect(associations).toContainText('这份 Mole 清单未提供可用名称')
+})
+
+test('channel base clues retain shared version data, precise source bindings and revocable results', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page, 'Suite Nightly')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChannel'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 58 个位置')
+  await expect(associations).toContainText(
+    '按 Mole 渠道名称规则补查「Suite」；可能与其他版本或应用共用，全部保留。',
+  )
+  const location = (path: string) =>
+    associations.locator('dl > div').filter({ has: page.getByText(path, { exact: true }) })
+  const support = location('~/Library/Application Support/Suite')
+  await expect(support).toContainText('发现位置 · 归属待确认')
+  await expect(support).toContainText('渠道名称线索，可能共用，归属未确认，保留。')
+  await expect(location('~/Library/Caches/Suite')).toContainText('无法确认 · 请检查访问权限后重试')
+  await expect(location('~/Library/Preferences/Suite')).toContainText(
+    'Mole：关键设置或持久数据，保留',
+  )
+  await expect(location('~/Library/Preferences/Suite.plist')).toContainText(
+    '已保存保护目录覆盖，保留',
+  )
+  await expect(location('~/.config/suite')).toContainText('发现位置 · 归属待确认')
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1800 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((nodes) => nodes.every((node) => node.scrollWidth <= node.clientWidth + 1)),
+    ).toBe(true)
+    await associations.evaluate((node) => node.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-channel-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(support).toContainText('检查期间发生变化，请重查')
+  await expect(support).not.toContainText('发现位置')
+  for (const mode of ['associationNamesChannelWrong', 'associationNamesLegacy']) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: /重新检查状态|重试检查/ }).click()
+    await expect(inspection.getByRole('alert')).toContainText('无法识别')
+    await expect(inspection).not.toContainText('按 Mole 渠道名称规则')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChannel'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await associations.locator('summary').click()
+  await expect(support).toContainText('发现位置 · 归属待确认')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLimit'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('检查达到时间上限')
+  await expect(associations).not.toContainText('按 Mole 渠道名称规则')
+  await expect(associations).not.toContainText('~/.config/suite')
+})
+
+test('channel base XDG clues still exclude independent CLI data', async ({ page }) => {
+  const { row, inspection } = await setup(page, 'Codex Nightly')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChannel'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await expect(associations.locator('summary')).toContainText('CLI 同名位置保留')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 55 个位置')
+  await expect(associations).toContainText('按 Mole 渠道名称规则补查「Codex」')
+  await expect(associations).toContainText('依 Mole 规则排除 3 个独立 CLI 同名数据位置')
+  await expect(associations).toContainText('~/Library/Application Support/Codex')
+  await expect(associations.getByText('~/.config/codex', { exact: true })).toHaveCount(0)
+  await expect(associations.getByText('~/.cache/codex', { exact: true })).toHaveCount(0)
+  await expect(associations.getByText('~/.local/share/codex', { exact: true })).toHaveCount(0)
 })

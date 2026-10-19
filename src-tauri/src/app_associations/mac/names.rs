@@ -1,6 +1,7 @@
 //! Bounded user name paths from pinned Mole, including Library and guarded XDG variants.
 //! A name hint never certifies identity, exclusive ownership or execution eligibility.
 use super::*;
+mod channel;
 mod xdg;
 const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameSupport", "Library/Application Support", ""),
@@ -140,6 +141,7 @@ fn paths(name: &str) -> Vec<(&'static str, String)> {
         }
     }
     paths.extend(xdg::paths(name));
+    paths.extend(channel::paths(name));
     paths
 }
 fn supported(name: &str) -> bool {
@@ -173,6 +175,7 @@ impl Check {
         check.scope.code = "observed";
         check.scope.issue = None;
         check.scope.name = Some(name.into());
+        check.scope.base_name = channel::base(name).map(str::to_owned);
         let started = Instant::now();
         let mut pool = HashMap::new();
         let mut seen = std::collections::HashSet::new();

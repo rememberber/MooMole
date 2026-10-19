@@ -17,7 +17,7 @@ const xdgBase = (name: string) =>
     ['nameXdgShare', `.local/share/${name}`],
   ].filter(([, path], index, all) => all.findIndex(([, previous]) => path === previous) === index)
 const valid = () => ({
-  protocol: 23,
+  protocol: 24,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -96,10 +96,11 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 9,
+    version: 10,
     names: {
-      version: 4,
+      version: 5,
       source: 'moleAppNameUserPaths',
+      baseName: null,
       cliExcluded: 0,
       code: 'notChecked',
       issue: 'nameUnavailable',
@@ -197,7 +198,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 9,
+        version: 10,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -672,8 +673,9 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 4,
+      version: 5,
       source: 'moleAppNameUserPaths',
+      baseName: null,
       cliExcluded: 0,
       code: 'observed',
       name: 'Example',
@@ -699,8 +701,8 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 5 } },
-      { ...associations, names: { ...names, version: 3 } },
+      { ...associations, names: { ...names, version: 6 } },
+      { ...associations, names: { ...names, version: 4 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
       { ...associations, names: { ...names, source: 'moleBaseAppNameLibrary' } },
       { ...associations, names: { ...names, source: 'moleLiteralAppNameLibrary' } },
@@ -943,6 +945,107 @@ describe('application inspection boundary', () => {
         parse({ ...data, associations: value }, 'org.example.app', 'Suite Studio'),
       ).toThrow()
     }
+    const channelCase = (name: string, base: string | null) => {
+      const value = compound(name)
+      const lower =
+        base !== null && /^-[neE]+$/.test(base)
+          ? ''
+          : base?.replace(/[A-Z]/g, (c) => c.toLowerCase())
+      const paths =
+        base === null
+          ? []
+          : [
+              ['nameChannelSupport', `Library/Application Support/${base}`],
+              ['nameChannelCache', `Library/Caches/${base}`],
+              ['nameChannelLogs', `Library/Logs/${base}`],
+              ['nameChannelPreferencesDirectory', `Library/Preferences/${base}`],
+              ['nameChannelPreferences', `Library/Preferences/${base}.plist`],
+              ['nameChannelSavedState', `Library/Saved Application State/${base}.savedState`],
+              ['nameChannelXdgConfig', `.config/${lower}`],
+              ['nameChannelXdgCache', `.cache/${lower}`],
+              ['nameChannelXdgShare', `.local/share/${lower}`],
+            ]
+      const rejected = paths.filter(([, path]) =>
+        /^\.(?:config|cache)\/\.?(?:claude|codex|gemini|opencode)$|^\.local\/share\/\.?(?:claude|codex|gemini|opencode)$/i.test(
+          path,
+        ),
+      )
+      const added = paths
+        .filter((path) => !rejected.includes(path))
+        .filter(
+          ([, path]) =>
+            !path.endsWith('/') &&
+            !['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path) &&
+            !value.entries.some((entry) => entry.relativePath === path),
+        )
+        .map(([kind, relativePath]) => ({
+          ...entries[0],
+          kind,
+          relativePath,
+          status: 'present',
+          issue: null,
+        }))
+      return {
+        ...value,
+        names: {
+          ...value.names,
+          baseName: base,
+          cliExcluded: rejected.length,
+          candidates: value.names.candidates + added.length,
+        },
+        entries: [...value.entries, ...added],
+      }
+    }
+    for (const [name, base, count, excluded] of [
+      ['Zed Nightly', 'Zed', 58, 0],
+      ['Zed  Nightly', 'Zed ', 58, 0],
+      ['Zed Beta Nightly', 'Zed Beta', 58, 0],
+      ['Safari Technology Preview', 'Safari Technology', 58, 0],
+      ['Firefox Developer Edition', 'Firefox', 58, 0],
+      ['中 Beta', '中', 58, 0],
+      ['AB Beta', null, 49, 0],
+      ['App beta', null, 49, 0],
+      ['App Beta ', null, 49, 0],
+      ['App\u00a0Beta', null, 28, 0],
+      ['Codex Nightly', 'Codex', 55, 3],
+      ['Epic Beta', 'Epic', 57, 0],
+      ['ByHost Beta', 'ByHost', 57, 0],
+      ['org.example.app Nightly', 'org.example.app', 52, 0],
+      ['-eE Beta', '-eE', 55, 0],
+    ] as const) {
+      const result = parse(
+        { ...data, associations: channelCase(name, base) },
+        'org.example.app',
+        name,
+      )
+      expect(result.associations.names.baseName).toBe(base)
+      expect(result.associations.names.candidates).toBe(count)
+      expect(result.associations.names.cliExcluded).toBe(excluded)
+    }
+    const channel = channelCase('Zed Nightly', 'Zed')
+    for (const invalid of [
+      { ...channel, names: { ...channel.names, baseName: null } },
+      { ...channel, names: { ...channel.names, baseName: 'zed' } },
+      { ...channel, names: { ...channel.names, baseName: 'Another' } },
+      { ...channel, names: { ...channel.names, baseName: undefined } },
+      { ...channel, entries: channel.entries.slice(0, -1) },
+      {
+        ...channel,
+        names: { ...channel.names, candidates: 57 },
+        entries: channel.entries.slice(0, -1),
+      },
+      {
+        ...channel,
+        entries: channel.entries.map((entry, index) =>
+          index === channel.entries.length - 1
+            ? { ...entry, relativePath: '.local/share/Zed' }
+            : entry,
+        ),
+      },
+    ])
+      expect(() =>
+        parse({ ...data, associations: invalid }, 'org.example.app', 'Zed Nightly'),
+      ).toThrow()
     for (const [code, issue] of [
       ['notChecked', 'nameUnavailable'],
       ['notChecked', 'nameUnsupported'],
@@ -961,8 +1064,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 24 },
-      { protocol: 22 },
+      { protocol: 25 },
+      { protocol: 23 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -1264,10 +1367,11 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 9,
+      version: 10,
       names: {
-        version: 4,
+        version: 5,
         source: 'moleAppNameUserPaths',
+        baseName: null,
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
@@ -1308,8 +1412,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 10 },
-      { ...associations, version: 8 },
+      { ...associations, version: 11 },
+      { ...associations, version: 9 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -1625,10 +1729,11 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 9,
+      version: 10,
       names: {
-        version: 4,
+        version: 5,
         source: 'moleAppNameUserPaths',
+        baseName: null,
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',

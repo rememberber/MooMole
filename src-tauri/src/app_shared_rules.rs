@@ -16,17 +16,7 @@ const SUFFIXES: [&str; 14] = [
     "Developer Edition",
     "Technology Preview",
 ];
-fn normalized_name(path: &str) -> String {
-    let name = path.rsplit('/').next().unwrap_or("");
-    let name = if name.len() >= 4
-        && name
-            .get(name.len() - 4..)
-            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(".app"))
-    {
-        &name[..name.len() - 4]
-    } else {
-        name
-    };
+pub(crate) fn channel_base_name(name: &str) -> &str {
     // POSIX ERE's greedy first capture keeps the longest prefix, strips one
     // separator byte, and removes only one suffix. LC_ALL=C counts bytes.
     let end = SUFFIXES
@@ -43,7 +33,20 @@ fn normalized_name(path: &str) -> String {
         })
         .max()
         .unwrap_or(name.len());
-    name[..end].to_ascii_lowercase()
+    &name[..end]
+}
+fn normalized_name(path: &str) -> String {
+    let name = path.rsplit('/').next().unwrap_or("");
+    let name = if name.len() >= 4
+        && name
+            .get(name.len() - 4..)
+            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(".app"))
+    {
+        &name[..name.len() - 4]
+    } else {
+        name
+    };
+    channel_base_name(name).to_ascii_lowercase()
 }
 pub fn relation(
     selected_id: &str,

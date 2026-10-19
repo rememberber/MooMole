@@ -20,7 +20,7 @@ pub(super) const SPACE: [(&str, &str, &str); 9] = [
         "lowercase_underscore",
     ),
 ];
-fn lower(name: &str) -> String {
+pub(super) fn lower(name: &str) -> String {
     // The original $(echo "$name" | tr ...) produces empty text for a single
     // echo option word. No command is run here. Otherwise C tr changes ASCII only.
     if name.strip_prefix('-').is_some_and(|flags| {

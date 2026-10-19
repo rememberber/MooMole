@@ -45,9 +45,9 @@
 
 ## 协议与界面
 
-应用协议 v23 的 extensionData version=3、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries、byHost 与 groups。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons、molePathProtection。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
+应用协议 v24 的 extensionData version=3、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries、byHost 与 groups。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons、molePathProtection。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
 
-前端要求已选 ID 来自本次最终 embedded，已查询状态必须对应排序前 8 个；校验完整精确模板及合并来源、ByHost/应用组全部匹配来源、路径唯一/直属名称、数量、保护和状态关系。来源丢失、遗漏精确位置、越界路径或矛盾协议整体拒绝。当前 associations version=9 与 installations version=5，IPC 仍只接受 taskId/index，没有前端目录、ID 或 HOME 覆盖。
+前端要求已选 ID 来自本次最终 embedded，已查询状态必须对应排序前 8 个；校验完整精确模板及合并来源、ByHost/应用组全部匹配来源、路径唯一/直属名称、数量、保护和状态关系。来源丢失、遗漏精确位置、越界路径或矛盾协议整体拒绝。当前 associations version=10 与 installations version=5，IPC 仍只接受 taskId/index，没有前端目录、ID 或 HOME 覆盖。
 
 数据状态在原嵌入扩展区内显示；应用组行明确「目录名与扩展标识关联，可能由多个应用共用，保留；组成员身份未认证」，范围不完整给出原因。扩展数据的客户端保护参与主保留结论，范围不完整不会隐藏身份限制。用户可查看具体问题并重新检查；一分钟较早状态、任务/设置绑定和迟到响应隔离继续生效。
 

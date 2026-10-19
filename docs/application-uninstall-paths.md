@@ -32,7 +32,7 @@
 - notMatched：在已观察的存在/缺失状态下，本次已适配规则没有命中。不会显示通过或可删除，也不代替完整保护。
 - unknown：规则不可得、路径形式不支持，位置未知且没有正面命中，或所需祖先身份检查未知/超限。原位置的 present/notFound/unknown、原因与客户端保护不改变。
 
-source 固定为 moleUninstallPathSubset，version=2、revision 固定，前端要求字段、原因/状态与位置相互一致；不接受 cleanup 来源、未知版本或规则/存在矛盾。关联字段 associations 为 version=9，extensionData 为 version=3，整份应用协议为 v23；其他观察语义保持原样。
+source 固定为 moleUninstallPathSubset，version=2、revision 固定，前端要求字段、原因/状态与位置相互一致；不接受 cleanup 来源、未知版本或规则/存在矛盾。关联字段 associations 为 version=10，extensionData 为 version=3，整份应用协议为 v24；其他观察语义保持原样。
 
 Mole 路径保留、客户端自身/系统/保存目录保护分别展示。受保护或规则未知的未发现位置仍可展开查看；新查询先撤下旧结果，最新客户端设置仍在异步结束后附加，一分钟较早及迟到响应隔离继续有效。路径规则失败不取消已有客户端保留。
 

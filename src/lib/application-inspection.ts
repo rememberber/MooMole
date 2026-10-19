@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 23 ||
+    data.protocol !== 24 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -556,8 +556,21 @@ export function parseApplicationInspection(
     ['nameXdgHyphenShare', '.local/share', 'lowercase_hyphen'],
     ['nameXdgUnderscoreShare', '.local/share', 'lowercase_underscore'],
   ]
+  const channelLocations = [
+    ['nameChannelSupport', 'Library/Application Support', ''],
+    ['nameChannelCache', 'Library/Caches', ''],
+    ['nameChannelLogs', 'Library/Logs', ''],
+    ['nameChannelPreferencesDirectory', 'Library/Preferences', ''],
+    ['nameChannelPreferences', 'Library/Preferences', '.plist'],
+    ['nameChannelSavedState', 'Library/Saved Application State', '.savedState'],
+    ['nameChannelXdgConfig', '.config', ''],
+    ['nameChannelXdgCache', '.cache', ''],
+    ['nameChannelXdgShare', '.local/share', ''],
+  ]
   const nameKinds = new Set(
-    [...nameLocations, ...spaceLocations, ...xdgLocations].map(([kind]) => kind),
+    [...nameLocations, ...spaceLocations, ...xdgLocations, ...channelLocations].map(
+      ([kind]) => kind,
+    ),
   )
   const names = associations?.names
   const nameEntries = Array.isArray(associations?.entries)
@@ -566,6 +579,7 @@ export function parseApplicationInspection(
   const namePaths = new Map<string, string>()
   const cliPaths = new Set<string>()
   const seenNamePaths = new Set<string>()
+  let baseName: string | null = null
   const asciiLower = (name: string) => name.replace(/[A-Z]/g, (char) => char.toLowerCase())
   const echoLower = (name: string) => (/^-[neE]+$/.test(name) ? '' : asciiLower(name))
   const hasSpaceVariants =
@@ -615,20 +629,52 @@ export function parseApplicationInspection(
       }
       add(kind, root, '', derived[variable])
     }
+    const suffixes = [
+      'Nightly',
+      'Beta',
+      'Alpha',
+      'Dev',
+      'Canary',
+      'Preview',
+      'Insider',
+      'Edge',
+      'Stable',
+      'Release',
+      'RC',
+      'LTS',
+      'Developer Edition',
+      'Technology Preview',
+    ]
+    let prefix = ''
+    for (const suffix of suffixes) {
+      if (!names.name.endsWith(suffix)) continue
+      const candidate = names.name.slice(0, -suffix.length)
+      if (
+        candidate.length > 1 &&
+        /[ \t\n\r\v\f]$/.test(candidate) &&
+        candidate.length - 1 > prefix.length
+      )
+        prefix = candidate.slice(0, -1)
+    }
+    if (new TextEncoder().encode(prefix).length > 2) baseName = prefix
+    if (baseName !== null)
+      for (const [kind, root, suffix] of channelLocations)
+        add(kind, root, suffix, root.startsWith('.') ? echoLower(baseName) : baseName)
   }
   if (
     !names ||
-    names.version !== 4 ||
+    names.version !== 5 ||
     names.source !== 'moleAppNameUserPaths' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 49 ||
+    names.candidates > 58 ||
     names.candidates !== nameEntries.length ||
     !Number.isInteger(names.cliExcluded) ||
     names.cliExcluded < 0 ||
-    names.cliExcluded > 13 ||
+    names.cliExcluded > 16 ||
     names.cliExcluded !== cliPaths.size ||
+    names.baseName !== baseName ||
     (names.code === 'observed'
       ? associations.code !== 'observed' ||
         names.issue !== null ||
@@ -716,7 +762,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 9 ||
+    associations.version !== 10 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -734,7 +780,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 177) ||
+        associations.entries.length > locations.length + 186) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||

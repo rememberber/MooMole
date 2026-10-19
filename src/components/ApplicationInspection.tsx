@@ -416,6 +416,13 @@ export function ApplicationInspection({
                 </p>
               )}
             {value.associations.names.code === 'observed' &&
+              value.associations.names.baseName !== null && (
+                <p className="muted">
+                  按 Mole 渠道名称规则补查「{value.associations.names.baseName}
+                  」；可能与其他版本或应用共用，全部保留。
+                </p>
+              )}
+            {value.associations.names.code === 'observed' &&
               value.associations.names.cliExcluded > 0 && (
                 <p className="muted">
                   依 Mole 规则排除 {value.associations.names.cliExcluded} 个独立 CLI
@@ -498,6 +505,15 @@ export function ApplicationInspection({
                               nameXdgCompactShare: '工具数据',
                               nameXdgHyphenShare: '工具数据',
                               nameXdgUnderscoreShare: '工具数据',
+                              nameChannelSupport: '应用数据',
+                              nameChannelCache: '缓存',
+                              nameChannelLogs: '日志',
+                              nameChannelPreferencesDirectory: '设置位置',
+                              nameChannelPreferences: '设置',
+                              nameChannelSavedState: '恢复状态',
+                              nameChannelXdgConfig: '配置',
+                              nameChannelXdgCache: '缓存',
+                              nameChannelXdgShare: '工具数据',
                               nameService: '服务工作流',
                               nameQuickLook: 'Quick Look',
                               nameInternetPlugin: '网络插件',
@@ -571,22 +587,24 @@ export function ApplicationInspection({
                           )}
                           {entry.kind.startsWith('name') && (
                             <span className="association-path muted">
-                              {entry.kind.startsWith('nameXdg')
-                                ? '名称线索，可能含独立工具配置或共享数据，归属未确认，保留。'
-                                : ['nameCompact', 'nameUnderscore', 'nameHyphen'].some((prefix) =>
-                                      entry.kind.startsWith(prefix),
-                                    )
-                                  ? '空格变体线索，可能共用，不证明归属，保留。'
-                                  : [
-                                        'nameSupport',
-                                        'nameCache',
-                                        'nameLogs',
-                                        'namePreferencesDirectory',
-                                        'namePreferences',
-                                        'nameSavedState',
-                                      ].includes(entry.kind)
-                                    ? '名称线索，不证明归属，保留。'
-                                    : '名称线索，注册、使用状态和归属未确认，保留。'}
+                              {entry.kind.startsWith('nameChannel')
+                                ? '渠道名称线索，可能共用，归属未确认，保留。'
+                                : entry.kind.startsWith('nameXdg')
+                                  ? '名称线索，可能含独立工具配置或共享数据，归属未确认，保留。'
+                                  : ['nameCompact', 'nameUnderscore', 'nameHyphen'].some((prefix) =>
+                                        entry.kind.startsWith(prefix),
+                                      )
+                                    ? '空格变体线索，可能共用，不证明归属，保留。'
+                                    : [
+                                          'nameSupport',
+                                          'nameCache',
+                                          'nameLogs',
+                                          'namePreferencesDirectory',
+                                          'namePreferences',
+                                          'nameSavedState',
+                                        ].includes(entry.kind)
+                                      ? '名称线索，不证明归属，保留。'
+                                      : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
                           {entry.kind === 'recentDocuments' && (
@@ -610,7 +628,7 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置、Library/XDG 名称与空格变体（最多 49
+              仅查询精确标识的 21 个常见位置、Library/XDG 名称及空格、渠道变体（最多 58
               个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
               个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。

@@ -106,7 +106,7 @@ export interface MolePathProtection {
     | null
 }
 export interface ApplicationInspection {
-  protocol: 23
+  protocol: 24
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -232,14 +232,15 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 9
+    version: 10
     names: {
-      version: 4
+      version: 5
       source: 'moleAppNameUserPaths'
       code: 'observed' | 'notChecked' | 'unknown'
       name: string | null
       candidates: number
       cliExcluded: number
+      baseName: string | null
       issue:
         | 'identityChanged'
         | 'identityUnavailable'
