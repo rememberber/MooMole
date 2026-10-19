@@ -24,11 +24,11 @@
 
 另用独立预算枚举固定 /Volumes（含隐藏入口），读取每个本地目录的直属 App，以及恰名 Applications 目录下最多 3 层的独立 App。其他任意目录不递归；例如外接盘项目目录下的构建物不会因此被全盘搜索。已在清单/系统登记中的精确本地路径仍可以补充该范围。
 
-使用拥有独立缓冲区的 getfsstat(MNT_NOWAIT) 获取结构化挂载快照，最多接受 255 项系统挂载；表不可取得、不可表示或达到容量时保持不完整。打开子路径前按快照拒绝非本地挂载及 autofs，不探测网络服务、不运行 mount/Perl/Shell。返回前在目录复核前后再次核对相关挂载的路径、文件系统 ID、flags、类型及来源；挂载消失、同名重挂载或新挂载等差异保持 changed。
+使用拥有独立缓冲区的 getfsstat(MNT_NOWAIT) 获取结构化挂载快照，最多接受 255 项系统挂载；表不可取得、不可表示或达到容量时保持不完整。打开子路径前按快照拒绝非本地挂载、autofs 及 MNT_DONTBROWSE 系统隐藏卷；任一包围挂载不受支持就拒绝，不通过路径名称猜测隐藏卷。判断在 stat_at/open 之前完成，隐藏卷与网络/自动挂载一样记录 unsupportedVolume/partial，不默默省略后声称完整。不探测网络服务、不运行 mount/Perl/Shell。返回前在目录复核前后再次核对相关挂载的路径、文件系统 ID、flags、类型及来源；挂载消失、同名重挂载、新挂载或隐藏标记变化等差异保持 changed。
 
 保留 Mole 的确证内部快照例外：仅当精确名称 com.apple.TimeMachine.localsnapshots、父目录与子目录均为 root 所有、同设备且不是链接时跳过内容；保存该目录证据并重新核对身份、所有者和元数据。未知情况不能按名字排除。同名不同设备卷仍按正常范围处理。
 
-这是保守的支持子集：网络卷、自动挂载、卷入口链接、不支持/不可读布局保持 partial；尚未实现 Mole 对已不可达网络共享和未挂载不可读普通目录的精确排除。不会把它们忽略后宣称完整。原函数以 App 自身为扫描起点时，其相对嵌套谓词可能列出 Contents 下的辅助 App；客户端继续拒绝所有祖先包含 .app 的候选，不进入直属 App 内部。源码对照测试显式记录这项差异，在独立 App 范围比较结果。
+这是保守的支持子集：网络卷、自动挂载、系统隐藏卷、卷入口链接、不支持/不可读布局保持 partial；尚未实现 Mole 对已不可达网络共享和未挂载不可读普通目录的精确排除。MNT_DONTBROWSE 预先排除是客户端支持限制，不声称原 Mole 已有同一筛选。不会把它们忽略后宣称完整。原函数以 App 自身为扫描起点时，其相对嵌套谓词可能列出 Contents 下的辅助 App；客户端继续拒绝所有祖先包含 .app 的候选，不进入直属 App 内部。源码对照测试显式记录这项差异，在独立 App 范围比较结果。
 
 安装收据已补充有界非标准位置发现，见 [收据补查](application-receipts.md)；完整卸载资格仍未实现。
 
@@ -54,11 +54,11 @@
 
 原「共享关联」摘要继续区分命中、未发现与检查不完整。展开显示探查根数量、原因及相关目录，保留共享数据的下一步；未命中也要求保留关联数据。
 
-应用检查协议 v20，installations version=5/source=moleListRegistryRootsVolumesAndReceipts，包含 roots 与 volumes：observed/partial/notChecked、issue、rootCount、entries、candidates、firstUncertainPath。observed 只表示固定有界目录集合本次未发现已知中断，其中 roots 的根数量应为 9；不代表完整安装发现。volumes 的 rootCount 是本次尝试的本地卷入口数（0..64），不是机器全部磁盘数；网络入口可在尝试打开前拒绝。未知身份/资源时两项均为 notChecked 且计数为 0。目录 partial 时总体必须 partial，既有其他来源/候选错误可继续作为总体原因；rootsIncomplete/volumesIncomplete 仅在没有其他总体错误时使用；每项的专属原因与路径独立保留。
+应用检查协议 v21，installations version=5/source=moleListRegistryRootsVolumesAndReceipts，包含 roots 与 volumes：observed/partial/notChecked、issue、rootCount、entries、candidates、firstUncertainPath。observed 只表示固定有界目录集合本次未发现已知中断，其中 roots 的根数量应为 9；不代表完整安装发现。volumes 的 rootCount 是本次尝试的本地卷入口数（0..64），不是机器全部磁盘数；网络入口可在尝试打开前拒绝。未知身份/资源时两项均为 notChecked 且计数为 0。目录 partial 时总体必须 partial，既有其他来源/候选错误可继续作为总体原因；rootsIncomplete/volumesIncomplete 仅在没有其他总体错误时使用；每项的专属原因与路径独立保留。
 
 前端校验精确协议/来源/修订、计数上限、路径形态与状态一致性，矛盾结果整体拒绝。共享命中继续受既有 Mole 保留谓词、客户端/系统保护、原运行观察与过期/迟到响应机制约束。
 
 后续仍需完整卷语义、收据完整性矩阵、真实网络/云/权限/重挂载矩阵及完整关联/执行前保护，见 [发布路线图](release-roadmap.md) 和 [共享关联](application-copies.md)。
 
 
-收据来源另有最多 128 个候选，所有来源合计最多 480 个输入；此处 352 是不含收据的目录/清单/登记集合。协议 v20 的 receipts 字段与变化检测见 [收据补查](application-receipts.md)。
+收据来源另有最多 128 个候选，所有来源合计最多 480 个输入；此处 352 是不含收据的目录/清单/登记集合。协议 v21 的 receipts 字段与变化检测见 [收据补查](application-receipts.md)。

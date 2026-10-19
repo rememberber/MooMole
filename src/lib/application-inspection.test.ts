@@ -10,7 +10,7 @@ const pathRule = (status = 'notFound') => ({
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 20,
+  protocol: 21,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -89,10 +89,10 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 6,
+    version: 7,
     names: {
-      version: 1,
-      source: 'moleBaseAppNameLibrary',
+      version: 2,
+      source: 'moleLiteralAppNameLibrary',
       code: 'notChecked',
       issue: 'nameUnavailable',
       name: null,
@@ -189,7 +189,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 6,
+        version: 7,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -633,6 +633,24 @@ describe('application inspection boundary', () => {
       ['namePreferencesDirectory', 'Library/Preferences', ''],
       ['namePreferences', 'Library/Preferences', '.plist'],
       ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+      ['nameService', 'Library/Services', '.workflow'],
+      ['nameQuickLook', 'Library/QuickLook', '.qlgenerator'],
+      ['nameInternetPlugin', 'Library/Internet Plug-Ins', '.plugin'],
+      ['nameAudioComponent', 'Library/Audio/Plug-Ins/Components', '.component'],
+      ['nameVst', 'Library/Audio/Plug-Ins/VST', '.vst'],
+      ['nameVst3', 'Library/Audio/Plug-Ins/VST3', '.vst3'],
+      ['nameDigidesign', 'Library/Audio/Plug-Ins/Digidesign', '.dpm'],
+      ['namePreferencePane', 'Library/PreferencePanes', '.prefPane'],
+      ['nameInputMethod', 'Library/Input Methods', '.app'],
+      ['nameScreenSaver', 'Library/Screen Savers', '.saver'],
+      ['nameFramework', 'Library/Frameworks', '.framework'],
+      ['nameContextPlugin', 'Library/Contextual Menu Items', '.plugin'],
+      ['nameSpotlight', 'Library/Spotlight', '.mdimporter'],
+      ['nameColorPicker', 'Library/ColorPickers', '.colorPicker'],
+      ['nameWorkflow', 'Library/Workflows', '.workflow'],
+      ['nameAddressBookPlugin', 'Library/Address Book Plug-Ins', '.bundle'],
+      ['nameAccessibility', 'Library/Accessibility', '.bundle'],
+      ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
     ]
     const entries = templates.map(([kind, root, suffix], index) => ({
       kind,
@@ -643,12 +661,12 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 1,
-      source: 'moleBaseAppNameLibrary',
+      version: 2,
+      source: 'moleLiteralAppNameLibrary',
       code: 'observed',
       name: 'Example',
       issue: null,
-      candidates: 6,
+      candidates: 24,
     }
     const associations = {
       ...data.associations,
@@ -669,10 +687,20 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 2 } },
+      { ...associations, names: { ...names, version: 3 } },
+      { ...associations, names: { ...names, version: 1 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
+      { ...associations, names: { ...names, source: 'moleBaseAppNameLibrary' } },
+      {
+        ...associations,
+        entries: [
+          ...fixed,
+          ...entries.slice(0, -1),
+          { ...entries.at(-1), relativePath: 'Library/Mail/Bundles/../Example.mailbundle' },
+        ],
+      },
       { ...associations, names: { ...names, name: 'Another' } },
-      { ...associations, names: { ...names, candidates: 5 } },
+      { ...associations, names: { ...names, candidates: 23 } },
       { ...associations, names: { ...names, issue: 'nameUnsupported' } },
       { ...associations, entries: [...fixed, ...entries.slice(1)] },
       { ...associations, entries: [...fixed, ...entries, { ...entries[0] }] },
@@ -686,13 +714,29 @@ describe('application inspection boundary', () => {
     expect(() => parseApplicationInspection({ ...data, associations }, 'org.example.app')).toThrow()
     const duplicate = {
       ...associations,
-      names: { ...names, name: 'org.example.app', candidates: 0 },
-      entries: fixed,
+      names: { ...names, name: 'org.example.app', candidates: 17 },
+      entries: [
+        ...fixed,
+        ...templates
+          .filter(
+            ([, root, suffix]) =>
+              !associationLocations.some(
+                ([, base, end]) =>
+                  `${root}/org.example.app${suffix}` === `${base}/org.example.app${end}`,
+              ),
+          )
+          .map(([kind, root, suffix]) => ({
+            ...entries[0],
+            kind,
+            relativePath: `${root}/org.example.app${suffix}`,
+            status: 'notFound',
+          })),
+      ],
     }
     expect(
       parse({ ...data, associations: duplicate }, 'org.example.app', 'org.example.app').associations
         .names.candidates,
-    ).toBe(0)
+    ).toBe(17)
     for (const [code, issue] of [
       ['notChecked', 'nameUnavailable'],
       ['notChecked', 'nameUnsupported'],
@@ -711,7 +755,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 21 },
+      { protocol: 22 },
+      { protocol: 20 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -1013,10 +1058,10 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 6,
+      version: 7,
       names: {
-        version: 1,
-        source: 'moleBaseAppNameLibrary',
+        version: 2,
+        source: 'moleLiteralAppNameLibrary',
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,
@@ -1056,7 +1101,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 7 },
+      { ...associations, version: 8 },
+      { ...associations, version: 6 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -1372,10 +1418,10 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 6,
+      version: 7,
       names: {
-        version: 1,
-        source: 'moleBaseAppNameLibrary',
+        version: 2,
+        source: 'moleLiteralAppNameLibrary',
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,

@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 20 ||
+    data.protocol !== 21 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -508,6 +508,24 @@ export function parseApplicationInspection(
     ['namePreferencesDirectory', 'Library/Preferences', ''],
     ['namePreferences', 'Library/Preferences', '.plist'],
     ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+    ['nameService', 'Library/Services', '.workflow'],
+    ['nameQuickLook', 'Library/QuickLook', '.qlgenerator'],
+    ['nameInternetPlugin', 'Library/Internet Plug-Ins', '.plugin'],
+    ['nameAudioComponent', 'Library/Audio/Plug-Ins/Components', '.component'],
+    ['nameVst', 'Library/Audio/Plug-Ins/VST', '.vst'],
+    ['nameVst3', 'Library/Audio/Plug-Ins/VST3', '.vst3'],
+    ['nameDigidesign', 'Library/Audio/Plug-Ins/Digidesign', '.dpm'],
+    ['namePreferencePane', 'Library/PreferencePanes', '.prefPane'],
+    ['nameInputMethod', 'Library/Input Methods', '.app'],
+    ['nameScreenSaver', 'Library/Screen Savers', '.saver'],
+    ['nameFramework', 'Library/Frameworks', '.framework'],
+    ['nameContextPlugin', 'Library/Contextual Menu Items', '.plugin'],
+    ['nameSpotlight', 'Library/Spotlight', '.mdimporter'],
+    ['nameColorPicker', 'Library/ColorPickers', '.colorPicker'],
+    ['nameWorkflow', 'Library/Workflows', '.workflow'],
+    ['nameAddressBookPlugin', 'Library/Address Book Plug-Ins', '.bundle'],
+    ['nameAccessibility', 'Library/Accessibility', '.bundle'],
+    ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
   ]
   const nameKinds = new Set(nameLocations.map(([kind]) => kind))
   const names = associations?.names
@@ -527,12 +545,12 @@ export function parseApplicationInspection(
   }
   if (
     !names ||
-    names.version !== 1 ||
-    names.source !== 'moleBaseAppNameLibrary' ||
+    names.version !== 2 ||
+    names.source !== 'moleLiteralAppNameLibrary' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 6 ||
+    names.candidates > 24 ||
     names.candidates !== nameEntries.length ||
     (names.code === 'observed'
       ? associations.code !== 'observed' ||
@@ -620,7 +638,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 6 ||
+    associations.version !== 7 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -638,7 +656,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 134) ||
+        associations.entries.length > locations.length + 152) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||

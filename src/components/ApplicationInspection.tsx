@@ -312,7 +312,7 @@ export function ApplicationInspection({
               <p className="muted">
                 已探查 {value.installations.volumes.rootCount} 个卷入口
                 {value.installations.volumes.issue &&
-                  ` · ${{ unavailable: '部分卷无法访问或布局不支持', changed: '挂载或卷目录发生变化，请重查', limitReached: '卷扫描达到数量或时间上限', unsupportedVolume: '网络卷或自动挂载位置暂不支持，结果不完整' }[value.installations.volumes.issue]}`}
+                  ` · ${{ unavailable: '部分卷无法访问或布局不支持', changed: '挂载或卷目录发生变化，请重查', limitReached: '卷扫描达到数量或时间上限', unsupportedVolume: '网络卷、自动挂载或系统隐藏卷暂不支持，结果不完整' }[value.installations.volumes.issue]}`}
                 {value.installations.volumes.firstUncertainPath && (
                   <span className="mono association-path">
                     {value.installations.volumes.firstUncertainPath}
@@ -463,6 +463,24 @@ export function ApplicationInspection({
                               namePreferencesDirectory: '设置位置（名称）',
                               namePreferences: '设置（名称）',
                               nameSavedState: '恢复状态（名称）',
+                              nameService: '服务工作流',
+                              nameQuickLook: 'Quick Look',
+                              nameInternetPlugin: '网络插件',
+                              nameAudioComponent: '音频组件',
+                              nameVst: 'VST',
+                              nameVst3: 'VST3',
+                              nameDigidesign: '音频插件',
+                              namePreferencePane: '偏好面板',
+                              nameInputMethod: '输入法',
+                              nameScreenSaver: '屏幕保护',
+                              nameFramework: '框架',
+                              nameContextPlugin: '菜单插件',
+                              nameSpotlight: '搜索插件',
+                              nameColorPicker: '颜色面板',
+                              nameWorkflow: '工作流',
+                              nameAddressBookPlugin: '通讯录插件',
+                              nameAccessibility: '辅助功能组件',
+                              nameMailPlugin: '邮件插件',
                               preferencesDirectory: '设置目录',
                               downloadCache: '下载缓存',
                               recentDocuments: '最近文档记录',
@@ -518,7 +536,16 @@ export function ApplicationInspection({
                           )}
                           {entry.kind.startsWith('name') && (
                             <span className="association-path muted">
-                              名称线索，不证明归属，保留。
+                              {[
+                                'nameSupport',
+                                'nameCache',
+                                'nameLogs',
+                                'namePreferencesDirectory',
+                                'namePreferences',
+                                'nameSavedState',
+                              ].includes(entry.kind)
+                                ? '名称线索，不证明归属，保留。'
+                                : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
                           {entry.kind === 'recentDocuments' && (
@@ -542,7 +569,7 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置、6 类基础名称位置及一层设备设置（最多 64
+              仅查询精确标识的 21 个常见位置、24 类 Library 名称位置及一层设备设置（最多 64
               个文件），另检查应用组与扩展的 4 个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>

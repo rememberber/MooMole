@@ -176,7 +176,7 @@ async function setup(page: Page) {
         }
       }
       return {
-        protocol: mode === 'future' ? 21 : 20,
+        protocol: mode === 'future' ? 22 : 21,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -444,8 +444,11 @@ async function setup(page: Page) {
         },
         associations: {
           names: {
-            version: 1,
-            source: 'moleBaseAppNameLibrary',
+            version: mode === 'associationNamesLegacy' ? 1 : 2,
+            source:
+              mode === 'associationNamesOldSource'
+                ? 'moleBaseAppNameLibrary'
+                : 'moleLiteralAppNameLibrary',
             code:
               mode === 'associationNamesLimit'
                 ? 'unknown'
@@ -468,7 +471,7 @@ async function setup(page: Page) {
             candidates:
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
-                ? 6
+                ? 24
                 : 0,
           },
           byHost: {
@@ -487,7 +490,7 @@ async function setup(page: Page) {
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 7 : 6,
+          version: mode === 'associationFuture' ? 8 : 7,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -650,26 +653,54 @@ async function setup(page: Page) {
                           ['namePreferencesDirectory', 'Library/Preferences', ''],
                           ['namePreferences', 'Library/Preferences', '.plist'],
                           ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+                          ['nameService', 'Library/Services', '.workflow'],
+                          ['nameQuickLook', 'Library/QuickLook', '.qlgenerator'],
+                          ['nameInternetPlugin', 'Library/Internet Plug-Ins', '.plugin'],
+                          ['nameAudioComponent', 'Library/Audio/Plug-Ins/Components', '.component'],
+                          ['nameVst', 'Library/Audio/Plug-Ins/VST', '.vst'],
+                          ['nameVst3', 'Library/Audio/Plug-Ins/VST3', '.vst3'],
+                          ['nameDigidesign', 'Library/Audio/Plug-Ins/Digidesign', '.dpm'],
+                          ['namePreferencePane', 'Library/PreferencePanes', '.prefPane'],
+                          ['nameInputMethod', 'Library/Input Methods', '.app'],
+                          ['nameScreenSaver', 'Library/Screen Savers', '.saver'],
+                          ['nameFramework', 'Library/Frameworks', '.framework'],
+                          ['nameContextPlugin', 'Library/Contextual Menu Items', '.plugin'],
+                          ['nameSpotlight', 'Library/Spotlight', '.mdimporter'],
+                          ['nameColorPicker', 'Library/ColorPickers', '.colorPicker'],
+                          ['nameWorkflow', 'Library/Workflows', '.workflow'],
+                          ['nameAddressBookPlugin', 'Library/Address Book Plug-Ins', '.bundle'],
+                          ['nameAccessibility', 'Library/Accessibility', '.bundle'],
+                          ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
                         ].map(([kind, root, suffix], index) => ({
                           kind,
                           relativePath: `${root}/Example${suffix}`,
                           status:
-                            mode === 'associationNamesChanged' || index === 1
+                            mode === 'associationNamesChanged' ||
+                            index === 1 ||
+                            (mode === 'associationNamesComponents' && index === 7)
                               ? 'unknown'
-                              : index === 0
+                              : index === 0 ||
+                                  (mode === 'associationNamesComponents' && [6, 11].includes(index))
                                 ? 'present'
                                 : 'notFound',
                           issue:
                             mode === 'associationNamesChanged'
                               ? 'changed'
-                              : index === 1
+                              : index === 1 ||
+                                  (mode === 'associationNamesComponents' && index === 7)
                                 ? 'unavailable'
                                 : null,
-                          protectionReasons: index === 3 ? ['clientDirectory'] : [],
+                          protectionReasons:
+                            index === 3 || (mode === 'associationNamesComponents' && index === 23)
+                              ? ['clientDirectory']
+                              : [],
                           molePathProtection: pathRule(
-                            mode === 'associationNamesChanged' || index === 1
+                            mode === 'associationNamesChanged' ||
+                              index === 1 ||
+                              (mode === 'associationNamesComponents' && index === 7)
                               ? 'unknown'
-                              : index === 0
+                              : index === 0 ||
+                                  (mode === 'associationNamesComponents' && [6, 11].includes(index))
                                 ? 'present'
                                 : 'notFound',
                           ),
@@ -1296,7 +1327,7 @@ test('volume limitations keep data retained and show network, change and budget 
   const shared = inspection.locator('.application-installations')
   await shared.locator('summary').click()
   await expect(shared).toContainText('检查不完整')
-  await expect(shared).toContainText('网络卷或自动挂载位置暂不支持')
+  await expect(shared).toContainText('网络卷、自动挂载或系统隐藏卷暂不支持，结果不完整')
   await expect(shared).toContainText('/Volumes/Shared Disk')
   await expect(shared).toContainText('未命中不代表数据独占')
   for (const [mode, reason] of [
@@ -1742,7 +1773,7 @@ test('literal app-name locations remain separate clues and clear on missing, tim
   const associations = inspection.locator('.application-associations')
   await associations.locator('summary').click()
   await expect(inspection).toContainText('关联位置受保护')
-  await expect(associations).toContainText('另按 Mole 清单名称「Example」查询 6 个位置')
+  await expect(associations).toContainText('另按 Mole 清单名称「Example」查询 24 个位置')
   await expect(associations).toContainText('本地显示名称和归属未认证')
   await expect(associations.getByText('名称线索，不证明归属，保留。', { exact: true })).toHaveCount(
     3,
@@ -1771,6 +1802,9 @@ test('literal app-name locations remain separate clues and clear on missing, tim
   await expect(associations.getByText('名称线索，不证明归属，保留。', { exact: true })).toHaveCount(
     6,
   )
+  await expect(
+    associations.getByText('名称线索，注册、使用状态和归属未确认，保留。', { exact: true }),
+  ).toHaveCount(18)
   for (const [mode, message] of [
     ['associationNamesUnavailable', '这份 Mole 清单未提供可用名称'],
     ['associationNamesLimit', '检查达到时间上限，请保留并重查'],
@@ -1786,4 +1820,74 @@ test('literal app-name locations remain separate clues and clear on missing, tim
   await expect(inspection).toContainText('应用状态结果无法识别')
   await expect(inspection).not.toContainText('名称线索，不证明归属')
   await expect(inspection.getByRole('button', { name: '重试检查' })).toBeVisible()
+})
+
+test('literal service and plugin locations retain registration unknowns and reject old name sources', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesComponents'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 24 个位置')
+  for (const label of ['服务工作流', 'Quick Look', 'VST3', '邮件插件']) {
+    await expect(associations.getByText(label, { exact: true })).toBeVisible()
+  }
+  await expect(
+    associations.getByText('名称线索，注册、使用状态和归属未确认，保留。', { exact: true }),
+  ).toHaveCount(4)
+  const vst = associations
+    .locator('dl > div')
+    .filter({ hasText: '~/Library/Audio/Plug-Ins/VST3/Example.vst3' })
+  await expect(vst).toContainText('发现位置 · 归属待确认')
+  const quickLook = associations
+    .locator('dl > div')
+    .filter({ hasText: '~/Library/QuickLook/Example.qlgenerator' })
+  await expect(quickLook).toContainText('无法确认 · 请检查访问权限后重试')
+  const mail = associations
+    .locator('dl > div')
+    .filter({ hasText: '~/Library/Mail/Bundles/Example.mailbundle' })
+  await expect(mail).toContainText('本次未发现')
+  await expect(mail).toContainText('已保存保护目录覆盖，保留')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1100 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((elements) =>
+          elements.every((element) => element.scrollWidth <= element.clientWidth + 1),
+        ),
+    ).toBe(true)
+    await associations.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-component-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(vst).toContainText('检查期间发生变化，请重查')
+  await expect(vst).not.toContainText('发现位置')
+  for (const mode of ['associationNamesLegacy', 'associationNamesOldSource']) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: /重新检查状态|重试检查/ }).click()
+    await expect(inspection.getByRole('alert')).toContainText('无法识别')
+    await expect(inspection).not.toContainText('Example.vst3')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesComponents'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await expect(associations.locator('summary')).toContainText('处发现')
+  await associations.locator('summary').click()
+  await expect(vst).toContainText('发现位置 · 归属待确认')
+  await page.evaluate(() =>
+    sessionStorage.setItem('inspection-mode', 'associationNamesUnavailable'),
+  )
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations.locator('summary')).toContainText('名称位置未检查')
+  await expect(inspection).not.toContainText('Example.vst3')
 })

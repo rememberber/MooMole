@@ -1,7 +1,7 @@
-//! Six base Library paths from pinned Mole, using its original list name literally.
+//! Literal Library name paths from pinned Mole, using its original list name literally.
 //! A name hint never certifies identity, exclusive ownership or execution eligibility.
 use super::*;
-const LOCATIONS: [(&str, &str, &str); 6] = [
+const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameSupport", "Library/Application Support", ""),
     ("nameCache", "Library/Caches", ""),
     ("nameLogs", "Library/Logs", ""),
@@ -12,6 +12,40 @@ const LOCATIONS: [(&str, &str, &str); 6] = [
         "Library/Saved Application State",
         ".savedState",
     ),
+    ("nameService", "Library/Services", ".workflow"),
+    ("nameQuickLook", "Library/QuickLook", ".qlgenerator"),
+    ("nameInternetPlugin", "Library/Internet Plug-Ins", ".plugin"),
+    (
+        "nameAudioComponent",
+        "Library/Audio/Plug-Ins/Components",
+        ".component",
+    ),
+    ("nameVst", "Library/Audio/Plug-Ins/VST", ".vst"),
+    ("nameVst3", "Library/Audio/Plug-Ins/VST3", ".vst3"),
+    (
+        "nameDigidesign",
+        "Library/Audio/Plug-Ins/Digidesign",
+        ".dpm",
+    ),
+    ("namePreferencePane", "Library/PreferencePanes", ".prefPane"),
+    ("nameInputMethod", "Library/Input Methods", ".app"),
+    ("nameScreenSaver", "Library/Screen Savers", ".saver"),
+    ("nameFramework", "Library/Frameworks", ".framework"),
+    (
+        "nameContextPlugin",
+        "Library/Contextual Menu Items",
+        ".plugin",
+    ),
+    ("nameSpotlight", "Library/Spotlight", ".mdimporter"),
+    ("nameColorPicker", "Library/ColorPickers", ".colorPicker"),
+    ("nameWorkflow", "Library/Workflows", ".workflow"),
+    (
+        "nameAddressBookPlugin",
+        "Library/Address Book Plug-Ins",
+        ".bundle",
+    ),
+    ("nameAccessibility", "Library/Accessibility", ".bundle"),
+    ("nameMailPlugin", "Library/Mail/Bundles", ".mailbundle"),
 ];
 fn supported(name: &str) -> bool {
     name.len() >= 2
@@ -137,7 +171,7 @@ mod tests {
             let result = observe(home, Some(name));
             assert_eq!(result.names.code, "observed");
             assert_eq!(result.names.name.as_deref(), Some(name));
-            assert_eq!(result.names.candidates, 6);
+            assert_eq!(result.names.candidates, 24);
             let entry = result
                 .entries
                 .iter()
@@ -155,6 +189,80 @@ mod tests {
         }
     }
     #[test]
+    fn all_literal_components_observe_metadata_without_loading_or_reading_contents() {
+        let t = temp();
+        let home = t.path();
+        let name = "Suite Studio";
+        for (index, (_, root, suffix)) in LOCATIONS.iter().enumerate() {
+            let path = home.join(format!("{root}/{name}{suffix}"));
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            if index % 2 == 0 {
+                fs::create_dir(&path).unwrap();
+                fs::write(path.join("personal"), "keep component data").unwrap();
+            } else {
+                fs::write(path, "keep ordinary file").unwrap();
+            }
+        }
+        let result = observe(home, Some(name));
+        assert_eq!(result.names.candidates, 24);
+        for (kind, root, suffix) in LOCATIONS {
+            let entry = result.entries.iter().find(|e| e.kind == kind).unwrap();
+            assert_eq!(entry.relative_path, format!("{root}/{name}{suffix}"));
+            assert_eq!(entry.status, "present", "{kind}");
+            let path = home.join(&entry.relative_path);
+            assert_eq!(
+                fs::read_to_string(if path.is_dir() {
+                    path.join("personal")
+                } else {
+                    path
+                })
+                .unwrap(),
+                if LOCATIONS.iter().position(|(k, _, _)| *k == kind).unwrap() % 2 == 0 {
+                    "keep component data"
+                } else {
+                    "keep ordinary file"
+                }
+            );
+        }
+        let check = Check::begin(home, Some(name), &[]);
+        let path = home.join(format!("Library/Audio/Plug-Ins/VST3/{name}.vst3"));
+        let saved = home.join("retained-component");
+        fs::rename(&path, &saved).unwrap();
+        symlink(&saved, &path).unwrap();
+        let (_, entries) = check.finish();
+        assert_eq!(
+            entries.iter().find(|e| e.kind == "nameVst3").unwrap().issue,
+            Some("changed")
+        );
+        let (_, entries) = Check::begin(home, Some(name), &[]).finish();
+        assert_eq!(
+            entries.iter().find(|e| e.kind == "nameVst3").unwrap().issue,
+            Some("unsupported")
+        );
+    }
+    #[test]
+    fn maximum_utf8_name_leaves_room_for_plugin_suffixes() {
+        let t = temp();
+        let name = "中".repeat(80);
+        let path = t
+            .path()
+            .join(format!("Library/QuickLook/{name}.qlgenerator"));
+        fs::create_dir_all(&path).unwrap();
+        let (scope, entries) = Check::begin(t.path(), Some(&name), &[]).finish();
+        assert_eq!(scope.candidates, 24);
+        assert_eq!(
+            entries
+                .iter()
+                .find(|e| e.kind == "nameQuickLook")
+                .unwrap()
+                .status,
+            "present"
+        );
+        assert!(LOCATIONS
+            .iter()
+            .all(|(_, _, suffix)| name.len() + suffix.len() <= 255));
+    }
+    #[test]
     fn unavailable_unsupported_common_roots_and_exact_identifier_collisions_do_not_expand_scope() {
         let t = temp();
         let home = t.path();
@@ -170,10 +278,10 @@ mod tests {
         );
         let result = observe(home, Some("org.example.app"));
         assert_eq!(result.names.code, "observed");
-        assert_eq!(result.names.candidates, 0);
-        assert_eq!(result.entries.len(), 21);
+        assert_eq!(result.names.candidates, 17);
+        assert_eq!(result.entries.len(), 38);
         let result = observe(home, Some("ByHost"));
-        assert_eq!(result.names.candidates, 5);
+        assert_eq!(result.names.candidates, 23);
         assert!(!result
             .entries
             .iter()
@@ -263,7 +371,7 @@ mod tests {
         assert!(entries.is_empty());
     }
     #[test]
-    #[ignore = "requires fixed Mole source; compares only six literal name templates and common-root filter"]
+    #[ignore = "requires fixed Mole source; compares all 24 literal Library name templates and common-root filter"]
     fn prepared_name_templates_and_common_root_filter_match_original_c_locale() {
         let resources = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
         crate::app_uninstall_rules::load(&resources).unwrap();
@@ -278,10 +386,10 @@ mod tests {
         let templates = block
             .lines()
             .map(str::trim)
-            .filter(|line| line.starts_with('"'))
-            .take(6)
+            .take_while(|line| *line != ")")
+            .filter(|line| line.starts_with("\"$HOME/Library/"))
             .collect::<Vec<_>>();
-        assert_eq!(templates.len(), 6);
+        assert_eq!(templates.len(), 24);
         for ((_, root, suffix), line) in LOCATIONS.iter().zip(&templates) {
             assert_eq!(*line, format!("\"$HOME/{root}/$app_name{suffix}\""));
         }
@@ -345,7 +453,7 @@ mod tests {
             assert_eq!(actual, expected, "{name}");
         }
         eprintln!(
-            "{} names matched original six templates and common-root filter",
+            "{} names matched original 24 Library templates and common-root filter",
             names.len()
         );
     }

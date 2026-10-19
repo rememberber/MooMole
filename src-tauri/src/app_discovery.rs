@@ -149,9 +149,11 @@ pub mod mac {
             .filter(|m| path.starts_with(&m.path))
             .collect();
         !enclosing.is_empty()
-            && enclosing
-                .iter()
-                .all(|m| m.flags & libc::MNT_LOCAL as u32 != 0 && m.kind != "autofs")
+            && enclosing.iter().all(|m| {
+                m.flags & libc::MNT_LOCAL as u32 != 0
+                    && m.flags & libc::MNT_DONTBROWSE as u32 == 0
+                    && m.kind != "autofs"
+            })
     }
     fn internal_snapshot(name: &str, parent: &libc::stat, child: &libc::stat) -> bool {
         name == "com.apple.TimeMachine.localsnapshots"
@@ -681,6 +683,41 @@ pub mod mac {
             symlink(root.join("Network"), &alias).unwrap();
             let check = Check::volumes(&root, mount_table(&root));
             assert_eq!(check.finish().code, "partial");
+        }
+        #[test]
+        fn hidden_local_mounts_are_rejected_before_discovery_and_flag_changes_remain_unknown() {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().canonicalize().unwrap();
+            fs::create_dir_all(root.join("Hidden/Applications/SystemOnly.app")).unwrap();
+            fs::create_dir_all(root.join("User/Applications/Visible.app")).unwrap();
+            let mut mounts = mount_table(&root).unwrap();
+            let mut hidden = mounts[0].clone();
+            hidden.path = root.join("Hidden");
+            hidden.flags |= libc::MNT_LOCAL as u32 | libc::MNT_DONTBROWSE as u32;
+            hidden.kind = "apfs".into();
+            mounts.push(hidden);
+            assert!(!local_mount(&root.join("Hidden/Applications"), &mounts));
+            let mut check = Check::volumes(&root, Ok(mounts.clone()));
+            assert_eq!(
+                check.paths,
+                vec![Some(
+                    root.join("User/Applications/Visible.app")
+                        .to_str()
+                        .unwrap()
+                        .into()
+                )]
+            );
+            assert_eq!(check.observation.root_count, 1);
+            assert_eq!(check.observation.issue, Some("unsupportedVolume"));
+            assert_eq!(
+                check.observation.first_uncertain_path.as_deref(),
+                root.join("Hidden").to_str()
+            );
+            check.verify_mounts(Ok(mounts.clone()));
+            assert_eq!(check.observation.issue, Some("unsupportedVolume"));
+            mounts.last_mut().unwrap().flags &= !(libc::MNT_DONTBROWSE as u32);
+            check.verify_mounts(Ok(mounts));
+            assert_eq!(check.observation.issue, Some("changed"));
         }
         #[test]
         fn volume_mount_changes_replacements_and_budgets_remain_partial() {
