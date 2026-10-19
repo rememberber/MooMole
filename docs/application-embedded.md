@@ -27,7 +27,7 @@
 
 ## 协议与界面
 
-应用协议 v22 的 embedded 包含 version=1、固定 revision、observed/partial/notChecked、issue、entries/directories/plists 计数及 bundles。每个 bundle 包含 relativePath、bundleId 与 appex/xpc/loginItem 类型；不包含绝对数据路径、执行参数或可删除状态。
+应用协议 v23 的 embedded 包含 version=1、固定 revision、observed/partial/notChecked、issue、entries/directories/plists 计数及 bundles。每个 bundle 包含 relativePath、bundleId 与 appex/xpc/loginItem 类型；不包含绝对数据路径、执行参数或可删除状态。
 
 前端校验版本/修订、身份/状态关系、计数与上限、相对 Contents 路径组件、深度、类型对应后缀、登录项范围、ID 语法与排除、路径唯一。changed 不允许残留扩展标识。未知协议或矛盾结果整份拒绝；重查撤旧结果、迟到响应隔离和一分钟较早状态沿用原流程。
 

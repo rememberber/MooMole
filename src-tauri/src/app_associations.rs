@@ -114,16 +114,18 @@ struct NameDiscovery {
     issue: Option<&'static str>,
     name: Option<String>,
     candidates: usize,
+    cli_excluded: usize,
 }
 impl NameDiscovery {
     fn not_checked(issue: &'static str) -> Self {
         Self {
-            version: 3,
-            source: "moleAppNameLibrary",
+            version: 4,
+            source: "moleAppNameUserPaths",
             code: "notChecked",
             issue: Some(issue),
             name: None,
             candidates: 0,
+            cli_excluded: 0,
         }
     }
 }
@@ -147,7 +149,7 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 8,
+            version: 9,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -741,7 +743,7 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 8,
+                    version: 9,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,

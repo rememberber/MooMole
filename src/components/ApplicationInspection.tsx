@@ -367,6 +367,9 @@ export function ApplicationInspection({
               ) &&
                 ` · ${value.associations.entries.filter((entry) => entry.molePathProtection.code === 'unknown').length} 处路径保护未确认`}
               {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
+              {value.associations.names.code === 'observed' &&
+                value.associations.names.cliExcluded > 0 &&
+                ' · CLI 同名位置保留'}
               {value.associations.byHost.code === 'partial' && ' · 设备设置检查不完整'}
               {value.associations.code === 'observed' &&
                 value.associations.names.code !== 'observed' &&
@@ -409,7 +412,14 @@ export function ApplicationInspection({
                 <p className="muted">
                   另按 Mole 清单名称「{value.associations.names.name}」查询{' '}
                   {value.associations.names.candidates}{' '}
-                  个位置（含适用的空格变体），仅为名称线索，本地显示名称和归属未认证。
+                  个位置，仅为名称线索，本地显示名称和归属未认证。
+                </p>
+              )}
+            {value.associations.names.code === 'observed' &&
+              value.associations.names.cliExcluded > 0 && (
+                <p className="muted">
+                  依 Mole 规则排除 {value.associations.names.cliExcluded} 个独立 CLI
+                  同名数据位置，继续保留，不纳入本次候选。
                 </p>
               )}
             {value.associations.byHost.code === 'partial' && (
@@ -475,6 +485,19 @@ export function ApplicationInspection({
                               nameUnderscorePreferences: '设置',
                               nameHyphenPreferencesDirectory: '设置位置',
                               nameHyphenPreferences: '设置',
+                              nameXdgConfig: '配置',
+                              nameXdgCache: '缓存',
+                              nameXdgLowerCache: '缓存',
+                              nameXdgShare: '工具数据',
+                              nameXdgCompactConfig: '配置',
+                              nameXdgHyphenConfig: '配置',
+                              nameXdgUnderscoreConfig: '配置',
+                              nameXdgCompactCache: '缓存',
+                              nameXdgHyphenCache: '缓存',
+                              nameXdgUnderscoreCache: '缓存',
+                              nameXdgCompactShare: '工具数据',
+                              nameXdgHyphenShare: '工具数据',
+                              nameXdgUnderscoreShare: '工具数据',
                               nameService: '服务工作流',
                               nameQuickLook: 'Quick Look',
                               nameInternetPlugin: '网络插件',
@@ -548,20 +571,22 @@ export function ApplicationInspection({
                           )}
                           {entry.kind.startsWith('name') && (
                             <span className="association-path muted">
-                              {['nameCompact', 'nameUnderscore', 'nameHyphen'].some((prefix) =>
-                                entry.kind.startsWith(prefix),
-                              )
-                                ? '空格变体线索，可能共用，不证明归属，保留。'
-                                : [
-                                      'nameSupport',
-                                      'nameCache',
-                                      'nameLogs',
-                                      'namePreferencesDirectory',
-                                      'namePreferences',
-                                      'nameSavedState',
-                                    ].includes(entry.kind)
-                                  ? '名称线索，不证明归属，保留。'
-                                  : '名称线索，注册、使用状态和归属未确认，保留。'}
+                              {entry.kind.startsWith('nameXdg')
+                                ? '名称线索，可能含独立工具配置或共享数据，归属未确认，保留。'
+                                : ['nameCompact', 'nameUnderscore', 'nameHyphen'].some((prefix) =>
+                                      entry.kind.startsWith(prefix),
+                                    )
+                                  ? '空格变体线索，可能共用，不证明归属，保留。'
+                                  : [
+                                        'nameSupport',
+                                        'nameCache',
+                                        'nameLogs',
+                                        'namePreferencesDirectory',
+                                        'namePreferences',
+                                        'nameSavedState',
+                                      ].includes(entry.kind)
+                                    ? '名称线索，不证明归属，保留。'
+                                    : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
                           {entry.kind === 'recentDocuments' && (
@@ -585,7 +610,7 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置、Library 名称与空格变体（最多 36
+              仅查询精确标识的 21 个常见位置、Library/XDG 名称与空格变体（最多 49
               个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
               个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。

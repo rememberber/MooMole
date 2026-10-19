@@ -59,7 +59,7 @@
 
 最多扫描 1024 个条目、64 个文件候选；枚举/建证据和返回前复核各有 500ms 检查点，与组/派生目录的预算和不完整状态分别记录。所有候选只观察元数据、不读取设置内容；链接额外保留未知且范围不完整，目录不作为文件候选。根缺失会保存缺失证据，返回前出现、替换或访问变化不能当作无设备设置。未能建齐或复核的候选保持未知，超限/读取失败/不支持/变化在折叠摘要和展开原因中可见。
 
-主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 36 个 Library 名称位置，合计最多 185 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
+主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 49 个 Library/XDG 名称位置，合计最多 198 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
 
 最近文档记录是个人使用状态，仅显示元数据并明确保留，不打开或处理所指向的原文档；设备设置明确保留。下载缓存也不推导可安全删除。当前仍无卸载计划、清理勾选或执行入口，未证明这些位置独占归属于选中应用。
 
@@ -96,25 +96,35 @@
 | 辅助功能组件 | Library/Accessibility/{name}.bundle |
 | 邮件插件 | Library/Mail/Bundles/{name}.mailbundle |
 
-以上新增 18 项来自同一原始名称 user_patterns 块中所有剩余的 Library 模板，不加入块内的四个 XDG/小写位置；空格变体另见下文。保留原大小写与后缀，仅在名称对应位置检查元数据；不读取组件内部文件，不加载/执行/注册插件，不查询注册、启用或使用状态。普通文件/目录都可以是该模板的存在位置，不能把后缀当作有效组件类型。行内明确「名称线索，注册、使用状态和归属未确认，保留」。
+以上新增 18 项来自同一原始名称 user_patterns 块中所有剩余的 Library 模板，块内的四个 XDG/小写位置及空格变体另见下文。保留原大小写与后缀，仅在名称对应位置检查元数据；不读取组件内部文件，不加载/执行/注册插件，不查询注册、启用或使用状态。普通文件/目录都可以是该模板的存在位置，不能把后缀当作有效组件类型。行内明确「名称线索，注册、使用状态和归属未确认，保留」。
 
 固定为 C 字节语义的至少 2 字节，另将输入限制在 240 UTF-8 字节内的单个正常组件；拒绝点/双点、斜杠与控制字符，缺失/不支持保持未检查，不伪装为没有数据。空格、中文、glob 或 Shell 字样全部作为名称的字面部分，不插值或扩展。24 个模板在原函数的标准 user_patterns 中按 -e 判断；当前普通文件/目录都只观察元数据，不将名称种类当作实际文件类型或内容认证。
 
-按原 common-root deny arm 排除 Library/Preferences/ByHost 本身，并按 _mole_is_shared_home_state_root 排除 Library/Application Support/Epic 共享根；与 21 个精确标识位置重合时保留原精确来源、不重复增加行。名称等于 ID 时共有七项重合（含输入法 .app），额外查询 17 项；ByHost 名称仍排除公共设置根本身，查询 23 项。names.candidates 表示本次额外查询的位置数（0..36），不是发现/可回收数量。名称不可用、不支持或预算失败不取消原精确标识、组/派生和设备设置结果；新行同样附加 Mole 路径保留与最新客户端保护，未知和受保护的未发现位置继续可见。
+按原 common-root deny arm 排除 Library/Preferences/ByHost 本身，并按 _mole_is_shared_home_state_root 排除 Library/Application Support/Epic 共享根；与 21 个精确标识位置重合时保留原精确来源、不重复增加行。名称等于 ID 时共有七项重合（含输入法 .app），额外查询 20 项（含去重后的 3 个 XDG 位置）；ByHost 名称仍排除公共设置根本身，查询 27 项。names.candidates 表示本次额外查询的位置数（0..49），不是发现/可回收数量。名称不可用、不支持或预算失败不取消原精确标识、组/派生和设备设置结果；新行同样附加 Mole 路径保留与最新客户端保护，未知和受保护的未发现位置继续可见。
 
 名称查询/返回前复核各有 500ms 检查点，复用 Probe 的无链接相对打开、父句柄池、缺失证据及返回前验证；复核超限整组撤下名称路径，只留 unknown/limitReached。选中 App 的最后身份验证在名称结果结束后进行，App 变化仍整份拒绝。阻塞内核 I/O 不承诺硬中断，原工作器超时和占用槽继续生效。
 
-names 的 version=3/source=moleAppNameLibrary，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates。前端检查原名 24 类与适用空格变体 12 类扣除去重/根排除后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
+names 的 version=4/source=moleAppNameUserPaths，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates、cliExcluded。前端检查原名 24 类、适用 Library 空格变体 12 类与标准/复合 XDG 13 类扣除去重/根排除/独立 CLI 后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
 
-当前未适配小写变体、渠道/驼峰推导、XDG/独立 CLI 与厂商特例，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
+当前未适配渠道/驼峰推导、厂商特例和其余产品专属 dotdir 规则，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
 
 ## 空格名称变体
 
 复用固定 Mole compound naming 块中的全部 12 个 Library 模板。原名称长度按 C locale 的 UTF-8 字节计数，超过 3 字节且含普通 ASCII 空格时适用；删除空格的形式查询 Application Support、Caches、Logs、Preferences（目录及 .plist）、Saved Application State（.savedState）共 6 项，将空格替换为下划线或连字符的形式分别查询 Application Support、Preferences（目录及 .plist）共 6 项。不折叠连续空格，不做小写、Unicode 空白替换或 Shell/glob 展开；例如 Suite  Studio 保留 Suite__Studio / Suite--Studio。
 
-仍要求原名为 2..240 UTF-8 字节的正常单组件；控制空白不支持。若适用的去空格结果为空、点或双点，整组名称检查 notChecked/nameUnsupported，保留原 ID 等其他来源；这是客户端保守子集，不扩大到公共根或返回部分名称通过。生成 ByHost/Epic 的变体同样排除，路径与精确 ID 重合时保留精确来源，名称来源内也去重。A B（3 字节）仍为 24 项，中 X（5 字节）为 36 项，By Host / Ep ic 为 35 项，org.example. app 对 org.example.app 去重后为 30 项。
+仍要求原名为 2..240 UTF-8 字节的正常单组件；控制空白不支持。若适用的去空格结果为空、点或双点，整组名称检查 notChecked/nameUnsupported，保留原 ID 等其他来源；这是客户端保守子集，不扩大到公共根或返回部分名称通过。生成 ByHost/Epic 的变体同样排除，路径与精确 ID 重合时保留精确来源，名称来源内也去重。加入下文 XDG 后，A B（3 字节）为 28 项，中 X（5 字节）为 49 项，By Host / Ep ic 为 48 项，org.example. app 对 org.example.app 去重后为 42 项。
 
-名称变体和原名共用同一组开始/结束各 500ms 检查点、父句柄池、身份撤回与保护预算。只观察元数据，可能是跨渠道或共享数据；行内显示「空格变体线索，可能共用，不证明归属，保留」。默认只显示发现、未知及受保护的未发现位置；不增加页面或选择/修改入口。前端按绑定原名重新生成完整路径集合，拒绝缺少、重复、越界、小写伪造和错误种类，旧 v21/associations 7/names 2 也拒绝。
+名称变体和原名共用同一组开始/结束各 500ms 检查点、父句柄池、身份撤回与保护预算。只观察元数据，可能是跨渠道或共享数据；行内显示「空格变体线索，可能共用，不证明归属，保留」。默认只显示发现、未知及受保护的未发现位置；不增加页面或选择/修改入口。前端按绑定原名重新生成完整路径集合，拒绝缺少、重复、越界、小写伪造和错误种类，旧 v22/associations 8/names 3 也拒绝。
+
+## XDG 位置与独立 CLI 排除
+
+标准名称块增加 .config/{name}、.cache/{name}、.cache/{lowercase_name}、.local/share/{name}；适用空格门槛时再增加去空格/连字符/下划线的三种 ASCII 小写形式在上述三个父目录下的 9 个模板。保持固定 Mole 的 HOME 相对根，不读取 XDG_CONFIG_HOME 等自定义环境目录，不创建 ~/.{name}、任意 dotdir 或 rc 文件候选。普通小写名称的两个 cache 模板完全同路径时先保留原名来源；仅做字面路径去重，不推断大小写别名为同一对象。最大为 24+12+13=49 项，原关联上限为 198 项。
+
+小写与固定 C locale 的 tr 一致，仅转换 ASCII A-Z，Ü/İ 等字符保持。原 echo 单参数为 -n/-e/-E 的组合时输出为空；Rust 只复现这个确定转换，不执行 Shell，空派生按原公共根规则排除。源模板、实际转换赋值、公共根 case 和两个排除 helper 都有固定源码对照，未把自己的小写算法说成上游代码调用。
+
+Rust 按固定 _mole_is_shared_home_state_root 与 _path_belongs_to_independent_cli 的本次可达规则在查询前过滤：共享 .cache/.config/.local 及其 bin/lib/share/state 根（ASCII 大小写不敏感）不纳入；独立 CLI 只在 .config/.cache/.local/share 直属判断，将叶名去一个前导点、ASCII 小写后精确匹配 claude/opencode/codex/gemini。Library 同名路径不受这个 CLI 排除，codex-beta、..codex 等不被前缀误排除。路径去重后，cliExcluded 记录因 CLI 规则排除的字面位置数，不表示扫描到文件，也不认证实际归属；Claude 为 4、claude 为 3、Co dex 的紧凑小写形式为 3。
+
+独立 CLI 排除先于 Probe，不打开被排除的 XDG 根；names 失败/未检查/超限时清空此计数，前端按完整来源重算并校验，不能靠伪造排除数隐藏位置或注入 CLI 数据候选。折叠摘要提示 CLI 同名位置保留，展开说明数量与不纳入候选。XDG 行明确「名称线索，可能含独立工具配置或共享数据，归属未确认，保留」。所有未排除位置继续附加 Mole 路径保留与最新客户端保护，符号链接/权限/变化/超限不转为不存在或通过；无需提权或读取配置内容。
 
 ## 文件系统与结果边界
 
@@ -136,7 +146,7 @@ names 的 version=3/source=moleAppNameLibrary，code 为 observed/notChecked/unk
 
 ## 协议与后续
 
-应用检查协议 v22 的 associations 包含 version=8、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 36 个 Library 名称位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v23 的 associations 包含 version=9、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 49 个 Library/XDG 名称位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，21 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

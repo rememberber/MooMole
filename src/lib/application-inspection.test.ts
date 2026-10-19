@@ -9,8 +9,15 @@ const pathRule = (status = 'notFound') => ({
   reason: null as string | null,
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
+const xdgBase = (name: string) =>
+  [
+    ['nameXdgConfig', `.config/${name}`],
+    ['nameXdgCache', `.cache/${name}`],
+    ['nameXdgLowerCache', `.cache/${name.replace(/[A-Z]/g, (c) => c.toLowerCase())}`],
+    ['nameXdgShare', `.local/share/${name}`],
+  ].filter(([, path], index, all) => all.findIndex(([, previous]) => path === previous) === index)
 const valid = () => ({
-  protocol: 22,
+  protocol: 23,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -89,10 +96,11 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 8,
+    version: 9,
     names: {
-      version: 3,
-      source: 'moleAppNameLibrary',
+      version: 4,
+      source: 'moleAppNameUserPaths',
+      cliExcluded: 0,
       code: 'notChecked',
       issue: 'nameUnavailable',
       name: null,
@@ -189,7 +197,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 8,
+        version: 9,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -652,21 +660,25 @@ describe('application inspection boundary', () => {
       ['nameAccessibility', 'Library/Accessibility', '.bundle'],
       ['nameMailPlugin', 'Library/Mail/Bundles', '.mailbundle'],
     ]
-    const entries = templates.map(([kind, root, suffix], index) => ({
+    const entries = [
+      ...templates.map(([kind, root, suffix]) => [kind, `${root}/Example${suffix}`]),
+      ...xdgBase('Example'),
+    ].map(([kind, relativePath], index) => ({
       kind,
-      relativePath: `${root}/Example${suffix}`,
+      relativePath,
       status: index === 0 ? 'present' : index === 1 ? 'unknown' : 'notFound',
       issue: index === 1 ? 'unavailable' : null,
       protectionReasons: index === 3 ? ['clientDirectory'] : [],
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 3,
-      source: 'moleAppNameLibrary',
+      version: 4,
+      source: 'moleAppNameUserPaths',
+      cliExcluded: 0,
       code: 'observed',
       name: 'Example',
       issue: null,
-      candidates: 24,
+      candidates: 28,
     }
     const associations = {
       ...data.associations,
@@ -687,11 +699,12 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 4 } },
-      { ...associations, names: { ...names, version: 2 } },
+      { ...associations, names: { ...names, version: 5 } },
+      { ...associations, names: { ...names, version: 3 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
       { ...associations, names: { ...names, source: 'moleBaseAppNameLibrary' } },
       { ...associations, names: { ...names, source: 'moleLiteralAppNameLibrary' } },
+      { ...associations, names: { ...names, source: 'moleAppNameLibrary' } },
       {
         ...associations,
         entries: [
@@ -701,7 +714,7 @@ describe('application inspection boundary', () => {
         ],
       },
       { ...associations, names: { ...names, name: 'Another' } },
-      { ...associations, names: { ...names, candidates: 23 } },
+      { ...associations, names: { ...names, candidates: 27 } },
       { ...associations, names: { ...names, issue: 'nameUnsupported' } },
       { ...associations, entries: [...fixed, ...entries.slice(1)] },
       { ...associations, entries: [...fixed, ...entries, { ...entries[0] }] },
@@ -715,7 +728,7 @@ describe('application inspection boundary', () => {
     expect(() => parseApplicationInspection({ ...data, associations }, 'org.example.app')).toThrow()
     const duplicate = {
       ...associations,
-      names: { ...names, name: 'org.example.app', candidates: 17 },
+      names: { ...names, name: 'org.example.app', candidates: 20 },
       entries: [
         ...fixed,
         ...templates
@@ -732,12 +745,18 @@ describe('application inspection boundary', () => {
             relativePath: `${root}/org.example.app${suffix}`,
             status: 'notFound',
           })),
+        ...xdgBase('org.example.app').map(([kind, relativePath]) => ({
+          ...entries[0],
+          kind,
+          relativePath,
+          status: 'notFound',
+        })),
       ],
     }
     expect(
       parse({ ...data, associations: duplicate }, 'org.example.app', 'org.example.app').associations
         .names.candidates,
-    ).toBe(17)
+    ).toBe(20)
     // Independent expected paths cover C byte length, literal separators, deny roots and ID precedence.
     const compound = (name: string) => {
       const compact = name.replaceAll(' ', '')
@@ -763,6 +782,22 @@ describe('application inspection boundary', () => {
       const all = [
         ...templates.map(([kind, root, suffix]) => [kind, `${root}/${name}${suffix}`]),
         ...extras,
+        ...xdgBase(name),
+        ...(new TextEncoder().encode(name).length > 3 && name.includes(' ')
+          ? [
+              ...['Config', 'Cache', 'Share'].flatMap((kind, index) => {
+                const root = ['.config', '.cache', '.local/share'][index]
+                return [
+                  ['Compact', compact],
+                  ['Hyphen', hyphen],
+                  ['Underscore', underscore],
+                ].map(([variant, value]) => [
+                  `nameXdg${variant}${kind}`,
+                  `${root}/${value.replace(/[A-Z]/g, (c) => c.toLowerCase())}`,
+                ])
+              }),
+            ]
+          : []),
       ]
         .filter(
           ([, path]) =>
@@ -785,15 +820,15 @@ describe('application inspection boundary', () => {
       }
     }
     for (const [name, count] of [
-      ['Suite Studio', 36],
-      ['Suite  Studio', 36],
-      ['A B', 24],
-      ['中 X', 36],
-      ['Suite\u00a0Studio', 24],
-      ['By Host', 35],
-      ['Epic', 23],
-      ['Ep ic', 35],
-      ['org.example. app', 30],
+      ['Suite Studio', 49],
+      ['Suite  Studio', 49],
+      ['A B', 28],
+      ['中 X', 49],
+      ['Suite\u00a0Studio', 28],
+      ['By Host', 48],
+      ['Epic', 27],
+      ['Ep ic', 48],
+      ['org.example. app', 42],
     ] as const) {
       const result = compound(name)
       expect(
@@ -804,7 +839,7 @@ describe('application inspection boundary', () => {
     const space = compound('Suite Studio')
     for (const invalid of [
       { ...space, entries: space.entries.slice(0, -1) },
-      { ...space, names: { ...space.names, candidates: 35 }, entries: space.entries.slice(0, -1) },
+      { ...space, names: { ...space.names, candidates: 48 }, entries: space.entries.slice(0, -1) },
       { ...space, entries: [...space.entries, { ...space.entries.at(-1) }] },
       ...[
         { kind: 'nameSupport' },
@@ -826,6 +861,88 @@ describe('application inspection boundary', () => {
       expect(() =>
         parse({ ...data, associations: compound(name) }, 'org.example.app', name),
       ).toThrow()
+    const cliCase = (name: string) => {
+      const value = compound(name)
+      const rejected = value.entries.filter((entry) =>
+        /^\.(?:config|cache)\/\.?(?:claude|codex|gemini|opencode)$|^\.local\/share\/\.?(?:claude|codex|gemini|opencode)$/i.test(
+          entry.relativePath,
+        ),
+      )
+      return {
+        ...value,
+        names: {
+          ...value.names,
+          candidates: value.names.candidates - rejected.length,
+          cliExcluded: rejected.length,
+        },
+        entries: value.entries.filter((entry) => !rejected.includes(entry)),
+      }
+    }
+    for (const [name, count, skipped] of [
+      ['Claude', 24, 4],
+      ['claude', 24, 3],
+      ['.CoDeX', 24, 4],
+      ['..codex', 27, 0],
+      ['Co dex', 46, 3],
+      ['OpenCode', 24, 4],
+      ['codex-beta', 27, 0],
+      ['ÜBER', 28, 0],
+    ] as const) {
+      const result = parse({ ...data, associations: cliCase(name) }, 'org.example.app', name)
+      expect(result.associations.names.candidates).toBe(count)
+      expect(result.associations.names.cliExcluded).toBe(skipped)
+    }
+    const cli = cliCase('Claude')
+    for (const invalid of [
+      { ...cli, names: { ...cli.names, cliExcluded: 0 } },
+      { ...cli, names: { ...cli.names, cliExcluded: undefined } },
+      { ...cli, names: { ...cli.names, cliExcluded: 5 } },
+      {
+        ...cli,
+        names: { ...cli.names, candidates: 25 },
+        entries: [
+          ...cli.entries,
+          { ...entries[0], kind: 'nameXdgConfig', relativePath: '.config/Claude' },
+        ],
+      },
+    ])
+      expect(() => parse({ ...data, associations: invalid }, 'org.example.app', 'Claude')).toThrow()
+    for (const [name, count] of [
+      ['-n', 27],
+      ['-e', 27],
+      ['-E', 27],
+      ['-neE', 27],
+      ['-NE', 28],
+    ] as const) {
+      const value = compound(name)
+      const rows = value.entries.filter(
+        (entry) => !/^-[neE]+$/.test(name) || entry.kind !== 'nameXdgLowerCache',
+      )
+      const actual = {
+        ...value,
+        entries: rows,
+        names: { ...value.names, candidates: rows.length - fixed.length },
+      }
+      expect(
+        parse({ ...data, associations: actual }, 'org.example.app', name).associations.names
+          .candidates,
+      ).toBe(count)
+    }
+    // Shared XDG roots and HOME dotdirs cannot be smuggled into the complete name set.
+    for (const path of [
+      '.config',
+      '.cache/',
+      '.local/share',
+      '.codex',
+      '.config/../.codex',
+      '.config/SUİTEStudio',
+    ]) {
+      const value = compound('Suite Studio')
+      value.entries[value.entries.length - 1].relativePath = path
+      expect(() =>
+        parse({ ...data, associations: value }, 'org.example.app', 'Suite Studio'),
+      ).toThrow()
+    }
     for (const [code, issue] of [
       ['notChecked', 'nameUnavailable'],
       ['notChecked', 'nameUnsupported'],
@@ -844,8 +961,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 23 },
-      { protocol: 21 },
+      { protocol: 24 },
+      { protocol: 22 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -1147,10 +1264,11 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 8,
+      version: 9,
       names: {
-        version: 3,
-        source: 'moleAppNameLibrary',
+        version: 4,
+        source: 'moleAppNameUserPaths',
+        cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,
@@ -1190,8 +1308,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 9 },
-      { ...associations, version: 7 },
+      { ...associations, version: 10 },
+      { ...associations, version: 8 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -1507,10 +1625,11 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 8,
+      version: 9,
       names: {
-        version: 3,
-        source: 'moleAppNameLibrary',
+        version: 4,
+        source: 'moleAppNameUserPaths',
+        cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
         name: null,

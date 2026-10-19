@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 22 ||
+    data.protocol !== 23 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -541,12 +541,33 @@ export function parseApplicationInspection(
     ['nameHyphenPreferencesDirectory', 'Library/Preferences', '', '-'],
     ['nameHyphenPreferences', 'Library/Preferences', '.plist', '-'],
   ]
-  const nameKinds = new Set([...nameLocations, ...spaceLocations].map(([kind]) => kind))
+  const xdgLocations = [
+    ['nameXdgConfig', '.config', 'app_name'],
+    ['nameXdgCache', '.cache', 'app_name'],
+    ['nameXdgLowerCache', '.cache', 'lowercase_name'],
+    ['nameXdgShare', '.local/share', 'app_name'],
+    ['nameXdgCompactConfig', '.config', 'lowercase_nospace'],
+    ['nameXdgHyphenConfig', '.config', 'lowercase_hyphen'],
+    ['nameXdgUnderscoreConfig', '.config', 'lowercase_underscore'],
+    ['nameXdgCompactCache', '.cache', 'lowercase_nospace'],
+    ['nameXdgHyphenCache', '.cache', 'lowercase_hyphen'],
+    ['nameXdgUnderscoreCache', '.cache', 'lowercase_underscore'],
+    ['nameXdgCompactShare', '.local/share', 'lowercase_nospace'],
+    ['nameXdgHyphenShare', '.local/share', 'lowercase_hyphen'],
+    ['nameXdgUnderscoreShare', '.local/share', 'lowercase_underscore'],
+  ]
+  const nameKinds = new Set(
+    [...nameLocations, ...spaceLocations, ...xdgLocations].map(([kind]) => kind),
+  )
   const names = associations?.names
   const nameEntries = Array.isArray(associations?.entries)
     ? associations.entries.filter((e) => nameKinds.has(e?.kind))
     : []
   const namePaths = new Map<string, string>()
+  const cliPaths = new Set<string>()
+  const seenNamePaths = new Set<string>()
+  const asciiLower = (name: string) => name.replace(/[A-Z]/g, (char) => char.toLowerCase())
+  const echoLower = (name: string) => (/^-[neE]+$/.test(name) ? '' : asciiLower(name))
   const hasSpaceVariants =
     typeof names?.name === 'string' &&
     new TextEncoder().encode(names.name).length > 3 &&
@@ -554,27 +575,60 @@ export function parseApplicationInspection(
   if (names?.code === 'observed' && typeof names.name === 'string') {
     const add = (kind: string, root: string, suffix: string, name: string) => {
       const path = `${root}/${name}${suffix}`
+      if (seenNamePaths.has(path)) return
+      seenNamePaths.add(path)
       if (
-        !['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path) &&
-        !locations.some(([, root, suffix]) => path === `${root}/${data.bundleId}${suffix}`) &&
-        !namePaths.has(path)
+        ['Library/Preferences/ByHost', 'Library/Application Support/Epic'].includes(path) ||
+        [
+          '.cache',
+          '.config',
+          '.local',
+          '.local/bin',
+          '.local/lib',
+          '.local/share',
+          '.local/state',
+        ].includes(asciiLower(path.replace(/\/$/, ''))) ||
+        locations.some(([, root, suffix]) => path === `${root}/${data.bundleId}${suffix}`)
       )
-        namePaths.set(path, kind)
+        return
+      if (
+        ['.config', '.cache', '.local/share'].includes(root) &&
+        ['claude', 'opencode', 'codex', 'gemini'].includes(asciiLower(name.replace(/^\./, '')))
+      ) {
+        cliPaths.add(path)
+        return
+      }
+      namePaths.set(path, kind)
     }
     for (const [kind, root, suffix] of nameLocations) add(kind, root, suffix, names.name)
     if (hasSpaceVariants)
       for (const [kind, root, suffix, separator] of spaceLocations)
         add(kind, root, suffix, names.name.replaceAll(' ', separator))
+    for (const [index, [kind, root, variable]] of xdgLocations.entries()) {
+      if (index >= 4 && !hasSpaceVariants) continue
+      const derived: Record<string, string> = {
+        app_name: names.name,
+        lowercase_name: echoLower(names.name),
+        lowercase_nospace: echoLower(names.name.replaceAll(' ', '')),
+        lowercase_hyphen: echoLower(names.name.replaceAll(' ', '-')),
+        lowercase_underscore: echoLower(names.name.replaceAll(' ', '_')),
+      }
+      add(kind, root, '', derived[variable])
+    }
   }
   if (
     !names ||
-    names.version !== 3 ||
-    names.source !== 'moleAppNameLibrary' ||
+    names.version !== 4 ||
+    names.source !== 'moleAppNameUserPaths' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 36 ||
+    names.candidates > 49 ||
     names.candidates !== nameEntries.length ||
+    !Number.isInteger(names.cliExcluded) ||
+    names.cliExcluded < 0 ||
+    names.cliExcluded > 13 ||
+    names.cliExcluded !== cliPaths.size ||
     (names.code === 'observed'
       ? associations.code !== 'observed' ||
         names.issue !== null ||
@@ -662,7 +716,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 8 ||
+    associations.version !== 9 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -680,7 +734,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 164) ||
+        associations.entries.length > locations.length + 177) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||

@@ -1,6 +1,7 @@
-//! Bounded Library name paths from pinned Mole, including literal ASCII-space variants.
+//! Bounded user name paths from pinned Mole, including Library and guarded XDG variants.
 //! A name hint never certifies identity, exclusive ownership or execution eligibility.
 use super::*;
+mod xdg;
 const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameSupport", "Library/Application Support", ""),
     ("nameCache", "Library/Caches", ""),
@@ -117,10 +118,11 @@ fn component(name: &str) -> bool {
 }
 fn excluded(path: &str) -> bool {
     // Reachable common-root and shared-home-state exclusions from pinned Mole.
-    matches!(
-        path,
-        "Library/Preferences/ByHost" | "Library/Application Support/Epic"
-    )
+    xdg::shared_root(path)
+        || matches!(
+            path,
+            "Library/Preferences/ByHost" | "Library/Application Support/Epic"
+        )
 }
 fn paths(name: &str) -> Vec<(&'static str, String)> {
     let mut paths = LOCATIONS
@@ -137,6 +139,7 @@ fn paths(name: &str) -> Vec<(&'static str, String)> {
             paths.push((kind, format!("{root}/{derived}{suffix}")));
         }
     }
+    paths.extend(xdg::paths(name));
     paths
 }
 fn supported(name: &str) -> bool {
@@ -172,14 +175,16 @@ impl Check {
         check.scope.name = Some(name.into());
         let started = Instant::now();
         let mut pool = HashMap::new();
+        let mut seen = std::collections::HashSet::new();
         for (kind, relative_path) in paths(name) {
-            if excluded(&relative_path)
+            if !seen.insert(relative_path.clone())
+                || excluded(&relative_path)
                 || existing.iter().any(|e| e.relative_path == relative_path)
-                || check
-                    .entries
-                    .iter()
-                    .any(|e| e.relative_path == relative_path)
             {
+                continue;
+            }
+            if xdg::independent_cli(&relative_path) {
+                check.scope.cli_excluded += 1;
                 continue;
             }
             if started.elapsed() > Duration::from_millis(500) {
@@ -241,10 +246,10 @@ impl Check {
 mod tests {
     use super::*;
     use std::{fs, os::unix::fs::symlink};
-    fn temp() -> tempfile::TempDir {
+    pub(super) fn temp() -> tempfile::TempDir {
         tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap()
     }
-    fn observe(home: &Path, name: Option<&str>) -> Observation {
+    pub(super) fn observe(home: &Path, name: Option<&str>) -> Observation {
         crate::app_associations::mac::Check::begin(home, Some("org.example.app"), "matches", true)
             .with_name(home, name)
             .finish()
@@ -253,13 +258,13 @@ mod tests {
     fn literal_names_keep_spaces_unicode_globs_and_shell_text_without_expansion() {
         let t = temp();
         let home = t.path();
-        for name in [
-            "App Name",
-            "微信",
-            "中",
-            "[*]?",
-            "$(printf danger)",
-            "App\\Name",
+        for (name, count) in [
+            ("App Name", 49),
+            ("微信", 27),
+            ("中", 27),
+            ("[*]?", 27),
+            ("$(printf danger)", 48),
+            ("App\\Name", 28),
         ] {
             let path = home.join(format!("Library/Application Support/{name}"));
             fs::create_dir_all(&path).unwrap();
@@ -267,10 +272,7 @@ mod tests {
             let result = observe(home, Some(name));
             assert_eq!(result.names.code, "observed");
             assert_eq!(result.names.name.as_deref(), Some(name));
-            assert_eq!(
-                result.names.candidates,
-                if space_variants(name) { 36 } else { 24 }
-            );
+            assert_eq!(result.names.candidates, count);
             let entry = result
                 .entries
                 .iter()
@@ -305,7 +307,13 @@ mod tests {
         let result = observe(home, Some(name));
         assert_eq!(
             result.names.candidates,
-            if space_variants(name) { 36 } else { 24 }
+            if space_variants(name) {
+                49
+            } else if name.bytes().any(|b| b.is_ascii_uppercase()) {
+                28
+            } else {
+                27
+            }
         );
         for (kind, root, suffix) in LOCATIONS {
             let entry = result.entries.iter().find(|e| e.kind == kind).unwrap();
@@ -352,7 +360,7 @@ mod tests {
             fs::write(home.join(path).join("personal"), "keep data").unwrap();
         }
         let result = observe(home, Some(name));
-        assert_eq!(result.names.candidates, 36);
+        assert_eq!(result.names.candidates, 49);
         assert!(result
             .entries
             .iter()
@@ -401,14 +409,14 @@ mod tests {
         let t = temp();
         let home = t.path();
         for (name, count) in [
-            ("A B", 24),
-            ("中 X", 36),
-            ("Suite\u{a0}Studio", 24),
-            ("By Host", 35),
-            ("Epic", 23),
-            ("Ep ic", 35),
-            ("org.example. app", 30),
-            (" X  ", 36),
+            ("A B", 28),
+            ("中 X", 49),
+            ("Suite\u{a0}Studio", 28),
+            ("By Host", 48),
+            ("Epic", 27),
+            ("Ep ic", 48),
+            ("org.example. app", 42),
+            (" X  ", 49),
         ] {
             let result = observe(home, Some(name));
             assert_eq!(result.names.code, "observed", "{name}");
@@ -464,7 +472,7 @@ mod tests {
             .join(format!("Library/QuickLook/{name}.qlgenerator"));
         fs::create_dir_all(&path).unwrap();
         let (scope, entries) = Check::begin(t.path(), Some(&name), &[]).finish();
-        assert_eq!(scope.candidates, 24);
+        assert_eq!(scope.candidates, 27);
         assert_eq!(
             entries
                 .iter()
@@ -493,10 +501,10 @@ mod tests {
         );
         let result = observe(home, Some("org.example.app"));
         assert_eq!(result.names.code, "observed");
-        assert_eq!(result.names.candidates, 17);
-        assert_eq!(result.entries.len(), 38);
+        assert_eq!(result.names.candidates, 20);
+        assert_eq!(result.entries.len(), 41);
         let result = observe(home, Some("ByHost"));
-        assert_eq!(result.names.candidates, 23);
+        assert_eq!(result.names.candidates, 27);
         assert!(!result
             .entries
             .iter()
@@ -570,7 +578,7 @@ mod tests {
         assert!(result
             .entries
             .iter()
-            .filter(|e| e.kind.starts_with("name"))
+            .filter(|e| e.kind.starts_with("name") && !e.kind.starts_with("nameXdg"))
             .all(|e| e.protection_reasons.contains(&"clientDirectory")
                 && e.mole_path_protection.code == "unknown"));
     }
