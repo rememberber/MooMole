@@ -59,9 +59,32 @@
 
 最多扫描 1024 个条目、64 个文件候选；枚举/建证据和返回前复核各有 500ms 检查点，与组/派生目录的预算和不完整状态分别记录。所有候选只观察元数据、不读取设置内容；链接额外保留未知且范围不完整，目录不作为文件候选。根缺失会保存缺失证据，返回前出现、替换或访问变化不能当作无设备设置。未能建齐或复核的候选保持未知，超限/读取失败/不支持/变化在折叠摘要和展开原因中可见。
 
-主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，合计最多 149 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
+主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 6 个基础名称位置，合计最多 155 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
 
 最近文档记录是个人使用状态，仅显示元数据并明确保留，不打开或处理所指向的原文档；设备设置明确保留。下载缓存也不推导可安全删除。当前仍无卸载计划、清理勾选或执行入口，未证明这些位置独占归属于选中应用。
+
+## 基础名称位置
+
+补入固定 Mole find_app_files 的六类基础 Library 名称模板。名称来自选中条目原 Mole 清单，不从包文件名、厂商、CFBundleDisplayName 或前端路径重建。前端用所选条目的名称与结果绑定；本地身份仍按原流程复核，但这些查询不认证本地显示名称或独占归属。
+
+| 名称线索 | 相对于后端 HOME 的位置 |
+| --- | --- |
+| 应用数据 | Library/Application Support/{name} |
+| 缓存 | Library/Caches/{name} |
+| 日志 | Library/Logs/{name} |
+| 设置位置 | Library/Preferences/{name} |
+| 设置文件 | Library/Preferences/{name}.plist |
+| 恢复状态 | Library/Saved Application State/{name}.savedState |
+
+固定为 C 字节语义的至少 2 字节，另将输入限制在 240 UTF-8 字节内的单个正常组件；拒绝点/双点、斜杠与控制字符，缺失/不支持保持未检查，不伪装为没有数据。空格、中文、glob 或 Shell 字样全部作为名称的字面部分，不插值或扩展。六个模板在原函数的标准 user_patterns 中按 -e 判断；当前普通文件/目录都只观察元数据，不将名称种类当作实际文件类型或内容认证。
+
+按原 common-root deny arm 排除 Library/Preferences/ByHost 本身；与 21 个精确标识位置重合时保留原精确来源、不重复增加行。names.candidates 表示本次额外查询的位置数（0..6），不是发现/可回收数量。名称不可用、不支持或预算失败不取消原精确标识、组/派生和设备设置结果；新行同样附加 Mole 路径保留与最新客户端保护，未知和受保护的未发现位置继续可见。
+
+名称查询/返回前复核各有 500ms 检查点，复用 Probe 的无链接相对打开、父句柄池、缺失证据及返回前验证；复核超限整组撤下名称路径，只留 unknown/limitReached。选中 App 的最后身份验证在名称结果结束后进行，App 变化仍整份拒绝。阻塞内核 I/O 不承诺硬中断，原工作器超时和占用槽继续生效。
+
+names 的 version=1/source=moleBaseAppNameLibrary，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates。前端检查完整六类扣除去重/根排除后的路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
+
+本轮未适配其他插件/服务模板、大小写/空格变体、渠道/驼峰推导、XDG/独立 CLI 与厂商特例，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
 
 ## 文件系统与结果边界
 
@@ -83,7 +106,7 @@
 
 ## 协议与后续
 
-应用检查协议 v19 的 associations 包含 version=5、固定 revision、observed/unknown、issue、entries 与 byHost。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选和最多 64 个设备设置文件；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v20 的 associations 包含 version=6、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 6 个基础名称位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，21 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

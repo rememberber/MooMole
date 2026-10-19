@@ -72,6 +72,7 @@ export function ApplicationRow({
             taskId={taskId}
             index={index}
             expectedId={app.bundle_id}
+            expectedName={app.name}
           />
         )}
         <button

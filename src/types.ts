@@ -106,7 +106,7 @@ export interface MolePathProtection {
     | null
 }
 export interface ApplicationInspection {
-  protocol: 19
+  protocol: 20
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -232,7 +232,24 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 5
+    version: 6
+    names: {
+      version: 1
+      source: 'moleBaseAppNameLibrary'
+      code: 'observed' | 'notChecked' | 'unknown'
+      name: string | null
+      candidates: number
+      issue:
+        | 'identityChanged'
+        | 'identityUnavailable'
+        | 'rulesUnavailable'
+        | 'bundleIdUnsupported'
+        | 'homeUnavailable'
+        | 'nameUnavailable'
+        | 'nameUnsupported'
+        | 'limitReached'
+        | null
+    }
     byHost: ApplicationInspection['extensionData']['byHost']
     revision: string
     code: 'observed' | 'unknown'

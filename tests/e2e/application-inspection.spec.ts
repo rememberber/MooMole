@@ -175,7 +175,7 @@ async function setup(page: Page) {
         }
       }
       return {
-        protocol: mode === 'future' ? 20 : 19,
+        protocol: mode === 'future' ? 21 : 20,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -442,6 +442,34 @@ async function setup(page: Page) {
             : [],
         },
         associations: {
+          names: {
+            version: 1,
+            source: 'moleBaseAppNameLibrary',
+            code:
+              mode === 'associationNamesLimit'
+                ? 'unknown'
+                : mode?.startsWith('associationNames') && mode !== 'associationNamesUnavailable'
+                  ? 'observed'
+                  : 'notChecked',
+            issue:
+              mode === 'associationNamesLimit'
+                ? 'limitReached'
+                : mode?.startsWith('associationNames') && mode !== 'associationNamesUnavailable'
+                  ? null
+                  : 'nameUnavailable',
+            name:
+              mode === 'associationNamesWrong'
+                ? 'Another'
+                : mode?.startsWith('associationNames') &&
+                    !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                  ? 'Example'
+                  : null,
+            candidates:
+              mode?.startsWith('associationNames') &&
+              !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                ? 6
+                : 0,
+          },
           byHost: {
             code:
               mode?.startsWith('associationMainFiles') && mode !== 'associationMainFiles'
@@ -458,7 +486,7 @@ async function setup(page: Page) {
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 6 : 5,
+          version: mode === 'associationFuture' ? 7 : 6,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -609,6 +637,42 @@ async function setup(page: Page) {
                             molePathProtection: pathRule(),
                           },
                         ]
+                      : [],
+                  )
+                  .concat(
+                    mode?.startsWith('associationNames') &&
+                      !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                      ? [
+                          ['nameSupport', 'Library/Application Support', ''],
+                          ['nameCache', 'Library/Caches', ''],
+                          ['nameLogs', 'Library/Logs', ''],
+                          ['namePreferencesDirectory', 'Library/Preferences', ''],
+                          ['namePreferences', 'Library/Preferences', '.plist'],
+                          ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+                        ].map(([kind, root, suffix], index) => ({
+                          kind,
+                          relativePath: `${root}/Example${suffix}`,
+                          status:
+                            mode === 'associationNamesChanged' || index === 1
+                              ? 'unknown'
+                              : index === 0
+                                ? 'present'
+                                : 'notFound',
+                          issue:
+                            mode === 'associationNamesChanged'
+                              ? 'changed'
+                              : index === 1
+                                ? 'unavailable'
+                                : null,
+                          protectionReasons: index === 3 ? ['clientDirectory'] : [],
+                          molePathProtection: pathRule(
+                            mode === 'associationNamesChanged' || index === 1
+                              ? 'unknown'
+                              : index === 0
+                                ? 'present'
+                                : 'notFound',
+                          ),
+                        }))
                       : [],
                   )
               : [],
@@ -1046,9 +1110,12 @@ test('exact association locations stay retained, partial and revocable', async (
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationObserved'))
   await row.getByText('位置与来源', { exact: true }).click()
   await expect(
-    inspection.getByText('关联位置 · 1 处发现 · 1 处无法确认 · 1 处路径保护未确认', {
-      exact: true,
-    }),
+    inspection.getByText(
+      '关联位置 · 1 处发现 · 1 处无法确认 · 1 处路径保护未确认 · 名称位置未检查',
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible()
   await inspection.locator('.application-associations summary').click()
   const associations = inspection.locator('.application-associations')
@@ -1652,4 +1719,59 @@ test('embedded group name candidates merge sources, retain data and withdraw wit
   await expect(data).toContainText('已撤下数据位置')
   await expect(data.getByRole('checkbox')).toHaveCount(0)
   await expect(data.getByRole('button')).toHaveCount(0)
+})
+
+test('literal app-name locations remain separate clues and clear on missing, timed-out or mismatched sources', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesFound'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(inspection).toContainText('关联位置受保护')
+  await expect(associations).toContainText('另按 Mole 清单名称「Example」查询 6 个位置')
+  await expect(associations).toContainText('本地显示名称和归属未认证')
+  await expect(associations.getByText('名称线索，不证明归属，保留。', { exact: true })).toHaveCount(
+    3,
+  )
+  await expect(associations).toContainText('~/Library/Application Support/Example')
+  await expect(associations).toContainText('已保存保护目录覆盖，保留')
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((elements) =>
+          elements.every((element) => element.scrollWidth <= element.clientWidth + 1),
+        ),
+    ).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-name-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('检查期间发生变化，请重查')
+  await expect(associations.getByText('名称线索，不证明归属，保留。', { exact: true })).toHaveCount(
+    6,
+  )
+  for (const [mode, message] of [
+    ['associationNamesUnavailable', '这份 Mole 清单未提供可用名称'],
+    ['associationNamesLimit', '检查达到时间上限，请保留并重查'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(associations.locator('summary')).toContainText('名称位置未检查')
+    await expect(associations).toContainText(message)
+    await expect(associations).not.toContainText('~/Library/Application Support/Example')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesWrong'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection).toContainText('应用状态结果无法识别')
+  await expect(inspection).not.toContainText('名称线索，不证明归属')
+  await expect(inspection.getByRole('button', { name: '重试检查' })).toBeVisible()
 })

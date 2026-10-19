@@ -14,6 +14,7 @@ const officialVendors = [
 export function parseApplicationInspection(
   value: unknown,
   expectedId: string,
+  expectedName?: string,
 ): ApplicationInspection {
   const fail = () => {
     throw new Error('应用状态结果无法识别，请重新检查。')
@@ -26,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 19 ||
+    data.protocol !== 20 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -500,6 +501,68 @@ export function parseApplicationInspection(
       '.sfl4',
     ],
   ]
+  const nameLocations = [
+    ['nameSupport', 'Library/Application Support', ''],
+    ['nameCache', 'Library/Caches', ''],
+    ['nameLogs', 'Library/Logs', ''],
+    ['namePreferencesDirectory', 'Library/Preferences', ''],
+    ['namePreferences', 'Library/Preferences', '.plist'],
+    ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+  ]
+  const nameKinds = new Set(nameLocations.map(([kind]) => kind))
+  const names = associations?.names
+  const nameEntries = Array.isArray(associations?.entries)
+    ? associations.entries.filter((e) => nameKinds.has(e?.kind))
+    : []
+  const namePaths = new Map<string, string>()
+  if (names?.code === 'observed' && typeof names.name === 'string') {
+    for (const [kind, root, suffix] of nameLocations) {
+      const path = `${root}/${names.name}${suffix}`
+      if (
+        path !== 'Library/Preferences/ByHost' &&
+        !locations.some(([, root, suffix]) => path === `${root}/${data.bundleId}${suffix}`)
+      )
+        namePaths.set(path, kind)
+    }
+  }
+  if (
+    !names ||
+    names.version !== 1 ||
+    names.source !== 'moleBaseAppNameLibrary' ||
+    !['observed', 'notChecked', 'unknown'].includes(names.code) ||
+    !Number.isInteger(names.candidates) ||
+    names.candidates < 0 ||
+    names.candidates > 6 ||
+    names.candidates !== nameEntries.length ||
+    (names.code === 'observed'
+      ? associations.code !== 'observed' ||
+        names.issue !== null ||
+        typeof names.name !== 'string' ||
+        names.name !== expectedName ||
+        !text(names.name, 240) ||
+        new TextEncoder().encode(names.name).length < 2 ||
+        new TextEncoder().encode(names.name).length > 240 ||
+        /[\u007f-\u009f]/.test(names.name) ||
+        names.name.includes('/') ||
+        ['.', '..'].includes(names.name) ||
+        names.candidates !== namePaths.size
+      : names.name !== null ||
+        names.candidates !== 0 ||
+        (names.code === 'unknown'
+          ? associations.code !== 'observed' || names.issue !== 'limitReached'
+          : ![
+              'identityChanged',
+              'identityUnavailable',
+              'rulesUnavailable',
+              'bundleIdUnsupported',
+              'homeUnavailable',
+              'nameUnavailable',
+              'nameUnsupported',
+            ].includes(names.issue ?? ''))) ||
+    (associations.code === 'unknown' && names.code !== 'notChecked') ||
+    !nameEntries.every((e) => namePaths.get(e.relativePath) === e.kind)
+  )
+    return fail()
   const relatedRoots: Record<string, string> = {
     groupContainer: 'Library/Group Containers',
     derivedScripts: 'Library/Application Scripts',
@@ -557,7 +620,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 5 ||
+    associations.version !== 6 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -575,7 +638,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 128) ||
+        associations.entries.length > locations.length + 134) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||
@@ -588,9 +651,11 @@ export function parseApplicationInspection(
           ? entry.kind !== locations[index]?.[0] ||
             entry.relativePath !==
               `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}`
-          : entry.kind === 'byHost'
-            ? !mainByHostPath(entry.relativePath)
-            : !relatedPath(entry)) ||
+          : nameKinds.has(entry.kind)
+            ? namePaths.get(entry.relativePath) !== entry.kind
+            : entry.kind === 'byHost'
+              ? !mainByHostPath(entry.relativePath)
+              : !relatedPath(entry)) ||
         !Array.isArray(entry.protectionReasons) ||
         entry.protectionReasons.length > 3 ||
         new Set(entry.protectionReasons).size !== entry.protectionReasons.length ||
@@ -624,7 +689,7 @@ export function parseApplicationInspection(
     (discovery.code === 'notChecked'
       ? discovery.rootCount !== 0 || discovery.entries !== 0 || discovery.candidates !== 0
       : discovery.candidates !==
-        associations.entries.length - locations.length - mainByHostCount) ||
+        associations.entries.length - locations.length - mainByHostCount - nameEntries.length) ||
     (discovery.code === 'observed' && discovery.rootCount !== 4) ||
     (discovery.code === 'partial'
       ? !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(

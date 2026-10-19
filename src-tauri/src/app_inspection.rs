@@ -123,7 +123,14 @@ pub async fn load(
     let worker = tokio::task::spawn_blocking(move || {
         let _slot = slot;
         let policy = crate::app_uninstall_rules::load(&engine_root);
-        let mut result = inspect(&path, &expected, &home, policy.is_ok(), candidates)?;
+        let mut result = inspect(
+            &path,
+            &expected,
+            &home,
+            policy.is_ok(),
+            candidates,
+            name.as_deref(),
+        )?;
         let mut path_budget = crate::app_uninstall_rules::PathBudget::default();
         result
             .associations
@@ -156,14 +163,15 @@ fn inspect(
     home: &std::path::Path,
     rules_ready: bool,
     candidates: Option<Vec<Option<String>>>,
+    name: Option<&str>,
 ) -> Result<Inspection, String> {
     #[cfg(target_os = "macos")]
     {
-        mac::inspect(path, expected, home, rules_ready, candidates)
+        mac::inspect(path, expected, home, rules_ready, candidates, name)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (path, expected, home, rules_ready, candidates);
+        let _ = (path, expected, home, rules_ready, candidates, name);
         Err("当前系统不支持此应用状态检查。".into())
     }
 }
@@ -1101,6 +1109,7 @@ mod mac {
             registry,
             Some(vec![]),
             false,
+            None,
         )
     }
     fn inspect_context_with_sources(
@@ -1113,6 +1122,7 @@ mod mac {
         registry: impl FnOnce(&str) -> Result<Vec<Option<String>>, ()>,
         candidates: Option<Vec<Option<String>>>,
         scan_roots: bool,
+        name: Option<&str>,
     ) -> Result<Inspection, String> {
         let bundle = Bundle::open(path)?;
         let (evidence, bytes) = Evidence::read(&bundle)?;
@@ -1136,7 +1146,8 @@ mod mac {
             fields.id.as_deref(),
             identity,
             rules_ready,
-        );
+        )
+        .with_name(home, name);
         let (extension_ids, extension_code, extension_issue) = embedded.basis();
         let extension_data = crate::app_associations::mac::extensions::Check::begin(
             home,
@@ -1227,7 +1238,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 19,
+            protocol: 20,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
@@ -1268,6 +1279,7 @@ mod mac {
         home: &Path,
         rules_ready: bool,
         candidates: Option<Vec<Option<String>>>,
+        name: Option<&str>,
     ) -> Result<Inspection, String> {
         inspect_context_with_sources(
             path,
@@ -1279,6 +1291,7 @@ mod mac {
             copies::registered,
             candidates,
             true,
+            name,
         )
     }
     #[cfg(test)]
@@ -1299,6 +1312,52 @@ mod mac {
         }
         fn fields() -> String {
             format!("<key>CFBundleIdentifier</key><string>{ID}</string><key>CFBundleShortVersionString</key><string>2.3</string><key>CFBundleVersion</key><string>42</string>")
+        }
+        #[test]
+        fn name_paths_are_observed_before_final_selected_bundle_identity_verification() {
+            let t = tempfile::tempdir().unwrap();
+            let home = t.path().canonicalize().unwrap();
+            let app = fixture(&home, "Selected", &fields());
+            let path = home.join("Library/Application Support/App Name");
+            std::fs::create_dir_all(&path).unwrap();
+            let result = inspect_context_with_sources(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::rename(&path, home.join("saved")).unwrap();
+                    std::fs::create_dir(&path).unwrap();
+                },
+                &home,
+                true,
+                |_| Ok(vec![]),
+                Some(vec![]),
+                false,
+                Some("App Name"),
+            )
+            .unwrap();
+            let value = serde_json::to_value(result).unwrap();
+            assert_eq!(value["associations"]["names"]["name"], "App Name");
+            assert!(value["associations"]["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["kind"] == "nameSupport" && e["issue"] == "changed"));
+            let changed = inspect_context_with_sources(
+                app.to_str().unwrap(),
+                ID,
+                |_| Ok(vec![]),
+                || {
+                    std::fs::write(app.join("Contents/Info.plist"), "changed").unwrap();
+                },
+                &home,
+                true,
+                |_| Ok(vec![]),
+                Some(vec![]),
+                false,
+                Some("App Name"),
+            );
+            assert!(changed.is_err());
         }
         fn background_cases() -> Vec<(&'static str, crate::app_background::Marker)> {
             use crate::app_background::Marker::*;

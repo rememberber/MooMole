@@ -35,10 +35,12 @@ export function ApplicationInspection({
   taskId,
   index,
   expectedId,
+  expectedName,
 }: {
   taskId?: string | null
   index: number
   expectedId: string
+  expectedName: string
 }) {
   const [value, setValue] = useState<Inspection | null>(null)
   const [pending, setPending] = useState(Boolean(desktop && taskId))
@@ -56,7 +58,11 @@ export function ApplicationInspection({
     setValue(null)
     setStale(false)
     try {
-      const next = parseApplicationInspection(await inspectApplication(taskId, index), expectedId)
+      const next = parseApplicationInspection(
+        await inspectApplication(taskId, index),
+        expectedId,
+        expectedName,
+      )
       if (active.current && request === generation.current) setValue(next)
     } catch (error) {
       if (active.current && request === generation.current)
@@ -77,7 +83,7 @@ export function ApplicationInspection({
       generation.current += 1
     }
     // The parent keys this observation by immutable task and row identity.
-  }, [taskId, index, expectedId])
+  }, [taskId, index, expectedId, expectedName])
   useEffect(() => {
     if (!value) return
     const request = generation.current
@@ -362,6 +368,9 @@ export function ApplicationInspection({
                 ` · ${value.associations.entries.filter((entry) => entry.molePathProtection.code === 'unknown').length} 处路径保护未确认`}
               {value.associations.discovery.code === 'partial' && ' · 组与扩展检查不完整'}
               {value.associations.byHost.code === 'partial' && ' · 设备设置检查不完整'}
+              {value.associations.code === 'observed' &&
+                value.associations.names.code !== 'observed' &&
+                ' · 名称位置未检查'}
             </summary>
             <p>全部保留。位置命中不代表独占归属，缓存也可能含有个人数据。</p>
             {value.associations.discovery.code !== 'notChecked' && (
@@ -376,6 +385,33 @@ export function ApplicationInspection({
                 )}
               </p>
             )}
+            {value.associations.code === 'observed' &&
+              value.associations.names.code !== 'observed' && (
+                <p className="muted">
+                  名称位置未检查 ·{' '}
+                  {
+                    {
+                      nameUnavailable: '这份 Mole 清单未提供可用名称',
+                      nameUnsupported: '名称格式暂不支持',
+                      limitReached: '检查达到时间上限，请保留并重查',
+                      identityChanged: '应用标识已变化，请重新读取列表',
+                      identityUnavailable: '应用身份无法确认',
+                      rulesUnavailable: '规则无法确认',
+                      bundleIdUnsupported: '标识格式暂不支持',
+                      homeUnavailable: '用户目录无法确认',
+                    }[value.associations.names.issue!]
+                  }
+                  。
+                </p>
+              )}
+            {value.associations.names.code === 'observed' &&
+              value.associations.names.candidates > 0 && (
+                <p className="muted">
+                  另按 Mole 清单名称「{value.associations.names.name}」查询{' '}
+                  {value.associations.names.candidates}{' '}
+                  个位置，仅为名称线索，本地显示名称和归属未认证。
+                </p>
+              )}
             {value.associations.byHost.code === 'partial' && (
               <p className="muted">
                 设备设置检查不完整 ·{' '}
@@ -421,6 +457,12 @@ export function ApplicationInspection({
                               cache: '缓存',
                               logs: '日志',
                               preferences: '设置',
+                              nameSupport: '应用数据（名称）',
+                              nameCache: '缓存（名称）',
+                              nameLogs: '日志（名称）',
+                              namePreferencesDirectory: '设置位置（名称）',
+                              namePreferences: '设置（名称）',
+                              nameSavedState: '恢复状态（名称）',
                               preferencesDirectory: '设置目录',
                               downloadCache: '下载缓存',
                               recentDocuments: '最近文档记录',
@@ -474,6 +516,11 @@ export function ApplicationInspection({
                                 .join('；')}
                             </span>
                           )}
+                          {entry.kind.startsWith('name') && (
+                            <span className="association-path muted">
+                              名称线索，不证明归属，保留。
+                            </span>
+                          )}
                           {entry.kind === 'recentDocuments' && (
                             <span className="association-path muted">
                               个人使用记录，保留；不读取或处理原文档。
@@ -495,8 +542,8 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
-              个目录各一层、合计最多 64
+              仅查询精确标识的 21 个常见位置、6 类基础名称位置及一层设备设置（最多 64
+              个文件），另检查应用组与扩展的 4 个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>
           </details>

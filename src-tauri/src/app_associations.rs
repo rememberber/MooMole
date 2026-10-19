@@ -93,6 +93,7 @@ pub struct Observation {
     entries: Vec<Entry>,
     discovery: Discovery,
     by_host: ByHost,
+    names: NameDiscovery,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -103,6 +104,28 @@ struct Entry {
     issue: Option<&'static str>,
     protection_reasons: Vec<&'static str>,
     mole_path_protection: crate::app_uninstall_rules::PathObservation,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NameDiscovery {
+    version: u32,
+    source: &'static str,
+    code: &'static str,
+    issue: Option<&'static str>,
+    name: Option<String>,
+    candidates: usize,
+}
+impl NameDiscovery {
+    fn not_checked(issue: &'static str) -> Self {
+        Self {
+            version: 1,
+            source: "moleBaseAppNameLibrary",
+            code: "notChecked",
+            issue: Some(issue),
+            name: None,
+            candidates: 0,
+        }
+    }
 }
 impl Observation {
     pub fn attach_mole_paths(
@@ -124,13 +147,14 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 5,
+            version: 6,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
             entries: vec![],
             discovery: Discovery::not_checked(),
             by_host: ByHost::not_checked(),
+            names: NameDiscovery::not_checked(issue),
         }
     }
     pub fn attach_protection(
@@ -313,6 +337,7 @@ fn valid_id(id: &str) -> bool {
 pub mod mac {
     pub mod extensions;
     mod main_files;
+    mod names;
     use super::*;
     use std::{
         collections::HashMap,
@@ -596,6 +621,7 @@ pub mod mac {
         probes: Vec<Probe>,
         roots: Vec<(&'static str, Probe)>,
         by_host: Option<main_files::Check>,
+        names: Option<names::Check>,
     }
     impl Check {
         pub fn begin(home: &Path, id: Option<&str>, identity: &str, rules_ready: bool) -> Self {
@@ -628,6 +654,7 @@ pub mod mac {
                     probes: vec![],
                     roots: vec![],
                     by_host: None,
+                    names: None,
                 };
             }
             let id = id.unwrap();
@@ -714,18 +741,26 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 5,
+                    version: 6,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,
                     entries,
                     discovery,
                     by_host: ByHost::not_checked(),
+                    names: NameDiscovery::not_checked("nameUnavailable"),
                 },
                 probes,
                 roots,
                 by_host: Some(main_files::Check::begin(home, id, depth, &mut pool)),
+                names: None,
             }
+        }
+        pub fn with_name(mut self, home: &Path, name: Option<&str>) -> Self {
+            if self.observation.code == "observed" {
+                self.names = Some(names::Check::begin(home, name, &self.observation.entries));
+            }
+            self
         }
         fn scan_root(
             file: &File,
@@ -835,6 +870,11 @@ pub mod mac {
             if let Some(check) = self.by_host {
                 let (state, entries) = check.finish();
                 self.observation.by_host = state;
+                self.observation.entries.extend(entries);
+            }
+            if let Some(check) = self.names {
+                let (scope, entries) = check.finish();
+                self.observation.names = scope;
                 self.observation.entries.extend(entries);
             }
             self.observation

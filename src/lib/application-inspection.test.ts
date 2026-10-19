@@ -10,7 +10,7 @@ const pathRule = (status = 'notFound') => ({
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 19,
+  protocol: 20,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -89,7 +89,15 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 5,
+    version: 6,
+    names: {
+      version: 1,
+      source: 'moleBaseAppNameLibrary',
+      code: 'notChecked',
+      issue: 'nameUnavailable',
+      name: null,
+      candidates: 0,
+    },
     byHost: { code: 'notChecked', issue: null, entries: 0, candidates: 0 },
     revision: moleUninstallRevision,
     code: 'unknown',
@@ -165,8 +173,8 @@ const associationLocations = [
   ],
 ]
 
-const parse = (value: unknown, expected = 'org.example.app') =>
-  parseApplicationInspection(value, expected)
+const parse = (value: unknown, expected = 'org.example.app', expectedName = 'Example') =>
+  parseApplicationInspection(value, expected, expectedName)
 describe('application inspection boundary', () => {
   it('keeps literal uninstall path guards separate from existence and rejects wider or contradictory claims', () => {
     const entries = associationLocations.map(([kind, root, suffix]) => ({
@@ -181,7 +189,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 5,
+        version: 6,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -608,9 +616,102 @@ describe('application inspection boundary', () => {
     ])
       expect(() => parse({ ...data, extensionData: invalid })).toThrow()
   })
+  it('binds six literal name hints to the original list name and preserves conservative gaps', () => {
+    const data = valid()
+    const fixed = associationLocations.map(([kind, root, suffix]) => ({
+      kind,
+      relativePath: `${root}/org.example.app${suffix}`,
+      status: 'notFound',
+      issue: null,
+      protectionReasons: [],
+      molePathProtection: pathRule(),
+    }))
+    const templates = [
+      ['nameSupport', 'Library/Application Support', ''],
+      ['nameCache', 'Library/Caches', ''],
+      ['nameLogs', 'Library/Logs', ''],
+      ['namePreferencesDirectory', 'Library/Preferences', ''],
+      ['namePreferences', 'Library/Preferences', '.plist'],
+      ['nameSavedState', 'Library/Saved Application State', '.savedState'],
+    ]
+    const entries = templates.map(([kind, root, suffix], index) => ({
+      kind,
+      relativePath: `${root}/Example${suffix}`,
+      status: index === 0 ? 'present' : index === 1 ? 'unknown' : 'notFound',
+      issue: index === 1 ? 'unavailable' : null,
+      protectionReasons: index === 3 ? ['clientDirectory'] : [],
+      molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
+    }))
+    const names = {
+      version: 1,
+      source: 'moleBaseAppNameLibrary',
+      code: 'observed',
+      name: 'Example',
+      issue: null,
+      candidates: 6,
+    }
+    const associations = {
+      ...data.associations,
+      code: 'observed',
+      issue: null,
+      names,
+      entries: [...fixed, ...entries],
+      byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
+      discovery: {
+        code: 'observed',
+        issue: null,
+        rootCount: 4,
+        entries: 0,
+        candidates: 0,
+        firstUncertainRoot: null,
+      },
+    }
+    expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
+    for (const invalid of [
+      { ...associations, names: undefined },
+      { ...associations, names: { ...names, version: 2 } },
+      { ...associations, names: { ...names, source: 'moleFullUninstall' } },
+      { ...associations, names: { ...names, name: 'Another' } },
+      { ...associations, names: { ...names, candidates: 5 } },
+      { ...associations, names: { ...names, issue: 'nameUnsupported' } },
+      { ...associations, entries: [...fixed, ...entries.slice(1)] },
+      { ...associations, entries: [...fixed, ...entries, { ...entries[0] }] },
+      { ...associations, discovery: { ...associations.discovery, candidates: 6 } },
+      ...['../escape', 'App/Child', 'x', '中'.repeat(81)].map((name) => ({
+        ...associations,
+        names: { ...names, name },
+      })),
+    ])
+      expect(() => parse({ ...data, associations: invalid })).toThrow()
+    expect(() => parseApplicationInspection({ ...data, associations }, 'org.example.app')).toThrow()
+    const duplicate = {
+      ...associations,
+      names: { ...names, name: 'org.example.app', candidates: 0 },
+      entries: fixed,
+    }
+    expect(
+      parse({ ...data, associations: duplicate }, 'org.example.app', 'org.example.app').associations
+        .names.candidates,
+    ).toBe(0)
+    for (const [code, issue] of [
+      ['notChecked', 'nameUnavailable'],
+      ['notChecked', 'nameUnsupported'],
+      ['unknown', 'limitReached'],
+    ])
+      expect(
+        parse({
+          ...data,
+          associations: {
+            ...associations,
+            names: { ...names, code, issue, name: null, candidates: 0 },
+            entries: fixed,
+          },
+        }).associations.names.code,
+      ).toBe(code)
+  })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 20 },
+      { protocol: 21 },
       { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
@@ -912,7 +1013,15 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 5,
+      version: 6,
+      names: {
+        version: 1,
+        source: 'moleBaseAppNameLibrary',
+        code: 'notChecked',
+        issue: 'nameUnavailable',
+        name: null,
+        candidates: 0,
+      },
       byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
       revision: moleUninstallRevision,
       code: 'observed',
@@ -947,7 +1056,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 6 },
+      { ...associations, version: 7 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
       { ...associations, issue: 'homeUnavailable' },
@@ -1263,7 +1372,15 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 5,
+      version: 6,
+      names: {
+        version: 1,
+        source: 'moleBaseAppNameLibrary',
+        code: 'notChecked',
+        issue: 'nameUnavailable',
+        name: null,
+        candidates: 0,
+      },
       byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
       revision: moleUninstallRevision,
       code: 'observed',

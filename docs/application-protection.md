@@ -46,7 +46,7 @@
 
 沿用 `inspect_application(taskId, index)`，不新增前端路径、标识、规则、PID 或执行参数。在原有两个实际工作器及 5 秒等待预算内先读取引擎规则，再完成本地包身份/运行观察及文件证据复核；随后从 SQLite 读取最新保存的保护目录。锁只用于短时读取，不跨异步文件/AppKit 工作。设置读取失败则不发布这次观察。规则判定不写数据库/历史、不扫描关联文件或申请新授权。引擎资源校验增加有界只读 I/O；等待超时仍由真实工作器持有名额到结束。
 
-当前应用检查协议为 v19。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。`officialUninstaller` 保留 version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。新增 background 的标记/目录条件观察，结构与约束见 [后台应用条件](application-background.md)。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
+当前应用检查协议为 v20。`protection.reasons`（systemLocation/currentApplication/clientDirectory）与 `matchedPaths` 保留客户端命中；空原因仅表示本次客户端规则未命中。`moleProtection` 保留 version=1、固定 revision、code（protected/notMatched/unknown）和 issue（identityChanged/identityUnavailable/rulesUnavailable 或 null）。`officialUninstaller` 保留 version=1、同一固定 revision、code（officialRequired/notMatched/unknown）、vendor（已适配厂商或 null）、issue（原三个原因及 nameUnavailable 或 null）。新增 background 的标记/目录条件观察，结构与约束见 [后台应用条件](application-background.md)。前端校验版本、精确修订、已适配厂商、枚举、原因与身份/结果关系；矛盾结果整份拒绝。客户端目录字段校验不变；主设置 JSON、schema v3、CSP 和依赖版本不变。
 
 父组件将已保存保护目录绑定到观察组件身份。添加/移除保护目录后重新检查，即使列表任务不变；旧请求和旧计时器不能覆盖新一代结果。主题或历史保留天数变更不触发无关重查。设置与文件系统不是同一事务，返回后的变化仍可能发生；这些提示不替代未来真正修改前再次读取规则、身份及归属。
 
