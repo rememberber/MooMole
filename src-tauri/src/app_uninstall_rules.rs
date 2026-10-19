@@ -1,6 +1,8 @@
 //! Fixed-revision read-only component / official-uninstaller observations.
 //! No Shell execution in production; no data ownership or uninstall eligibility.
+mod identity;
 mod path;
+pub use path::IdentityBudget as PathBudget;
 pub use path::Observation as PathObservation;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -17,6 +19,7 @@ const UNINSTALL: &str = "1ffcd3f39735013210346e106c7ade367078faaefa3a6e072e20c12
 const BATCH: &str = "f44ed6a61ec5074f8efe89e65dd3d9fbc48dd78533b4d529d8220dd9660bcc54";
 const RECEIPTS: &str = "5a75ca76477880016e035e76a688371653f354a57a8668f85906351609977894";
 const BASE: &str = "58627b0717c02c6d27dbd28d33ff038affad9d6e8fec4770905c1bb3f1fda6f3";
+const FILE_OPS: &str = "d483e6c196806205248bf25c94d9c1dea0ff8d621ed13806109c452675673005";
 const LIMIT: u64 = 256 * 1024;
 
 #[derive(Debug, Serialize)]
@@ -244,19 +247,28 @@ pub fn load(root: &Path) -> Result<Policy, String> {
     pinned_text(&root.join("lib/uninstall/batch.sh"), BATCH)?;
     pinned_text(&root.join("lib/core/pkg_receipts.sh"), RECEIPTS)?;
     pinned_text(&root.join("lib/core/base.sh"), BASE)?;
+    pinned_text(&root.join("lib/core/file_ops.sh"), FILE_OPS)?;
     let data = pinned_text(&root.join("lib/core/app_protection_data.sh"), DATA)?;
     let mut policy = Policy::parse(&data)?;
     policy.paths = Some(path::Policy::parse(&logic, &data)?);
     Ok(policy)
 }
-pub fn observe_path(
+pub fn observe_path_with_identity(
     policy: Option<&Policy>,
     home: &Path,
     path: &Path,
     location: &str,
+    budget: &mut PathBudget,
 ) -> PathObservation {
-    path::observe(policy.and_then(|p| p.paths.as_ref()), home, path, location)
+    path::observe_with_identity(
+        policy.and_then(|p| p.paths.as_ref()),
+        home,
+        path,
+        location,
+        budget,
+    )
 }
+
 fn observed_id<'a>(id: Option<&'a str>, identity: &str) -> Result<&'a str, &'static str> {
     if identity == "different" {
         return Err("identityChanged");

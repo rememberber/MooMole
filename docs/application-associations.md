@@ -70,7 +70,7 @@
 
 ## 协议与后续
 
-应用检查协议 v16 的 associations 包含 version=4、固定 revision、observed/unknown、issue 和 entries。观测成功时先按固定顺序返回 16 项，后接最多 64 个动态目录候选；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态路径必须位于 4 个声明根直属且符合名称边界，不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v17 的 associations 包含 version=4、固定 revision、observed/unknown、issue 和 entries。观测成功时先按固定顺序返回 16 项，后接最多 64 个动态目录候选；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态路径必须位于 4 个声明根直属且符合名称边界，不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，16 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

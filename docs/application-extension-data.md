@@ -35,7 +35,7 @@
 
 ## 协议与界面
 
-应用协议 v16 新增 extensionData version=2、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries 与 byHost。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons、molePathProtection。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
+应用协议 v17 新增 extensionData version=2、固定 revision、observed/partial/notChecked/unknown、issue、identifiers、entries 与 byHost。entries 每项为 relativePath、完整 sources、present/notFound/unknown、issue、protectionReasons、molePathProtection。byHost 单独包含 observed/partial/notChecked、issue、扫描条目数和不同候选数。
 
 前端要求已选 ID 来自本次最终 embedded，已查询状态必须对应排序前 8 个；校验完整精确模板及合并来源、ByHost 全部匹配来源、路径唯一/直属名称、数量、保护和状态关系。来源丢失、遗漏精确位置、越界路径或矛盾协议整体拒绝。原 associations version=4 与 installations version=5 不变，IPC 仍只接受 taskId/index，没有前端目录、ID 或 HOME 覆盖。
 

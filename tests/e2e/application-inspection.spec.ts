@@ -56,22 +56,40 @@ async function setup(page: Page) {
       )
       if (mode === 'error') throw new Error('应用状态读取超时，结果无法确认；请稍后重试。')
       const pathRule = (status: string, index = -1) => ({
-        version: 1,
+        version: 2,
         revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
-        source: 'moleUninstallLiteralPath',
+        source: 'moleUninstallPathSubset',
         code:
-          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index)
+          (mode?.endsWith('MoleProtected') || mode?.endsWith('MoleIdentity')) &&
+          [0, 1, 3].includes(index)
             ? 'protected'
-            : status === 'unknown' || (mode?.endsWith('MoleUnknown') && [0, 1, 3].includes(index))
+            : status === 'unknown' ||
+                ((mode?.endsWith('MoleUnknown') ||
+                  mode?.endsWith('MoleIdentityUnknown') ||
+                  mode?.endsWith('MoleIdentityLimit')) &&
+                  [0, 1, 3].includes(index))
               ? 'unknown'
               : 'notMatched',
         reason:
-          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index) ? 'systemComponent' : null,
+          (mode?.endsWith('MoleProtected') || mode?.endsWith('MoleIdentity')) &&
+          [0, 1, 3].includes(index)
+            ? mode?.endsWith('MoleIdentity')
+              ? 'endpointSecurityIdentity'
+              : 'systemComponent'
+            : null,
         issue:
-          mode?.endsWith('MoleProtected') && [0, 1, 3].includes(index)
+          (mode?.endsWith('MoleProtected') || mode?.endsWith('MoleIdentity')) &&
+          [0, 1, 3].includes(index)
             ? null
-            : mode?.endsWith('MoleUnknown') && [0, 1, 3].includes(index)
-              ? 'rulesUnavailable'
+            : (mode?.endsWith('MoleUnknown') ||
+                  mode?.endsWith('MoleIdentityUnknown') ||
+                  mode?.endsWith('MoleIdentityLimit')) &&
+                [0, 1, 3].includes(index)
+              ? mode?.endsWith('MoleIdentityUnknown')
+                ? 'identityUnverified'
+                : mode?.endsWith('MoleIdentityLimit')
+                  ? 'identityLimitReached'
+                  : 'rulesUnavailable'
               : status === 'unknown'
                 ? 'locationUnverified'
                 : null,
@@ -122,7 +140,7 @@ async function setup(page: Page) {
           protectionReasons: [],
         })
       return {
-        protocol: mode === 'future' ? 17 : 16,
+        protocol: mode === 'future' ? 18 : 17,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -1363,5 +1381,47 @@ test('Mole literal uninstall path retention stays visible for unknown and missin
     .locator('details')
     .filter({ has: page.locator('summary').getByText('规则来源', { exact: true }) })
   await source.locator('summary').click()
-  await expect(source).toContainText('不含白名单、别名解析或执行许可')
+  await expect(source).toContainText('不含完整别名解析、白名单或执行许可')
+})
+
+test('endpoint ancestor identity retention and unknown budgets remain explicit without modification controls', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page)
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationMoleIdentity'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  await expect(inspection).toContainText('Mole 要求保留')
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(
+    associations.getByText('Mole：终端安全缓存所在目录，保留', { exact: true }),
+  ).toHaveCount(3)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await associations.screenshot({
+      path: `test-results/application-mole-identity-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, message] of [
+    ['associationMoleIdentityUnknown', '目录身份尚未核实'],
+    ['associationMoleIdentityLimit', '目录身份检查未完成'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(associations).toContainText(message)
+    await expect(associations).not.toContainText('终端安全缓存所在目录，保留')
+    await expect(inspection).not.toContainText('Mole 要求保留')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'extensionMoleIdentity'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  const embedded = inspection.getByLabel('嵌入扩展', { exact: true })
+  await embedded.locator('summary').click()
+  const data = embedded.getByLabel('扩展关联数据', { exact: true })
+  await expect(data.getByText('Mole：终端安全缓存所在目录，保留', { exact: true })).toHaveCount(3)
+  await expect(data).toContainText('已保存保护目录覆盖，保留')
+  await expect(data.getByRole('checkbox')).toHaveCount(0)
+  await expect(data.getByRole('button')).toHaveCount(0)
 })

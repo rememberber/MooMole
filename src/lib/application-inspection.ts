@@ -26,7 +26,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 16 ||
+    data.protocol !== 17 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -46,9 +46,9 @@ export function parseApplicationInspection(
     const protection = entry.molePathProtection
     return Boolean(
       protection &&
-      protection.version === 1 &&
+      protection.version === 2 &&
       protection.revision === moleUninstallRevision &&
-      protection.source === 'moleUninstallLiteralPath' &&
+      protection.source === 'moleUninstallPathSubset' &&
       (protection.code === 'protected'
         ? [
             'sharedRoot',
@@ -56,14 +56,19 @@ export function parseApplicationInspection(
             'systemComponent',
             'criticalData',
             'endpointSecurity',
+            'endpointSecurityIdentity',
           ].includes(protection.reason ?? '') && protection.issue === null
         : protection.code === 'notMatched'
           ? protection.reason === null && protection.issue === null && entry.status !== 'unknown'
           : protection.code === 'unknown' &&
             protection.reason === null &&
-            ['rulesUnavailable', 'locationUnverified', 'pathUnsupported'].includes(
-              protection.issue ?? '',
-            ) &&
+            [
+              'rulesUnavailable',
+              'locationUnverified',
+              'pathUnsupported',
+              'identityUnverified',
+              'identityLimitReached',
+            ].includes(protection.issue ?? '') &&
             (protection.issue !== 'locationUnverified' || entry.status === 'unknown')),
     )
   }

@@ -26,6 +26,6 @@
 
 沿用原「共享关联」折叠区域：先显示数据保留与不完整结论，展开后显示本次尝试的非 Apple 收据数及未完整读取、变化、预算或不支持原因。没有新增页面、卸载/退出/文件修改按钮。
 
-应用检查协议 v16、installations version=5/source=moleListRegistryRootsVolumesAndReceipts。receipts 包含 code（observed/partial/notChecked）、issue、packageCount、checkedCount、entries、candidates；checkedCount 表示尝试核对的数量，partial 时不承诺这些收据全部成功。未知所选身份或固定资源时 notChecked、计数全零；收据 partial 要求整体 partial，receiptsIncomplete 仅在没有其他整体原因时使用。前端拒绝容量、状态或计数关系矛盾。
+应用检查协议 v17、installations version=5/source=moleListRegistryRootsVolumesAndReceipts。receipts 包含 code（observed/partial/notChecked）、issue、packageCount、checkedCount、entries、candidates；checkedCount 表示尝试核对的数量，partial 时不承诺这些收据全部成功。未知所选身份或固定资源时 notChecked、计数全零；收据 partial 要求整体 partial，receiptsIncomplete 仅在没有其他整体原因时使用。前端拒绝容量、状态或计数关系矛盾。
 
 Mole 64、登记 32、常用目录 128、本地卷 128、收据 128 合计最多 480 个输入候选；路径/目录身份去重后最多持有和展示 32 个共享命中。observed 只表示本次支持范围未发现已知中断，不代表全机器安装发现、数据独占或执行凭据。完整关联与保护、真实权限/故障矩阵和执行前验证继续按 [发布路线图](release-roadmap.md) 推进。

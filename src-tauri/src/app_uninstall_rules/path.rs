@@ -1,4 +1,4 @@
-//! Pinned uninstall-mode literal path subset. No whitelist, alias resolution,
+//! Pinned uninstall-mode path subset. No whitelist, full alias resolution,
 //! cleanup data policy or execution eligibility is inferred from a non-match.
 use super::*;
 #[derive(Debug, Serialize)]
@@ -21,9 +21,9 @@ impl Observation {
         issue: Option<&'static str>,
     ) -> Self {
         Self {
-            version: 1,
+            version: 2,
             revision: crate::engine::REVISION,
-            source: "moleUninstallLiteralPath",
+            source: "moleUninstallPathSubset",
             code,
             reason,
             issue,
@@ -355,6 +355,81 @@ pub(super) fn observe(
     Observation::result("notMatched", None, None)
 }
 
+/// One shared checkpoint budget for both main-ID and extension locations.
+pub struct IdentityBudget {
+    pub(super) started: std::time::Instant,
+    pub(super) attempts: usize,
+}
+impl Default for IdentityBudget {
+    fn default() -> Self {
+        Self {
+            started: std::time::Instant::now(),
+            attempts: 0,
+        }
+    }
+}
+impl IdentityBudget {
+    pub(super) fn expired(&self) -> bool {
+        self.started.elapsed() > std::time::Duration::from_millis(500)
+    }
+    pub(super) fn take(&mut self) -> bool {
+        if self.attempts >= 64 || self.expired() {
+            return false;
+        }
+        self.attempts += 1;
+        true
+    }
+}
+pub(super) fn observe_with_identity(
+    policy: Option<&Policy>,
+    home: &Path,
+    path: &Path,
+    location: &str,
+    budget: &mut IdentityBudget,
+) -> Observation {
+    observe_with_root(
+        policy,
+        home,
+        path,
+        location,
+        budget,
+        Path::new("/private/var/folders"),
+    )
+}
+fn observe_with_root(
+    policy: Option<&Policy>,
+    home: &Path,
+    path: &Path,
+    location: &str,
+    budget: &mut IdentityBudget,
+    root: &Path,
+) -> Observation {
+    let literal = observe(policy, home, path, location);
+    // Only the endpoint-security rule has an existing-root callback upstream.
+    // Other positive rules retain precedence. Unsupported inputs/resources never probe.
+    if literal.code == "protected"
+        || matches!(literal.issue, Some("rulesUnavailable" | "pathUnsupported"))
+    {
+        return literal;
+    }
+    let Some(policy) = policy else {
+        return literal;
+    };
+    let lowered = path.to_str().unwrap().to_ascii_lowercase();
+    if !policy
+        .endpoints
+        .iter()
+        .any(|prefix| lowered.contains(prefix))
+    {
+        return literal;
+    }
+    match super::identity::within(path, root, budget) {
+        Ok(true) => Observation::result("protected", Some("endpointSecurityIdentity"), None),
+        Ok(false) => literal,
+        Err(issue) => Observation::unknown(issue),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -459,6 +534,93 @@ mod tests {
         );
     }
     #[test]
+    #[cfg(target_os = "macos")]
+    fn endpoint_identity_is_scoped_retains_missing_descendants_and_does_not_clear_other_guards() {
+        let t = tempfile::tempdir_in("/private/tmp").unwrap();
+        let root = t.path().join("root");
+        let data = root.join("com.security.agent");
+        std::fs::create_dir_all(&data).unwrap();
+        let p = policy();
+        for (path, status) in [
+            (&data, "present"),
+            (&data.join("missing"), "notFound"),
+            (&data, "unknown"),
+        ] {
+            let result = observe_with_root(
+                Some(&p),
+                t.path(),
+                path,
+                status,
+                &mut IdentityBudget::default(),
+                &root,
+            );
+            assert_eq!(result.code, "protected");
+            assert_eq!(result.reason, Some("endpointSecurityIdentity"));
+        }
+        let outside = t.path().join("com.security.outside");
+        std::fs::create_dir(&outside).unwrap();
+        assert_eq!(
+            observe_with_root(
+                Some(&p),
+                t.path(),
+                &outside,
+                "present",
+                &mut IdentityBudget::default(),
+                &root
+            )
+            .code,
+            "notMatched"
+        );
+        assert_eq!(
+            observe_with_root(
+                Some(&p),
+                t.path(),
+                &outside.join("missing"),
+                "notFound",
+                &mut IdentityBudget::default(),
+                &root
+            )
+            .issue,
+            Some("identityUnverified")
+        );
+        let mut expired = IdentityBudget {
+            started: std::time::Instant::now(),
+            attempts: 64,
+        };
+        assert_eq!(
+            observe_with_root(Some(&p), t.path(), &data, "present", &mut expired, &root).issue,
+            Some("identityLimitReached")
+        );
+        assert_eq!(
+            observe_with_root(
+                Some(&p),
+                t.path(),
+                &t.path().join("plain"),
+                "notFound",
+                &mut expired,
+                &root
+            )
+            .code,
+            "notMatched"
+        );
+        assert_eq!(
+            observe_with_root(
+                Some(&p),
+                t.path(),
+                &t.path().join("com.apple.finder.com.security."),
+                "unknown",
+                &mut expired,
+                &root
+            )
+            .code,
+            "protected"
+        );
+        assert_eq!(
+            observe_with_root(None, t.path(), &data, "present", &mut expired, &root).issue,
+            Some("rulesUnavailable")
+        );
+    }
+    #[test]
     fn unsupported_shell_patterns_and_actions_are_not_evaluated() {
         for pattern in [
             "",
@@ -499,7 +661,7 @@ mod tests {
             true,
         )
         .finish();
-        locations.attach_mole_paths(Some(&outer), &home);
+        locations.attach_mole_paths(Some(&outer), &home, &mut IdentityBudget::default());
         locations
             .attach_protection(
                 &home,
@@ -518,7 +680,7 @@ mod tests {
             value["entries"][1]["protectionReasons"][0],
             "clientDirectory"
         );
-        locations.attach_mole_paths(None, &home);
+        locations.attach_mole_paths(None, &home, &mut IdentityBudget::default());
         let value = serde_json::to_value(&locations).unwrap();
         assert_eq!(
             value["entries"][1]["molePathProtection"]["issue"],
@@ -535,7 +697,7 @@ mod tests {
             None,
         )
         .finish();
-        data.attach_mole_paths(Some(&outer), &home);
+        data.attach_mole_paths(Some(&outer), &home, &mut IdentityBudget::default());
         let value = serde_json::to_value(data).unwrap();
         assert!(value["entries"]
             .as_array()

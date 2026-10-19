@@ -103,13 +103,15 @@ impl Observation {
         &mut self,
         policy: Option<&crate::app_uninstall_rules::Policy>,
         home: &Path,
+        budget: &mut crate::app_uninstall_rules::PathBudget,
     ) {
         for entry in &mut self.entries {
-            entry.mole_path_protection = crate::app_uninstall_rules::observe_path(
+            entry.mole_path_protection = crate::app_uninstall_rules::observe_path_with_identity(
                 policy,
                 home,
                 &home.join(&entry.relative_path),
                 entry.status,
+                budget,
             );
         }
     }
@@ -198,13 +200,15 @@ impl ExtensionData {
         &mut self,
         policy: Option<&crate::app_uninstall_rules::Policy>,
         home: &Path,
+        budget: &mut crate::app_uninstall_rules::PathBudget,
     ) {
         for entry in &mut self.entries {
-            entry.mole_path_protection = crate::app_uninstall_rules::observe_path(
+            entry.mole_path_protection = crate::app_uninstall_rules::observe_path_with_identity(
                 policy,
                 home,
                 &home.join(&entry.relative_path),
                 entry.status,
+                budget,
             );
         }
     }

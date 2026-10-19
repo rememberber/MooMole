@@ -85,21 +85,28 @@ export interface AppEntry {
   size: string
 }
 export interface MolePathProtection {
-  version: 1
+  version: 2
   revision: string
-  source: 'moleUninstallLiteralPath'
+  source: 'moleUninstallPathSubset'
   code: 'protected' | 'notMatched' | 'unknown'
   reason:
     | 'sharedRoot'
     | 'containerRuntime'
     | 'systemComponent'
     | 'criticalData'
+    | 'endpointSecurityIdentity'
     | 'endpointSecurity'
     | null
-  issue: 'rulesUnavailable' | 'locationUnverified' | 'pathUnsupported' | null
+  issue:
+    | 'rulesUnavailable'
+    | 'locationUnverified'
+    | 'pathUnsupported'
+    | 'identityUnverified'
+    | 'identityLimitReached'
+    | null
 }
 export interface ApplicationInspection {
-  protocol: 16
+  protocol: 17
   checkedAt: number
   bundleId: string | null
   version: string | null

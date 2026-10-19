@@ -208,6 +208,24 @@ impl AnchoredPath {
         Ok(result)
     }
 
+    /// Metadata-only callers may restrict observations to local, materialized paths.
+    #[cfg(target_os = "macos")]
+    pub fn local_materialized(&self) -> bool {
+        use std::os::macos::fs::MetadataExt as _;
+        self.handles.iter().all(|handle| {
+            let mut out = MaybeUninit::<libc::statfs>::zeroed();
+            let local = unsafe {
+                libc::fstatfs(handle.file.as_raw_fd(), out.as_mut_ptr()) == 0
+                    && out.assume_init().f_flags & libc::MNT_LOCAL as u32 != 0
+            };
+            local
+                && handle
+                    .file
+                    .metadata()
+                    .is_ok_and(|m| m.st_flags() & 0x40000000 == 0)
+        })
+    }
+
     pub fn target(&self) -> &File {
         &self.handles.last().unwrap().file
     }

@@ -15,6 +15,7 @@ function MolePathNotice({ value }: { value: MolePathProtection }) {
               systemComponent: '系统组件路径',
               criticalData: '关键设置或持久数据',
               endpointSecurity: '终端安全组件数据',
+              endpointSecurityIdentity: '终端安全缓存所在目录',
             }[value.reason!]
           }，保留`
         : `Mole 路径保护无法确认 · ${
@@ -22,6 +23,8 @@ function MolePathNotice({ value }: { value: MolePathProtection }) {
               rulesUnavailable: '请检查内置规则后重试',
               locationUnverified: '位置尚未核实，请保留并重查',
               pathUnsupported: '路径形式暂不支持，请保留',
+              identityUnverified: '目录身份尚未核实，请保留并重查',
+              identityLimitReached: '目录身份检查未完成，请保留并重查',
             }[value.issue!]
           }`}
     </span>
@@ -641,7 +644,8 @@ export function ApplicationInspection({
               uninstall_app_is_background_only / uninstall_app_is_directly_in_search_root ·{' '}
               {value.moleProtection.revision.slice(0, 12)}
               ；路径保留提示仅覆盖 should_protect_path
-              的卸载模式字面规则，不含白名单、别名解析或执行许可。 官方卸载器名称取自本次 Mole
+              的卸载模式字面规则及终端安全缓存祖先身份子集；链接等无法核实的路径继续保留，不含完整别名解析、白名单或执行许可。
+              官方卸载器名称取自本次 Mole
               清单，共享保留使用已核对路径的包名，厂商身份未认证。客户端目录与自身保护继续生效，未命中不代表可卸载。
             </p>
           </details>

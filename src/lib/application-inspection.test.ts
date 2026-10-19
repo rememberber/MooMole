@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { moleUninstallRevision, parseApplicationInspection } from './application-inspection'
 
 const pathRule = (status = 'notFound') => ({
-  version: 1,
+  version: 2,
   revision: moleUninstallRevision,
-  source: 'moleUninstallLiteralPath',
+  source: 'moleUninstallPathSubset',
   code: status === 'unknown' ? 'unknown' : 'notMatched',
   reason: null as string | null,
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
 const valid = () => ({
-  protocol: 16,
+  protocol: 17,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -169,6 +169,31 @@ describe('application inspection boundary', () => {
         },
       },
     }
+    for (const rule of [
+      { ...pathRule(), code: 'protected', reason: 'endpointSecurityIdentity' },
+      { ...pathRule(), code: 'unknown', issue: 'identityUnverified' },
+      { ...pathRule(), code: 'unknown', issue: 'identityLimitReached' },
+    ]) {
+      for (const status of ['present', 'notFound', 'unknown']) {
+        expect(
+          parse({
+            ...base,
+            associations: {
+              ...base.associations,
+              entries: [
+                {
+                  ...entries[0],
+                  status,
+                  issue: status === 'unknown' ? 'unavailable' : null,
+                  molePathProtection: rule,
+                },
+                ...entries.slice(1),
+              ],
+            },
+          }).associations.entries[0].molePathProtection.code,
+        ).toBe(rule.code)
+      }
+    }
     const protectedRule = { ...pathRule(), code: 'protected', reason: 'criticalData' }
     for (const status of ['present', 'notFound', 'unknown']) {
       const entry = {
@@ -186,9 +211,10 @@ describe('application inspection boundary', () => {
     }
     for (const rule of [
       undefined,
-      { ...protectedRule, version: 2 },
+      { ...protectedRule, version: 1 },
       { ...protectedRule, revision: 'other' },
       { ...protectedRule, source: 'moleCleanupPath' },
+      { ...protectedRule, source: 'moleUninstallLiteralPath' },
       { ...protectedRule, code: 'safe' },
       { ...protectedRule, reason: null },
       { ...protectedRule, reason: 'whitelist' },
@@ -472,7 +498,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 17 },
+      { protocol: 18 },
+      { protocol: 16 },
       { checkedAt: NaN },
       { checkedAt: -1 },
       { checkedAt: 9e15 },

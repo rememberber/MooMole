@@ -124,12 +124,13 @@ pub async fn load(
         let _slot = slot;
         let policy = crate::app_uninstall_rules::load(&engine_root);
         let mut result = inspect(&path, &expected, &home, policy.is_ok(), candidates)?;
+        let mut path_budget = crate::app_uninstall_rules::PathBudget::default();
         result
             .associations
-            .attach_mole_paths(policy.as_ref().ok(), &home);
+            .attach_mole_paths(policy.as_ref().ok(), &home, &mut path_budget);
         result
             .extension_data
-            .attach_mole_paths(policy.as_ref().ok(), &home);
+            .attach_mole_paths(policy.as_ref().ok(), &home, &mut path_budget);
         result.mole_protection = crate::app_uninstall_rules::observe(
             policy.as_ref().ok(),
             result.bundle_id.as_deref(),
@@ -1226,7 +1227,7 @@ mod mac {
             return Err(CHANGED.into());
         }
         Ok(Inspection {
-            protocol: 16,
+            protocol: 17,
             checked_at: crate::db::now(),
             bundle_id: fields.id,
             version: fields.version,
