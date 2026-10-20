@@ -17,7 +17,7 @@ const xdgBase = (name: string) =>
     ['nameXdgShare', `.local/share/${name}`],
   ].filter(([, path], index, all) => all.findIndex(([, previous]) => path === previous) === index)
 const valid = () => ({
-  protocol: 25,
+  protocol: 26,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -96,12 +96,13 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 11,
+    version: 12,
     names: {
-      version: 6,
+      version: 7,
       source: 'moleAppNameUserPaths',
       baseName: null,
       leafNames: [] as string[],
+      vscodeChannel: null,
       cliExcluded: 0,
       code: 'notChecked',
       issue: 'nameUnavailable',
@@ -199,7 +200,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 11,
+        version: 12,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -674,10 +675,11 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 6,
+      version: 7,
       source: 'moleAppNameUserPaths',
       baseName: null,
       leafNames: [] as string[],
+      vscodeChannel: null,
       cliExcluded: 0,
       code: 'observed',
       name: 'Example',
@@ -703,7 +705,7 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 7 } },
+      { ...associations, names: { ...names, version: 8 } },
       { ...associations, names: { ...names, version: 5 } },
       { ...associations, names: { ...names, version: 4 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
@@ -1109,6 +1111,98 @@ describe('application inspection boundary', () => {
           'AyuGram',
         ),
       ).toThrow()
+    const vscodeCase = (name: string, id: string, channel: string | null) => {
+      const fixture = leafCase(name, id, [])
+      const entries = fixture.associations.entries
+      const extra =
+        channel === null
+          ? []
+          : [
+              ['nameVSCodeShipItStable', 'Library/Caches/com.microsoft.VSCode.ShipIt'],
+              ['nameVSCodeShipItInsiders', 'Library/Caches/com.microsoft.VSCodeInsiders.ShipIt'],
+              ['nameVSCodeExtensions', channel === 'insiders' ? '.vscode-insiders' : '.vscode'],
+              [
+                'nameVSCodeSupport',
+                channel === 'insiders'
+                  ? 'Library/Application Support/Code - Insiders'
+                  : 'Library/Application Support/Code',
+              ],
+              [
+                'nameVSCodeCache',
+                channel === 'insiders'
+                  ? 'Library/Caches/com.microsoft.VSCodeInsiders'
+                  : 'Library/Caches/com.microsoft.VSCode',
+              ],
+            ]
+      const added = extra
+        .filter(([, path]) => !entries.some((e) => e.relativePath === path))
+        .map(([kind, relativePath]) => ({
+          ...entries[0],
+          kind,
+          relativePath,
+          status: 'present',
+          issue: null,
+        }))
+      return {
+        ...fixture,
+        associations: {
+          ...fixture.associations,
+          names: {
+            ...fixture.associations.names,
+            vscodeChannel: channel,
+            candidates: fixture.associations.names.candidates + added.length,
+          },
+          entries: [...entries, ...added],
+        },
+      }
+    }
+    for (const [name, id, channel] of [
+      ['Code', 'com.microsoft.VSCode', 'stable'],
+      ['Visual Studio Code', 'com.microsoft.VSCode', 'stable'],
+      ['Visual Studio Code Insiders', 'com.microsoft.VSCodeInsiders', 'insiders'],
+      ['Code', 'org.notmicrosoft.foo.vScodeSomething', 'stable'],
+      ['Code', 'com.microsoft.VSCodeINSIDERS', 'stable'],
+      ['Code', 'com.Microsoft.VSCode', null],
+      ['Code', 'com.microsoft.VSCODE', null],
+      ['Code', 'com.cursor.editor', null],
+    ] as [string, string, string | null][]) {
+      const fixture = vscodeCase(name, id, channel)
+      expect(parse(fixture, id, name).associations.names.vscodeChannel).toBe(channel)
+      if (id === 'com.microsoft.VSCode' && name === 'Code')
+        expect(fixture.associations.names.candidates).toBe(31)
+    }
+    const codeId = 'com.microsoft.VSCode'
+    const codeFixture = vscodeCase('Code', codeId, 'stable')
+    for (const names of [
+      { ...codeFixture.associations.names, vscodeChannel: undefined },
+      { ...codeFixture.associations.names, vscodeChannel: null },
+      { ...codeFixture.associations.names, vscodeChannel: 'insiders' },
+      { ...codeFixture.associations.names, vscodeChannel: 'Stable' },
+      { ...codeFixture.associations.names, version: 6 },
+    ])
+      expect(() =>
+        parse(
+          { ...codeFixture, associations: { ...codeFixture.associations, names } },
+          codeId,
+          'Code',
+        ),
+      ).toThrow()
+    for (const entries of [
+      codeFixture.associations.entries.slice(0, -1),
+      codeFixture.associations.entries.map((e) =>
+        e.kind === 'nameVSCodeExtensions' ? { ...e, relativePath: '.vscode-insiders' } : e,
+      ),
+      codeFixture.associations.entries.map((e) =>
+        e.kind === 'nameVSCodeShipItStable' ? { ...e, relativePath: '.docker' } : e,
+      ),
+    ])
+      expect(() =>
+        parse(
+          { ...codeFixture, associations: { ...codeFixture.associations, entries } },
+          codeId,
+          'Code',
+        ),
+      ).toThrow()
     const channel = channelCase('Zed Nightly', 'Zed')
     for (const invalid of [
       { ...channel, names: { ...channel.names, baseName: null } },
@@ -1151,7 +1245,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 26 },
+      { protocol: 27 },
+      { protocol: 25 },
       { protocol: 24 },
       { protocol: 23 },
       { protocol: 16 },
@@ -1455,12 +1550,13 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 11,
+      version: 12,
       names: {
-        version: 6,
+        version: 7,
         source: 'moleAppNameUserPaths',
         baseName: null,
         leafNames: [] as string[],
+        vscodeChannel: null,
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
@@ -1501,7 +1597,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 12 },
+      { ...associations, version: 13 },
+      { ...associations, version: 11 },
       { ...associations, version: 10 },
       { ...associations, version: 9 },
       { ...associations, revision: 'other' },
@@ -1819,12 +1916,13 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 11,
+      version: 12,
       names: {
-        version: 6,
+        version: 7,
         source: 'moleAppNameUserPaths',
         baseName: null,
         leafNames: [] as string[],
+        vscodeChannel: null,
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',

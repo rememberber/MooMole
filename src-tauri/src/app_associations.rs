@@ -117,11 +117,12 @@ struct NameDiscovery {
     cli_excluded: usize,
     base_name: Option<String>,
     leaf_names: Vec<String>,
+    vscode_channel: Option<&'static str>,
 }
 impl NameDiscovery {
     fn not_checked(issue: &'static str) -> Self {
         Self {
-            version: 6,
+            version: 7,
             source: "moleAppNameUserPaths",
             code: "notChecked",
             issue: Some(issue),
@@ -130,6 +131,7 @@ impl NameDiscovery {
             cli_excluded: 0,
             base_name: None,
             leaf_names: vec![],
+            vscode_channel: None,
         }
     }
 }
@@ -153,7 +155,7 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 11,
+            version: 12,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -749,7 +751,7 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 11,
+                    version: 12,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,

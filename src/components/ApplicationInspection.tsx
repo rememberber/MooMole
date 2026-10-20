@@ -410,9 +410,8 @@ export function ApplicationInspection({
             {value.associations.names.code === 'observed' &&
               value.associations.names.candidates > 0 && (
                 <p className="muted">
-                  另按 Mole 清单名称「{value.associations.names.name}」查询{' '}
-                  {value.associations.names.candidates}{' '}
-                  个位置，仅为名称线索，本地显示名称和归属未认证。
+                  按 Mole 名称与产品规则，为「{value.associations.names.name}」查询{' '}
+                  {value.associations.names.candidates} 个位置，仅供审阅，本地显示名称和归属未认证。
                 </p>
               )}
             {value.associations.names.code === 'observed' &&
@@ -427,6 +426,14 @@ export function ApplicationInspection({
                 <p className="muted">
                   按 Mole 包名与清单名称边界补查「{value.associations.names.leafNames.join('」「')}
                   」；仅为派生线索，可能共用，全部保留。
+                </p>
+              )}
+            {value.associations.names.code === 'observed' &&
+              value.associations.names.vscodeChannel !== null && (
+                <p className="muted">
+                  按 Mole 的 VS Code{' '}
+                  {value.associations.names.vscodeChannel === 'insiders' ? 'Insiders' : '稳定版'}
+                  规则补查； 扩展与用户数据可能含个人配置，两类更新缓存可能跨渠道共用，全部保留。
                 </p>
               )}
             {value.associations.names.code === 'observed' &&
@@ -512,6 +519,11 @@ export function ApplicationInspection({
                               nameXdgCompactShare: '工具数据',
                               nameXdgHyphenShare: '工具数据',
                               nameXdgUnderscoreShare: '工具数据',
+                              nameVSCodeShipItStable: '稳定版更新缓存',
+                              nameVSCodeShipItInsiders: 'Insiders 更新缓存',
+                              nameVSCodeExtensions: '扩展与配置',
+                              nameVSCodeSupport: '用户数据',
+                              nameVSCodeCache: '缓存',
                               nameLeafSupport: '应用数据',
                               nameLeafCache: '缓存',
                               nameLeafLogs: '日志',
@@ -599,26 +611,28 @@ export function ApplicationInspection({
                           )}
                           {entry.kind.startsWith('name') && (
                             <span className="association-path muted">
-                              {entry.kind.startsWith('nameLeaf')
-                                ? '包名派生线索，不证明归属，可能共用，保留。'
-                                : entry.kind.startsWith('nameChannel')
-                                  ? '渠道名称线索，可能共用，归属未确认，保留。'
-                                  : entry.kind.startsWith('nameXdg')
-                                    ? '名称线索，可能含独立工具配置或共享数据，归属未确认，保留。'
-                                    : ['nameCompact', 'nameUnderscore', 'nameHyphen'].some(
-                                          (prefix) => entry.kind.startsWith(prefix),
-                                        )
-                                      ? '空格变体线索，可能共用，不证明归属，保留。'
-                                      : [
-                                            'nameSupport',
-                                            'nameCache',
-                                            'nameLogs',
-                                            'namePreferencesDirectory',
-                                            'namePreferences',
-                                            'nameSavedState',
-                                          ].includes(entry.kind)
-                                        ? '名称线索，不证明归属，保留。'
-                                        : '名称线索，注册、使用状态和归属未确认，保留。'}
+                              {entry.kind.startsWith('nameVSCode')
+                                ? '产品规则线索，可能含个人配置或共享数据，归属未确认，保留。'
+                                : entry.kind.startsWith('nameLeaf')
+                                  ? '包名派生线索，不证明归属，可能共用，保留。'
+                                  : entry.kind.startsWith('nameChannel')
+                                    ? '渠道名称线索，可能共用，归属未确认，保留。'
+                                    : entry.kind.startsWith('nameXdg')
+                                      ? '名称线索，可能含独立工具配置或共享数据，归属未确认，保留。'
+                                      : ['nameCompact', 'nameUnderscore', 'nameHyphen'].some(
+                                            (prefix) => entry.kind.startsWith(prefix),
+                                          )
+                                        ? '空格变体线索，可能共用，不证明归属，保留。'
+                                        : [
+                                              'nameSupport',
+                                              'nameCache',
+                                              'nameLogs',
+                                              'namePreferencesDirectory',
+                                              'namePreferences',
+                                              'nameSavedState',
+                                            ].includes(entry.kind)
+                                          ? '名称线索，不证明归属，保留。'
+                                          : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
                           {entry.kind === 'recentDocuments' && (
@@ -642,8 +656,8 @@ export function ApplicationInspection({
               </>
             )}
             <p className="muted">
-              仅查询精确标识的 21 个常见位置、Library/XDG 名称及空格、渠道及包名变体（最多 68
-              个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
+              仅查询精确标识的 21 个常见位置、Library/XDG 名称及空格、渠道、包名变体及 VS Code
+              专属位置（最多 73 个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
               个目录各一层、合计最多 64
               个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>

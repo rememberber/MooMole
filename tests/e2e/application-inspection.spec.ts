@@ -112,6 +112,44 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         ['nameLeafPreferences', `Library/Preferences/${name}.plist`],
         ['nameLeafSavedState', `Library/Saved Application State/${name}.savedState`],
       ])
+      const vscodeChannel = /microsoft.*[vV][sS][cC]ode/.test(appId)
+        ? /[iI]nsiders/.test(appId)
+          ? 'insiders'
+          : 'stable'
+        : null
+      const productPaths = (
+        vscodeChannel === null
+          ? []
+          : [
+              ['nameVSCodeShipItStable', 'Library/Caches/com.microsoft.VSCode.ShipIt'],
+              ['nameVSCodeShipItInsiders', 'Library/Caches/com.microsoft.VSCodeInsiders.ShipIt'],
+              [
+                'nameVSCodeExtensions',
+                vscodeChannel === 'insiders' ? '.vscode-insiders' : '.vscode',
+              ],
+              [
+                'nameVSCodeSupport',
+                vscodeChannel === 'insiders'
+                  ? 'Library/Application Support/Code - Insiders'
+                  : 'Library/Application Support/Code',
+              ],
+              [
+                'nameVSCodeCache',
+                vscodeChannel === 'insiders'
+                  ? 'Library/Caches/com.microsoft.VSCodeInsiders'
+                  : 'Library/Caches/com.microsoft.VSCode',
+              ],
+            ]
+      ).filter(
+        ([, path]) =>
+          ![
+            `Library/Caches/${appId}`,
+            `Library/Caches/${appName}`,
+            `Library/Application Support/${appName}`,
+            ...leafPaths.map(([, p]) => p),
+            ...rawChannel.map(([, p]) => p),
+          ].includes(path),
+      )
       const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
       const protection = {
         reasons:
@@ -264,7 +302,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         }
       }
       const result = {
-        protocol: mode === 'future' ? 26 : 25,
+        protocol: mode === 'future' ? 27 : 26,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -532,6 +570,13 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         },
         associations: {
           names: {
+            vscodeChannel:
+              mode?.startsWith('associationNames') &&
+              !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                ? mode === 'associationNamesVSCodeWrong'
+                  ? 'wrong'
+                  : vscodeChannel
+                : null,
             leafNames:
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
@@ -539,7 +584,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
                   ? ['Another', 'Another App']
                   : leafNames
                 : [],
-            version: mode === 'associationNamesLegacy' ? 5 : 6,
+            version: mode === 'associationNamesLegacy' ? 6 : 7,
             source:
               mode === 'associationNamesOldSource' ? 'moleAppNameLibrary' : 'moleAppNameUserPaths',
             code:
@@ -565,8 +610,8 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
                 ? new TextEncoder().encode(appName).length > 3 && appName.includes(' ')
-                  ? 36 + xdg.length + channel.length + leafPaths.length
-                  : 24 + xdg.length + channel.length + leafPaths.length
+                  ? 36 + xdg.length + channel.length + leafPaths.length + productPaths.length
+                  : 24 + xdg.length + channel.length + leafPaths.length + productPaths.length
                 : 0,
             baseName:
               mode?.startsWith('associationNames') &&
@@ -597,7 +642,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 12 : 11,
+          version: mode === 'associationFuture' ? 13 : 12,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -892,6 +937,25 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
                                         issue: null,
                                       }
                                     : pathRule(status),
+                              }
+                            }),
+                          )
+                          .concat(
+                            productPaths.map(([kind, relativePath], index) => {
+                              const changed = mode === 'associationNamesChanged'
+                              const status =
+                                changed || index === 1
+                                  ? 'unknown'
+                                  : index === 3
+                                    ? 'notFound'
+                                    : 'present'
+                              return {
+                                kind,
+                                relativePath,
+                                status,
+                                issue: changed ? 'changed' : index === 1 ? 'unavailable' : null,
+                                protectionReasons: index === 3 ? ['clientDirectory'] : [],
+                                molePathProtection: pathRule(status),
                               }
                             }),
                           )
@@ -2016,7 +2080,7 @@ test('literal app-name locations remain separate clues and clear on missing, tim
   const associations = inspection.locator('.application-associations')
   await associations.locator('summary').click()
   await expect(inspection).toContainText('关联位置受保护')
-  await expect(associations).toContainText('另按 Mole 清单名称「Example」查询 28 个位置')
+  await expect(associations).toContainText('按 Mole 名称与产品规则，为「Example」查询 28 个位置')
   await expect(associations).toContainText('本地显示名称和归属未认证')
   await expect(associations.getByText('名称线索，不证明归属，保留。', { exact: true })).toHaveCount(
     3,
@@ -2145,7 +2209,7 @@ test('space name variants show preservation, withdraw changed evidence and rejec
   await associations.locator('summary').click()
   await expect(associations).toContainText('查询 49 个位置')
   await expect(associations).toContainText(
-    'Library/XDG 名称及空格、渠道及包名变体（最多 68 个位置）',
+    'Library/XDG 名称及空格、渠道、包名变体及 VS Code 专属位置（最多 73 个位置）',
   )
   const compact = associations
     .locator('dl > div')
@@ -2437,4 +2501,108 @@ test('a wrapper cannot derive another product from its bundle leaf', async ({ pa
   await expect(associations).toContainText('查询 28 个位置')
   await expect(associations).not.toContainText('按 Mole 包名与清单名称边界')
   await expect(associations).not.toContainText('~/Library/Application Support/Google Chrome')
+})
+
+test('VS Code-specific clues retain personal data, cross-channel caches and revocable source bindings', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page, 'Visual Studio Code', 'com.microsoft.VSCode')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVSCode'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 53 个位置')
+  await expect(associations).toContainText('按 Mole 的 VS Code 稳定版规则补查')
+  await expect(associations).toContainText(
+    '扩展与用户数据可能含个人配置，两类更新缓存可能跨渠道共用，全部保留。',
+  )
+  const location = (path: string) =>
+    associations.locator('dl > div').filter({ has: page.getByText(path, { exact: true }) })
+  const extensions = location('~/.vscode')
+  await expect(extensions).toContainText('发现位置 · 归属待确认')
+  await expect(extensions).toContainText(
+    '产品规则线索，可能含个人配置或共享数据，归属未确认，保留。',
+  )
+  await expect(location('~/Library/Caches/com.microsoft.VSCode.ShipIt')).toContainText('发现位置')
+  await expect(location('~/Library/Caches/com.microsoft.VSCodeInsiders.ShipIt')).toContainText(
+    '无法确认 · 请检查访问权限后重试',
+  )
+  await expect(location('~/Library/Application Support/Code')).toContainText(
+    '已保存保护目录覆盖，保留',
+  )
+  await expect(associations.getByText('~/.vscode-insiders', { exact: true })).toHaveCount(0)
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1800 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((nodes) => nodes.every((node) => node.scrollWidth <= node.clientWidth + 1)),
+    ).toBe(true)
+    await associations.evaluate((node) => node.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-vscode-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(extensions).toContainText('检查期间发生变化，请重查')
+  await expect(extensions).not.toContainText('发现位置')
+  for (const mode of ['associationNamesVSCodeWrong', 'associationNamesLegacy']) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: /重新检查状态|重试检查/ }).click()
+    await expect(inspection.getByRole('alert')).toContainText('无法识别')
+    await expect(inspection).not.toContainText('按 Mole 的 VS Code')
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVSCode'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await associations.locator('summary').click()
+  await expect(extensions).toContainText('发现位置')
+  for (const mode of ['associationNamesLimit', 'associationNamesUnavailable']) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(associations).not.toContainText('按 Mole 的 VS Code')
+    await expect(associations).not.toContainText('~/.vscode')
+  }
+})
+
+test('VS Code Insiders selects its own user data while retaining both updater cache clues', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(
+    page,
+    'Visual Studio Code Insiders',
+    'com.microsoft.VSCodeInsiders',
+  )
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVSCode'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 53 个位置')
+  await expect(associations).toContainText('按 Mole 的 VS Code Insiders规则补查')
+  await expect(associations.getByText('~/.vscode-insiders', { exact: true })).toBeVisible()
+  await expect(associations.getByText('~/.vscode', { exact: true })).toHaveCount(0)
+  await expect(associations).toContainText('~/Library/Application Support/Code - Insiders')
+  await expect(associations).toContainText('~/Library/Caches/com.microsoft.VSCode.ShipIt')
+  await expect(associations).toContainText('~/Library/Caches/com.microsoft.VSCodeInsiders.ShipIt')
+})
+
+test('VS Code clues keep exact and original-name sources unique', async ({ page }) => {
+  const { row, inspection } = await setup(page, 'Code', 'com.microsoft.VSCode')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVSCode'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 31 个位置')
+  await expect(
+    associations.getByText('~/Library/Application Support/Code', { exact: true }),
+  ).toHaveCount(1)
+  await expect(
+    associations.getByText('~/Library/Caches/com.microsoft.VSCode', { exact: true }),
+  ).toHaveCount(1)
+  await expect(associations).toContainText('按 Mole 的 VS Code 稳定版规则补查')
 })

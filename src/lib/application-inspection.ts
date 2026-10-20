@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 25 ||
+    data.protocol !== 26 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -574,14 +574,44 @@ export function parseApplicationInspection(
     ['nameLeafPreferences', 'Library/Preferences', '.plist'],
     ['nameLeafSavedState', 'Library/Saved Application State', '.savedState'],
   ]
+  const vscodeChannel =
+    associations?.names?.code === 'observed' &&
+    reverseDns(data.bundleId) &&
+    /microsoft.*[vV][sS][cC]ode/.test(data.bundleId)
+      ? /[iI]nsiders/.test(data.bundleId)
+        ? 'insiders'
+        : 'stable'
+      : null
+  const vscodeLocations =
+    vscodeChannel === null
+      ? []
+      : [
+          ['nameVSCodeShipItStable', 'Library/Caches/com.microsoft.VSCode.ShipIt'],
+          ['nameVSCodeShipItInsiders', 'Library/Caches/com.microsoft.VSCodeInsiders.ShipIt'],
+          ['nameVSCodeExtensions', vscodeChannel === 'insiders' ? '.vscode-insiders' : '.vscode'],
+          [
+            'nameVSCodeSupport',
+            vscodeChannel === 'insiders'
+              ? 'Library/Application Support/Code - Insiders'
+              : 'Library/Application Support/Code',
+          ],
+          [
+            'nameVSCodeCache',
+            vscodeChannel === 'insiders'
+              ? 'Library/Caches/com.microsoft.VSCodeInsiders'
+              : 'Library/Caches/com.microsoft.VSCode',
+          ],
+        ]
   const nameKinds = new Set(
-    [
-      ...nameLocations,
-      ...spaceLocations,
-      ...xdgLocations,
-      ...channelLocations,
-      ...leafLocations,
-    ].map(([kind]) => kind),
+    [...nameLocations, ...spaceLocations, ...xdgLocations, ...channelLocations, ...leafLocations]
+      .map(([kind]) => kind)
+      .concat([
+        'nameVSCodeShipItStable',
+        'nameVSCodeShipItInsiders',
+        'nameVSCodeExtensions',
+        'nameVSCodeSupport',
+        'nameVSCodeCache',
+      ]),
   )
   const names = associations?.names
   const nameEntries = Array.isArray(associations?.entries)
@@ -600,7 +630,7 @@ export function parseApplicationInspection(
     names.name.includes(' ')
   if (names?.code === 'observed' && typeof names.name === 'string') {
     const add = (kind: string, root: string, suffix: string, name: string) => {
-      const path = `${root}/${name}${suffix}`
+      const path = `${root ? `${root}/` : ''}${name}${suffix}`
       if (seenNamePaths.has(path)) return
       seenNamePaths.add(path)
       if (
@@ -694,21 +724,26 @@ export function parseApplicationInspection(
           for (const [kind, root, suffix] of leafLocations) add(kind, root, suffix, variant)
       }
     }
+    for (const [kind, path] of vscodeLocations) {
+      const slash = path.lastIndexOf('/')
+      add(kind, slash < 0 ? '' : path.slice(0, slash), '', path.slice(slash + 1))
+    }
   }
   if (
     !names ||
-    names.version !== 6 ||
+    names.version !== 7 ||
     names.source !== 'moleAppNameUserPaths' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 68 ||
+    names.candidates > 73 ||
     names.candidates !== nameEntries.length ||
     !Number.isInteger(names.cliExcluded) ||
     names.cliExcluded < 0 ||
     names.cliExcluded > 16 ||
     names.cliExcluded !== cliPaths.size ||
     names.baseName !== baseName ||
+    names.vscodeChannel !== vscodeChannel ||
     !Array.isArray(names.leafNames) ||
     JSON.stringify(names.leafNames) !== JSON.stringify(leafNames) ||
     (names.code === 'observed'
@@ -798,7 +833,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 11 ||
+    associations.version !== 12 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -816,7 +851,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 196) ||
+        associations.entries.length > locations.length + 201) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||

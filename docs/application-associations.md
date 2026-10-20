@@ -59,7 +59,7 @@
 
 最多扫描 1024 个条目、64 个文件候选；枚举/建证据和返回前复核各有 500ms 检查点，与组/派生目录的预算和不完整状态分别记录。所有候选只观察元数据、不读取设置内容；链接额外保留未知且范围不完整，目录不作为文件候选。根缺失会保存缺失证据，返回前出现、替换或访问变化不能当作无设备设置。未能建齐或复核的候选保持未知，超限/读取失败/不支持/变化在折叠摘要和展开原因中可见。
 
-主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 68 个 Library/XDG 名称位置，合计最多 217 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
+主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 73 个 Library/XDG 名称及 VS Code 专属位置，合计最多 222 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
 
 最近文档记录是个人使用状态，仅显示元数据并明确保留，不打开或处理所指向的原文档；设备设置明确保留。下载缓存也不推导可安全删除。当前仍无卸载计划、清理勾选或执行入口，未证明这些位置独占归属于选中应用。
 
@@ -100,13 +100,13 @@
 
 固定为 C 字节语义的至少 2 字节，另将输入限制在 240 UTF-8 字节内的单个正常组件；拒绝点/双点、斜杠与控制字符，缺失/不支持保持未检查，不伪装为没有数据。空格、中文、glob 或 Shell 字样全部作为名称的字面部分，不插值或扩展。24 个模板在原函数的标准 user_patterns 中按 -e 判断；当前普通文件/目录都只观察元数据，不将名称种类当作实际文件类型或内容认证。
 
-按原 common-root deny arm 排除 Library/Preferences/ByHost 本身，并按 _mole_is_shared_home_state_root 排除 Library/Application Support/Epic 共享根；与 21 个精确标识位置重合时保留原精确来源、不重复增加行。名称等于 ID 时共有七项重合（含输入法 .app），额外查询 20 项（含去重后的 3 个 XDG 位置）；ByHost 名称仍排除公共设置根本身，查询 27 项。names.candidates 表示本次额外查询的位置数（0..68），不是发现/可回收数量。名称不可用、不支持或预算失败不取消原精确标识、组/派生和设备设置结果；新行同样附加 Mole 路径保留与最新客户端保护，未知和受保护的未发现位置继续可见。
+按原 common-root deny arm 排除 Library/Preferences/ByHost 本身，并按 _mole_is_shared_home_state_root 排除 Library/Application Support/Epic 共享根；与 21 个精确标识位置重合时保留原精确来源、不重复增加行。名称等于 ID 时共有七项重合（含输入法 .app），额外查询 20 项（含去重后的 3 个 XDG 位置）；ByHost 名称仍排除公共设置根本身，查询 27 项。names.candidates 表示本次额外查询的位置数（0..73），不是发现/可回收数量。名称不可用、不支持或预算失败不取消原精确标识、组/派生和设备设置结果；新行同样附加 Mole 路径保留与最新客户端保护，未知和受保护的未发现位置继续可见。
 
 名称查询/返回前复核各有 500ms 检查点，复用 Probe 的无链接相对打开、父句柄池、缺失证据及返回前验证；复核超限整组撤下名称路径，只留 unknown/limitReached。选中 App 的最后身份验证在名称结果结束后进行，App 变化仍整份拒绝。阻塞内核 I/O 不承诺硬中断，原工作器超时和占用槽继续生效。
 
-names 的 version=6/source=moleAppNameUserPaths，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates、cliExcluded、baseName、leafNames。前端检查原名 24 类、适用 Library 空格变体 12 类与标准/复合 XDG 13 类、适用渠道基础名 9 类及包名派生 10 项扣除去重/根排除/独立 CLI 后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
+names 的 version=7/source=moleAppNameUserPaths，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates、cliExcluded、baseName、leafNames、vscodeChannel。前端检查原名 24 类、适用 Library 空格变体 12 类与标准/复合 XDG 13 类、适用渠道基础名 9 类及包名派生 10 项、适用 VS Code 5 项扣除去重/根排除/独立 CLI 后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
 
-当前仅适配下述严格包名末段推导，厂商特例和其余产品专属 dotdir 规则仍未适配，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
+当前仅适配下述严格包名末段推导，VS Code 下述分支已适配，厂商嵌套发现和其余产品专属规则仍待适配，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
 
 ## 空格名称变体
 
@@ -118,13 +118,23 @@ names 的 version=6/source=moleAppNameUserPaths，code 为 observed/notChecked/u
 
 ## XDG 位置与独立 CLI 排除
 
-标准名称块增加 .config/{name}、.cache/{name}、.cache/{lowercase_name}、.local/share/{name}；适用空格门槛时再增加去空格/连字符/下划线的三种 ASCII 小写形式在上述三个父目录下的 9 个模板。保持固定 Mole 的 HOME 相对根，不读取 XDG_CONFIG_HOME 等自定义环境目录，不创建 ~/.{name}、任意 dotdir 或 rc 文件候选。普通小写名称的两个 cache 模板完全同路径时先保留原名来源；仅做字面路径去重，不推断大小写别名为同一对象。加上下文适用渠道模板后加上严格包名派生后的最大为 24+12+13+9+10=68 项，主关联上限为 217 项。
+标准名称块增加 .config/{name}、.cache/{name}、.cache/{lowercase_name}、.local/share/{name}；适用空格门槛时再增加去空格/连字符/下划线的三种 ASCII 小写形式在上述三个父目录下的 9 个模板。保持固定 Mole 的 HOME 相对根，不读取 XDG_CONFIG_HOME 等自定义环境目录，不创建 ~/.{name}、任意 dotdir 或 rc 文件候选。普通小写名称的两个 cache 模板完全同路径时先保留原名来源；仅做字面路径去重，不推断大小写别名为同一对象。加上下文适用渠道模板后加上严格包名派生后的最大为 24+12+13+9+10+5=73 项，主关联上限为 222 项。
 
 小写与固定 C locale 的 tr 一致，仅转换 ASCII A-Z，Ü/İ 等字符保持。原 echo 单参数为 -n/-e/-E 的组合时输出为空；Rust 只复现这个确定转换，不执行 Shell，空派生按原公共根规则排除。源模板、实际转换赋值、公共根 case 和两个排除 helper 都有固定源码对照，未把自己的小写算法说成上游代码调用。
 
 Rust 按固定 _mole_is_shared_home_state_root 与 _path_belongs_to_independent_cli 的本次可达规则在查询前过滤：共享 .cache/.config/.local 及其 bin/lib/share/state 根（ASCII 大小写不敏感）不纳入；独立 CLI 只在 .config/.cache/.local/share 直属判断，将叶名去一个前导点、ASCII 小写后精确匹配 claude/opencode/codex/gemini。Library 同名路径不受这个 CLI 排除，codex-beta、..codex 等不被前缀误排除。路径去重后，cliExcluded 记录因 CLI 规则排除的字面位置数，不表示扫描到文件，也不认证实际归属；Claude 为 4、claude 为 3、Co dex 的紧凑小写形式为 3。
 
 独立 CLI 排除先于 Probe，不打开被排除的 XDG 根；names 失败/未检查/超限时清空此计数，前端按完整来源重算并校验，不能靠伪造排除数隐藏位置或注入 CLI 数据候选。折叠摘要提示 CLI 同名位置保留，展开说明数量与不纳入候选。XDG 行明确「名称线索，可能含独立工具配置或共享数据，归属未确认，保留」。所有未排除位置继续附加 Mole 路径保留与最新客户端保护，符号链接/权限/变化/超限不转为不存在或通过；无需提权或读取配置内容。
+
+## VS Code 专属位置
+
+适配固定 find_app_files 的 VS Code 字面目录块：两类 ShipIt 更新缓存，以及所选渠道的扩展/配置 dotdir、Application Support 用户数据、Caches 目录，共 5 项。稳定版使用 .vscode、Code、com.microsoft.VSCode；Insiders 使用 .vscode-insiders、Code - Insiders、com.microsoft.VSCodeInsiders。两种渠道都会补查 com.microsoft.VSCode.ShipIt 和 com.microsoft.VSCodeInsiders.ShipIt，不能将另一渠道更新缓存说成当前应用独占。
+
+保留原大小写敏感、未锚定正则 microsoft.*[vV][sS][cC]ode；渠道判断只允许 [iI]nsiders，并非任意 ASCII 大小写归一。Microsoft/VSCODE 不适用，VSCodeINSIDERS 仍按原规则进入稳定版；包含该子串也不是微软签名或产品身份认证。此块在原 collect_toolchain_leftovers 控制之外，不擅自套用其他工具链的 sibling guard；当前只读结果均保留，不能据此解除多副本保护。
+
+本轮作为现有名称范围的保守扩展，要求本地 ID/规则及原清单名称可用；名称缺失或不支持时整个名称范围明确未检查，不返回 VS Code 通过。与原名、空格、渠道、包名位置共用有界元数据、去重和撤回；原精确/名称来源优先，如 Code/com.microsoft.VSCode 的用户数据和 ID 缓存不重复，新补 3 项、名称范围合计 31 项。Visual Studio Code 对同 ID 新补 4 项、合计 53 项。
+
+新增位置遵循原 -d 类型条件：目录只读观察；普通文件、链接或变化保持 unknown/unsupported 或 changed，不误标为不存在，也不读取其内容。原精确/名称去重来源保持原类型语义。names.vscodeChannel 为已检查且适用的 stable/insiders，其余为 null；前端从绑定 ID 复算渠道与全部路径，校验完整去重集合，超限与来源失败撤下产品字段及路径。原关联详情展开解释扩展/用户数据可能含个人配置、两类更新缓存可能共用，每行保留归属未确认提示；没有新增页面、选择或修改入口。
 
 ## 严格包名派生
 
@@ -166,7 +176,7 @@ baseName 只在已检查且规则适用时为原大小写基础名，其余为 n
 
 ## 协议与后续
 
-应用检查协议 v25 的 associations 包含 version=11、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 68 个 Library/XDG 名称位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v26 的 associations 包含 version=12、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 73 个 Library/XDG 名称及 VS Code 专属位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，21 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

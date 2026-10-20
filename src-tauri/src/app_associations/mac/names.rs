@@ -3,6 +3,7 @@
 use super::*;
 mod channel;
 mod leaf;
+mod vscode;
 mod xdg;
 const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameSupport", "Library/Application Support", ""),
@@ -183,12 +184,14 @@ impl Check {
         check.scope.name = Some(name.into());
         check.scope.base_name = channel::base(name).map(str::to_owned);
         check.scope.leaf_names = leaf::variants(name, id);
+        check.scope.vscode_channel = vscode::channel(id);
         let started = Instant::now();
         let mut pool = HashMap::new();
         let mut seen = std::collections::HashSet::new();
         for (kind, relative_path) in paths(name)
             .into_iter()
             .chain(leaf::paths(&check.scope.leaf_names))
+            .chain(vscode::paths(check.scope.vscode_channel))
         {
             if !seen.insert(relative_path.clone())
                 || excluded(&relative_path)
@@ -204,11 +207,15 @@ impl Check {
                 check.withdraw();
                 return check;
             }
-            check.probes.push(Probe::begin(
+            let mut probe = Probe::begin(
                 &home.join(&relative_path),
                 home.components().count() - 1,
                 &mut pool,
-            ));
+            );
+            if kind.starts_with("nameVSCode") {
+                probe.require_type(libc::S_IFDIR);
+            }
+            check.probes.push(probe);
             check.entries.push(Entry {
                 kind,
                 relative_path,
