@@ -150,6 +150,26 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
             ...rawChannel.map(([, p]) => p),
           ].includes(path),
       )
+      const vendorActive =
+        mode?.startsWith('associationNamesVendor') && mode !== 'associationNamesVendorNotApplicable'
+      const vendorIssue =
+        mode === 'associationNamesVendorChanged'
+          ? 'changed'
+          : mode === 'associationNamesVendorLimit'
+            ? 'limitReached'
+            : mode === 'associationNamesVendorUnavailable'
+              ? 'unavailable'
+              : mode === 'associationNamesVendorUnsupported'
+                ? 'unsupported'
+                : null
+      const vendorPaths =
+        vendorActive && !vendorIssue
+          ? [
+              ['vendorSupport', 'Library/Application Support/Avid/Sibelius'],
+              ['vendorCache', 'Library/Caches/AVID/Sibelius Ultimate'],
+              ['vendorLogs', 'Library/Logs/Avid/Sibelius.old'],
+            ]
+          : []
       const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
       const protection = {
         reasons:
@@ -302,7 +322,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         }
       }
       const result = {
-        protocol: mode === 'future' ? 27 : 26,
+        protocol: mode === 'future' ? 28 : 27,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -570,6 +590,26 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         },
         associations: {
           names: {
+            vendor: {
+              version: 1,
+              source: 'moleVendorNestedUserPaths',
+              code: vendorActive ? (vendorIssue ? 'partial' : 'observed') : 'notChecked',
+              issue: vendorActive
+                ? vendorIssue
+                : mode === 'associationNamesVendorNotApplicable'
+                  ? 'notApplicable'
+                  : 'nameUnavailable',
+              vendorToken: vendorActive
+                ? mode === 'associationNamesVendorWrong'
+                  ? 'other'
+                  : 'avid'
+                : null,
+              productToken: vendorActive ? 'sibelius' : null,
+              rootCount: vendorActive ? 3 : 0,
+              entries: vendorActive ? 12 : 0,
+              candidates: vendorPaths.length,
+              firstUncertainRoot: vendorIssue ? 'Library/Caches' : null,
+            },
             vscodeChannel:
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
@@ -584,7 +624,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
                   ? ['Another', 'Another App']
                   : leafNames
                 : [],
-            version: mode === 'associationNamesLegacy' ? 6 : 7,
+            version: mode === 'associationNamesLegacy' ? 7 : 8,
             source:
               mode === 'associationNamesOldSource' ? 'moleAppNameLibrary' : 'moleAppNameUserPaths',
             code:
@@ -642,7 +682,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 13 : 12,
+          version: mode === 'associationFuture' ? 14 : 13,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -939,6 +979,23 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
                                     : pathRule(status),
                               }
                             }),
+                          )
+                          .concat(
+                            vendorPaths.map(([kind, relativePath], index) => ({
+                              kind,
+                              relativePath,
+                              status: 'present',
+                              issue: null,
+                              protectionReasons: index === 0 ? ['clientDirectory'] : [],
+                              molePathProtection:
+                                index === 1
+                                  ? {
+                                      ...pathRule('present'),
+                                      code: 'unknown',
+                                      issue: 'identityUnverified',
+                                    }
+                                  : pathRule('present'),
+                            })),
                           )
                           .concat(
                             productPaths.map(([kind, relativePath], index) => {
@@ -2605,4 +2662,83 @@ test('VS Code clues keep exact and original-name sources unique', async ({ page 
     associations.getByText('~/Library/Caches/com.microsoft.VSCode', { exact: true }),
   ).toHaveCount(1)
   await expect(associations).toContainText('按 Mole 的 VS Code 稳定版规则补查')
+})
+
+test('vendor nested clues retain shared data and withdraw the group on incomplete discovery', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page, 'Sibelius', 'com.avid.Sibelius')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVendor'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText(/检查 3 个 Library 目录，\s*发现 3 处名称线索/)
+  const support = associations
+    .locator('dl > div')
+    .filter({ has: page.getByText('~/Library/Application Support/Avid/Sibelius', { exact: true }) })
+  await expect(support).toContainText('发现位置 · 归属待确认')
+  await expect(support).toContainText('已保存保护目录覆盖，保留')
+  await expect(support).toContainText('厂商与产品名称线索，可能共用，不证明归属，保留。')
+  await expect(associations).toContainText('~/Library/Caches/AVID/Sibelius Ultimate')
+  await expect(associations).toContainText('~/Library/Logs/Avid/Sibelius.old')
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1800 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((nodes) => nodes.every((node) => node.scrollWidth <= node.clientWidth + 1)),
+    ).toBe(true)
+    await associations.evaluate((node) => node.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-vendor-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  for (const [mode, reason] of [
+    ['associationNamesVendorChanged', '目录在检查期间变化'],
+    ['associationNamesVendorUnavailable', '部分目录无法完整读取'],
+    ['associationNamesVendorUnsupported', '部分名称、链接或目录布局暂不支持'],
+    ['associationNamesVendorLimit', '扫描达到数量或时间上限'],
+  ]) {
+    await page.evaluate((mode) => sessionStorage.setItem('inspection-mode', mode), mode)
+    await inspection.getByRole('button', { name: '重新检查状态' }).click()
+    await expect(associations.locator('summary')).toContainText('厂商目录检查不完整')
+    await expect(associations).toContainText(reason)
+    await expect(associations).toContainText('该组线索已撤下，请保留并重查')
+    await expect(
+      associations.getByText('~/Library/Application Support/Avid/Sibelius', { exact: true }),
+    ).toHaveCount(0)
+    await expect(associations).toContainText('~/Library/Application Support/Sibelius')
+  }
+  await page.evaluate(() =>
+    sessionStorage.setItem('inspection-mode', 'associationNamesVendorWrong'),
+  )
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('~/Library/Application Support/Avid/Sibelius')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesVendor'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await associations.locator('summary').click()
+  await expect(support).toContainText('发现位置')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLimit'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('名称位置未检查')
+  await expect(associations).not.toContainText('~/Library/Application Support/Avid/Sibelius')
+})
+
+test('generic names do not expand into vendor directories', async ({ page }) => {
+  const { row, inspection } = await setup(page, 'Preview', 'com.avid.Sibelius')
+  await page.evaluate(() =>
+    sessionStorage.setItem('inspection-mode', 'associationNamesVendorNotApplicable'),
+  )
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 28 个位置')
+  await expect(associations).not.toContainText('厂商目录规则检查')
+  await expect(associations).not.toContainText('~/Library/Application Support/Avid')
 })

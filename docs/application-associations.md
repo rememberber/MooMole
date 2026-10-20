@@ -59,7 +59,7 @@
 
 最多扫描 1024 个条目、64 个文件候选；枚举/建证据和返回前复核各有 500ms 检查点，与组/派生目录的预算和不完整状态分别记录。所有候选只观察元数据、不读取设置内容；链接额外保留未知且范围不完整，目录不作为文件候选。根缺失会保存缺失证据，返回前出现、替换或访问变化不能当作无设备设置。未能建齐或复核的候选保持未知，超限/读取失败/不支持/变化在折叠摘要和展开原因中可见。
 
-主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 73 个 Library/XDG 名称及 VS Code 专属位置，合计最多 222 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
+主模板、组目录、设备文件返回路径唯一，依次为 21 个固定模板、最多 64 个组/派生目录和最多 64 个设备设置，另加最多 73 个 Library/XDG 名称及 VS Code 专属位置，另有最多 64 个厂商嵌套候选，合计最多 286 项。设备文件同样附加最新客户端保护和固定 Mole 路径保护；范围检查不完整不取消已有正面保留。原主应用身份失败仍整份拒绝。
 
 最近文档记录是个人使用状态，仅显示元数据并明确保留，不打开或处理所指向的原文档；设备设置明确保留。下载缓存也不推导可安全删除。当前仍无卸载计划、清理勾选或执行入口，未证明这些位置独占归属于选中应用。
 
@@ -104,9 +104,9 @@
 
 名称查询/返回前复核各有 500ms 检查点，复用 Probe 的无链接相对打开、父句柄池、缺失证据及返回前验证；复核超限整组撤下名称路径，只留 unknown/limitReached。选中 App 的最后身份验证在名称结果结束后进行，App 变化仍整份拒绝。阻塞内核 I/O 不承诺硬中断，原工作器超时和占用槽继续生效。
 
-names 的 version=7/source=moleAppNameUserPaths，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates、cliExcluded、baseName、leafNames、vscodeChannel。前端检查原名 24 类、适用 Library 空格变体 12 类与标准/复合 XDG 13 类、适用渠道基础名 9 类及包名派生 10 项、适用 VS Code 5 项扣除去重/根排除/独立 CLI 后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
+names 的 version=8/source=moleAppNameUserPaths，code 为 observed/notChecked/unknown，另含 issue、原清单 name 或 null、candidates、cliExcluded、baseName、leafNames、vscodeChannel、vendor。前端检查原名 24 类、适用 Library 空格变体 12 类与标准/复合 XDG 13 类、适用渠道基础名 9 类及包名派生 10 项、适用 VS Code 5 项扣除去重/根排除/独立 CLI 后的完整路径集合、名称与所选条目一致、来源/版本、状态和计数；旧协议或伪造来源/名称不发布结果。未检查在折叠摘要可见，展开说明原因；新行明确「名称线索，不证明归属，保留」。
 
-当前仅适配下述严格包名末段推导，VS Code 下述分支已适配，厂商嵌套发现和其余产品专属规则仍待适配，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
+当前已适配下述严格包名末段推导、VS Code 字面位置与有界用户厂商嵌套发现，其余产品专属规则仍待适配，不扩大到上级公共目录，不宣称完整 find_app_files。全部数据保留，无修改入口或执行资格。
 
 ## 空格名称变体
 
@@ -118,13 +118,25 @@ names 的 version=7/source=moleAppNameUserPaths，code 为 observed/notChecked/u
 
 ## XDG 位置与独立 CLI 排除
 
-标准名称块增加 .config/{name}、.cache/{name}、.cache/{lowercase_name}、.local/share/{name}；适用空格门槛时再增加去空格/连字符/下划线的三种 ASCII 小写形式在上述三个父目录下的 9 个模板。保持固定 Mole 的 HOME 相对根，不读取 XDG_CONFIG_HOME 等自定义环境目录，不创建 ~/.{name}、任意 dotdir 或 rc 文件候选。普通小写名称的两个 cache 模板完全同路径时先保留原名来源；仅做字面路径去重，不推断大小写别名为同一对象。加上下文适用渠道模板后加上严格包名派生后的最大为 24+12+13+9+10+5=73 项，主关联上限为 222 项。
+标准名称块增加 .config/{name}、.cache/{name}、.cache/{lowercase_name}、.local/share/{name}；适用空格门槛时再增加去空格/连字符/下划线的三种 ASCII 小写形式在上述三个父目录下的 9 个模板。保持固定 Mole 的 HOME 相对根，不读取 XDG_CONFIG_HOME 等自定义环境目录，不创建 ~/.{name}、任意 dotdir 或 rc 文件候选。普通小写名称的两个 cache 模板完全同路径时先保留原名来源；仅做字面路径去重，不推断大小写别名为同一对象。加上下文适用渠道模板后加上严格包名派生后的最大为 24+12+13+9+10+5=73 项，含厂商发现的主关联上限为 286 项。
 
 小写与固定 C locale 的 tr 一致，仅转换 ASCII A-Z，Ü/İ 等字符保持。原 echo 单参数为 -n/-e/-E 的组合时输出为空；Rust 只复现这个确定转换，不执行 Shell，空派生按原公共根规则排除。源模板、实际转换赋值、公共根 case 和两个排除 helper 都有固定源码对照，未把自己的小写算法说成上游代码调用。
 
 Rust 按固定 _mole_is_shared_home_state_root 与 _path_belongs_to_independent_cli 的本次可达规则在查询前过滤：共享 .cache/.config/.local 及其 bin/lib/share/state 根（ASCII 大小写不敏感）不纳入；独立 CLI 只在 .config/.cache/.local/share 直属判断，将叶名去一个前导点、ASCII 小写后精确匹配 claude/opencode/codex/gemini。Library 同名路径不受这个 CLI 排除，codex-beta、..codex 等不被前缀误排除。路径去重后，cliExcluded 记录因 CLI 规则排除的字面位置数，不表示扫描到文件，也不认证实际归属；Claude 为 4、claude 为 3、Co dex 的紧凑小写形式为 3。
 
 独立 CLI 排除先于 Probe，不打开被排除的 XDG 根；names 失败/未检查/超限时清空此计数，前端按完整来源重算并校验，不能靠伪造排除数隐藏位置或注入 CLI 数据候选。折叠摘要提示 CLI 同名位置保留，展开说明数量与不纳入候选。XDG 行明确「名称线索，可能含独立工具配置或共享数据，归属未确认，保留」。所有未排除位置继续附加 Mole 路径保留与最新客户端保护，符号链接/权限/变化/超限不转为不存在或通过；无需提权或读取配置内容。
+
+## 厂商嵌套目录
+
+适配固定 find_vendor_nested_app_paths：仅在清单名称至少 4 个 C 字节且不属于原 40 个通用名称时，使用有效 reverse-DNS ID 的倒数第二段/末段作为厂商/产品 token；两段都至少 3 个 ASCII 字节。保留原 ASCII 小写和字面名称边界：父目录完整名称等于厂商 token，下一层目录名称等于原名、去空格、连字符、下划线变体或产品 token，或紧接 ASCII 空格、连字符、下划线、点。Sibelius.old 会命中，SibeliusBackup、Sibelius2026 不命中；通用名称排除不 trim，不擅自增删词表，也不将 token 当作发布者认证。
+
+仅检查 Application Support、Caches、Logs 三个 Library 根的下一层厂商目录及再下一层产品目录。先按原厂商条件筛选父名称，仅进入匹配父目录，候选集合等价于原两层 find 的名称筛选；不扫描其他厂商的子树，不将厂商根本身作为候选，不递归产品内容。缺失根保留缺失证据；网络/链接/dataless/普通文件父布局等保守不支持，不跟随链接或隐式加载云数据。
+
+与名称查询共享开始/结束各 500ms 检查点，并限制所有已枚举名称合计 1024 条、最多 64 个候选。三个根和匹配父目录使用无链接句柄/返回前元数据复核，候选要求目录类型。错误、变化、不支持名称/布局或超限将 vendor 标为 partial 并撤下该组全部候选，保留原因、计数和相关 Library 根；不返回不完整前缀来证明未发现。原精确、名称、ByHost 等来源继续独立，未知主身份仍整份撤回。
+
+names.vendor 为 version=1/source=moleVendorNestedUserPaths，包含 observed/partial/notChecked、issue、vendorToken/productToken、rootCount/entries/candidates 和 firstUncertainRoot；未检查时 token/相关根为 null、数量为零。适用且完整时 rootCount=3、返回候选只含 present 目录；partial 的 candidates=0 且不返回厂商行。名称缺失/不支持或整体名称预算撤回时同样不返回厂商证据，通用名称/短 token 等为 notApplicable。静态 names.candidates 仍只计最多 73 个名称/产品字面位置，厂商候选另计、主关联上限为 286。
+
+前端按绑定 ID/清单名称复算 token、通用名称排除、完整父名称/子名称边界、层级、种类/根、类型/状态及计数，拒绝额外层级、宽松前缀、伪造来源/旧协议和 partial 残留路径。新行附加最新客户端与 Mole 保护，显示「厂商与产品名称线索，可能共用，不证明归属，保留」；不完整在原折叠摘要直接可见，展开说明撤下和重查，不增加页面、控件或执行资格。目录存在/名称规则命中不证明共享归属或内容安全，所有数据保留。
 
 ## VS Code 专属位置
 
@@ -176,7 +188,7 @@ baseName 只在已检查且规则适用时为原大小写基础名，其余为 n
 
 ## 协议与后续
 
-应用检查协议 v26 的 associations 包含 version=12、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 73 个 Library/XDG 名称及 VS Code 专属位置；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
+应用检查协议 v27 的 associations 包含 version=13、固定 revision、observed/unknown、issue、entries、byHost 与 names。观测成功时先按固定顺序返回 21 项，后接最多 64 个动态目录候选、最多 64 个设备设置文件与最多 73 个 Library/XDG 名称及 VS Code 专属位置、最多 64 个厂商嵌套目录；每项 kind、relativePath、present/notFound/unknown、issue 、唯一/有界的 protectionReasons 及 molePathProtection 需互相一致。discovery 记录组/派生范围的 observed/partial/notChecked、原因、尝试根数、条目与候选数和优先问题根；缺失根也计入尝试数，未知主身份/规则时不检查且计数为零。partial 会在折叠摘要显示，动态目录必须位于 4 个声明根直属且符合名称边界，设备文件必须来自 ByHost 直属并符合主 ID 前缀及 .plist 后缀；独立 byHost 记录 observed/partial/notChecked、issue、entries/candidates，未知身份不扫描且计数为零。不接受任意路径或重复位置。前端校验精确修订、身份、完整数量、精确 ID 路径和状态组合，未知版本/矛盾结果整体拒绝。只向界面返回相对路径，不接受前端 HOME、路径或 ID 覆盖。
 
 observed 只表示进行了有界查询，21 项仍可能全部未知。共享或个人数据未确认时全部保留，既有客户端、系统组件、后台条件和官方卸载器限制继续显示。完整发布仍需多副本/共享归属、完整候选与保护规则、个人数据默认保留的计划交互、退出协调、执行前验证、逐项结果及真实权限/云/网络/卷变化矩阵。路线图中的完整关联文件项保持未完成。
 

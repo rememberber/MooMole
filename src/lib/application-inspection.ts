@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 26 ||
+    data.protocol !== 27 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -731,7 +731,7 @@ export function parseApplicationInspection(
   }
   if (
     !names ||
-    names.version !== 7 ||
+    names.version !== 8 ||
     names.source !== 'moleAppNameUserPaths' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
@@ -774,6 +774,117 @@ export function parseApplicationInspection(
             ].includes(names.issue ?? ''))) ||
     (associations.code === 'unknown' && names.code !== 'notChecked') ||
     !nameEntries.every((e) => namePaths.get(e.relativePath) === e.kind)
+  )
+    return fail()
+  const vendor = names.vendor
+  const vendorRoots: Record<string, string> = {
+    vendorSupport: 'Library/Application Support',
+    vendorCache: 'Library/Caches',
+    vendorLogs: 'Library/Logs',
+  }
+  const vendorEntries = Array.isArray(associations.entries)
+    ? associations.entries.filter((e) => Object.hasOwn(vendorRoots, e?.kind))
+    : []
+  const commonNames =
+    'music notes photos finder safari preview calendar contacts messages reminders clock weather stocks books news podcasts voice files store system helper agent daemon service update sync backup cloud manager monitor server client worker runner launcher driver plugin extension widget utility'.split(
+      ' ',
+    )
+  const idParts = reverseDns(data.bundleId) ? data.bundleId.split('.') : []
+  const vendorToken = idParts.at(-2)?.toLowerCase() ?? ''
+  const productToken = idParts.at(-1)?.toLowerCase() ?? ''
+  const vendorEligible =
+    names.code === 'observed' &&
+    typeof names.name === 'string' &&
+    new TextEncoder().encode(names.name).length >= 4 &&
+    !commonNames.includes(asciiLower(names.name)) &&
+    vendorToken.length >= 3 &&
+    productToken.length >= 3
+  const vendorPath = (entry: (typeof vendorEntries)[number]) => {
+    const root = vendorRoots[entry.kind]
+    if (
+      entry.status !== 'present' ||
+      entry.issue !== null ||
+      !root ||
+      !text(entry.relativePath, 1024) ||
+      new TextEncoder().encode(entry.relativePath).length > 1024 ||
+      !entry.relativePath.startsWith(`${root}/`)
+    )
+      return false
+    const parts = entry.relativePath.slice(root.length + 1).split('/')
+    if (
+      parts.length !== 2 ||
+      parts.some((p) => !p || p === '.' || p === '..' || /[\u007f-\u009f]/.test(p)) ||
+      asciiLower(parts[0]) !== vendorToken
+    )
+      return false
+    const name = asciiLower(names.name ?? '')
+    const child = asciiLower(parts[1])
+    return (
+      [
+        name,
+        name.replaceAll(' ', ''),
+        name.replaceAll(' ', '-'),
+        name.replaceAll(' ', '_'),
+        productToken,
+      ].some(
+        (variant) =>
+          variant &&
+          (child === variant ||
+            [' ', '-', '_', '.'].some((separator) => child.startsWith(`${variant}${separator}`))),
+      ) &&
+      !namePaths.has(entry.relativePath) &&
+      !locations.some(
+        ([, root, suffix]) => entry.relativePath === `${root}/${data.bundleId}${suffix}`,
+      )
+    )
+  }
+  if (
+    !vendor ||
+    vendor.version !== 1 ||
+    vendor.source !== 'moleVendorNestedUserPaths' ||
+    !['observed', 'partial', 'notChecked'].includes(vendor.code) ||
+    !Number.isInteger(vendor.rootCount) ||
+    vendor.rootCount < 0 ||
+    vendor.rootCount > 3 ||
+    !Number.isInteger(vendor.entries) ||
+    vendor.entries < 0 ||
+    vendor.entries > 1024 ||
+    !Number.isInteger(vendor.candidates) ||
+    vendor.candidates < 0 ||
+    vendor.candidates > 64 ||
+    vendor.candidates > vendor.entries ||
+    vendor.candidates !== vendorEntries.length ||
+    !vendorEntries.every(vendorPath) ||
+    (vendor.code === 'notChecked'
+      ? vendor.vendorToken !== null ||
+        vendor.productToken !== null ||
+        vendor.rootCount !== 0 ||
+        vendor.entries !== 0 ||
+        vendor.candidates !== 0 ||
+        vendor.firstUncertainRoot !== null ||
+        ![
+          'identityChanged',
+          'identityUnavailable',
+          'rulesUnavailable',
+          'bundleIdUnsupported',
+          'homeUnavailable',
+          'nameUnavailable',
+          'nameUnsupported',
+          'notApplicable',
+          'limitReached',
+        ].includes(vendor.issue ?? '')
+      : !vendorEligible ||
+        vendor.vendorToken !== vendorToken ||
+        vendor.productToken !== productToken ||
+        (vendor.code === 'observed'
+          ? vendor.issue !== null || vendor.rootCount !== 3 || vendor.firstUncertainRoot !== null
+          : vendor.candidates !== 0 ||
+            !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(
+              vendor.issue ?? '',
+            ) ||
+            !Object.values(vendorRoots).includes(vendor.firstUncertainRoot ?? ''))) ||
+    (names.code !== 'observed' && vendor.code !== 'notChecked') ||
+    (vendor.issue === 'notApplicable' && vendorEligible)
   )
     return fail()
   const relatedRoots: Record<string, string> = {
@@ -833,7 +944,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 12 ||
+    associations.version !== 13 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -851,7 +962,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 201) ||
+        associations.entries.length > locations.length + 265) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||
@@ -866,9 +977,11 @@ export function parseApplicationInspection(
               `${locations[index]?.[1]}/${data.bundleId}${locations[index]?.[2]}`
           : nameKinds.has(entry.kind)
             ? namePaths.get(entry.relativePath) !== entry.kind
-            : entry.kind === 'byHost'
-              ? !mainByHostPath(entry.relativePath)
-              : !relatedPath(entry)) ||
+            : Object.hasOwn(vendorRoots, entry.kind)
+              ? !vendorPath(entry)
+              : entry.kind === 'byHost'
+                ? !mainByHostPath(entry.relativePath)
+                : !relatedPath(entry)) ||
         !Array.isArray(entry.protectionReasons) ||
         entry.protectionReasons.length > 3 ||
         new Set(entry.protectionReasons).size !== entry.protectionReasons.length ||
@@ -902,7 +1015,11 @@ export function parseApplicationInspection(
     (discovery.code === 'notChecked'
       ? discovery.rootCount !== 0 || discovery.entries !== 0 || discovery.candidates !== 0
       : discovery.candidates !==
-        associations.entries.length - locations.length - mainByHostCount - nameEntries.length) ||
+        associations.entries.length -
+          locations.length -
+          mainByHostCount -
+          nameEntries.length -
+          vendorEntries.length) ||
     (discovery.code === 'observed' && discovery.rootCount !== 4) ||
     (discovery.code === 'partial'
       ? !['unavailable', 'unsupported', 'changed', 'limitReached'].includes(

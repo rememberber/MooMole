@@ -9,6 +9,18 @@ const pathRule = (status = 'notFound') => ({
   reason: null as string | null,
   issue: status === 'unknown' ? 'locationUnverified' : (null as string | null),
 })
+const vendorNotChecked = () => ({
+  version: 1,
+  source: 'moleVendorNestedUserPaths',
+  code: 'notChecked',
+  issue: 'nameUnavailable',
+  vendorToken: null as string | null,
+  productToken: null as string | null,
+  rootCount: 0,
+  entries: 0,
+  candidates: 0,
+  firstUncertainRoot: null as string | null,
+})
 const xdgBase = (name: string) =>
   [
     ['nameXdgConfig', `.config/${name}`],
@@ -17,7 +29,7 @@ const xdgBase = (name: string) =>
     ['nameXdgShare', `.local/share/${name}`],
   ].filter(([, path], index, all) => all.findIndex(([, previous]) => path === previous) === index)
 const valid = () => ({
-  protocol: 26,
+  protocol: 27,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -96,13 +108,14 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 12,
+    version: 13,
     names: {
-      version: 7,
+      version: 8,
       source: 'moleAppNameUserPaths',
       baseName: null,
       leafNames: [] as string[],
       vscodeChannel: null,
+      vendor: vendorNotChecked(),
       cliExcluded: 0,
       code: 'notChecked',
       issue: 'nameUnavailable',
@@ -200,7 +213,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 12,
+        version: 13,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -675,11 +688,12 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 7,
+      version: 8,
       source: 'moleAppNameUserPaths',
       baseName: null,
       leafNames: [] as string[],
       vscodeChannel: null,
+      vendor: vendorNotChecked(),
       cliExcluded: 0,
       code: 'observed',
       name: 'Example',
@@ -705,7 +719,7 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 8 } },
+      { ...associations, names: { ...names, version: 9 } },
       { ...associations, names: { ...names, version: 5 } },
       { ...associations, names: { ...names, version: 4 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
@@ -1203,6 +1217,141 @@ describe('application inspection boundary', () => {
           'Code',
         ),
       ).toThrow()
+    const vendorFixture = leafCase('Sibelius', 'com.avid.Sibelius', [])
+    const vendorRows = [
+      ['vendorSupport', 'Library/Application Support/Avid/Sibelius'],
+      ['vendorCache', 'Library/Caches/AVID/Sibelius Ultimate'],
+    ].map(([kind, relativePath]) => ({
+      ...vendorFixture.associations.entries[0],
+      kind,
+      relativePath,
+      status: 'present',
+      issue: null,
+    }))
+    const vendorScope = {
+      ...vendorNotChecked(),
+      code: 'observed',
+      issue: null as string | null,
+      vendorToken: 'avid',
+      productToken: 'sibelius',
+      rootCount: 3,
+      entries: 12,
+      candidates: 2,
+    }
+    const vendorData = {
+      ...vendorFixture,
+      associations: {
+        ...vendorFixture.associations,
+        names: { ...vendorFixture.associations.names, vendor: vendorScope },
+        entries: [...vendorFixture.associations.entries, ...vendorRows],
+      },
+    }
+    expect(
+      parse(vendorData, 'com.avid.Sibelius', 'Sibelius').associations.names.vendor.candidates,
+    ).toBe(2)
+    for (const change of [
+      { version: 2 },
+      { source: 'vendorGuess' },
+      { vendorToken: 'Avid' },
+      { ...vendorNotChecked(), issue: 'notApplicable' },
+      { productToken: 'other' },
+      { rootCount: 2 },
+      { entries: 1 },
+      { candidates: 1 },
+      { firstUncertainRoot: 'Library/Caches' },
+      { code: 'partial', issue: 'changed', firstUncertainRoot: 'Library/Caches' },
+    ])
+      expect(() =>
+        parse(
+          {
+            ...vendorData,
+            associations: {
+              ...vendorData.associations,
+              names: { ...vendorData.associations.names, vendor: { ...vendorScope, ...change } },
+            },
+          },
+          'com.avid.Sibelius',
+          'Sibelius',
+        ),
+      ).toThrow()
+    for (const relativePath of [
+      'Library/Application Support/Other/Sibelius',
+      'Library/Application Support/Avid/SibeliusBackup',
+      `Library/Application Support/Avid/Sibelius-${'中'.repeat(340)}`,
+      'Library/Application Support/Avid/Sibelius/deep',
+      'Library/Preferences/Avid/Sibelius',
+      'Library/Application Support/../Sibelius',
+      'Library/Application Support/Avid/Sibelius\u0085private',
+    ])
+      expect(() =>
+        parse(
+          {
+            ...vendorData,
+            associations: {
+              ...vendorData.associations,
+              entries: [
+                ...vendorFixture.associations.entries,
+                { ...vendorRows[0], relativePath },
+                vendorRows[1],
+              ],
+            },
+          },
+          'com.avid.Sibelius',
+          'Sibelius',
+        ),
+      ).toThrow()
+    expect(() =>
+      parse(
+        {
+          ...vendorData,
+          associations: {
+            ...vendorData.associations,
+            entries: [
+              ...vendorFixture.associations.entries,
+              { ...vendorRows[0], status: 'notFound' },
+              vendorRows[1],
+            ],
+          },
+        },
+        'com.avid.Sibelius',
+        'Sibelius',
+      ),
+    ).toThrow()
+    for (const issue of ['unavailable', 'unsupported', 'changed', 'limitReached']) {
+      const value = {
+        ...vendorData,
+        associations: {
+          ...vendorData.associations,
+          names: {
+            ...vendorData.associations.names,
+            vendor: {
+              ...vendorScope,
+              code: 'partial',
+              issue,
+              candidates: 0,
+              firstUncertainRoot: 'Library/Caches',
+            },
+          },
+          entries: vendorFixture.associations.entries,
+        },
+      }
+      expect(parse(value, 'com.avid.Sibelius', 'Sibelius').associations.names.vendor.code).toBe(
+        'partial',
+      )
+    }
+    expect(() =>
+      parse(
+        {
+          ...vendorData,
+          associations: {
+            ...vendorData.associations,
+            names: { ...vendorData.associations.names, vendor: undefined },
+          },
+        },
+        'com.avid.Sibelius',
+        'Sibelius',
+      ),
+    ).toThrow()
     const channel = channelCase('Zed Nightly', 'Zed')
     for (const invalid of [
       { ...channel, names: { ...channel.names, baseName: null } },
@@ -1245,7 +1394,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 27 },
+      { protocol: 28 },
+      { protocol: 26 },
       { protocol: 25 },
       { protocol: 24 },
       { protocol: 23 },
@@ -1550,13 +1700,14 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 12,
+      version: 13,
       names: {
-        version: 7,
+        version: 8,
         source: 'moleAppNameUserPaths',
         baseName: null,
         leafNames: [] as string[],
         vscodeChannel: null,
+        vendor: vendorNotChecked(),
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
@@ -1597,7 +1748,7 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 13 },
+      { ...associations, version: 14 },
       { ...associations, version: 11 },
       { ...associations, version: 10 },
       { ...associations, version: 9 },
@@ -1916,13 +2067,14 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 12,
+      version: 13,
       names: {
-        version: 7,
+        version: 8,
         source: 'moleAppNameUserPaths',
         baseName: null,
         leafNames: [] as string[],
         vscodeChannel: null,
+        vendor: vendorNotChecked(),
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',

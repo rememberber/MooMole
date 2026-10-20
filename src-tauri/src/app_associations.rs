@@ -118,11 +118,42 @@ struct NameDiscovery {
     base_name: Option<String>,
     leaf_names: Vec<String>,
     vscode_channel: Option<&'static str>,
+    vendor: VendorDiscovery,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VendorDiscovery {
+    version: u32,
+    source: &'static str,
+    code: &'static str,
+    issue: Option<&'static str>,
+    vendor_token: Option<String>,
+    product_token: Option<String>,
+    root_count: usize,
+    entries: usize,
+    candidates: usize,
+    first_uncertain_root: Option<&'static str>,
+}
+impl VendorDiscovery {
+    fn not_checked(issue: &'static str) -> Self {
+        Self {
+            version: 1,
+            source: "moleVendorNestedUserPaths",
+            code: "notChecked",
+            issue: Some(issue),
+            vendor_token: None,
+            product_token: None,
+            root_count: 0,
+            entries: 0,
+            candidates: 0,
+            first_uncertain_root: None,
+        }
+    }
 }
 impl NameDiscovery {
     fn not_checked(issue: &'static str) -> Self {
         Self {
-            version: 7,
+            version: 8,
             source: "moleAppNameUserPaths",
             code: "notChecked",
             issue: Some(issue),
@@ -132,6 +163,7 @@ impl NameDiscovery {
             base_name: None,
             leaf_names: vec![],
             vscode_channel: None,
+            vendor: VendorDiscovery::not_checked(issue),
         }
     }
 }
@@ -155,7 +187,7 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 12,
+            version: 13,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -751,7 +783,7 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 12,
+                    version: 13,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,

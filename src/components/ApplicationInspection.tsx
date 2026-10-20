@@ -370,6 +370,11 @@ export function ApplicationInspection({
               {value.associations.names.code === 'observed' &&
                 value.associations.names.cliExcluded > 0 &&
                 ' · CLI 同名位置保留'}
+              {value.associations.names.vendor.code === 'partial' && ' · 厂商目录检查不完整'}
+              {value.associations.names.code === 'observed' &&
+                value.associations.names.vendor.code === 'notChecked' &&
+                value.associations.names.vendor.issue !== 'notApplicable' &&
+                ' · 厂商目录未检查'}
               {value.associations.byHost.code === 'partial' && ' · 设备设置检查不完整'}
               {value.associations.code === 'observed' &&
                 value.associations.names.code !== 'observed' &&
@@ -443,6 +448,38 @@ export function ApplicationInspection({
                   同名数据位置，继续保留，不纳入本次候选。
                 </p>
               )}
+            {value.associations.names.vendor.code === 'observed' && (
+              <p className="muted">
+                另按 Mole 厂商目录规则检查 {value.associations.names.vendor.rootCount} 个 Library
+                目录， 发现 {value.associations.names.vendor.candidates}{' '}
+                处名称线索；可能共用或含个人数据，全部保留。
+              </p>
+            )}
+            {value.associations.names.vendor.code === 'partial' && (
+              <p className="muted">
+                厂商目录检查不完整 ·{' '}
+                {
+                  {
+                    unavailable: '部分目录无法完整读取',
+                    unsupported: '部分名称、链接或目录布局暂不支持',
+                    changed: '目录在检查期间变化',
+                    limitReached: '扫描达到数量或时间上限',
+                  }[
+                    value.associations.names.vendor.issue as
+                      'unavailable' | 'unsupported' | 'changed' | 'limitReached'
+                  ]
+                }
+                ， 该组线索已撤下，请保留并重查。
+                <span className="mono association-path">
+                  ~/{value.associations.names.vendor.firstUncertainRoot}
+                </span>
+              </p>
+            )}
+            {value.associations.names.code === 'observed' &&
+              value.associations.names.vendor.code === 'notChecked' &&
+              value.associations.names.vendor.issue !== 'notApplicable' && (
+                <p className="muted">厂商目录未检查，请保留并重新检查；未提供完整关联结果。</p>
+              )}
             {value.associations.byHost.code === 'partial' && (
               <p className="muted">
                 设备设置检查不完整 ·{' '}
@@ -484,6 +521,9 @@ export function ApplicationInspection({
                         <dt>
                           {
                             {
+                              vendorSupport: '应用数据',
+                              vendorCache: '缓存',
+                              vendorLogs: '日志',
                               support: '应用数据',
                               cache: '缓存',
                               logs: '日志',
@@ -635,6 +675,11 @@ export function ApplicationInspection({
                                           : '名称线索，注册、使用状态和归属未确认，保留。'}
                             </span>
                           )}
+                          {entry.kind.startsWith('vendor') && (
+                            <span className="association-path muted">
+                              厂商与产品名称线索，可能共用，不证明归属，保留。
+                            </span>
+                          )}
                           {entry.kind === 'recentDocuments' && (
                             <span className="association-path muted">
                               个人使用记录，保留；不读取或处理原文档。
@@ -658,8 +703,9 @@ export function ApplicationInspection({
             <p className="muted">
               仅查询精确标识的 21 个常见位置、Library/XDG 名称及空格、渠道、包名变体及 VS Code
               专属位置（最多 73 个位置）及一层设备设置（最多 64 个文件），另检查应用组与扩展的 4
-              个目录各一层、合计最多 64
-              个候选，未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
+              个目录各一层、合计最多 64 个候选；另有界检查 3 个 Library 根下的厂商及下一层目录（最多
+              64
+              个候选），未测量大小。目录名不证明扩展身份或数据独占；已取得的扩展标识与数据位置见下方，完整归属仍待核实。
             </p>
           </details>
           <details className="application-embedded" aria-label="嵌入扩展">

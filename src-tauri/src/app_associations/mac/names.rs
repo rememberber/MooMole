@@ -3,6 +3,7 @@
 use super::*;
 mod channel;
 mod leaf;
+mod vendor;
 mod vscode;
 mod xdg;
 const LOCATIONS: [(&str, &str, &str); 24] = [
@@ -159,6 +160,7 @@ pub(super) struct Check {
     scope: NameDiscovery,
     entries: Vec<Entry>,
     probes: Vec<Probe>,
+    vendor: Option<vendor::Check>,
 }
 impl Check {
     pub(super) fn begin(
@@ -171,12 +173,14 @@ impl Check {
             scope: NameDiscovery::not_checked("nameUnavailable"),
             entries: vec![],
             probes: vec![],
+            vendor: None,
         };
         let Some(name) = name else {
             return check;
         };
         if !supported(name) {
             check.scope.issue = Some("nameUnsupported");
+            check.scope.vendor = VendorDiscovery::not_checked("nameUnsupported");
             return check;
         }
         check.scope.code = "observed";
@@ -231,6 +235,12 @@ impl Check {
             check.withdraw();
         } else {
             check.scope.candidates = check.entries.len();
+            let exclusions = existing
+                .iter()
+                .chain(&check.entries)
+                .map(|e| e.relative_path.clone())
+                .collect::<std::collections::HashSet<_>>();
+            check.vendor = Some(vendor::Check::begin(home, id, name, &exclusions, started));
         }
         check
     }
@@ -239,6 +249,7 @@ impl Check {
         self.scope.code = "unknown";
         self.entries.clear();
         self.probes.clear();
+        self.vendor = None;
     }
     pub(super) fn finish(self) -> (NameDiscovery, Vec<Entry>) {
         self.finish_started(Instant::now())
@@ -257,6 +268,11 @@ impl Check {
         }
         if started.elapsed() > Duration::from_millis(500) {
             self.withdraw();
+        }
+        if let Some(vendor) = self.vendor.take() {
+            let (scope, entries) = vendor.finish(started);
+            self.scope.vendor = scope;
+            self.entries.extend(entries);
         }
         (self.scope, self.entries)
     }

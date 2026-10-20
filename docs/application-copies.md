@@ -40,7 +40,7 @@ Mole 清单路径由后端根据原 taskId/index 所在任务取得，不接受�
 
 ## 协议与后续
 
-应用检查协议 v26 的 installations 升为 version=5，source=moleListRegistryRootsVolumesAndReceipts，增加固定 revision；copies 至多 32 项，每项 path、bundleId、version/build 及 relation。registryUnavailable/listUnavailable 归为 partial，允许保留另一来源的有效命中。前端校验精确版本/来源/修订、身份关系、数量/去重、路径、有界 ASCII ID、relation 与 ID 边界的一致性；channelName 的包名依据由后端固定规则验证，不由前端重建另一套后缀规则。
+应用检查协议 v27 的 installations 升为 version=5，source=moleListRegistryRootsVolumesAndReceipts，增加固定 revision；copies 至多 32 项，每项 path、bundleId、version/build 及 relation。registryUnavailable/listUnavailable 归为 partial，允许保留另一来源的有效命中。前端校验精确版本/来源/修订、身份关系、数量/去重、路径、有界 ASCII ID、relation 与 ID 边界的一致性；channelName 的包名依据由后端固定规则验证，不由前端重建另一套后缀规则。
 
 未知协议/矛盾结果整体拒绝；重查撤下旧观察、一分钟较早提示、任务绑定、保护设置变更后重查和迟到响应处理沿用原机制。
 
@@ -48,4 +48,4 @@ Mole 清单路径由后端根据原 taskId/index 所在任务取得，不接受�
 
 常用安装根的三层范围、数量/时间预算、目录变化与 roots 字段见 [安装根发现](application-discovery.md)。完整外接卷枚举和安装收据仍待完成。
 
-本地卷发现已接入同一候选验证链：固定 /Volumes 直属 App 与 Applications 下三层，另有独立的 128 候选预算；协议 v26 的 volumes 保存挂载/目录状态，partial 不能提升为无其他位置。网络、自动挂载和链接保持不完整；收据已接入有界 /usr/local 与 /opt 补查，见 [收据补查](application-receipts.md)。精确范围及与上游辅助 App 的差异见 [安装目录发现](application-discovery.md)。
+本地卷发现已接入同一候选验证链：固定 /Volumes 直属 App 与 Applications 下三层，另有独立的 128 候选预算；协议 v27 的 volumes 保存挂载/目录状态，partial 不能提升为无其他位置。网络、自动挂载和链接保持不完整；收据已接入有界 /usr/local 与 /opt 补查，见 [收据补查](application-receipts.md)。精确范围及与上游辅助 App 的差异见 [安装目录发现](application-discovery.md)。

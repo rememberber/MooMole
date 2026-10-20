@@ -106,7 +106,7 @@ export interface MolePathProtection {
     | null
 }
 export interface ApplicationInspection {
-  protocol: 26
+  protocol: 27
   checkedAt: number
   bundleId: string | null
   version: string | null
@@ -232,9 +232,9 @@ export interface ApplicationInspection {
     }[]
   }
   associations: {
-    version: 12
+    version: 13
     names: {
-      version: 7
+      version: 8
       source: 'moleAppNameUserPaths'
       code: 'observed' | 'notChecked' | 'unknown'
       name: string | null
@@ -243,6 +243,31 @@ export interface ApplicationInspection {
       baseName: string | null
       leafNames: string[]
       vscodeChannel: 'stable' | 'insiders' | null
+      vendor: {
+        version: 1
+        source: 'moleVendorNestedUserPaths'
+        code: 'observed' | 'partial' | 'notChecked'
+        issue:
+          | 'identityChanged'
+          | 'identityUnavailable'
+          | 'rulesUnavailable'
+          | 'bundleIdUnsupported'
+          | 'homeUnavailable'
+          | 'nameUnavailable'
+          | 'nameUnsupported'
+          | 'notApplicable'
+          | 'unavailable'
+          | 'unsupported'
+          | 'changed'
+          | 'limitReached'
+          | null
+        vendorToken: string | null
+        productToken: string | null
+        rootCount: number
+        entries: number
+        candidates: number
+        firstUncertainRoot: string | null
+      }
       issue:
         | 'identityChanged'
         | 'identityUnavailable'
