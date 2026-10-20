@@ -2,6 +2,7 @@
 //! A name hint never certifies identity, exclusive ownership or execution eligibility.
 use super::*;
 mod channel;
+mod leaf;
 mod xdg;
 const LOCATIONS: [(&str, &str, &str); 24] = [
     ("nameSupport", "Library/Application Support", ""),
@@ -159,7 +160,12 @@ pub(super) struct Check {
     probes: Vec<Probe>,
 }
 impl Check {
-    pub(super) fn begin(home: &Path, name: Option<&str>, existing: &[Entry]) -> Self {
+    pub(super) fn begin(
+        home: &Path,
+        name: Option<&str>,
+        existing: &[Entry],
+        id: Option<&str>,
+    ) -> Self {
         let mut check = Self {
             scope: NameDiscovery::not_checked("nameUnavailable"),
             entries: vec![],
@@ -176,10 +182,14 @@ impl Check {
         check.scope.issue = None;
         check.scope.name = Some(name.into());
         check.scope.base_name = channel::base(name).map(str::to_owned);
+        check.scope.leaf_names = leaf::variants(name, id);
         let started = Instant::now();
         let mut pool = HashMap::new();
         let mut seen = std::collections::HashSet::new();
-        for (kind, relative_path) in paths(name) {
+        for (kind, relative_path) in paths(name)
+            .into_iter()
+            .chain(leaf::paths(&check.scope.leaf_names))
+        {
             if !seen.insert(relative_path.clone())
                 || excluded(&relative_path)
                 || existing.iter().any(|e| e.relative_path == relative_path)
@@ -337,7 +347,7 @@ mod tests {
                 }
             );
         }
-        let check = Check::begin(home, Some(name), &[]);
+        let check = Check::begin(home, Some(name), &[], None);
         let path = home.join(format!("Library/Audio/Plug-Ins/VST3/{name}.vst3"));
         let saved = home.join("retained-component");
         fs::rename(&path, &saved).unwrap();
@@ -347,7 +357,7 @@ mod tests {
             entries.iter().find(|e| e.kind == "nameVst3").unwrap().issue,
             Some("changed")
         );
-        let (_, entries) = Check::begin(home, Some(name), &[]).finish();
+        let (_, entries) = Check::begin(home, Some(name), &[], None).finish();
         assert_eq!(
             entries.iter().find(|e| e.kind == "nameVst3").unwrap().issue,
             Some("unsupported")
@@ -383,7 +393,7 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.relative_path == "Library/Preferences/Suite--Studio.plist"));
-        let check = Check::begin(home, Some(name), &[]);
+        let check = Check::begin(home, Some(name), &[], None);
         let path = home.join("Library/Application Support/SuiteStudio");
         let saved = home.join("saved-compact-data");
         fs::rename(&path, &saved).unwrap();
@@ -397,7 +407,7 @@ mod tests {
                 .issue,
             Some("changed")
         );
-        let (_, entries) = Check::begin(home, Some(name), &[]).finish();
+        let (_, entries) = Check::begin(home, Some(name), &[], None).finish();
         assert_eq!(
             entries
                 .iter()
@@ -474,7 +484,7 @@ mod tests {
             .path()
             .join(format!("Library/QuickLook/{name}.qlgenerator"));
         fs::create_dir_all(&path).unwrap();
-        let (scope, entries) = Check::begin(t.path(), Some(&name), &[]).finish();
+        let (scope, entries) = Check::begin(t.path(), Some(&name), &[], None).finish();
         assert_eq!(scope.candidates, 27);
         assert_eq!(
             entries
@@ -588,7 +598,7 @@ mod tests {
     #[test]
     fn finish_deadline_withdraws_all_name_evidence() {
         let t = temp();
-        let check = Check::begin(t.path(), Some("App Name"), &[]);
+        let check = Check::begin(t.path(), Some("App Name"), &[], None);
         let (scope, entries) = check.finish_started(Instant::now() - Duration::from_secs(1));
         assert_eq!(scope.code, "unknown");
         assert_eq!(scope.issue, Some("limitReached"));
@@ -678,7 +688,7 @@ mod tests {
                         .to_owned()
                 })
                 .collect::<Vec<_>>();
-            let actual = Check::begin(home, Some(name), &[])
+            let actual = Check::begin(home, Some(name), &[], None)
                 .finish()
                 .1
                 .into_iter()
@@ -789,7 +799,7 @@ mod tests {
                         .to_owned()
                 })
                 .collect::<Vec<_>>();
-            let actual = Check::begin(home, Some(name), &[])
+            let actual = Check::begin(home, Some(name), &[], None)
                 .finish()
                 .1
                 .into_iter()

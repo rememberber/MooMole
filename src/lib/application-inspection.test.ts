@@ -17,7 +17,7 @@ const xdgBase = (name: string) =>
     ['nameXdgShare', `.local/share/${name}`],
   ].filter(([, path], index, all) => all.findIndex(([, previous]) => path === previous) === index)
 const valid = () => ({
-  protocol: 24,
+  protocol: 25,
   checkedAt: 1700000000000,
   bundleId: 'org.example.app',
   version: '1.2',
@@ -96,11 +96,12 @@ const valid = () => ({
     }[],
   },
   associations: {
-    version: 10,
+    version: 11,
     names: {
-      version: 5,
+      version: 6,
       source: 'moleAppNameUserPaths',
       baseName: null,
+      leafNames: [] as string[],
       cliExcluded: 0,
       code: 'notChecked',
       issue: 'nameUnavailable',
@@ -198,7 +199,7 @@ describe('application inspection boundary', () => {
       ...valid(),
       associations: {
         ...valid().associations,
-        version: 10,
+        version: 11,
         code: 'observed',
         issue: null,
         byHost: { code: 'observed', issue: null, entries: 0, candidates: 0 },
@@ -673,9 +674,10 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const names = {
-      version: 5,
+      version: 6,
       source: 'moleAppNameUserPaths',
       baseName: null,
+      leafNames: [] as string[],
       cliExcluded: 0,
       code: 'observed',
       name: 'Example',
@@ -701,7 +703,8 @@ describe('application inspection boundary', () => {
     expect(parse({ ...data, associations }).associations.names.name).toBe('Example')
     for (const invalid of [
       { ...associations, names: undefined },
-      { ...associations, names: { ...names, version: 6 } },
+      { ...associations, names: { ...names, version: 7 } },
+      { ...associations, names: { ...names, version: 5 } },
       { ...associations, names: { ...names, version: 4 } },
       { ...associations, names: { ...names, source: 'moleFullUninstall' } },
       { ...associations, names: { ...names, source: 'moleBaseAppNameLibrary' } },
@@ -1022,6 +1025,90 @@ describe('application inspection boundary', () => {
       expect(result.associations.names.candidates).toBe(count)
       expect(result.associations.names.cliExcluded).toBe(excluded)
     }
+    const leafCase = (name: string, id: string, variants: string[]) => {
+      const value = compound(name)
+      const fixedRows = value.entries.map((entry) => ({
+        ...entry,
+        relativePath: entry.relativePath.replace('org.example.app', id),
+      }))
+      const added = variants
+        .flatMap((variant) => [
+          ['nameLeafSupport', `Library/Application Support/${variant}`],
+          ['nameLeafCache', `Library/Caches/${variant}`],
+          ['nameLeafLogs', `Library/Logs/${variant}`],
+          ['nameLeafPreferences', `Library/Preferences/${variant}.plist`],
+          ['nameLeafSavedState', `Library/Saved Application State/${variant}.savedState`],
+        ])
+        .filter(([, path]) => !fixedRows.some((e) => e.relativePath === path))
+        .map(([kind, relativePath]) => ({
+          ...entries[0],
+          kind,
+          relativePath,
+          status: 'present',
+          issue: null,
+        }))
+      return {
+        ...data,
+        bundleId: id,
+        associations: {
+          ...value,
+          names: {
+            ...value.names,
+            leafNames: variants,
+            candidates: value.names.candidates + added.length,
+          },
+          entries: [...fixedRows, ...added],
+        },
+      }
+    }
+    for (const [name, id, variants] of [
+      ['AyuGram', 'one.ayugram.AyuGramDesktop', ['AyuGramDesktop', 'AyuGram Desktop']],
+      ['Ayu Gram', 'one.ayugram.AyuGramDesktop', ['AyuGramDesktop', 'Ayu Gram Desktop']],
+      ['ayugram', 'org.test.AyuGramHTTPServer', ['AyuGramHTTPServer', 'ayugram HTTP Server']],
+      ['AyuGram', 'org.test.AyuGram2FAThing', ['AyuGram2FAThing', 'AyuGram 2 FA Thing']],
+      ['Wrapper', 'com.wrapper.GoogleChrome', []],
+      ['64Gram', 'org.fork.TelegramDesktop', []],
+      ['AyuGram', 'org.test.AyuGramdesktop', []],
+      ['AyuGramDesktop', 'org.test.AyuGramDesktop', []],
+      ['AB', 'org.test.ABDesktop', []],
+      ['中', 'org.test.AppDesktop', []],
+    ] as [string, string, string[]][]) {
+      const fixture = leafCase(name, id, variants)
+      expect(parse(fixture, id, name).associations.names.leafNames).toEqual(variants)
+    }
+    const leafId = 'one.ayugram.AyuGramDesktop'
+    const leafFixture = leafCase('AyuGram', leafId, ['AyuGramDesktop', 'AyuGram Desktop'])
+    for (const names of [
+      { ...leafFixture.associations.names, leafNames: undefined },
+      { ...leafFixture.associations.names, leafNames: [] },
+      { ...leafFixture.associations.names, leafNames: ['ayugramdesktop', 'AyuGram Desktop'] },
+      { ...leafFixture.associations.names, leafNames: ['AyuGram Desktop', 'AyuGramDesktop'] },
+      { ...leafFixture.associations.names, code: 'unknown', issue: 'limitReached', name: null },
+    ])
+      expect(() =>
+        parse(
+          { ...leafFixture, associations: { ...leafFixture.associations, names } },
+          leafId,
+          'AyuGram',
+        ),
+      ).toThrow()
+    for (const change of [
+      { entries: leafFixture.associations.entries.slice(0, -1) },
+      {
+        entries: leafFixture.associations.entries.map((e) =>
+          e.kind === 'nameLeafSupport'
+            ? { ...e, relativePath: 'Library/Application Support/Google Chrome' }
+            : e,
+        ),
+      },
+    ])
+      expect(() =>
+        parse(
+          { ...leafFixture, associations: { ...leafFixture.associations, ...change } },
+          leafId,
+          'AyuGram',
+        ),
+      ).toThrow()
     const channel = channelCase('Zed Nightly', 'Zed')
     for (const invalid of [
       { ...channel, names: { ...channel.names, baseName: null } },
@@ -1064,7 +1151,8 @@ describe('application inspection boundary', () => {
   })
   it('rejects future protocols, malformed time, unknown enums and unsupported identity claims', () => {
     for (const change of [
-      { protocol: 25 },
+      { protocol: 26 },
+      { protocol: 24 },
       { protocol: 23 },
       { protocol: 16 },
       { checkedAt: NaN },
@@ -1367,11 +1455,12 @@ describe('application inspection boundary', () => {
       molePathProtection: pathRule(index === 1 ? 'unknown' : 'notFound'),
     }))
     const associations = {
-      version: 10,
+      version: 11,
       names: {
-        version: 5,
+        version: 6,
         source: 'moleAppNameUserPaths',
         baseName: null,
+        leafNames: [] as string[],
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',
@@ -1412,7 +1501,8 @@ describe('application inspection boundary', () => {
     for (const invalid of [
       undefined,
       {},
-      { ...associations, version: 11 },
+      { ...associations, version: 12 },
+      { ...associations, version: 10 },
       { ...associations, version: 9 },
       { ...associations, revision: 'other' },
       { ...associations, code: 'safe' },
@@ -1729,11 +1819,12 @@ describe('application inspection boundary', () => {
       firstUncertainRoot: null,
     }
     const associations = {
-      version: 10,
+      version: 11,
       names: {
-        version: 5,
+        version: 6,
         source: 'moleAppNameUserPaths',
         baseName: null,
+        leafNames: [] as string[],
         cliExcluded: 0,
         code: 'notChecked',
         issue: 'nameUnavailable',

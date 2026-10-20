@@ -84,7 +84,7 @@ mod tests {
             .iter()
             .filter(|e| e.kind.starts_with("nameChannel"))
             .all(|e| e.status == "present"));
-        let check = super::super::Check::begin(home, Some("Suite Nightly"), &[]);
+        let check = super::super::Check::begin(home, Some("Suite Nightly"), &[], None);
         let target = home.join("Library/Application Support/Suite");
         fs::rename(&target, home.join("retained-channel-data")).unwrap();
         std::os::unix::fs::symlink(home.join("retained-channel-data"), &target).unwrap();
@@ -153,7 +153,7 @@ mod tests {
                 result.entries.len()
             );
         }
-        let check = super::super::Check::begin(home, Some("Codex Nightly"), &[]);
+        let check = super::super::Check::begin(home, Some("Codex Nightly"), &[], None);
         let (scope, entries) =
             check.finish_started(std::time::Instant::now() - std::time::Duration::from_secs(1));
         assert_eq!(scope.code, "unknown");
@@ -311,7 +311,7 @@ mod tests {
                     );
                 }
             }
-            let (scope, entries) = super::super::Check::begin(home, Some(name), &[]).finish();
+            let (scope, entries) = super::super::Check::begin(home, Some(name), &[], None).finish();
             assert_eq!(scope.base_name, expected_base, "{name}");
             assert_eq!(scope.cli_excluded, expected_cli.len(), "{name}");
             let actual = entries

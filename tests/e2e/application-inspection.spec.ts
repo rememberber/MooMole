@@ -2,14 +2,17 @@ import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { applications } from './fixtures/application-library'
 
-async function setup(page: Page, appName = 'Example') {
+async function setup(page: Page, appName = 'Example', appId = 'org.example.same') {
   await installTaskMock(
     page,
     'apps',
     undefined,
-    applications.map((app, index) => (index === 0 ? { ...app, name: appName } : app)),
+    applications.map((app, index) =>
+      index === 0 ? { ...app, name: appName, bundle_id: appId } : app,
+    ),
   )
-  await page.addInitScript((appName) => {
+  const input = { appName, appId }
+  await page.addInitScript(({ appName, appId }) => {
     const internal = (
       window as unknown as {
         __TAURI_INTERNALS__: {
@@ -84,6 +87,31 @@ async function setup(page: Page, appName = 'Example') {
       )
       const xdg = rawXdg.filter((entry) => !cliPaths.includes(entry))
       const channel = rawChannel.filter((entry) => !cliPaths.includes(entry))
+      const leaf = appId.split('.').at(-1)!
+      const compact = appName.replaceAll(' ', '')
+      const leafNames =
+        leaf.length >= 8 &&
+        compact.length >= 3 &&
+        leaf !== appName &&
+        /[a-z][A-Z]/.test(leaf) &&
+        leaf.length > compact.length &&
+        leaf.toLowerCase().startsWith(compact.toLowerCase()) &&
+        /^[A-Z0-9]/.test(leaf.slice(compact.length))
+          ? [
+              leaf,
+              `${appName} ${leaf
+                .slice(compact.length)
+                .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')}`,
+            ]
+          : []
+      const leafPaths = leafNames.flatMap((name) => [
+        ['nameLeafSupport', `Library/Application Support/${name}`],
+        ['nameLeafCache', `Library/Caches/${name}`],
+        ['nameLeafLogs', `Library/Logs/${name}`],
+        ['nameLeafPreferences', `Library/Preferences/${name}.plist`],
+        ['nameLeafSavedState', `Library/Saved Application State/${name}.savedState`],
+      ])
       const saved = JSON.parse(sessionStorage.getItem('inspection-settings') ?? 'null')
       const protection = {
         reasons:
@@ -235,8 +263,8 @@ async function setup(page: Page, appName = 'Example') {
           })
         }
       }
-      return {
-        protocol: mode === 'future' ? 25 : 24,
+      const result = {
+        protocol: mode === 'future' ? 26 : 25,
         checkedAt: Date.now(),
         bundleId: mode === 'mismatch' ? 'org.example.changed' : 'org.example.same',
         version: mode === 'pending' ? 'old version' : '2.3',
@@ -504,7 +532,14 @@ async function setup(page: Page, appName = 'Example') {
         },
         associations: {
           names: {
-            version: mode === 'associationNamesLegacy' ? 4 : 5,
+            leafNames:
+              mode?.startsWith('associationNames') &&
+              !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
+                ? mode === 'associationNamesLeafWrong'
+                  ? ['Another', 'Another App']
+                  : leafNames
+                : [],
+            version: mode === 'associationNamesLegacy' ? 5 : 6,
             source:
               mode === 'associationNamesOldSource' ? 'moleAppNameLibrary' : 'moleAppNameUserPaths',
             code:
@@ -530,8 +565,8 @@ async function setup(page: Page, appName = 'Example') {
               mode?.startsWith('associationNames') &&
               !['associationNamesLimit', 'associationNamesUnavailable'].includes(mode)
                 ? new TextEncoder().encode(appName).length > 3 && appName.includes(' ')
-                  ? 36 + xdg.length + channel.length
-                  : 24 + xdg.length + channel.length
+                  ? 36 + xdg.length + channel.length + leafPaths.length
+                  : 24 + xdg.length + channel.length + leafPaths.length
                 : 0,
             baseName:
               mode?.startsWith('associationNames') &&
@@ -562,7 +597,7 @@ async function setup(page: Page, appName = 'Example') {
             entries: mode?.startsWith('associationMainFiles') ? 12 : 0,
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
-          version: mode === 'associationFuture' ? 11 : 10,
+          version: mode === 'associationFuture' ? 12 : 11,
           revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
@@ -861,6 +896,25 @@ async function setup(page: Page, appName = 'Example') {
                             }),
                           )
                           .concat(
+                            leafPaths.map(([kind, relativePath], index) => {
+                              const changed = mode === 'associationNamesChanged'
+                              const status =
+                                changed || index === 1
+                                  ? 'unknown'
+                                  : index === 3
+                                    ? 'notFound'
+                                    : 'present'
+                              return {
+                                kind,
+                                relativePath,
+                                status,
+                                issue: changed ? 'changed' : index === 1 ? 'unavailable' : null,
+                                protectionReasons: index === 3 ? ['clientDirectory'] : [],
+                                molePathProtection: pathRule(status),
+                              }
+                            }),
+                          )
+                          .concat(
                             channel.map(([kind, relativePath], index) => {
                               const changed = mode === 'associationNamesChanged'
                               const active = mode === 'associationNamesChannel'
@@ -991,8 +1045,9 @@ async function setup(page: Page, appName = 'Example') {
                   reason: '本次发现此安装位置的主应用运行；未检查辅助进程或后台服务。',
                 },
       }
+      return JSON.parse(JSON.stringify(result).replaceAll('org.example.same', appId))
     }
-  }, appName)
+  }, input)
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
@@ -2089,7 +2144,9 @@ test('space name variants show preservation, withdraw changed evidence and rejec
   const associations = inspection.locator('.application-associations')
   await associations.locator('summary').click()
   await expect(associations).toContainText('查询 49 个位置')
-  await expect(associations).toContainText('Library/XDG 名称及空格、渠道变体（最多 58 个位置）')
+  await expect(associations).toContainText(
+    'Library/XDG 名称及空格、渠道及包名变体（最多 68 个位置）',
+  )
   const compact = associations
     .locator('dl > div')
     .filter({ hasText: '~/Library/Application Support/SuiteStudio' })
@@ -2310,4 +2367,74 @@ test('channel base XDG clues still exclude independent CLI data', async ({ page 
   await expect(associations.getByText('~/.config/codex', { exact: true })).toHaveCount(0)
   await expect(associations.getByText('~/.cache/codex', { exact: true })).toHaveCount(0)
   await expect(associations.getByText('~/.local/share/codex', { exact: true })).toHaveCount(0)
+})
+
+test('bundle leaf hints preserve ownership uncertainty, full bindings and revocable evidence', async ({
+  page,
+}) => {
+  const { row, inspection } = await setup(page, 'AyuGram', 'one.ayugram.AyuGramDesktop')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLeaf'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 38 个位置')
+  await expect(associations).toContainText(
+    '按 Mole 包名与清单名称边界补查「AyuGramDesktop」「AyuGram Desktop」；仅为派生线索，可能共用，全部保留。',
+  )
+  const location = (path: string) =>
+    associations.locator('dl > div').filter({ has: page.getByText(path, { exact: true }) })
+  const support = location('~/Library/Application Support/AyuGram Desktop')
+  await expect(support).toContainText('发现位置 · 归属待确认')
+  await expect(support).toContainText('包名派生线索，不证明归属，可能共用，保留。')
+  await expect(location('~/Library/Caches/AyuGramDesktop')).toContainText(
+    '无法确认 · 请检查访问权限后重试',
+  )
+  await expect(location('~/Library/Preferences/AyuGramDesktop.plist')).toContainText(
+    '已保存保护目录覆盖，保留',
+  )
+  await expect(associations.getByRole('button')).toHaveCount(0)
+  await expect(associations.getByRole('checkbox')).toHaveCount(0)
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 960, height: 1800 })
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(
+      await associations
+        .locator('.association-path')
+        .evaluateAll((nodes) => nodes.every((node) => node.scrollWidth <= node.clientWidth + 1)),
+    ).toBe(true)
+    await associations.evaluate((node) => node.scrollIntoView({ block: 'center' }))
+    await associations.screenshot({
+      path: `test-results/application-leaf-hints-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesChanged'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(support).toContainText('检查期间发生变化，请重查')
+  await expect(support).not.toContainText('发现位置')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLeafWrong'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(inspection.getByRole('alert')).toContainText('无法识别')
+  await expect(inspection).not.toContainText('按 Mole 包名与清单名称边界')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLeaf'))
+  await inspection.getByRole('button', { name: '重试检查' }).click()
+  await associations.locator('summary').click()
+  await expect(support).toContainText('发现位置')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLimit'))
+  await inspection.getByRole('button', { name: '重新检查状态' }).click()
+  await expect(associations).toContainText('检查达到时间上限')
+  await expect(associations).not.toContainText('按 Mole 包名与清单名称边界')
+  await expect(associations).not.toContainText('~/Library/Application Support/AyuGram Desktop')
+})
+
+test('a wrapper cannot derive another product from its bundle leaf', async ({ page }) => {
+  const { row, inspection } = await setup(page, 'Wrapper', 'com.wrapper.GoogleChrome')
+  await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'associationNamesLeaf'))
+  await row.getByText('位置与来源', { exact: true }).click()
+  const associations = inspection.locator('.application-associations')
+  await associations.locator('summary').click()
+  await expect(associations).toContainText('查询 28 个位置')
+  await expect(associations).not.toContainText('按 Mole 包名与清单名称边界')
+  await expect(associations).not.toContainText('~/Library/Application Support/Google Chrome')
 })

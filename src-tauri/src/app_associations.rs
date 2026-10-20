@@ -116,11 +116,12 @@ struct NameDiscovery {
     candidates: usize,
     cli_excluded: usize,
     base_name: Option<String>,
+    leaf_names: Vec<String>,
 }
 impl NameDiscovery {
     fn not_checked(issue: &'static str) -> Self {
         Self {
-            version: 5,
+            version: 6,
             source: "moleAppNameUserPaths",
             code: "notChecked",
             issue: Some(issue),
@@ -128,6 +129,7 @@ impl NameDiscovery {
             candidates: 0,
             cli_excluded: 0,
             base_name: None,
+            leaf_names: vec![],
         }
     }
 }
@@ -151,7 +153,7 @@ impl Observation {
 
     fn unknown(issue: &'static str) -> Self {
         Self {
-            version: 10,
+            version: 11,
             revision: crate::engine::REVISION,
             code: "unknown",
             issue: Some(issue),
@@ -626,6 +628,7 @@ pub mod mac {
         roots: Vec<(&'static str, Probe)>,
         by_host: Option<main_files::Check>,
         names: Option<names::Check>,
+        id: Option<String>,
     }
     impl Check {
         pub fn begin(home: &Path, id: Option<&str>, identity: &str, rules_ready: bool) -> Self {
@@ -659,6 +662,7 @@ pub mod mac {
                     roots: vec![],
                     by_host: None,
                     names: None,
+                    id: None,
                 };
             }
             let id = id.unwrap();
@@ -745,7 +749,7 @@ pub mod mac {
             discovery.candidates = entries.len() - LOCATIONS.len();
             Self {
                 observation: Observation {
-                    version: 10,
+                    version: 11,
                     revision: crate::engine::REVISION,
                     code: "observed",
                     issue: None,
@@ -758,11 +762,17 @@ pub mod mac {
                 roots,
                 by_host: Some(main_files::Check::begin(home, id, depth, &mut pool)),
                 names: None,
+                id: Some(id.into()),
             }
         }
         pub fn with_name(mut self, home: &Path, name: Option<&str>) -> Self {
             if self.observation.code == "observed" {
-                self.names = Some(names::Check::begin(home, name, &self.observation.entries));
+                self.names = Some(names::Check::begin(
+                    home,
+                    name,
+                    &self.observation.entries,
+                    self.id.as_deref(),
+                ));
             }
             self
         }

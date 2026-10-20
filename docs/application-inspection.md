@@ -27,7 +27,7 @@ Info.plist 最多 1MiB，按文件大小和实际读取双重限制；通过 Fou
 
 正式程序每请求只增加一个静态阶段编号和停止标记，不存储路径、应用标识、分段耗时或诊断日志，不新增 IPC、设置或历史。显式真实只读测量、受控超时验证与未完成范围见 [详情检查性能](application-inspection-performance.md)。
 
-协议 v24 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）、associations（21 个精确位置、24 类 Library 名称位置及有界组/派生目录的只读结果与客户端保护）、embedded（包内扩展实际标识的有界观察）、extensionData（已取得扩展标识的精确位置、有界 ByHost 及客户端应用组名称观察）及 installations（本次清单、系统登记、常用目录、本地卷与收据位置的共享保留核对）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
+协议 v25 返回 checkedAt、本地标识/版本/构建、identity（matches/different/unreported/unavailable）、running（observed/notObserved/unknown、展示 PID、其他位置数与原因）、protection（客户端命中原因/目录）、moleProtection（固定修订系统组件规则观察）、officialUninstaller（原清单名称绑定的官方卸载器提示）、background（后台标记与目录条件）、associations（21 个精确位置、24 类 Library 原名、空格/XDG/渠道/严格包名变体及有界组/派生目录的只读结果与客户端保护）、embedded（包内扩展实际标识的有界观察）、extensionData（已取得扩展标识的精确位置、有界 ByHost 及客户端应用组名称观察）及 installations（本次清单、系统登记、常用目录、本地卷与收据位置的共享保留核对）。规则先于应用文件观察读取；后台标记启用时才探测相关父目录及去重依赖，目录观察完成后复核应用文件。支持标记类型与条件边界见 [后台应用条件](application-background.md)，其他版本绑定和未完成范围见 [应用保护提示](application-protection.md)。前端校验版本、时间、字符串、枚举、数量/PID 边界和身份/结果一致性；未知协议或矛盾结果不发布部分通过。CSP、主 settings JSON 和数据库 schema 不变；只启用已锁定 Foundation/AppKit 的相关 API feature，无新依赖版本。
 
 ## 验证与后续
 

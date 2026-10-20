@@ -27,7 +27,7 @@ export function parseApplicationInspection(
     value.length <= limit &&
     !/[\u0000-\u001f\u007f]/.test(value)
   if (
-    data.protocol !== 24 ||
+    data.protocol !== 25 ||
     !Number.isSafeInteger(data.checkedAt) ||
     data.checkedAt <= 0 ||
     data.checkedAt > 8.64e15 ||
@@ -567,10 +567,21 @@ export function parseApplicationInspection(
     ['nameChannelXdgCache', '.cache', ''],
     ['nameChannelXdgShare', '.local/share', ''],
   ]
+  const leafLocations = [
+    ['nameLeafSupport', 'Library/Application Support', ''],
+    ['nameLeafCache', 'Library/Caches', ''],
+    ['nameLeafLogs', 'Library/Logs', ''],
+    ['nameLeafPreferences', 'Library/Preferences', '.plist'],
+    ['nameLeafSavedState', 'Library/Saved Application State', '.savedState'],
+  ]
   const nameKinds = new Set(
-    [...nameLocations, ...spaceLocations, ...xdgLocations, ...channelLocations].map(
-      ([kind]) => kind,
-    ),
+    [
+      ...nameLocations,
+      ...spaceLocations,
+      ...xdgLocations,
+      ...channelLocations,
+      ...leafLocations,
+    ].map(([kind]) => kind),
   )
   const names = associations?.names
   const nameEntries = Array.isArray(associations?.entries)
@@ -580,6 +591,7 @@ export function parseApplicationInspection(
   const cliPaths = new Set<string>()
   const seenNamePaths = new Set<string>()
   let baseName: string | null = null
+  let leafNames: string[] = []
   const asciiLower = (name: string) => name.replace(/[A-Z]/g, (char) => char.toLowerCase())
   const echoLower = (name: string) => (/^-[neE]+$/.test(name) ? '' : asciiLower(name))
   const hasSpaceVariants =
@@ -660,21 +672,45 @@ export function parseApplicationInspection(
     if (baseName !== null)
       for (const [kind, root, suffix] of channelLocations)
         add(kind, root, suffix, root.startsWith('.') ? echoLower(baseName) : baseName)
+    if (reverseDns(data.bundleId)) {
+      const leaf = data.bundleId.split('.').at(-1)!
+      const compact = names.name.replaceAll(' ', '')
+      if (
+        new TextEncoder().encode(names.name).length >= 3 &&
+        compact.length >= 3 &&
+        leaf.length >= 8 &&
+        leaf !== names.name &&
+        /[a-z][A-Z]/.test(leaf) &&
+        leaf.length > compact.length &&
+        asciiLower(leaf).startsWith(asciiLower(compact)) &&
+        /^[A-Z0-9]/.test(leaf.slice(compact.length))
+      ) {
+        const rest = leaf
+          .slice(compact.length)
+          .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+          .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        leafNames = [leaf, `${names.name} ${rest}`]
+        for (const variant of leafNames)
+          for (const [kind, root, suffix] of leafLocations) add(kind, root, suffix, variant)
+      }
+    }
   }
   if (
     !names ||
-    names.version !== 5 ||
+    names.version !== 6 ||
     names.source !== 'moleAppNameUserPaths' ||
     !['observed', 'notChecked', 'unknown'].includes(names.code) ||
     !Number.isInteger(names.candidates) ||
     names.candidates < 0 ||
-    names.candidates > 58 ||
+    names.candidates > 68 ||
     names.candidates !== nameEntries.length ||
     !Number.isInteger(names.cliExcluded) ||
     names.cliExcluded < 0 ||
     names.cliExcluded > 16 ||
     names.cliExcluded !== cliPaths.size ||
     names.baseName !== baseName ||
+    !Array.isArray(names.leafNames) ||
+    JSON.stringify(names.leafNames) !== JSON.stringify(leafNames) ||
     (names.code === 'observed'
       ? associations.code !== 'observed' ||
         names.issue !== null ||
@@ -762,7 +798,7 @@ export function parseApplicationInspection(
     return fail()
   if (
     !associations ||
-    associations.version !== 10 ||
+    associations.version !== 11 ||
     associations.revision !== moleUninstallRevision ||
     !Array.isArray(associations.entries) ||
     (associations.code === 'unknown'
@@ -780,7 +816,7 @@ export function parseApplicationInspection(
         !data.bundleId ||
         !/^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$/.test(data.bundleId) ||
         associations.entries.length < locations.length ||
-        associations.entries.length > locations.length + 186) ||
+        associations.entries.length > locations.length + 196) ||
     (data.identity === 'different' && associations.issue !== 'identityChanged') ||
     (data.identity === 'unavailable' && associations.issue !== 'identityUnavailable') ||
     (associations.issue === 'identityChanged' && data.identity !== 'different') ||

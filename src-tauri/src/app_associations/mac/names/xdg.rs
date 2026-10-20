@@ -154,7 +154,7 @@ mod tests {
             fs::create_dir_all(home.join(&relative)).unwrap();
             fs::write(home.join(relative).join("personal"), "keep tool data").unwrap();
         }
-        let check = super::super::Check::begin(home, Some("Suite Studio"), &[]);
+        let check = super::super::Check::begin(home, Some("Suite Studio"), &[], None);
         let target = home.join(".config/suitestudio");
         fs::rename(&target, home.join("retained-tool-data")).unwrap();
         std::os::unix::fs::symlink(home.join("retained-tool-data"), &target).unwrap();
@@ -194,7 +194,7 @@ mod tests {
             fs::read_to_string(home.join("retained-tool-data/personal")).unwrap(),
             "keep tool data"
         );
-        let check = super::super::Check::begin(home, Some("Codex"), &[]);
+        let check = super::super::Check::begin(home, Some("Codex"), &[], None);
         assert_eq!(check.scope.cli_excluded, 4);
         let (scope, entries) =
             check.finish_started(std::time::Instant::now() - std::time::Duration::from_secs(1));
@@ -347,7 +347,7 @@ mod tests {
                     }
                 }
             }
-            let (scope, entries) = super::super::Check::begin(home, Some(name), &[]).finish();
+            let (scope, entries) = super::super::Check::begin(home, Some(name), &[], None).finish();
             let actual = entries
                 .into_iter()
                 .filter(|entry| entry.kind.starts_with("nameXdg"))
