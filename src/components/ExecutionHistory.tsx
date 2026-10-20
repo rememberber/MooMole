@@ -3,6 +3,8 @@ import { ChevronRight, RefreshCw } from 'lucide-react'
 import type { ExecutionDetail, ExecutionSummary } from '../types'
 import { dateTime } from '../lib/format'
 import { Modal } from './Modal'
+import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
+import { watchExecution } from '../lib/execution-watcher'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -27,11 +29,15 @@ export function ExecutionHistory({
   loadRecords,
   loadDetail,
   onRecordsChange,
+  onCancel,
+  onRevealReceipt,
 }: {
   initialRecords: ExecutionSummary[]
   loadRecords: () => Promise<ExecutionSummary[]>
   loadDetail: (id: string) => Promise<ExecutionDetail>
   onRecordsChange?: (records: ExecutionSummary[]) => void
+  onCancel?: (id: string) => Promise<void>
+  onRevealReceipt?: RevealExecutionItem
 }) {
   const [records, setRecords] = useState(initialRecords)
   const [refreshing, setRefreshing] = useState(false)
@@ -39,6 +45,9 @@ export function ExecutionHistory({
   const [selected, setSelected] = useState<string | null>(null)
   const [detail, setDetail] = useState<ExecutionDetail | null>(null)
   const [detailError, setDetailError] = useState('')
+  const [trackingError, setTrackingError] = useState('')
+  const [cancelError, setCancelError] = useState('')
+  const [cancelRequested, setCancelRequested] = useState(false)
   const refreshRequest = useRef(0)
   const detailRequest = useRef(0)
   useEffect(() => setRecords(initialRecords), [initialRecords])
@@ -49,6 +58,44 @@ export function ExecutionHistory({
     },
     [],
   )
+  useEffect(() => {
+    if (!selected || detail?.state !== 'running') return
+    const controller = new AbortController()
+    const stop = watchExecution({
+      load: async () => {
+        const next = await loadDetail(selected)
+        if (next.id !== selected) throw new Error('返回的执行记录不匹配。')
+        return next
+      },
+      onValue: (next) =>
+        setDetail((current) =>
+          current && (current.state !== 'running' || current.events.length > next.events.length)
+            ? current
+            : next,
+        ),
+      onError: setTrackingError,
+      signal: controller.signal,
+    })
+    return () => {
+      controller.abort()
+      stop()
+    }
+  }, [selected, detail?.state, loadDetail])
+  async function cancel() {
+    if (!selected || !onCancel || cancelRequested || detail?.state !== 'running') return
+    const request = detailRequest.current
+    const id = selected
+    setCancelRequested(true)
+    setCancelError('')
+    try {
+      await onCancel(id)
+    } catch (error) {
+      if (request === detailRequest.current) {
+        setCancelRequested(false)
+        setCancelError(`${errorText(error)} 停止是否生效需以更新后的逐项结果为准。`)
+      }
+    }
+  }
   async function refresh() {
     const request = ++refreshRequest.current
     setRefreshing(true)
@@ -70,6 +117,9 @@ export function ExecutionHistory({
     setSelected(id)
     setDetail(null)
     setDetailError('')
+    setTrackingError('')
+    setCancelError('')
+    setCancelRequested(false)
     try {
       const next = await loadDetail(id)
       if (next.id !== id) throw new Error('返回的执行记录不匹配，请重新打开。')
@@ -134,24 +184,53 @@ export function ExecutionHistory({
           </>
         ) : (
           <p className="execution-retention muted">
-            暂无执行记录。当前版本提供只读扫描与审阅，保存计划不会执行清理。
+            暂无执行记录。保存计划不会执行清理；符合条件的日志需单独核对并确认处理。
           </p>
         )}
       </section>
       {selected && (
         <Modal title="逐项执行结果" onClose={close} className="review-plan-modal execution-modal">
           <h2>逐项执行结果</h2>
-          {detailError ? (
+          {detailError && (
             <div className="notice warning" role="alert">
               <p>{detailError}</p>
               <button className="button secondary" onClick={() => void open(selected)}>
                 重试读取
               </button>
             </div>
-          ) : detail ? (
-            <ExecutionResults key={detail.id} detail={detail} />
+          )}
+          {trackingError && (
+            <p className="notice warning" role="alert">
+              {trackingError}
+            </p>
+          )}
+          {detail?.state === 'running' && (
+            <div className="plan-toolbar">
+              <p role="status">
+                {cancelRequested
+                  ? '已请求停止后续项目，等待当前项的实际结果。'
+                  : '正在跟踪本批次，逐项结果自动更新。'}
+              </p>
+              {onCancel && (
+                <button
+                  className="button secondary"
+                  disabled={cancelRequested}
+                  onClick={() => void cancel()}
+                >
+                  {cancelRequested ? '等待实际结果…' : '停止后续项目'}
+                </button>
+              )}
+            </div>
+          )}
+          {cancelError && (
+            <p className="notice warning" role="alert">
+              {cancelError}
+            </p>
+          )}
+          {detail ? (
+            <ExecutionResults key={detail.id} detail={detail} onRevealReceipt={onRevealReceipt} />
           ) : (
-            <p role="status">正在读取本地记录…</p>
+            !detailError && <p role="status">正在读取本地记录…</p>
           )}
         </Modal>
       )}
@@ -159,7 +238,13 @@ export function ExecutionHistory({
   )
 }
 
-function ExecutionResults({ detail }: { detail: ExecutionDetail }) {
+function ExecutionResults({
+  detail,
+  onRevealReceipt,
+}: {
+  detail: ExecutionDetail
+  onRevealReceipt?: RevealExecutionItem
+}) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [limit, setLimit] = useState(50)
@@ -258,6 +343,13 @@ function ExecutionResults({ detail }: { detail: ExecutionDetail }) {
                 <small>
                   设备 {item.receipt.device} · inode {item.receipt.inode}
                 </small>
+                {onRevealReceipt && ['moved', 'uncertain'].includes(item.state) && (
+                  <ExecutionLocation
+                    runId={detail.id}
+                    itemId={item.id}
+                    onReveal={onRevealReceipt}
+                  />
+                )}
               </div>
             )}
             <ol className="execution-events" aria-label="项目记录顺序">

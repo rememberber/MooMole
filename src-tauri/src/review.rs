@@ -153,6 +153,8 @@ pub struct PlanView {
     pub read_only: bool,
     pub requires_mole_recheck: bool,
     pub rule_checked_at: Option<i64>,
+    pub cleanup_preparation: Option<crate::cleanup_preparation::Report>,
+    pub cleanup_confirmation: Option<crate::log_cleanup::Confirmation>,
 }
 
 fn protected(item: &Candidate, rules: &[String]) -> bool {
@@ -286,6 +288,8 @@ fn check_internal(plan: &Plan, rules: &[String], now: i64, verify_tree: bool) ->
         read_only: true,
         requires_mole_recheck: true,
         rule_checked_at: None,
+        cleanup_preparation: None,
+        cleanup_confirmation: None,
     }
 }
 
@@ -374,6 +378,9 @@ pub fn apply_rule_checks(
     checks: &HashMap<String, crate::rules::RuleCheck>,
     now: i64,
 ) -> PlanView {
+    // A new rule response can never inherit a prior native preparation report.
+    view.cleanup_preparation = None;
+    view.cleanup_confirmation = None;
     view.rule_checked_at = Some(now);
     for item in &mut view.items {
         if let Some(check) = checks.get(&item.id) {
@@ -505,7 +512,10 @@ mod tests {
     #[test]
     fn directory_plans_freeze_deep_contents_and_reject_legacy_unfrozen_plans() {
         let scratch = tempfile::tempdir().unwrap();
-        let path = scratch.path().canonicalize().unwrap();
+        // Keep the observed parent private: other tests may create/remove
+        // siblings in the shared system temp directory during permission reads.
+        let path = scratch.path().canonicalize().unwrap().join("selected");
+        std::fs::create_dir(&path).unwrap();
         std::fs::create_dir(path.join("nested")).unwrap();
         std::fs::write(path.join("nested/file"), "old").unwrap();
         let mut plan = create(&scan(&path), &["scan-1:0".into()], &[], 1001).unwrap();

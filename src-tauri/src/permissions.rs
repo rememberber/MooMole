@@ -134,6 +134,23 @@ impl Check {
             findings: vec![],
         }
     }
+    pub(crate) fn refusal_reason(&self) -> String {
+        let reasons = self
+            .findings
+            .iter()
+            .filter(|finding| finding.state != State::Clear)
+            .take(3)
+            .map(|finding| finding.reason.as_str())
+            .collect::<Vec<_>>();
+        format!(
+            "最终权限复查未通过：{} 请返回审阅计划重新核对权限；不会自动解除限制。",
+            if reasons.is_empty() {
+                self.reason.clone()
+            } else {
+                reasons.join(" ")
+            }
+        )
+    }
     fn classify(findings: Vec<Finding>) -> Self {
         let (code, reason) = if findings.iter().any(|f| f.state == State::Restricted) {
             (

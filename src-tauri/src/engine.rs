@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
     },
     time::{Duration, Instant},
 };
@@ -23,6 +23,7 @@ pub enum TaskKind {
     Clean,
     Review,
     History,
+    LogTrash,
 }
 
 impl TaskKind {
@@ -35,6 +36,7 @@ impl TaskKind {
             Self::Clean => "clean",
             Self::Review => "review",
             Self::History => "history",
+            Self::LogTrash => "logtrash",
         }
     }
 }
@@ -43,6 +45,7 @@ pub struct Job {
     pub kind: TaskKind,
     pub cancelled: AtomicBool,
     process: Mutex<Option<OwnedProcess>>,
+    execution_run: OnceLock<String>,
 }
 struct OwnedProcess {
     pid: u32,
@@ -55,10 +58,27 @@ impl Job {
             kind,
             cancelled: AtomicBool::new(false),
             process: Mutex::new(None),
+            execution_run: OnceLock::new(),
         }
     }
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
+    }
+    pub(crate) fn bind_execution(&self, run: &str) -> Result<(), String> {
+        if self.kind != TaskKind::LogTrash {
+            return Err("此任务不能绑定日志执行批次。".into());
+        }
+        self.execution_run
+            .set(run.to_string())
+            .map_err(|_| "任务已绑定执行批次。".into())
+    }
+    pub(crate) fn cancel_execution(&self, run: &str) -> bool {
+        if self.execution_run.get().is_some_and(|id| id == run) {
+            self.cancel();
+            true
+        } else {
+            false
+        }
     }
     pub fn kill_group(&self) {
         let mut current = self.process.lock().unwrap_or_else(|e| e.into_inner());
@@ -292,7 +312,7 @@ pub async fn run(
                 .env("TERM", "dumb");
             command
         }
-        TaskKind::Cleanup | TaskKind::Review | TaskKind::History => {
+        TaskKind::Cleanup | TaskKind::Review | TaskKind::History | TaskKind::LogTrash => {
             return Err("请使用对应的专用任务入口。".into())
         }
     };
@@ -345,6 +365,7 @@ pub async fn run(
         TaskKind::Clean => false,
         TaskKind::Review => false,
         TaskKind::History => false,
+        TaskKind::LogTrash => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

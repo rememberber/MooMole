@@ -1,6 +1,6 @@
 //! Durable accounting only: this module never touches cleanup targets. Mutators
-//! are internal building blocks for a future executor, NOT execution permission.
-//! There is deliberately no write IPC until module rules and races are resolved.
+//! are internal building blocks, NOT execution permission. The log executor
+//! independently checks sealed confirmation, module rules and native identity.
 use crate::review::Plan;
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
@@ -410,6 +410,13 @@ pub fn reconcile(db: &mut Connection, at: i64) -> Result<(), String> {
     for run in runs {
         interrupt(&tx, &run, at)?;
     }
+    tx.commit().map_err(sql)
+}
+
+pub(crate) fn stop(db: &mut Connection, run: &str, at: i64) -> Result<(), String> {
+    let tx = transaction(db)?;
+    running(&tx, run)?;
+    interrupt(&tx, run, at)?;
     tx.commit().map_err(sql)
 }
 

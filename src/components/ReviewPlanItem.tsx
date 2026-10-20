@@ -1,4 +1,4 @@
-import type { ReviewPlan } from '../types'
+import type { CleanupPreparation, ReviewPlan } from '../types'
 import { bytes } from '../lib/format'
 import { ImpactDetails, unknownImpact } from './ImpactDetails'
 import { OriginDetails } from './OriginDetails'
@@ -28,7 +28,13 @@ const states: Record<string, string> = {
   inventoryMissing: '需要重新生成目录计划',
 }
 
-export function ReviewPlanItem({ item }: { item: ReviewPlan['items'][number] }) {
+export function ReviewPlanItem({
+  item,
+  preparation,
+}: {
+  item: ReviewPlan['items'][number]
+  preparation?: CleanupPreparation['items'][number]
+}) {
   const permission = permissionSummary(item.permissions)
   const name = item.path.split('/').filter(Boolean).at(-1) ?? item.path
   return (
@@ -43,8 +49,14 @@ export function ReviewPlanItem({ item }: { item: ReviewPlan['items'][number] }) 
           {states[item.state] ?? '需要重新确认'}
         </span>
         {permission.problem && <span className="tag plan-problem">{permission.label}</span>}
+        {preparation && (
+          <span className="tag">
+            {preparation.code === 'observed' ? '日志准备已核对' : '日志暂不处理'}
+          </span>
+        )}
       </div>
       {item.state !== 'unchanged' && <p className="plan-item-reason">{item.reason}</p>}
+      {preparation && <p className="plan-item-reason">{preparation.reason}</p>}
       <p className="plan-item-impact">可能影响：{(item.impact ?? unknownImpact).consequence}</p>
       <details className="plan-item-details">
         <summary>检查详情与用途</summary>

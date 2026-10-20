@@ -5,6 +5,7 @@ use crate::{
 };
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
+mod controlled;
 mod crash;
 
 struct Fixture {

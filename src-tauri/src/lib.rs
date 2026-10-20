@@ -8,16 +8,21 @@ mod app_receipts;
 mod app_shared_rules;
 mod app_uninstall_rules;
 mod clean_preview;
+mod cleanup_preparation;
+// Native mutation is reachable only through sealed single-log confirmation.
+mod cleanup_target;
 mod db;
 mod descendant_rules;
 mod diagnostics;
 mod engine;
 mod engine_manifest;
 mod execution;
+mod execution_location;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
 mod instance;
+mod log_cleanup;
 mod mole_history;
 #[cfg(test)]
 mod native_trash_tests;
@@ -27,6 +32,7 @@ mod process;
 mod provenance;
 mod review;
 mod rules;
+mod shutdown;
 mod tasks;
 mod tree;
 mod update_download;
@@ -42,10 +48,7 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, Mutex,
-    },
+    sync::{atomic::Ordering, Arc, Mutex},
     time::Duration,
 };
 use tauri::{Emitter, Manager};
@@ -58,10 +61,10 @@ struct AppState {
     results: Arc<Mutex<tasks::Results>>,
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
+    cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     engine_root: PathBuf,
     home: PathBuf,
-    // 0 accepts tasks, 1 drains cancellations, 2 permits the final exit.
-    shutdown: Arc<AtomicU8>,
+    shutdown: Arc<shutdown::Controller>,
     updates: Arc<updates::Checker>,
 }
 
@@ -181,6 +184,23 @@ fn get_execution(
 }
 
 #[tauri::command]
+async fn reveal_execution_item(
+    run_id: String,
+    item_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let _operation = state.updates.installation.enter()?;
+    let database = state.db.clone();
+    let location = tauri::async_runtime::spawn_blocking(move || {
+        let detail = execution::detail(&*database.lock().map_err(|e| e.to_string())?, &run_id)?;
+        execution_location::Location::prepare(&detail, &item_id)
+    })
+    .await
+    .map_err(|_| "收据位置核对未完成，请重试。")??;
+    location.reveal().await
+}
+
+#[tauri::command]
 fn get_task_snapshot(
     task_id: String,
     state: tauri::State<'_, AppState>,
@@ -223,7 +243,7 @@ fn start_task(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
-    if kind == TaskKind::Review {
+    if matches!(kind, TaskKind::Review | TaskKind::LogTrash) {
         return Err("请从审阅计划启动规则复查。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
@@ -241,7 +261,7 @@ fn start_task(
         None
     };
     let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
-    if state.shutdown.load(Ordering::SeqCst) != 0 {
+    if state.shutdown.closing() {
         return Err("应用正在退出，请重新打开后再开始检查。".into());
     }
     if jobs.len() >= 3 || jobs.contains_key(&task_id) || jobs.values().any(|job| job.kind == kind) {
@@ -342,7 +362,7 @@ async fn application_icon(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<String>, String> {
     Ok(async {
-        if state.shutdown.load(Ordering::SeqCst) != 0 || state.updates.installation.active() {
+        if state.shutdown.closing() || state.updates.installation.active() {
             return None;
         }
         uuid::Uuid::parse_str(&task_id).ok()?;
@@ -358,7 +378,7 @@ async fn inspect_application(
     index: usize,
     state: tauri::State<'_, AppState>,
 ) -> Result<app_inspection::Inspection, String> {
-    if state.shutdown.load(Ordering::SeqCst) != 0 || state.updates.installation.active() {
+    if state.shutdown.closing() || state.updates.installation.active() {
         return Err("当前暂不能检查应用状态，请稍后重试。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "应用清单无效，请重新读取。")?;
@@ -433,6 +453,11 @@ async fn get_review_plan(
     plan_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<review::PlanView, String> {
+    state
+        .cleanup_confirmations
+        .lock()
+        .map_err(|e| e.to_string())?
+        .revoke_plan(&plan_id);
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (plan, settings) = {
@@ -452,12 +477,17 @@ async fn check_review_rules(
     state: tauri::State<'_, AppState>,
 ) -> Result<review::PlanView, String> {
     let _operation = state.updates.installation.enter()?;
+    state
+        .cleanup_confirmations
+        .lock()
+        .map_err(|e| e.to_string())?
+        .revoke_plan(&plan_id);
     uuid::Uuid::parse_str(&request_id).map_err(|_| "复查任务 ID 无效。")?;
     let state = state.inner().clone();
     let job = Arc::new(Job::new(TaskKind::Review));
     {
         let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
-        if state.shutdown.load(Ordering::SeqCst) != 0 {
+        if state.shutdown.closing() {
             return Err("应用正在退出，请重新打开后再开始检查。".into());
         }
         if jobs.len() >= 3
@@ -498,27 +528,166 @@ async fn check_review_rules(
             job.clone(),
         )
         .await?;
-        let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
-        // Re-read local identities, expiry and client protection after the probes.
-        let view = tauri::async_runtime::spawn_blocking(move || {
-            review::check(&plan, &settings.protected_paths, db::now())
+        let finish_state = state.clone();
+        let finish_job = job.clone();
+        // Keep native reference preparation on this blocking thread. No native
+        // handles cross IPC; a separate short-lived server confirmation binds scope.
+        let view = tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
+            let settings = db::settings(&*finish_state.db.lock().map_err(|e| e.to_string())?)?;
+            let checked = db::now();
+            let mut view = descendant_rules::apply(
+                review::apply_rule_checks(
+                    review::check(&plan, &settings.protected_paths, checked),
+                    &checks,
+                    checked,
+                ),
+                &batch,
+                &checks,
+            );
+            let mut preparation =
+                cleanup_preparation::observe(&plan, &view, &finish_state.home, checked, || {
+                    finish_job.cancelled.load(Ordering::SeqCst)
+                });
+            let latest = db::settings(&*finish_state.db.lock().map_err(|e| e.to_string())?)?;
+            let finished = db::now();
+            if latest.protected_paths != settings.protected_paths
+                || finished < checked
+                || finished >= preparation.expires_at
+            {
+                view = descendant_rules::apply(
+                    review::apply_rule_checks(
+                        review::check(&plan, &latest.protected_paths, finished),
+                        &checks,
+                        checked,
+                    ),
+                    &batch,
+                    &checks,
+                );
+                preparation.withdraw("准备期间保护或有效期已变化，请重新复查 Mole 规则。");
+            }
+            view.cleanup_preparation = Some(preparation);
+            if !finish_job.cancelled.load(Ordering::SeqCst) {
+                view.cleanup_confirmation = finish_state
+                    .cleanup_confirmations
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .issue(&plan, view.cleanup_preparation.as_ref().unwrap(), db::now())?;
+            }
+            Ok(view)
         })
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())??;
         if job.cancelled.load(Ordering::SeqCst) {
             return Err("规则复查已取消。".into());
         }
-        Ok(descendant_rules::apply(
-            review::apply_rule_checks(view, &checks, db::now()),
-            &batch,
-            &checks,
-        ))
+        Ok(view)
     }
     .await;
     if let Ok(mut jobs) = state.jobs.lock() {
         jobs.remove(&request_id);
     }
     result
+}
+
+#[tauri::command]
+fn discard_cleanup_confirmation(
+    confirmation_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .cleanup_confirmations
+        .lock()
+        .map_err(|e| e.to_string())?
+        .discard(&confirmation_id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn execute_log_cleanup(
+    confirmation_id: String,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<execution::Detail, String> {
+    let operation = state.updates.installation.enter()?;
+    uuid::Uuid::parse_str(&request_id).map_err(|_| "处理任务 ID 无效。")?;
+    let job = Arc::new(Job::new(TaskKind::LogTrash));
+    {
+        let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+        if state.shutdown.closing()
+            || jobs.len() >= 3
+            || jobs.contains_key(&request_id)
+            || jobs.values().any(|j| j.kind == TaskKind::LogTrash)
+        {
+            return Err("已有日志处理正在进行或应用正在退出，请稍后重试。".into());
+        }
+        jobs.insert(request_id.clone(), job.clone());
+    }
+    let authorized = (|| {
+        state
+            .cleanup_confirmations
+            .lock()
+            .map_err(|e| e.to_string())?
+            .take(&confirmation_id, db::now())
+    })();
+    let authorized = match authorized {
+        Ok(entry) => entry,
+        Err(error) => {
+            state
+                .jobs
+                .lock()
+                .map_err(|e| e.to_string())?
+                .remove(&request_id);
+            return Err(error);
+        }
+    };
+    let validation = (|| {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        authorized.validate_source(&db::plan(&db, authorized.plan_id())?, db::now())
+    })();
+    if let Err(error) = validation {
+        state
+            .jobs
+            .lock()
+            .map_err(|e| e.to_string())?
+            .remove(&request_id);
+        return Err(error);
+    }
+    let state = state.inner().clone();
+    let (send, receive) = tokio::sync::oneshot::channel();
+    // The worker owns its admission/job even if the WebView disappears. Closing
+    // the dialog requests cancellation but never discards an in-flight outcome.
+    tauri::async_runtime::spawn(async move {
+        let _operation = operation;
+        let result = log_cleanup::run(
+            state.db.clone(),
+            state.engine_root.clone(),
+            state.home.clone(),
+            authorized,
+            job,
+        )
+        .await;
+        if let Ok(mut jobs) = state.jobs.lock() {
+            jobs.remove(&request_id);
+        }
+        let _ = send.send(result);
+    });
+    receive
+        .await
+        .map_err(|_| "处理响应中断，请在历史中核对实际结果。".to_string())?
+}
+
+#[tauri::command]
+fn cancel_log_cleanup(run_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    uuid::Uuid::parse_str(&run_id).map_err(|_| "执行批次 ID 无效。")?;
+    // Only the exact live binding may be cancelled. Never use the current
+    // LogTrash job alone: a late click must not cancel a newer batch.
+    let jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+    for job in jobs.values() {
+        if job.cancel_execution(&run_id) {
+            return Ok(());
+        }
+    }
+    Err("该批次已结束或无法继续跟踪，请刷新执行记录核对结果。".into())
 }
 
 #[tauri::command]
@@ -749,9 +918,10 @@ pub fn run() {
                 results: Arc::new(Mutex::new(tasks::Results::default())),
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 engine_root,
                 home: app.path().home_dir()?,
-                shutdown: Arc::new(AtomicU8::new(0)),
+                shutdown: Arc::new(shutdown::Controller::default()),
                 updates,
             });
             Ok(())
@@ -764,6 +934,7 @@ pub fn run() {
             save_task_diagnostic,
             list_executions,
             get_execution,
+            reveal_execution_item,
             get_task_snapshot,
             application_icon,
             inspect_application,
@@ -771,6 +942,9 @@ pub fn run() {
             create_review_plan,
             get_review_plan,
             check_review_rules,
+            discard_cleanup_confirmation,
+            execute_log_cleanup,
+            cancel_log_cleanup,
             start_task,
             cancel_task,
             reveal_path,
@@ -789,90 +963,34 @@ pub fn run() {
     app.run(|app, event| {
         if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
             if let Some(state) = app.try_state::<AppState>() {
-                if state.shutdown.load(Ordering::SeqCst) != 2 {
-                    let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
-                    state.updates.shutdown();
-                    if jobs.is_empty() && !state.updates.active() {
-                        state.shutdown.store(2, Ordering::SeqCst);
-                    } else {
-                        let first = state.shutdown.compare_exchange(
-                            0,
-                            1,
-                            Ordering::SeqCst,
-                            Ordering::SeqCst,
-                        );
-                        if first != Err(2) {
-                            api.prevent_exit();
-                        }
-                        if first.is_ok() {
-                            for job in jobs.values() {
-                                job.cancel();
+                match state.shutdown.request(&state.jobs, &state.updates) {
+                    shutdown::Request::Exit => {}
+                    shutdown::Request::Waiting => api.prevent_exit(),
+                    shutdown::Request::Drain => {
+                        api.prevent_exit();
+                        let state = state.inner().clone();
+                        let handle = app.clone();
+                        let code = code.unwrap_or(0);
+                        tauri::async_runtime::spawn(async move {
+                            while state.shutdown.poll(&state.jobs, &state.updates)
+                                == shutdown::Outcome::Waiting
+                            {
+                                tokio::time::sleep(Duration::from_millis(50)).await;
                             }
-                            let state = state.inner().clone();
-                            let handle = app.clone();
-                            let code = code.unwrap_or(0);
-                            tauri::async_runtime::spawn(async move {
-                                let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
-                                loop {
-                                    let done = {
-                                        let jobs =
-                                            state.jobs.lock().unwrap_or_else(|e| e.into_inner());
-                                        if tokio::time::Instant::now() >= deadline {
-                                            for job in jobs.values() {
-                                                job.kill_group();
-                                            }
-                                            true
-                                        } else {
-                                            jobs.is_empty() && !state.updates.active()
-                                        }
-                                    };
-                                    if done {
-                                        break;
-                                    }
-                                    tokio::time::sleep(Duration::from_millis(50)).await;
-                                }
-                                state.shutdown.store(2, Ordering::SeqCst);
-                                handle.exit(code);
-                            });
-                        }
+                            handle.exit(code);
+                        });
                     }
                 }
             }
         }
         if matches!(event, tauri::RunEvent::Exit) {
             if let Some(state) = app.try_state::<AppState>() {
-                // macOS's native Quit selector can deliver Exit directly,
-                // bypassing ExitRequested. Cocoa has committed to termination,
-                // so give the independent async runtime the same bounded drain
-                // here before returning from applicationWillTerminate.
-                if state.shutdown.load(Ordering::SeqCst) != 2 {
-                    {
-                        let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
-                        state.shutdown.store(1, Ordering::SeqCst);
-                        state.updates.shutdown();
-                        for job in jobs.values() {
-                            job.cancel();
-                        }
-                    }
-                    let deadline = std::time::Instant::now() + Duration::from_secs(6);
-                    loop {
-                        let done = {
-                            let jobs = state.jobs.lock().unwrap_or_else(|e| e.into_inner());
-                            if std::time::Instant::now() >= deadline {
-                                for job in jobs.values() {
-                                    job.kill_group();
-                                }
-                                true
-                            } else {
-                                jobs.is_empty() && !state.updates.active()
-                            }
-                        };
-                        if done {
-                            break;
-                        }
-                        std::thread::sleep(Duration::from_millis(50));
-                    }
-                    state.shutdown.store(2, Ordering::SeqCst);
+                // Cocoa may skip ExitRequested. If it follows an earlier
+                // request, reuse that drain's deadline instead of adding 6s.
+                state.shutdown.request(&state.jobs, &state.updates);
+                while state.shutdown.poll(&state.jobs, &state.updates) == shutdown::Outcome::Waiting
+                {
+                    std::thread::sleep(Duration::from_millis(50));
                 }
             }
         }

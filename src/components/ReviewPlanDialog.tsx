@@ -1,25 +1,39 @@
 import { useEffect, useRef, useState } from 'react'
 import { RefreshCw, ShieldCheck } from 'lucide-react'
-import type { ReviewPlan } from '../types'
+import type { CleanupConfirmation, ExecutionDetail, ReviewPlan } from '../types'
 import { dateTime } from '../lib/format'
 import { Modal } from './Modal'
 import { useNow } from '../lib/use-now'
 import { hasPermissionProblem } from './PermissionEvidence'
 import { ReviewPlanItem } from './ReviewPlanItem'
+import { cleanupPreparation } from '../lib/cleanup-preparation'
+import { cleanupConfirmation } from '../lib/cleanup-confirmation'
+import type { RevealExecutionItem } from './ExecutionLocation'
+import { LogCleanupDialog } from './LogCleanupDialog'
 
 export function ReviewPlanDialog({
   initialPlan,
   onRefresh,
   onClose,
   onCheckRules,
+  onExecute,
+  onDiscardConfirmation,
+  onRevealReceipt,
 }: {
   initialPlan: ReviewPlan
   onRefresh: (id: string) => Promise<ReviewPlan>
   onClose: () => void
   onCheckRules?: (id: string, signal: AbortSignal) => Promise<ReviewPlan>
+  onExecute?: (id: string, signal: AbortSignal) => Promise<ExecutionDetail>
+  onDiscardConfirmation?: (id: string) => Promise<void>
+  onRevealReceipt?: RevealExecutionItem
 }) {
   const [plan, setPlan] = useState(initialPlan)
-  const now = useNow()
+  const [confirming, setConfirming] = useState<CleanupConfirmation | null>(null)
+  // Tick expiry while idle, but compare new responses to the actual render time
+  // rather than the previous tick (which can precede a fresh native response).
+  useNow()
+  const now = Date.now()
   const expired = now >= plan.expiresAt || now < plan.createdAt
   const [pending, setPending] = useState<'local' | 'rules' | null>(null)
   const [cancelling, setCancelling] = useState(false)
@@ -28,6 +42,8 @@ export function ReviewPlanDialog({
   const [error, setError] = useState('')
   const [onlyProblems, setOnlyProblems] = useState(false)
   const [limit, setLimit] = useState(100)
+  const preparation = cleanupPreparation(plan, now)
+  const offer = cleanupConfirmation(plan, now)
   const effectiveItems = expired
     ? plan.items.map((item) => ({
         ...item,
@@ -39,7 +55,10 @@ export function ReviewPlanDialog({
       }))
     : plan.items
   const needsReview = (item: ReviewPlan['items'][number]) =>
-    item.state !== 'unchanged' || hasPermissionProblem(item.permissions)
+    item.state !== 'unchanged' ||
+    hasPermissionProblem(item.permissions) ||
+    (preparation != null &&
+      (!preparation.valid || preparation.items.get(item.id)?.code !== 'observed'))
   const problems = effectiveItems.filter(needsReview).length
   const items = effectiveItems.filter((item) => !onlyProblems || needsReview(item))
   async function refresh() {
@@ -48,6 +67,8 @@ export function ReviewPlanDialog({
     setPlan((current) => ({
       ...current,
       ruleCheckedAt: null,
+      cleanupPreparation: null,
+      cleanupConfirmation: null,
       items: current.items.map((item) => ({
         ...item,
         moleRule: null,
@@ -63,6 +84,8 @@ export function ReviewPlanDialog({
       setError(String(error).replace(/^Error: /, ''))
       setPlan((current) => ({
         ...current,
+        cleanupPreparation: null,
+        cleanupConfirmation: null,
         items: current.items.map((item) => ({
           ...item,
           moleRule: null,
@@ -86,6 +109,8 @@ export function ReviewPlanDialog({
     setPlan((current) => ({
       ...current,
       ruleCheckedAt: null,
+      cleanupPreparation: null,
+      cleanupConfirmation: null,
       items: current.items.map((item) => ({
         ...item,
         moleRule: null,
@@ -101,6 +126,8 @@ export function ReviewPlanDialog({
       setError(String(error).replace(/^Error: /, ''))
       setPlan((current) => ({
         ...current,
+        cleanupPreparation: null,
+        cleanupConfirmation: null,
         items: current.items.map((item) => ({
           ...item,
           state: 'ruleUnavailable',
@@ -113,11 +140,27 @@ export function ReviewPlanDialog({
       setCancelling(false)
     }
   }
+  if (confirming && onExecute)
+    return (
+      <LogCleanupDialog
+        confirmation={confirming}
+        onExecute={onExecute}
+        onDiscard={onDiscardConfirmation}
+        onRevealReceipt={onRevealReceipt}
+        onClose={onClose}
+        onBack={() => {
+          setConfirming(null)
+          setPlan((current) => ({ ...current, cleanupConfirmation: null }))
+        }}
+      />
+    )
   return (
     <Modal
       title="审阅计划"
       onClose={() => {
         controller.current?.abort()
+        if (plan.cleanupConfirmation)
+          void onDiscardConfirmation?.(plan.cleanupConfirmation.id).catch(() => {})
         onClose()
       }}
       className="review-plan-modal"
@@ -126,10 +169,17 @@ export function ReviewPlanDialog({
       <p className="muted">已保存所选范围，可逐项查看检查结果。</p>
       <div className="notice">
         <ShieldCheck size={18} />
-        <span>当前未开放执行，复核不会清理文件。检查结果不代表已获准清理。</span>
+        <span>
+          {onExecute
+            ? '复核不会清理文件。仅满足条件的日志可在单独确认后移入废纸篓。'
+            : '当前未开放执行，复核不会清理文件。检查结果不代表已获准清理。'}
+        </span>
       </div>
       <div className="plan-summary">
-        <strong>{problems ? `${problems} 项需要重新确认` : '本次文件信息未见变化'}</strong>
+        <strong>
+          {preparation?.summary ??
+            (problems ? `${problems} 项需要重新确认` : '本次文件信息未见变化')}
+        </strong>
         <span>{plan.itemCount} 个项目</span>
       </div>
       <p className="plan-next" role="status">
@@ -137,12 +187,25 @@ export function ReviewPlanDialog({
           ? '此计划已失效，之前的复查结果不再适用。'
           : pending
             ? '正在检查所选项目，请等待结果。'
-            : problems
-              ? '下一步：先查看需确认的项目，展开检查详情了解原因。'
-              : !plan.ruleCheckedAt
-                ? '下一步：复查 Mole 规则，再逐项了解用途与影响。'
-                : '下一步：查看逐项检查结果与可能影响。'}
+            : preparation
+              ? onExecute && preparation.valid
+                ? '下一步：核对日志用途与影响，再查看后端固定的移入范围。未满足条件的项目保留。'
+                : preparation.next
+              : problems
+                ? '下一步：先查看需确认的项目，展开检查详情了解原因。'
+                : !plan.ruleCheckedAt
+                  ? '下一步：复查 Mole 规则，再逐项了解用途与影响。'
+                  : '下一步：查看逐项检查结果与可能影响。'}
       </p>
+      {onExecute && preparation?.valid && plan.cleanupPreparation!.observedCount > 0 && (
+        <button
+          className="button primary compact"
+          disabled={!offer || pending != null}
+          onClick={() => offer && setConfirming(offer)}
+        >
+          {offer ? '查看移入废纸篓范围' : '重新复查后生成确认范围'}
+        </button>
+      )}
       <details className="plan-info">
         <summary>计划信息与检查范围</summary>
         <p>
@@ -160,6 +223,14 @@ export function ReviewPlanDialog({
           复核读取文件元数据、保护规则和占用状态。Mole 复查包含路径保护、已适配的用户缓存 Deno
           约束和用户日志目录约束，并补充占用观察与有界的目录后代路径保护检查。其他模块条件仍需单独核对。
         </p>
+        {plan.cleanupPreparation && (
+          <p>
+            本轮准备有效至 {dateTime(plan.cleanupPreparation.expiresAt)}，最长 30 秒。
+            日志准备仅限来源明确的本账户、本地普通文件，每轮最多准备 20 项。
+            拟采用移入废纸篓，不等于释放磁盘空间；当前不提供应用内恢复。
+            原生对象引用在本次检查结束后释放，实际执行前必须重新检查。
+          </p>
+        )}
       </details>
       <div className="plan-toolbar">
         <label>
@@ -208,7 +279,7 @@ export function ReviewPlanDialog({
       )}
       <div className="plan-items" aria-label="计划复核结果" aria-busy={pending != null}>
         {items.slice(0, limit).map((item) => (
-          <ReviewPlanItem item={item} key={item.id} />
+          <ReviewPlanItem item={item} key={item.id} preparation={preparation?.items.get(item.id)} />
         ))}
         {!items.length && <div className="empty-inline">本次没有需要重新确认的项目。</div>}
         {items.length > limit && (

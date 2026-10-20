@@ -42,6 +42,14 @@ export const execution = (runId: string): Promise<ExecutionDetail> =>
   desktop
     ? invoke('get_execution', { runId })
     : Promise.reject(new Error('请在桌面 App 中查看执行记录。'))
+export const revealExecutionItem = (runId: string, itemId: string): Promise<void> =>
+  desktop
+    ? invoke('reveal_execution_item', { runId, itemId })
+    : Promise.reject(new Error('请在桌面 App 中核对收据位置。'))
+export const cancelLogCleanup = (runId: string): Promise<void> =>
+  desktop
+    ? invoke('cancel_log_cleanup', { runId })
+    : Promise.reject(new Error('请在桌面 App 中停止日志处理。'))
 export const saveSettings = (settings: Settings): Promise<Settings> =>
   desktop ? invoke('save_settings', { settings }) : Promise.resolve(settings)
 export const reveal = (path: string): Promise<void> =>
@@ -94,6 +102,27 @@ export async function checkReviewRules(planId: string, signal: AbortSignal): Pro
     const result = await invoke<ReviewPlan>('check_review_rules', { planId, requestId })
     if (signal.aborted) throw new Error('规则复查已取消。')
     return result
+  } finally {
+    signal.removeEventListener('abort', cancel)
+  }
+}
+export const discardCleanupConfirmation = (confirmationId: string): Promise<void> =>
+  desktop ? invoke('discard_cleanup_confirmation', { confirmationId }) : Promise.resolve()
+
+export async function executeLogCleanup(
+  confirmationId: string,
+  signal: AbortSignal,
+): Promise<ExecutionDetail> {
+  if (!desktop) throw new Error('请在桌面 App 中处理日志。')
+  if (signal.aborted) throw new Error('开始前已取消，未请求处理。')
+  const requestId = crypto.randomUUID()
+  const cancel = () => {
+    void cancelTask(requestId).catch(() => {})
+  }
+  signal.addEventListener('abort', cancel, { once: true })
+  try {
+    // Cancellation only stops later items. Always collect the actual response.
+    return await invoke('execute_log_cleanup', { confirmationId, requestId })
   } finally {
     signal.removeEventListener('abort', cancel)
   }

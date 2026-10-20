@@ -390,6 +390,8 @@ export interface ReviewPlan extends ReviewPlanSummary {
   readOnly: true
   requiresMoleRecheck: true
   ruleCheckedAt?: number | null
+  cleanupPreparation?: CleanupPreparation | null
+  cleanupConfirmation?: CleanupConfirmation | null
   items: {
     id: string
     path: string
@@ -417,6 +419,28 @@ export interface ReviewPlan extends ReviewPlanSummary {
     impact?: Impact | null
     permissions?: PermissionObservation | null
   }[]
+}
+export interface CleanupPreparation {
+  version: number
+  planId: string
+  scope: string
+  method: string
+  readOnly: boolean
+  checkedAt: number
+  expiresAt: number
+  observedCount: number
+  items: { id: string; code: string; reason: string }[]
+}
+export interface CleanupConfirmation {
+  version: number
+  id: string
+  planId: string
+  snapshotSha256: string
+  method: string
+  createdAt: number
+  expiresAt: number
+  retainedCount: number
+  items: { id: string; path: string; sizeBytes: number }[]
 }
 export interface PermissionObservation {
   version: number

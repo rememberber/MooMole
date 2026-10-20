@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import * as api from './lib/api'
+import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { Modal } from './components/Modal'
@@ -166,6 +167,32 @@ export default function App() {
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [recoveryNavigation, setRecoveryNavigation] = useState(0)
+  const [executionPending, setExecutionPending] = useState(false)
+  const [executionTrackingError, setExecutionTrackingError] = useState('')
+  const executionActive =
+    api.desktop && (executionPending || !!data?.executions.some((item) => item.state === 'running'))
+  useEffect(() => {
+    if (!executionActive) return
+    const controller = new AbortController()
+    const stop = watchExecution({
+      load: api.executions,
+      onValue: (executions) =>
+        setData((current) =>
+          current
+            ? { ...current, executions: preserveExecutionProgress(executions, current.executions) }
+            : current,
+        ),
+      onError: setExecutionTrackingError,
+      signal: controller.signal,
+    })
+    const hide = () => controller.abort()
+    window.addEventListener('pagehide', hide)
+    return () => {
+      controller.abort()
+      stop()
+      window.removeEventListener('pagehide', hide)
+    }
+  }, [executionActive])
   const handledRecoveryNavigation = useRef(0)
 
   useEffect(() => {
@@ -668,10 +695,30 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            只读检查
+            {page === 'cleanup' ? '逐项确认' : '只读检查'}
           </span>
         </header>
         <main className="main-content" aria-label={`${pageName}内容`}>
+          {(executionActive || executionTrackingError) && (
+            <section className="notice execution-recovery" aria-label="日志处理状态">
+              <div>
+                <strong>{executionTrackingError ? '日志处理状态待确认' : '日志处理进行中'}</strong>
+                <p>
+                  {executionTrackingError ||
+                    '逐项结果持续保存在历史中；关闭审阅框会请求停止后续项目，已发生的结果会保留。'}
+                </p>
+              </div>
+              <button
+                className="button secondary compact"
+                onClick={() => {
+                  changePage('history')
+                  setRecoveryNavigation((value) => value + 1)
+                }}
+              >
+                查看执行记录
+              </button>
+            </section>
+          )}
           <ExecutionRecoveryNotice
             records={data.executions}
             onReview={() => {
@@ -836,7 +883,9 @@ export default function App() {
             <>
               <div className="notice">
                 <ShieldCheck size={18} />
-                <span>当前只提供扫描与审阅，不会删除文件；需要管理员权限的项目会跳过。</span>
+                <span>
+                  扫描与审阅不会删除文件；符合条件的日志需单独确认才会移入废纸篓。需要管理员权限的项目会跳过。
+                </span>
               </div>
               {cleanPreview ? (
                 <CleanReview
@@ -1084,9 +1133,19 @@ export default function App() {
                 initialRecords={data.executions}
                 loadRecords={api.executions}
                 loadDetail={api.execution}
-                onRecordsChange={(executions) =>
-                  setData((current) => (current ? { ...current, executions } : current))
-                }
+                onCancel={api.cancelLogCleanup}
+                onRevealReceipt={api.revealExecutionItem}
+                onRecordsChange={(executions) => {
+                  setExecutionTrackingError('')
+                  setData((current) =>
+                    current
+                      ? {
+                          ...current,
+                          executions: preserveExecutionProgress(executions, current.executions),
+                        }
+                      : current,
+                  )
+                }}
               />
               <TaskHistory
                 records={data.history}
@@ -1106,6 +1165,30 @@ export default function App() {
           initialPlan={plan}
           onRefresh={api.reviewPlan}
           onCheckRules={api.checkReviewRules}
+          onDiscardConfirmation={api.discardCleanupConfirmation}
+          onRevealReceipt={api.revealExecutionItem}
+          onExecute={async (id, signal) => {
+            setExecutionPending(true)
+            try {
+              return await api.executeLogCleanup(id, signal)
+            } finally {
+              try {
+                const executions = await api.executions()
+                setExecutionTrackingError('')
+                setData((current) =>
+                  current
+                    ? {
+                        ...current,
+                        executions: preserveExecutionProgress(executions, current.executions),
+                      }
+                    : current,
+                )
+              } catch {
+                setExecutionTrackingError('执行状态读取失败，请在历史中刷新核对实际结果。')
+              }
+              setExecutionPending(false)
+            }
+          }}
           onClose={() => setPlan(null)}
         />
       )}
@@ -1154,7 +1237,7 @@ export default function App() {
           </p>
           <div className="welcome-note">
             <ShieldCheck size={16} />
-            当前版本仅进行只读检查，不提供删除或系统维护。
+            仅符合条件的日志可单独确认移入废纸篓，其他范围保持只读。暂无应用内恢复。
           </div>
           <label className="acceptance">
             <input
