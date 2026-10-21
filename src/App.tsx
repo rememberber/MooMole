@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Activity,
+  Archive,
   ArrowRight,
   ArrowUpRight,
   Box,
@@ -48,6 +49,8 @@ import { StatusRates } from './components/StatusRates'
 import { MaintenanceCatalog } from './components/MaintenanceCatalog'
 import { useMaintenance } from './lib/use-maintenance'
 import { useProjectArtifacts } from './lib/use-project-artifacts'
+import { useInstallers } from './lib/use-installers'
+import { Installers } from './components/Installers'
 import { ProjectArtifacts } from './components/ProjectArtifacts'
 import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
 import { TaskHistory } from './components/TaskHistory'
@@ -85,6 +88,7 @@ const navigation = [
   ['status', Activity, '系统状态'],
   ['maintenance', Wrench, '系统维护'],
   ['projects', Code2, '工程产物'],
+  ['installers', Archive, '安装包'],
   ['history', History, '操作历史'],
 ] as const
 
@@ -147,6 +151,7 @@ export default function App() {
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects')
+  const installers = useInstallers(page === 'installers')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
     const update = () => setToolbarScrolled(window.scrollY > 0)
@@ -776,6 +781,42 @@ export default function App() {
                     {apps ? '刷新列表' : '读取应用'}
                   </button>
                 )}
+                {page === 'installers' && (
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun ||
+                        installers.reading ||
+                        installers.choosing ||
+                        !!installers.checking
+                      }
+                      onClick={() => void installers.choose()}
+                    >
+                      <FolderOpen size={15} />
+                      {installers.choosing ? '正在选择…' : '选择目录'}
+                    </button>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun ||
+                        installers.reading ||
+                        installers.choosing ||
+                        !!installers.checking ||
+                        !installers.root
+                      }
+                      onClick={() => void installers.scan()}
+                    >
+                      <Search size={15} />
+                      {installers.reading ? '正在扫描…' : '扫描目录'}
+                    </button>
+                    {installers.root && (
+                      <span className="toolbar-note project-root" title={installers.root}>
+                        {installers.root}
+                      </span>
+                    )}
+                  </>
+                )}
                 {page === 'projects' && (
                   <>
                     <button
@@ -1279,6 +1320,19 @@ export default function App() {
               selected={maintenance.selected}
               onSelect={maintenance.select}
               reviewing={maintenance.reviewing}
+            />
+          )}
+
+          {page === 'installers' && (
+            <Installers
+              root={installers.root}
+              report={installers.report}
+              reading={installers.reading}
+              error={installers.error}
+              onReveal={reveal}
+              checking={installers.checking}
+              zipObservations={installers.zipObservations}
+              onCheckZip={installers.checkZip}
             />
           )}
 

@@ -1,0 +1,69 @@
+import {
+  installerCatalog,
+  type InstallersReport,
+  type InstallerZipInspection,
+} from '../../../src/lib/installers'
+export function installersReport(): InstallersReport {
+  return {
+    protocol: 1,
+    revision: installerCatalog.revision,
+    root: '/fixture/downloads',
+    checkedAt: Date.now(),
+    completion: 'complete',
+    stopReason: null,
+    visited: 10,
+    skipped: {
+      links: 0,
+      unreadable: 0,
+      nonLocal: 0,
+      depth: 0,
+      invalidName: 0,
+      changed: 0,
+      unsupportedType: 0,
+    },
+    canExecute: false,
+    items: [
+      {
+        path: '/fixture/downloads/Tool.dmg',
+        name: 'Tool.dmg',
+        extension: 'dmg',
+        sizeBytes: 1048576,
+        measurement: 'measured',
+        classification: 'nameOnly',
+        sharing: 'single',
+        protection: 'notMatched',
+        usage: 'notChecked',
+        canExecute: false,
+      },
+      {
+        path: '/fixture/downloads/archive.zip',
+        name: 'archive.zip',
+        extension: 'zip',
+        sizeBytes: null,
+        measurement: 'unavailable',
+        classification: 'archiveUnverified',
+        sharing: 'shared',
+        protection: 'matched',
+        usage: 'notChecked',
+        canExecute: false,
+      },
+    ],
+  }
+}
+
+export function installerZipInspection(): InstallerZipInspection {
+  const r = installersReport()
+  return {
+    protocol: 1,
+    revision: r.revision,
+    root: r.root,
+    path: r.items[1].path,
+    checkedAt: Date.now(),
+    state: 'installerHint',
+    reason: null,
+    totalEntries: 83,
+    checkedEntries: 50,
+    matchedTypes: ['app'],
+    canExecute: false,
+  }
+}

@@ -28,6 +28,14 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const inspectInstallerZip = (root: string, path: string): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_installer_zip', { root, path })
+    : Promise.reject(new Error('请在桌面 App 中检查 ZIP 条目。'))
+export const inspectInstallers = (root: string): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_installers', { root })
+    : Promise.reject(new Error('请在桌面 App 中扫描安装包。'))
 export const inspectProjectArtifacts = (root: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_project_artifacts', { root })

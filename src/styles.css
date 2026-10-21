@@ -3123,3 +3123,51 @@ input[type='checkbox'] {
 .project-group-heading .muted {
   font-weight: 400;
 }
+
+.installer-list {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.installer-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.installer-row > div:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.installer-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+.installer-path {
+  overflow-wrap: anywhere;
+}
+.installer-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.installer-size {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1050px) {
+  .installer-row {
+    flex-wrap: wrap;
+  }
+  .installer-actions {
+    margin-left: auto;
+  }
+}

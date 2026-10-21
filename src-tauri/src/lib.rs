@@ -14,6 +14,7 @@ mod cleanup_target;
 mod db;
 mod descendant_rules;
 mod diagnostics;
+mod directory_probe;
 mod engine;
 mod engine_manifest;
 mod execution;
@@ -21,6 +22,7 @@ mod execution_location;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
+mod installers;
 mod instance;
 mod log_cleanup;
 mod maintenance;
@@ -66,6 +68,7 @@ struct AppState {
     inspection_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
     project_slots: Arc<tokio::sync::Semaphore>,
+    installer_slots: Arc<tokio::sync::Semaphore>,
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
@@ -213,6 +216,94 @@ async fn inspect_project_artifacts(
         != settings.protected_paths
     {
         return Err("扫描期间保护设置已变化，请重新扫描。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
+async fn inspect_installers(
+    root: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<installers::Report, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后扫描。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .installer_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次安装包目录扫描尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let protected = settings.protected_paths.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&engine_root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        installers::scan(std::path::Path::new(&root), &protected)
+    });
+    let report = tokio::time::timeout(Duration::from_secs(6), worker)
+        .await
+        .map_err(|_| "安装包目录扫描超时，系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "安装包目录扫描未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("扫描期间保护设置已变化，请重新扫描。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
+async fn inspect_installer_zip(
+    root: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<installers::zip::Inspection, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后检查。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .installer_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次安装包读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let prepared = tauri::async_runtime::spawn_blocking(move || {
+            let info = engine::info(&engine_root);
+            if !info.available || info.version.as_deref() != Some("1.59.1") {
+                return Err("Mole 引擎基线无法确认。".into());
+            }
+            installers::zip::Prepared::open(
+                std::path::Path::new(&root),
+                std::path::Path::new(&path),
+            )
+        })
+        .await
+        .map_err(|_| "ZIP 无法准备只读检查。".to_string())??;
+        installers::zip::inspect(prepared).await
+    });
+    let report = tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "ZIP 检查未及时结束；系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "ZIP 检查未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("检查期间保护设置已变化，请重新检查。".into());
     }
     Ok(report)
 }
@@ -1240,6 +1331,7 @@ pub fn run() {
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
@@ -1264,6 +1356,8 @@ pub fn run() {
             inspect_application,
             inspect_maintenance,
             inspect_project_artifacts,
+            inspect_installers,
+            inspect_installer_zip,
             measure_project_artifact,
             prepare_maintenance_review,
             list_review_plans,

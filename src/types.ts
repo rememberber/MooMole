@@ -1,5 +1,13 @@
 export type Page =
-  'overview' | 'analyze' | 'cleanup' | 'apps' | 'status' | 'maintenance' | 'projects' | 'history'
+  | 'overview'
+  | 'analyze'
+  | 'cleanup'
+  | 'apps'
+  | 'status'
+  | 'maintenance'
+  | 'projects'
+  | 'installers'
+  | 'history'
 export type TaskKind = 'analyze' | 'status' | 'apps' | 'cleanup' | 'clean' | 'history'
 export type ScanState = 'complete' | 'partial' | 'unavailable'
 export interface Settings {
