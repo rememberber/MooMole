@@ -135,6 +135,11 @@ test('explicit setting inspection exposes protection, preserves prior results on
   await region.locator('.maintenance-item > summary').click()
   await expect(region.getByText('Mole 项目保护：命中维护跳过规则，应保留。')).toBeVisible()
   await expect(region.getByText('未知（未返回值或无法确认）', { exact: true })).toHaveCount(4)
+  await region.getByText('文件保护与访问观察', { exact: true }).click()
+  await expect(region.getByText('原始键值尚未保存，当前没有精确撤销能力。')).toBeVisible()
+  await expect(
+    region.getByText('文件访问：有限检查未发现限制，不代表系统偏好服务可以写入。', { exact: true }),
+  ).toHaveCount(2)
   await page.setViewportSize({ width: 960, height: 680 })
   for (const label of await region.locator('.maintenance-observed dt').all()) {
     expect(
@@ -154,6 +159,45 @@ test('explicit setting inspection exposes protection, preserves prior results on
   expect(
     await page.evaluate(() => sessionStorage.getItem('unexpected-maintenance-command')),
   ).toBeNull()
+})
+
+test('path protection and file restrictions remain visible without enabling execution', async ({
+  page,
+}) => {
+  await installTaskMock(page, 'analyze')
+  const fixture = maintenanceReport()
+  fixture.items[0].paths[0].clientProtection = 'matched'
+  fixture.items[0].code = 'protected'
+  fixture.items[1].taskProtection = 'notMatched'
+  fixture.items[1].paths[0].access = 'restricted'
+  fixture.items[1].code = 'restricted'
+  await page.addInitScript((fixture) => {
+    const native = (
+      window as unknown as {
+        __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
+      }
+    ).__TAURI_INTERNALS__
+    const original = native.invoke
+    native.invoke = (command, args) =>
+      command === 'inspect_maintenance'
+        ? Promise.resolve({ ...fixture, checkedAt: Date.now() })
+        : original(command, args)
+  }, fixture)
+  await page.goto('/')
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '系统维护', exact: true }).click()
+  await page.getByRole('button', { name: '检查本机设置', exact: true }).click()
+  const region = page.getByRole('region', { name: '维护项目说明' })
+  await expect(region).toContainText('上次结果：已受保护，保持现状')
+  await expect(region).toContainText('上次结果：发现文件访问限制，保持现状')
+  await page.getByRole('textbox', { name: '搜索维护项目' }).fill('legacy_overrides_audit')
+  await region.locator('.maintenance-item > summary').click()
+  await region.getByText('文件保护与访问观察', { exact: true }).click()
+  await expect(
+    region.getByText('文件访问：发现限制，不会自动提权或修改权限。', { exact: true }),
+  ).toBeVisible()
+  await expect(region.getByRole('button')).toHaveCount(0)
 })
 
 test('leaving maintenance ignores late observations and does not restart inspection', async ({

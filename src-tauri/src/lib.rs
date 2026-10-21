@@ -181,7 +181,8 @@ async fn inspect_maintenance(
     if state.shutdown.closing() {
         return Err("应用正在退出，请重新打开后检查。".into());
     }
-    if !db::settings(&*state.db.lock().map_err(|_| "无法读取设置。")?)?.acknowledged {
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取设置。")?)?;
+    if !settings.acknowledged {
         return Err("请先阅读并确认首次使用说明。".into());
     }
     let permit = state
@@ -192,6 +193,7 @@ async fn inspect_maintenance(
     let operation = state.updates.installation.enter()?;
     let root = state.engine_root.clone();
     let home = state.home.clone();
+    let protected_paths = settings.protected_paths.clone();
     let worker = tauri::async_runtime::spawn_blocking(move || {
         // Hold both leases until the actual worker returns, even if the IPC
         // deadline expires. A timed-out OS read is not cancelled by dropping it.
@@ -200,12 +202,18 @@ async fn inspect_maintenance(
         if !info.available || info.version.as_deref() != Some("1.59.1") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
-        maintenance::inspect(&home)
+        maintenance::inspect(&home, &protected_paths)
     });
-    tokio::time::timeout(Duration::from_secs(5), worker)
+    let result = tokio::time::timeout(Duration::from_secs(5), worker)
         .await
         .map_err(|_| "维护检查超时，未确认的状态仍为未知；系统读取可能尚未结束。".to_string())?
-        .map_err(|_| "维护检查未完成，请重试。".to_string())?
+        .map_err(|_| "维护检查未完成，请重试。".to_string())??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("检查期间保护目录已变化，请重新检查。".into());
+    }
+    Ok(result)
 }
 
 #[tauri::command]

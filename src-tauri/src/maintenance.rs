@@ -39,6 +39,7 @@ pub struct Item {
     code: &'static str,
     task_protection: &'static str,
     findings: Vec<Finding>,
+    paths: Vec<paths::Observation>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -189,10 +190,11 @@ fn item(id: &'static str, patterns: Option<&[String]>, findings: Vec<Finding>) -
         code,
         task_protection,
         findings,
+        paths: vec![],
     }
 }
 
-pub fn inspect(home: &Path) -> Result<Report, String> {
+pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
     let began = Instant::now();
     let (source, patterns) = rules(home);
     let read = |domain: &'static str, key: &'static str, label: &'static str| {
@@ -239,18 +241,58 @@ pub fn inspect(home: &Path) -> Result<Report, String> {
             "远程映像跳过验证",
         ),
     ];
+    let mut items = vec![
+        item(IDS[0], patterns.as_deref(), finder),
+        item(IDS[1], patterns.as_deref(), overrides),
+    ];
+    let mut matching_budget = 1_000_000;
+    for item in &mut items {
+        item.paths = paths::locations(item.id)
+            .iter()
+            .map(|location| {
+                paths::observe(
+                    home,
+                    location,
+                    patterns.as_deref(),
+                    client,
+                    &mut matching_budget,
+                    began,
+                )
+            })
+            .collect();
+        if item
+            .paths
+            .iter()
+            .any(|path| path.client_protection == "matched" || path.mole_protection == "matched")
+        {
+            item.code = "protected"
+        } else if item.code != "protected"
+            && item.paths.iter().any(|path| path.access == "restricted")
+        {
+            item.code = "restricted"
+        } else if item.code != "protected"
+            && item.paths.iter().any(|path| {
+                path.state != "present"
+                    || path.client_protection == "unknown"
+                    || path.mole_protection == "unknown"
+                    || path.access != "noRestrictionObserved"
+            })
+        {
+            item.code = "unknown"
+        }
+    }
     Ok(Report {
-        protocol: 1,
+        protocol: 2,
         revision: engine::REVISION,
         checked_at: crate::db::now(),
         rule_source: source,
-        items: vec![
-            item(IDS[0], patterns.as_deref(), finder),
-            item(IDS[1], patterns.as_deref(), overrides),
-        ],
+        items,
     })
 }
 
 mod native;
+mod paths;
+#[cfg(test)]
+mod preference_sandbox;
 #[cfg(test)]
 mod tests;

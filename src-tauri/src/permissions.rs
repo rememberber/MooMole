@@ -37,7 +37,7 @@ impl Drop for Acl {
     }
 }
 
-fn has_acl(file: &File) -> Result<bool, i32> {
+pub(crate) fn has_acl(file: &File) -> Result<bool, i32> {
     // ACL_TYPE_EXTENDED = 0x100; the held descriptor outlives both calls.
     let Some(pointer) = NonNull::new(unsafe { acl_get_fd_np(file.as_raw_fd(), 0x100) }) else {
         // Darwin's fd getter returns NULL/ENOENT when FILESEC_ACL is absent
@@ -66,7 +66,7 @@ fn errno() -> i32 {
     std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
 }
 
-fn read_only(file: &File) -> Result<bool, i32> {
+pub(crate) fn read_only(file: &File) -> Result<bool, i32> {
     let mut stat = MaybeUninit::<libc::statfs>::uninit();
     // SAFETY: fstatfs initializes the provided struct only on success.
     if unsafe { libc::fstatfs(file.as_raw_fd(), stat.as_mut_ptr()) } != 0 {

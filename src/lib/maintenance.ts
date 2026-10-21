@@ -37,12 +37,27 @@ export interface MaintenanceFinding {
 }
 export interface MaintenanceObservation {
   id: keyof typeof maintenanceTargets
-  code: 'observed' | 'protected' | 'unknown'
+  code: 'observed' | 'protected' | 'restricted' | 'unknown'
   taskProtection: 'matched' | 'notMatched' | 'unknown'
   findings: MaintenanceFinding[]
+  paths: MaintenancePath[]
+}
+export const maintenanceLocations = {
+  prevent_network_dsstore: ['Library/Preferences/com.apple.desktopservices.plist'],
+  legacy_overrides_audit: [
+    'Library/Preferences/.GlobalPreferences.plist',
+    'Library/Preferences/com.apple.frameworks.diskimages.plist',
+  ],
+} as const
+export interface MaintenancePath {
+  location: string
+  state: 'present' | 'missing' | 'unknown'
+  clientProtection: 'matched' | 'notMatched' | 'unknown'
+  moleProtection: 'matched' | 'notMatched' | 'unknown'
+  access: 'noRestrictionObserved' | 'restricted' | 'unknown' | 'notChecked'
 }
 export interface MaintenanceReport {
-  protocol: 1
+  protocol: 2
   revision: string
   checkedAt: number
   ruleSource: 'current' | 'legacy' | 'defaults' | 'unknown'
@@ -60,7 +75,7 @@ export function readMaintenanceReport(
   }
   if (
     !report ||
-    report.protocol !== 1 ||
+    report.protocol !== 2 ||
     report.revision !== catalog.revision ||
     !Number.isSafeInteger(report.checkedAt) ||
     report.checkedAt < began - 5_000 ||
@@ -76,7 +91,7 @@ export function readMaintenanceReport(
       !item ||
       !Object.hasOwn(maintenanceTargets, item.id) ||
       ids.has(item.id) ||
-      !['observed', 'protected', 'unknown'].includes(item.code) ||
+      !['observed', 'protected', 'restricted', 'unknown'].includes(item.code) ||
       !['matched', 'notMatched', 'unknown'].includes(item.taskProtection)
     )
       return invalid()
@@ -96,12 +111,41 @@ export function readMaintenanceReport(
         return invalid()
     }
     if ((report.ruleSource === 'unknown') !== (item.taskProtection === 'unknown')) return invalid()
+    const locations = maintenanceLocations[item.id]
+    if (!Array.isArray(item.paths) || item.paths.length !== locations.length) return invalid()
+    for (const [index, path] of item.paths.entries()) {
+      if (
+        !path ||
+        path.location !== locations[index] ||
+        !['present', 'missing', 'unknown'].includes(path.state) ||
+        !['matched', 'notMatched', 'unknown'].includes(path.clientProtection) ||
+        !['matched', 'notMatched', 'unknown'].includes(path.moleProtection) ||
+        !['noRestrictionObserved', 'restricted', 'unknown', 'notChecked'].includes(path.access) ||
+        (path.state !== 'present' && !['unknown', 'notChecked'].includes(path.access)) ||
+        (report.ruleSource === 'unknown' && path.moleProtection !== 'unknown')
+      )
+        return invalid()
+    }
     const code =
-      item.taskProtection === 'matched' || item.findings.some((f) => f.managed)
+      item.taskProtection === 'matched' ||
+      item.findings.some((f) => f.managed) ||
+      item.paths.some(
+        (path) => path.clientProtection === 'matched' || path.moleProtection === 'matched',
+      )
         ? 'protected'
-        : item.taskProtection === 'unknown' || item.findings.some((f) => f.value === 'unknown')
-          ? 'unknown'
-          : 'observed'
+        : item.paths.some((path) => path.access === 'restricted')
+          ? 'restricted'
+          : item.taskProtection === 'unknown' ||
+              item.findings.some((f) => f.value === 'unknown') ||
+              item.paths.some(
+                (path) =>
+                  path.state !== 'present' ||
+                  path.access !== 'noRestrictionObserved' ||
+                  path.clientProtection === 'unknown' ||
+                  path.moleProtection === 'unknown',
+              )
+            ? 'unknown'
+            : 'observed'
     if (item.code !== code) return invalid()
   }
   return report
@@ -109,6 +153,7 @@ export function readMaintenanceReport(
 
 export function maintenanceConclusion(item: MaintenanceObservation): string {
   if (item.code === 'protected') return '已受保护，保持现状'
+  if (item.code === 'restricted') return '发现文件访问限制，保持现状'
   if (item.code === 'unknown')
     return item.id === 'legacy_overrides_audit' && item.findings.some((f) => f.value === 'enabled')
       ? '存在启用的覆盖设置，其余状态未确认'

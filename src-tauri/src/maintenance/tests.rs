@@ -5,7 +5,7 @@ use std::{fs, os::unix::fs::symlink};
 #[ignore = "Explicit read-only observation of the current user's six preferences and optimize rules"]
 fn live_read_only_preferences() {
     let home = std::env::var_os("HOME").unwrap();
-    let report = inspect(Path::new(&home)).unwrap();
+    let report = inspect(Path::new(&home), &[]).unwrap();
     assert_eq!(report.items.len(), 2);
     assert_eq!(
         report

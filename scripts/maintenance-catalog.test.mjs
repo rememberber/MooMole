@@ -22,6 +22,7 @@ test('source review gate rejects version, code and task coverage drift before en
       'lib/optimize/maintenance.sh': '# reviewed preference helper fixture\n',
       'lib/manage/whitelist.sh': '# reviewed whitelist fixture\n',
       'lib/core/base.sh': '# reviewed defaults fixture\n',
+      'lib/core/app_protection.sh': '# reviewed path predicate fixture\n',
     }
     for (const [path, content] of Object.entries(sources)) {
       writeFileSync(join(root, path), content)

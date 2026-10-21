@@ -2916,6 +2916,23 @@ input[type='checkbox'] {
   margin: 12px 0 0;
   line-height: 1.8;
 }
+.maintenance-paths {
+  margin-top: 12px;
+  color: var(--subtle);
+  line-height: 1.8;
+}
+.maintenance-paths > summary {
+  cursor: pointer;
+}
+.maintenance-path {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.maintenance-paths .maintenance-location {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
 .maintenance-list {
   border-top: 1px solid var(--border);
 }

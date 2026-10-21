@@ -1,12 +1,13 @@
 import {
   maintenanceCatalog,
   maintenanceTargets,
+  maintenanceLocations,
   type MaintenanceReport,
 } from '../../../src/lib/maintenance'
 
 export function maintenanceReport(): MaintenanceReport {
   return {
-    protocol: 1,
+    protocol: 2,
     revision: maintenanceCatalog.revision,
     checkedAt: Date.now(),
     ruleSource: 'current',
@@ -19,6 +20,13 @@ export function maintenanceReport(): MaintenanceReport {
       id,
       code: id === 'prevent_network_dsstore' ? 'observed' : 'protected',
       taskProtection: id === 'legacy_overrides_audit' ? 'matched' : 'notMatched',
+      paths: maintenanceLocations[id].map((location) => ({
+        location,
+        state: 'present',
+        clientProtection: 'notMatched',
+        moleProtection: 'notMatched',
+        access: 'noRestrictionObserved',
+      })),
       findings: targets.map(([domain, key, label]) => ({
         domain,
         key,

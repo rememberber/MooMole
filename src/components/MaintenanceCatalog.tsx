@@ -99,9 +99,59 @@ export function MaintenanceCatalog({
                         ? '命中维护跳过规则，应保留'
                         : observed.taskProtection === 'unknown'
                           ? '读取未确认，应保留'
-                          : '未命中项目级跳过规则；路径保护尚未检查'}
+                          : '未命中项目级跳过规则'}
                       。
                     </p>
+                    <p className="muted">原始键值尚未保存，当前没有精确撤销能力。</p>
+                    <details className="maintenance-paths">
+                      <summary>文件保护与访问观察</summary>
+                      {observed.paths.map((path) => (
+                        <div className="maintenance-path" key={path.location}>
+                          <p className="maintenance-location">~/{path.location}</p>
+                          <p>
+                            文件状态：
+                            {path.state === 'present'
+                              ? '存在'
+                              : path.state === 'missing'
+                                ? '未发现，未测试创建权限'
+                                : '路径未确认'}
+                            。
+                          </p>
+                          <p>
+                            客户端保护：
+                            {path.clientProtection === 'matched'
+                              ? '命中，应保留'
+                              : path.clientProtection === 'unknown'
+                                ? '未确认，应保留'
+                                : '未命中保护目录'}
+                            。
+                          </p>
+                          <p>
+                            Mole 路径规则：
+                            {path.moleProtection === 'matched'
+                              ? '命中，应保留'
+                              : path.moleProtection === 'unknown'
+                                ? '未确认，应保留'
+                                : '本次未命中'}
+                            。
+                          </p>
+                          <p>
+                            文件访问：
+                            {path.access === 'restricted'
+                              ? '发现限制，不会自动提权或修改权限'
+                              : path.access === 'noRestrictionObserved'
+                                ? '有限检查未发现限制，不代表系统偏好服务可以写入'
+                                : path.access === 'notChecked'
+                                  ? '未检查'
+                                  : '未知，不能假定可写'}
+                            。
+                          </p>
+                        </div>
+                      ))}
+                      <p>
+                        只观察当前用户的固定偏好文件；未检查其他主机/用户域，也不代表完整写入权限。
+                      </p>
+                    </details>
                   </section>
                 )}
                 <dl>
@@ -128,7 +178,7 @@ export function MaintenanceCatalog({
                 </dl>
                 <p className="muted maintenance-pending">
                   {observed
-                    ? '这里只观察设置与项目级保护；路径保护、写入权限及其他执行条件尚未检查，不能据此执行维护。'
+                    ? '这里只提供有限设置、保护与文件访问观察；实际写入、原值恢复及其他执行条件尚未验证，不能据此执行维护。'
                     : '本机适用性、有效保护规则与权限尚未检查，不能判断为可执行或无须维护。'}
                 </p>
                 <details className="origin-details">

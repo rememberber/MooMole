@@ -6,7 +6,8 @@
     "lib/optimize/tasks.sh": "40a632ad47d4270776fd250602e2fecccadd9dd10650fb46f8bb37b0d8fc1cf5",
     "lib/optimize/maintenance.sh": "530d8169304dd3464d210d398b7cb2fadd9382abe1c2bb7af97c40dba8514145",
     "lib/manage/whitelist.sh": "1fc4c40e14704698217556d7aa059b86a7a99f573fee79324fd661af5df572a8",
-    "lib/core/base.sh": "58627b0717c02c6d27dbd28d33ff038affad9d6e8fec4770905c1bb3f1fda6f3"
+    "lib/core/base.sh": "58627b0717c02c6d27dbd28d33ff038affad9d6e8fec4770905c1bb3f1fda6f3",
+    "lib/core/app_protection.sh": "75cb9db37d26656c01e6c2298d3907c0a7b3b0a2d73fec1494ae522447c37d37"
   },
   "items": [
     {

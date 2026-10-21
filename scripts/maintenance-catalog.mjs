@@ -19,6 +19,7 @@ export function verifyMaintenanceCatalog(source, reference = catalog) {
     ...['catalog', 'tasks', 'maintenance'].map((name) => `lib/optimize/${name}.sh`),
     'lib/manage/whitelist.sh',
     'lib/core/base.sh',
+    'lib/core/app_protection.sh',
   ]
   if (Object.keys(reference.sourceHashes).sort().join('|') !== [...paths].sort().join('|'))
     throw new Error('Maintenance catalog source coverage mismatch')

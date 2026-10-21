@@ -35,7 +35,7 @@ describe('source-bound maintenance reference', () => {
     expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
     for (const mutate of [
       (r: typeof report) => {
-        r.protocol = 2 as 1
+        r.protocol = 1 as 2
       },
       (r: typeof report) => {
         r.revision = 'other'
@@ -67,6 +67,21 @@ describe('source-bound maintenance reference', () => {
       (r: typeof report) => {
         r.ruleSource = 'unknown'
       },
+      (r: typeof report) => {
+        r.items[0].paths = []
+      },
+      (r: typeof report) => {
+        r.items[0].paths[0].access = 'restricted'
+      },
+      (r: typeof report) => {
+        r.items[0].paths[0].clientProtection = 'matched'
+      },
+      (r: typeof report) => {
+        r.items[0].paths[0].location = '/other.plist'
+      },
+      (r: typeof report) => {
+        r.items[0].paths[0].state = 'missing'
+      },
     ]) {
       const changed = structuredClone(report)
       mutate(changed)
@@ -82,5 +97,23 @@ describe('source-bound maintenance reference', () => {
     partial.taskProtection = 'notMatched'
     partial.findings[0].value = 'enabled'
     expect(maintenanceConclusion(partial)).toBe('存在启用的覆盖设置，其余状态未确认')
+  })
+  it('keeps path guards and access restrictions ahead of otherwise observed values', () => {
+    const report = maintenanceReport()
+    const first = report.items[0]
+    first.paths[0].clientProtection = 'matched'
+    first.code = 'protected'
+    expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
+    expect(maintenanceConclusion(first)).toBe('已受保护，保持现状')
+    first.paths[0].clientProtection = 'notMatched'
+    first.paths[0].access = 'restricted'
+    first.code = 'restricted'
+    expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
+    expect(maintenanceConclusion(first)).toBe('发现文件访问限制，保持现状')
+    first.paths[0].state = 'missing'
+    first.paths[0].access = 'notChecked'
+    first.code = 'unknown'
+    expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
+    expect(maintenanceConclusion(first)).toBe('部分状态未知，暂不作维护判断')
   })
 })
