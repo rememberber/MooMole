@@ -15,7 +15,7 @@ it('binds project name discovery to the selected scope, metadata context and non
   )
   for (const mutate of [
     (r: typeof report) => {
-      r.protocol = 2 as 1
+      r.protocol = 1 as 2
     },
     (r: typeof report) => {
       r.revision = 'other'
@@ -179,4 +179,59 @@ it('keeps complete empty measurements distinct from partial zero observations', 
     'partial',
   )
   expect(projectMeasurementReason(r)).toBe('跳过链接 1 次；跳过共享硬链接 1 次；跳过特殊文件 1 次')
+})
+
+it('requires scoped project-marker hints and never turns missing or uncertain evidence into ownership', () => {
+  const fixture = projectArtifactsReport()
+  for (const change of [
+    (r: typeof fixture) => {
+      r.items[0].projectHint.path = '/fixture/outside'
+    },
+    (r: typeof fixture) => {
+      r.items[0].projectHint.path = '/fixture/projects/elsewhere'
+    },
+    (r: typeof fixture) => {
+      r.items[0].projectHint.markers = ['.git']
+    },
+    (r: typeof fixture) => {
+      r.items[0].projectHint.markers = []
+    },
+    (r: typeof fixture) => {
+      r.items[0].projectHint.markers = ['package.json', 'package.json']
+    },
+    (r: typeof fixture) => {
+      r.items[0].projectHint.state = 'unknown'
+    },
+    (r: typeof fixture) => {
+      r.items[2].projectHint.markers = ['Makefile']
+    },
+  ]) {
+    const r = structuredClone(fixture)
+    change(r)
+    expect(() =>
+      readProjectArtifacts(r, fixture.root, fixture.checkedAt, fixture.checkedAt),
+    ).toThrow()
+  }
+  fixture.items[0].projectHint = { state: 'unknown', path: null, kind: null, markers: [] }
+  expect(
+    readProjectArtifacts(fixture, fixture.root, fixture.checkedAt, fixture.checkedAt).items[0]
+      .projectHint.state,
+  ).toBe('unknown')
+})
+it('groups exact workspace hints together while leaving unresolved directories separate', async () => {
+  const { groupProjectArtifacts } = await import('./project-artifacts')
+  const r = projectArtifactsReport()
+  const shared = {
+    state: 'hint' as const,
+    path: r.root,
+    kind: 'workspace' as const,
+    markers: ['.git'],
+  }
+  r.items[0].projectHint = shared
+  r.items[1].projectHint = shared
+  const groups = groupProjectArtifacts(r.items)
+  expect(groups).toHaveLength(2)
+  expect(groups[0].items.map((i) => i.name)).toEqual(['node_modules', 'target'])
+  expect(groups[1].hint.state).toBe('notFound')
+  expect(groups[1].items[0].name).toBe('dist')
 })

@@ -12,15 +12,19 @@ use std::{
     path::Path,
     time::Instant,
 };
+mod context;
 pub mod measurement;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_CANDIDATES: usize = 256;
 const MAX_DEPTH: usize = 6;
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Catalog {
     version: String,
     revision: String,
     targets: Vec<String>,
+    workspace_indicators: Vec<String>,
+    project_indicators: Vec<String>,
 }
 fn catalog() -> Result<Catalog, String> {
     let value: Catalog =
@@ -29,9 +33,13 @@ fn catalog() -> Result<Catalog, String> {
     if value.revision != engine::REVISION
         || value.version != "1.59.1"
         || value.targets.len() != 34
+        || value.workspace_indicators.len() != 5
+        || value.project_indicators.len() != 16
         || value
             .targets
             .iter()
+            .chain(value.workspace_indicators.iter())
+            .chain(value.project_indicators.iter())
             .any(|s| s.is_empty() || s.contains('/') || s.contains('\0'))
     {
         return Err("工程产物说明基线不匹配。".into());
@@ -46,6 +54,7 @@ pub struct Candidate {
     context: &'static str,
     project_path: Option<String>,
     protection: &'static str,
+    project_hint: context::Hint,
     measurement: &'static str,
     can_execute: bool,
 }
@@ -149,6 +158,7 @@ fn marker(parent: &File, name: &str) -> bool {
 struct Scanner<'a> {
     began: Instant,
     targets: &'a [String],
+    reference: &'a Catalog,
     client: &'a [String],
     visited: usize,
     items: Vec<Candidate>,
@@ -172,7 +182,7 @@ impl Scanner<'_> {
         };
         self.stop.is_none()
     }
-    fn walk(&mut self, directory: &File, path: &Path, depth: usize) {
+    fn walk(&mut self, directory: &File, path: &Path, depth: usize, ancestors: &[context::Hint]) {
         if !self.ready() {
             return;
         }
@@ -201,6 +211,10 @@ impl Scanner<'_> {
             return;
         }
         let stream = Stream(pointer);
+        let first_item = self.items.len();
+        let probe = context::Probe::inspect(directory, path, self.reference);
+        let mut lineage = ancestors.to_vec();
+        lineage.push(probe.hint.clone());
         let node_context = marker(directory, "package.json");
         let rust_context = marker(directory, "Cargo.toml");
         loop {
@@ -293,11 +307,12 @@ impl Scanner<'_> {
                         path.to_str().map(String::from)
                     },
                     protection,
+                    project_hint: context::choose(&lineage),
                     measurement: "notMeasured",
                     can_execute: false,
                 });
             } else if depth + 1 < MAX_DEPTH {
-                self.walk(&child, &child_path, depth + 1);
+                self.walk(&child, &child_path, depth + 1, &lineage);
             } else {
                 self.skipped.depth += 1;
             }
@@ -309,15 +324,22 @@ impl Scanner<'_> {
                 self.skipped.changed += 1;
             }
         }
-        if !directory.metadata().is_ok_and(|after| {
-            before.dev() == after.dev()
-                && before.ino() == after.ino()
-                && before.mtime() == after.mtime()
-                && before.mtime_nsec() == after.mtime_nsec()
-                && before.ctime() == after.ctime()
-                && before.ctime_nsec() == after.ctime_nsec()
-        }) {
+        // One change event per directory keeps the existing bounded counter,
+        // whether marker evidence, directory metadata, or both changed.
+        if !probe.validate(directory)
+            || !directory.metadata().is_ok_and(|after| {
+                before.dev() == after.dev()
+                    && before.ino() == after.ino()
+                    && before.mtime() == after.mtime()
+                    && before.mtime_nsec() == after.mtime_nsec()
+                    && before.ctime() == after.ctime()
+                    && before.ctime_nsec() == after.ctime_nsec()
+            })
+        {
             self.skipped.changed += 1;
+            for item in &mut self.items[first_item..] {
+                item.project_hint = context::Hint::unknown();
+            }
         }
     }
 }
@@ -344,6 +366,7 @@ fn scan_with_limit(root: &Path, client: &[String], entry_limit: usize) -> Result
     let mut scanner = Scanner {
         began: Instant::now(),
         targets: &reference.targets,
+        reference: &reference,
         client,
         visited: 0,
         items: vec![],
@@ -351,12 +374,12 @@ fn scan_with_limit(root: &Path, client: &[String], entry_limit: usize) -> Result
         stop: None,
         entry_limit,
     };
-    scanner.walk(held.target(), root, 0);
+    scanner.walk(held.target(), root, 0, &[]);
     held.validate()
         .map_err(|_| "扫描期间所选目录已变化，请重新扫描。")?;
     scanner.items.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(Report {
-        protocol: 1,
+        protocol: 2,
         revision: engine::REVISION,
         root: text.into(),
         checked_at: crate::db::now(),

@@ -14,7 +14,16 @@ test('project source review detects code and target drift without executing shel
     const source = {
       'bin/purge.sh': '# never execute\n',
       'lib/clean/project.sh': '# reviewed rules\n',
-      'lib/clean/purge_shared.sh': `readonly MOLE_PURGE_TARGETS=(\n${catalog.targets.map((name) => `    "${name}"`).join('\n')}\n)\n`,
+      'lib/clean/purge_shared.sh': [
+        ['MOLE_PURGE_TARGETS', catalog.targets],
+        ['MOLE_PURGE_MONOREPO_INDICATORS', catalog.workspaceIndicators],
+        ['MOLE_PURGE_PROJECT_INDICATORS', catalog.projectIndicators],
+      ]
+        .map(
+          ([name, values]) =>
+            `readonly ${name}=(\n${values.map((value) => `    "${value}"`).join('\n')}\n)\n`,
+        )
+        .join(''),
     }
     for (const [path, body] of Object.entries(source)) {
       writeFileSync(join(root, path), body)
@@ -26,6 +35,8 @@ test('project source review detects code and target drift without executing shel
       { ...reference, version: '2.0.0' },
       { ...reference, sourceHashes: {} },
       { ...reference, targets: reference.targets.slice(1) },
+      { ...reference, workspaceIndicators: reference.workspaceIndicators.slice(1) },
+      { ...reference, projectIndicators: reference.projectIndicators.slice(1) },
     ])
       assert.throws(() => verifyProjectCatalog(root, changed))
     writeFileSync(join(root, 'lib/clean/project.sh'), '# changed\n')

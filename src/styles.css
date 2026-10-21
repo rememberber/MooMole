@@ -3111,3 +3111,15 @@ input[type='checkbox'] {
     margin-left: auto;
   }
 }
+
+.project-group-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 13px;
+  margin: 18px 0 0;
+  overflow-wrap: anywhere;
+}
+.project-group-heading .muted {
+  font-weight: 400;
+}

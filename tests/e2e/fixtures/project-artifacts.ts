@@ -5,7 +5,7 @@ import {
 } from '../../../src/lib/project-artifacts'
 export function projectArtifactsReport(): ProjectArtifactsReport {
   return {
-    protocol: 1,
+    protocol: 2,
     revision: projectCatalog.revision,
     root: '/fixture/projects',
     checkedAt: Date.now(),
@@ -21,6 +21,12 @@ export function projectArtifactsReport(): ProjectArtifactsReport {
         context: 'nodeContext',
         projectPath: '/fixture/projects/web',
         protection: 'notMatched',
+        projectHint: {
+          state: 'hint',
+          kind: 'project',
+          path: '/fixture/projects/web',
+          markers: ['package.json'],
+        },
         measurement: 'notMeasured',
         canExecute: false,
       },
@@ -30,6 +36,12 @@ export function projectArtifactsReport(): ProjectArtifactsReport {
         context: 'rustContext',
         projectPath: '/fixture/projects/rust',
         protection: 'matched',
+        projectHint: {
+          state: 'hint',
+          kind: 'project',
+          path: '/fixture/projects/rust',
+          markers: ['Cargo.toml'],
+        },
         measurement: 'notMeasured',
         canExecute: false,
       },
@@ -39,6 +51,7 @@ export function projectArtifactsReport(): ProjectArtifactsReport {
         context: 'nameOnly',
         projectPath: null,
         protection: 'unknown',
+        projectHint: { state: 'notFound', kind: null, path: null, markers: [] },
         measurement: 'notMeasured',
         canExecute: false,
       },

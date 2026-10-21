@@ -1,5 +1,6 @@
 import {
   projectCatalog,
+  groupProjectArtifacts,
   projectContextText,
   projectIncompleteReason,
   projectMeasurementReason,
@@ -58,7 +59,7 @@ export function ProjectArtifacts({
           </p>
           <p className="muted">
             上次扫描 {dateTime(report.checkedAt)}
-            。仅为目录线索；可逐项测量文件占用。活动构建、源码/Git 和 Mole
+            。按所选范围内的项目标记分组，仅为线索；可逐项测量文件占用。活动构建、源码/Git 和 Mole
             保护规则尚未检查，执行未开放。
           </p>
           {report.completion === 'partial' && (
@@ -73,87 +74,125 @@ export function ProjectArtifacts({
             </div>
           ) : (
             <div className="project-artifact-list">
-              {report.items.map((item) => {
-                const measured = measurements[item.path]
-                return (
-                  <article className="project-artifact-row" key={item.path} aria-label={item.path}>
-                    <div>
-                      <div className="project-artifact-heading">
-                        <strong>{item.name}</strong>
-                        <span
-                          className="muted"
-                          title={
-                            item.projectPath
-                              ? `相邻项目标记所在目录：${item.projectPath}`
-                              : undefined
-                          }
-                        >
-                          {projectContextText[item.context]}
-                        </span>
-                      </div>
-                      <span className="project-artifact-path">{item.path}</span>
-                      <span>
-                        {item.protection === 'matched'
-                          ? '客户端保护命中，保持现状'
-                          : item.protection === 'unknown'
-                            ? '客户端保护无法确认，保持现状'
-                            : '未命中客户端保护；其他清理条件未确认'}
-                      </span>
-                      {measured?.report && (
-                        <span className="muted">
-                          上次测量 {dateTime(measured.report.checkedAt)} · {measured.report.files}{' '}
-                          个文件
-                          {measured.report.completion === 'partial' &&
-                            ` · ${projectMeasurementReason(measured.report)}`}
-                        </span>
-                      )}
-                      {measured?.error && (
-                        <span className="notice" role="alert">
-                          {measured.error}
-                          {measured.report && ' 保留上次测量，本次未更新。'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="project-artifact-actions">
-                      <span className="project-measurement">
-                        <strong>
-                          {measured?.report
-                            ? measured.report.completion === 'partial' &&
-                              measured.report.files === 0
-                              ? '占用未确认'
-                              : bytes(measured.report.allocatedBytes)
-                            : '未测量'}
-                        </strong>
-                        {measured?.report && (
-                          <span className="muted">
-                            {measured.report.completion === 'partial'
-                              ? '部分文件占用'
-                              : '已测文件占用'}
+              {groupProjectArtifacts(report.items).map((group) => (
+                <section
+                  className="project-group"
+                  key={group.key}
+                  aria-label={
+                    group.hint.state === 'hint' ? `项目线索 ${group.hint.path}` : '归属待确认'
+                  }
+                >
+                  <h3
+                    className="project-group-heading"
+                    title={
+                      group.hint.state === 'hint'
+                        ? `仅根据范围内标记：${group.hint.markers.join('、')}；不证明 Git 或内容归属。`
+                        : undefined
+                    }
+                  >
+                    <span>
+                      {group.hint.state === 'hint'
+                        ? group.hint.kind === 'workspace'
+                          ? '工作区线索'
+                          : '项目线索'
+                        : '归属待确认'}
+                    </span>
+                    {group.hint.path && <span className="muted">{group.hint.path}</span>}
+                  </h3>
+                  {group.items.map((item) => {
+                    const measured = measurements[item.path]
+                    return (
+                      <article
+                        className="project-artifact-row"
+                        key={item.path}
+                        aria-label={item.path}
+                      >
+                        <div>
+                          <div className="project-artifact-heading">
+                            <strong>{item.name}</strong>
+                            <span
+                              className="muted"
+                              title={
+                                item.projectPath
+                                  ? `相邻项目标记所在目录：${item.projectPath}`
+                                  : undefined
+                              }
+                            >
+                              {projectContextText[item.context]}
+                            </span>
+                          </div>
+                          <span className="project-artifact-path">{item.path}</span>
+                          <span>
+                            {item.protection === 'matched'
+                              ? '客户端保护命中，保持现状'
+                              : item.protection === 'unknown'
+                                ? '客户端保护无法确认，保持现状'
+                                : '未命中客户端保护；其他清理条件未确认'}
                           </span>
-                        )}
-                      </span>
-                      <button
-                        className="button secondary compact"
-                        disabled={!canAnalyze || reading || !!measuring}
-                        onClick={() => onMeasure(item.path)}
-                      >
-                        {measuring === item.path
-                          ? '正在测量…'
-                          : measured?.report
-                            ? '重新测量'
-                            : '测量占用'}
-                      </button>
-                      <button
-                        className="button secondary compact"
-                        disabled={!canAnalyze || reading || !!measuring}
-                        onClick={() => onAnalyze(item.path)}
-                      >
-                        查看空间
-                      </button>
-                    </div>
-                  </article>
-                )
-              })}
+                          {item.projectHint.state !== 'hint' && (
+                            <span className="muted">
+                              {item.projectHint.state === 'unknown'
+                                ? '项目标记无法确认；保留未知'
+                                : '所选范围内未找到项目标记'}
+                            </span>
+                          )}
+                          {measured?.report && (
+                            <span className="muted">
+                              上次测量 {dateTime(measured.report.checkedAt)} ·{' '}
+                              {measured.report.files} 个文件
+                              {measured.report.completion === 'partial' &&
+                                ` · ${projectMeasurementReason(measured.report)}`}
+                            </span>
+                          )}
+                          {measured?.error && (
+                            <span className="notice" role="alert">
+                              {measured.error}
+                              {measured.report && ' 保留上次测量，本次未更新。'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="project-artifact-actions">
+                          <span className="project-measurement">
+                            <strong>
+                              {measured?.report
+                                ? measured.report.completion === 'partial' &&
+                                  measured.report.files === 0
+                                  ? '占用未确认'
+                                  : bytes(measured.report.allocatedBytes)
+                                : '未测量'}
+                            </strong>
+                            {measured?.report && (
+                              <span className="muted">
+                                {measured.report.completion === 'partial'
+                                  ? '部分文件占用'
+                                  : '已测文件占用'}
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            className="button secondary compact"
+                            disabled={!canAnalyze || reading || !!measuring}
+                            onClick={() => onMeasure(item.path)}
+                          >
+                            {measuring === item.path
+                              ? '正在测量…'
+                              : measured?.report
+                                ? '重新测量'
+                                : '测量占用'}
+                          </button>
+                          <button
+                            className="button secondary compact"
+                            disabled={!canAnalyze || reading || !!measuring}
+                            onClick={() => onAnalyze(item.path)}
+                          >
+                            查看空间
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </section>
+              ))}
             </div>
           )}
         </>
@@ -173,6 +212,12 @@ export function ProjectArtifacts({
           测量由用户逐项发起：最多 32 层、20000 个子项、约 3
           秒，仅统计普通单链接文件的系统已分配块（含隐藏文件），不读取文件内容。跳过链接、共享硬链接、特殊文件、跨文件系统及未下载内容，保留不完整原因。目录自身元数据不计入；APFS
           共享、压缩、稀疏文件可能使显示值不同于逻辑大小，不能据此预测释放空间。结果不是原子快照，也不证明归属或可重建。
+        </p>
+        <p>
+          项目线索只检查所选范围内祖先的固定 Mole
+          标记：优先最近的仓库/工作区标记，再取最近的项目清单。标记文件不解析内容，.git
+          文件不跟随其指向，也不运行
+          Git。链接、共享标记或无法读取时保留未知；不搜索所选范围外，分组不等于实际归属或可重建。
         </p>
         <p>查看空间会进入现有只读空间分析；分析结果也不代表可以清理。</p>
       </details>

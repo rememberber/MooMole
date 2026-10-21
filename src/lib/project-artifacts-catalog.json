@@ -41,5 +41,24 @@
     ".cxx",
     ".expo",
     ".build"
+  ],
+  "workspaceIndicators": ["lerna.json", "pnpm-workspace.yaml", "nx.json", "rush.json", ".git"],
+  "projectIndicators": [
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "pyproject.toml",
+    "requirements.txt",
+    "pom.xml",
+    "build.gradle",
+    "terragrunt.hcl",
+    "Gemfile",
+    "composer.json",
+    "pubspec.yaml",
+    "Package.swift",
+    "Makefile",
+    "build.zig",
+    "build.zig.zon",
+    ".git"
   ]
 }

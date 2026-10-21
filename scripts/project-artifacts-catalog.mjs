@@ -22,19 +22,26 @@ export function verifyProjectCatalog(source, reference = catalog) {
         .digest('hex') !== reference.sourceHashes[path]
     )
       throw new Error(`Project catalog requires source review: ${path}`)
-  const declaration = readFileSync(resolve(source, paths[2]), 'utf8').match(
-    /^readonly MOLE_PURGE_TARGETS=\(\n([\s\S]*?)^\)/m,
-  )
-  const targets = declaration
-    ? [...declaration[1].matchAll(/^\s+"([A-Za-z0-9_.-]+)"/gm)].map((m) => m[1])
-    : []
-  if (
-    !targets.length ||
-    new Set(targets).size !== targets.length ||
-    JSON.stringify(targets) !== JSON.stringify(reference.targets)
-  )
-    throw new Error('Project target coverage mismatch')
-  return targets.length
+  const sourceText = readFileSync(resolve(source, paths[2]), 'utf8')
+  for (const [field, declarationName] of [
+    ['targets', 'MOLE_PURGE_TARGETS'],
+    ['workspaceIndicators', 'MOLE_PURGE_MONOREPO_INDICATORS'],
+    ['projectIndicators', 'MOLE_PURGE_PROJECT_INDICATORS'],
+  ]) {
+    const declaration = sourceText.match(
+      new RegExp(`^readonly ${declarationName}=\\(\\n([\\s\\S]*?)^\\)`, 'm'),
+    )
+    const values = declaration
+      ? [...declaration[1].matchAll(/^\s+"([A-Za-z0-9_.-]+)"/gm)].map((m) => m[1])
+      : []
+    if (
+      !values.length ||
+      new Set(values).size !== values.length ||
+      JSON.stringify(values) !== JSON.stringify(reference[field])
+    )
+      throw new Error(`Project ${field} coverage mismatch`)
+  }
+  return reference.targets.length
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   if (process.argv.length !== 3)

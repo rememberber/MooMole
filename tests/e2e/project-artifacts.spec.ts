@@ -33,7 +33,18 @@ async function install(page: Page) {
             String(Number(sessionStorage.getItem('project-calls') ?? 0) + 1),
           )
           if (sessionStorage.getItem('project-fail')) throw new Error('fixture 目录读取受限')
-          const result = { ...fixture, checkedAt: Date.now() }
+          const result = structuredClone({ ...fixture, checkedAt: Date.now() })
+          if (sessionStorage.getItem('project-workspace')) {
+            for (const item of result.items.slice(0, 2))
+              item.projectHint = {
+                state: 'hint',
+                path: fixture.root,
+                kind: 'workspace',
+                markers: ['.git'],
+              }
+          }
+          if (sessionStorage.getItem('project-unknown'))
+            result.items[2].projectHint = { state: 'unknown', path: null, kind: null, markers: [] }
           if (sessionStorage.getItem('project-defer'))
             return new Promise((resolve) =>
               Object.assign(window, { finishProjects: () => resolve(result) }),
@@ -75,7 +86,10 @@ test('explicit scope discovery keeps protection and unknown measurement, then op
   await page.evaluate(() => sessionStorage.setItem('project-picker-cancel', 'yes'))
   await page.getByRole('button', { name: '选择目录', exact: true }).click()
   await expect(region.getByRole('article')).toHaveCount(3)
-  await region.getByRole('button', { name: '查看空间', exact: true }).nth(0).click()
+  await region
+    .getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+    .getByRole('button', { name: '查看空间', exact: true })
+    .click()
   await expect(page.getByRole('button', { name: '空间分析', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
@@ -179,4 +193,24 @@ test('measurement holds scope controls and ignores late responses after leaving 
   await page.getByRole('button', { name: '工程产物', exact: true }).click()
   await expect(row.getByText('未测量', { exact: true })).toBeVisible()
   await expect(row).not.toContainText('8 KB')
+})
+
+test('groups workspace markers without asserting ownership and leaves uncertain evidence unresolved', async ({
+  page,
+}) => {
+  await install(page)
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('project-workspace', 'yes'))
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const workspace = page.getByRole('region', { name: '项目线索 /fixture/projects', exact: true })
+  await expect(workspace.getByRole('article')).toHaveCount(2)
+  await expect(workspace.getByRole('heading')).toContainText('工作区线索')
+  const unresolved = page.getByRole('region', { name: '归属待确认', exact: true })
+  await expect(unresolved).toContainText('所选范围内未找到项目标记')
+  await page.evaluate(() => sessionStorage.setItem('project-unknown', 'yes'))
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(unresolved).toContainText('项目标记无法确认；保留未知')
+  await expect(workspace).toContainText('未命中客户端保护；其他清理条件未确认')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

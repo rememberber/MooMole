@@ -1,16 +1,23 @@
 import catalog from './project-artifacts-catalog.json' with { type: 'json' }
 export const projectCatalog = catalog
+export interface ProjectHint {
+  state: 'hint' | 'unknown' | 'notFound'
+  path: string | null
+  kind: 'workspace' | 'project' | null
+  markers: string[]
+}
 export interface ProjectArtifact {
   path: string
   name: string
   context: 'nodeContext' | 'rustContext' | 'nameOnly'
   projectPath: string | null
   protection: 'matched' | 'notMatched' | 'unknown'
+  projectHint: ProjectHint
   measurement: 'notMeasured'
   canExecute: false
 }
 export interface ProjectArtifactsReport {
-  protocol: 1
+  protocol: 2
   revision: string
   root: string
   checkedAt: number
@@ -51,7 +58,7 @@ export function readProjectArtifacts(
   }
   if (
     !r ||
-    r.protocol !== 1 ||
+    r.protocol !== 2 ||
     r.revision !== catalog.revision ||
     r.root !== root ||
     !absolute(r.root) ||
@@ -107,6 +114,31 @@ export function readProjectArtifacts(
             catalog.targets.includes(name),
         )
     )
+      return invalid()
+    const hint = item.projectHint
+    if (
+      !hint ||
+      !['hint', 'unknown', 'notFound'].includes(hint.state) ||
+      !Array.isArray(hint.markers)
+    )
+      return invalid()
+    if (hint.state === 'hint') {
+      if (
+        !absolute(hint.path) ||
+        (hint.path !== root && !hint.path.startsWith(`${root}/`)) ||
+        !item.path.startsWith(`${hint.path}/`) ||
+        !['workspace', 'project'].includes(hint.kind ?? '') ||
+        hint.markers.length === 0 ||
+        new Set(hint.markers).size !== hint.markers.length
+      )
+        return invalid()
+      const allowed =
+        hint.kind === 'workspace'
+          ? catalog.workspaceIndicators
+          : catalog.projectIndicators.filter((m) => !catalog.workspaceIndicators.includes(m))
+      if (hint.markers.some((m) => !allowed.includes(m)) || hint.markers.length > allowed.length)
+        return invalid()
+    } else if (hint.path !== null || hint.kind !== null || hint.markers.length !== 0)
       return invalid()
     const parent = item.path.slice(0, item.path.lastIndexOf('/'))
     if (
@@ -248,4 +280,16 @@ export function projectMeasurementReason(report: ProjectMeasurement): string {
   ]
     .filter(Boolean)
     .join('；')
+}
+
+export function groupProjectArtifacts(items: ProjectArtifact[]) {
+  const groups = new Map<string, { key: string; hint: ProjectHint; items: ProjectArtifact[] }>()
+  for (const item of items) {
+    const key = item.projectHint.state === 'hint' ? item.projectHint.path! : 'unresolved'
+    if (!groups.has(key)) groups.set(key, { key, hint: item.projectHint, items: [] })
+    groups.get(key)!.items.push(item)
+  }
+  return [...groups.values()].sort((a, b) =>
+    a.key === 'unresolved' ? 1 : b.key === 'unresolved' ? -1 : a.key.localeCompare(b.key),
+  )
 }
