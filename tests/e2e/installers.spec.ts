@@ -3,12 +3,14 @@ import { installTaskMock } from './fixtures/native-task'
 import {
   installersReport,
   installerZipInspection,
+  installerZipDataInspection,
   installerConnectionInspection,
+  installerUsageInspection,
 } from './fixtures/installers'
 async function install(page: Page) {
   await installTaskMock(page, 'analyze')
   await page.addInitScript(
-    ({ fixture, zip, connection }) => {
+    ({ fixture, zip, zipData, connection, usage }) => {
       const native = (
         window as unknown as {
           __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
@@ -22,6 +24,20 @@ async function install(page: Page) {
           sessionStorage.setItem('installer-reveal', JSON.stringify(args))
           return null
         }
+        if (command === 'inspect_installer_usage') {
+          sessionStorage.setItem('usage-args', JSON.stringify(args))
+          if (sessionStorage.getItem('usage-fail')) throw new Error('fixture 文件身份变化')
+          const result = structuredClone({ ...usage, checkedAt: Date.now() })
+          if (sessionStorage.getItem('usage-unknown')) {
+            result.state = 'unknown'
+            result.reason = 'limitedView'
+          }
+          if (sessionStorage.getItem('usage-defer'))
+            return new Promise((resolve) =>
+              Object.assign(window, { finishUsage: () => resolve(result) }),
+            )
+          return result
+        }
         if (command === 'inspect_installer_connection') {
           sessionStorage.setItem('connection-args', JSON.stringify(args))
           if (sessionStorage.getItem('connection-fail')) throw new Error('fixture 映像路径已变化')
@@ -34,6 +50,25 @@ async function install(page: Page) {
           if (sessionStorage.getItem('connection-defer'))
             return new Promise((resolve) =>
               Object.assign(window, { finishConnection: () => resolve(result) }),
+            )
+          return result
+        }
+        if (command === 'inspect_installer_zip_data') {
+          sessionStorage.setItem('zip-data-args', JSON.stringify(args))
+          if (sessionStorage.getItem('zip-data-fail'))
+            throw new Error('fixture 数据校验时文件已变化')
+          const result = structuredClone({ ...zipData, checkedAt: Date.now() })
+          if (sessionStorage.getItem('zip-data-unknown')) {
+            result.state = 'unknown'
+            result.reason = 'testUnavailable'
+          }
+          if (sessionStorage.getItem('zip-data-large')) {
+            result.state = 'unknown'
+            result.reason = 'fileSizeLimit'
+          }
+          if (sessionStorage.getItem('zip-data-defer'))
+            return new Promise((resolve) =>
+              Object.assign(window, { finishZipData: () => resolve(result) }),
             )
           return result
         }
@@ -86,7 +121,9 @@ async function install(page: Page) {
     {
       fixture: installersReport(),
       zip: installerZipInspection(),
+      zipData: installerZipDataInspection(),
       connection: installerConnectionInspection(),
+      usage: installerUsageInspection(),
     },
   )
   await page.goto('/')
@@ -111,7 +148,7 @@ test('manual scoped inventory displays filename clues, unknown ZIP size and accu
     (await page.getByRole('banner', { name: '安装包工具栏' }).boundingBox())!.height,
   ).toBeLessThanOrEqual(64)
 
-  await expect(region).toContainText('文件占用尚未检查，清理未开放')
+  await expect(region).toContainText('可逐项检查占用，清理未开放')
   const zip = region.getByRole('article', { name: '/fixture/downloads/archive.zip', exact: true })
   await expect(zip).toContainText('ZIP 内容未确认')
   await expect(zip).toContainText('大小未知')
@@ -350,4 +387,126 @@ test('connection reading locks filters and ZIP checks and ignores late results a
     .getByRole('combobox', { name: '安装包查找位置', exact: true })
     .selectOption('downloads')
   await expect(page.getByRole('article')).toHaveCount(0)
+})
+
+test('usage checks are explicit and bound, preserve other observations and withdraw busy after retry failure', async ({
+  page,
+}) => {
+  const image = await prepareConnection(page)
+  expect(await page.evaluate(() => sessionStorage.getItem('usage-args'))).toBeNull()
+  await image.getByRole('button', { name: '检查连接', exact: true }).click()
+  await image.getByRole('button', { name: '检查占用', exact: true }).click()
+  await expect(image).toContainText('发现其他进程打开此文件，请先保留')
+  await expect(image).toContainText('系统报告此路径已连接')
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('usage-args')!))).toEqual({
+    root: '/fixture/downloads',
+    path: '/fixture/downloads/Tool.dmg',
+  })
+  await expect(
+    page
+      .getByRole('article', { name: '/fixture/downloads/archive.zip', exact: true })
+      .getByRole('button', { name: '检查占用', exact: true }),
+  ).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('usage-fail', 'yes'))
+  await image.getByRole('button', { name: '重新检查占用', exact: true }).click()
+  await expect(image.getByRole('alert')).toContainText('先前占用观察已清除')
+  await expect(image).not.toContainText('发现其他进程')
+  await expect(image).toContainText('系统报告此路径已连接')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+test('no visible handles remain unknown and rediscovery or scope choice clears usage evidence', async ({
+  page,
+}) => {
+  const image = await prepareConnection(page)
+  await page.evaluate(() => sessionStorage.setItem('usage-unknown', 'yes'))
+  await image.getByRole('button', { name: '检查占用', exact: true }).click()
+  await expect(image).toContainText('视图有限，占用仍未确认')
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(image).not.toContainText('上次占用检查')
+  await image.getByRole('button', { name: '检查占用', exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('installer-cancel', 'yes'))
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await expect(image).toContainText('视图有限，占用仍未确认')
+  await page
+    .getByRole('combobox', { name: '安装包查找位置', exact: true })
+    .selectOption('downloads')
+  await expect(page.getByRole('article')).toHaveCount(0)
+})
+test('usage reading locks scope and other row actions without duplicate spinners, and ignores late evidence', async ({
+  page,
+}) => {
+  const image = await prepareConnection(page)
+  await page.evaluate(() => sessionStorage.setItem('usage-defer', 'yes'))
+  await image.getByRole('button', { name: '检查占用', exact: true }).click()
+  await expect(image.getByRole('button', { name: '正在检查…', exact: true })).toHaveCount(1)
+  await expect(image.getByRole('button', { name: '检查连接', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await page.evaluate(() => (window as unknown as { finishUsage: () => void }).finishUsage())
+  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await expect(image).not.toContainText('发现其他进程打开')
+  await expect(image.getByRole('button', { name: '重新检查占用', exact: true })).toBeVisible()
+})
+
+async function prepareZipData(page: Page) {
+  const zip = await prepareZip(page)
+  expect(await page.evaluate(() => sessionStorage.getItem('zip-data-args'))).toBeNull()
+  await zip.getByRole('button', { name: '检查 ZIP', exact: true }).click()
+  await zip.getByText('ZIP 数据尚未校验', { exact: true }).click()
+  expect(await page.evaluate(() => sessionStorage.getItem('zip-data-args'))).toBeNull()
+  return zip
+}
+test('ZIP data test is separately explicit and scoped, and retry failure withdraws a passed result', async ({
+  page,
+}) => {
+  const zip = await prepareZipData(page)
+  await zip.getByRole('button', { name: '校验 ZIP 数据', exact: true }).click()
+  await expect(zip).toContainText('ZIP 数据测试通过；签名与用途未确认')
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('zip-data-args')!))).toEqual({
+    root: '/fixture/downloads',
+    path: '/fixture/downloads/archive.zip',
+    expectedStamp: 'a'.repeat(64),
+  })
+  await expect(zip).toContainText('发现安装条目线索（APP）')
+  await page.evaluate(() => sessionStorage.setItem('zip-data-fail', 'yes'))
+  await zip.getByRole('button', { name: '重新校验数据', exact: true }).click()
+  await expect(zip.getByRole('alert')).toContainText('旧条目和数据结果已清除')
+  await expect(zip).not.toContainText('ZIP 数据测试通过')
+  await expect(zip).toContainText('ZIP 内容未确认')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+test('ZIP data unknown and size limit do not change name hints, and repeating the listing clears data evidence', async ({
+  page,
+}) => {
+  const zip = await prepareZipData(page)
+  await page.evaluate(() => sessionStorage.setItem('zip-data-unknown', 'yes'))
+  await zip.getByRole('button', { name: '校验 ZIP 数据', exact: true }).click()
+  await expect(zip).toContainText('ZIP 数据未确认：可能加密、损坏、受限或超时')
+  await page.evaluate(() => sessionStorage.setItem('zip-data-large', 'yes'))
+  await zip.getByRole('button', { name: '重新校验数据', exact: true }).click()
+  await expect(zip).toContainText('ZIP 文件超过 64 MB 检查上限')
+  await zip.getByRole('button', { name: '重新检查', exact: true }).click()
+  await expect(zip).toContainText('ZIP 数据尚未校验')
+  await expect(zip).not.toContainText('上次数据校验')
+})
+test('ZIP data test locks other operations and filters and ignores late results after leaving', async ({
+  page,
+}) => {
+  const zip = await prepareZipData(page)
+  await page.evaluate(() => sessionStorage.setItem('zip-data-defer', 'yes'))
+  await zip.getByRole('button', { name: '校验 ZIP 数据', exact: true }).click()
+  await expect(zip.getByRole('button', { name: '正在校验…', exact: true })).toBeDisabled()
+  await expect(zip.getByRole('button', { name: '重新检查', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await page.evaluate(() => (window as unknown as { finishZipData: () => void }).finishZipData())
+  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await expect(zip).not.toContainText('ZIP 数据测试通过')
+  await expect(zip).toContainText('ZIP 数据尚未校验')
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(zip).not.toContainText('ZIP 数据尚未校验')
 })

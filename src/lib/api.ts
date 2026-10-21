@@ -28,10 +28,22 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const inspectInstallerUsage = (root: string, path: string): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_installer_usage', { root, path })
+    : Promise.reject(new Error('请在桌面 App 中检查文件占用。'))
 export const inspectInstallerConnection = (root: string, path: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_installer_connection', { root, path })
     : Promise.reject(new Error('请在桌面 App 中检查映像连接。'))
+export const inspectInstallerZipData = (
+  root: string,
+  path: string,
+  expectedStamp: string,
+): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_installer_zip_data', { root, path, expectedStamp })
+    : Promise.reject(new Error('请在桌面 App 中校验 ZIP 数据。'))
 export const inspectInstallerZip = (root: string, path: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_installer_zip', { root, path })

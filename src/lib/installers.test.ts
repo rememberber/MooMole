@@ -2,7 +2,9 @@ import { expect, it } from 'vitest'
 import {
   installersReport,
   installerZipInspection,
+  installerZipDataInspection,
   installerConnectionInspection,
+  installerUsageInspection,
 } from '../../tests/e2e/fixtures/installers'
 import {
   readInstallers,
@@ -10,9 +12,13 @@ import {
   installerView,
   installerIncompleteReason,
   readInstallerZip,
+  readInstallerZipData,
+  zipDataInspectionText,
   zipInspectionText,
   readInstallerConnection,
   connectionInspectionText,
+  readInstallerUsage,
+  usageInspectionText,
 } from './installers'
 it('binds installer metadata to scope, time, supported names and non-executable state', () => {
   const fixture = installersReport()
@@ -100,6 +106,17 @@ it('binds ZIP hints to the scope and complete first-fifty evidence without admit
   expect(
     readInstallerZip(fixture, fixture.root, fixture.path, fixture.checkedAt, fixture.checkedAt),
   ).toEqual(fixture)
+  expect(() =>
+    readInstallerZip({ ...fixture, protocol: 1 }, fixture.root, fixture.path, fixture.checkedAt),
+  ).toThrow()
+  expect(() =>
+    readInstallerZip(
+      { ...fixture, fileStamp: 'bad' },
+      fixture.root,
+      fixture.path,
+      fixture.checkedAt,
+    ),
+  ).toThrow()
   for (const change of [
     (r: typeof fixture) => {
       r.path = '/fixture/downloads-old/a.zip'
@@ -225,4 +242,87 @@ it('connection observations bind exact scope and time and never infer safe remov
       readInstallerConnection({ ...fixture, path }, fixture.root, path, fixture.checkedAt),
     ).toThrow()
   }
+})
+
+it('usage evidence admits only bound busy or explicit unknown and never accepts idle claims', () => {
+  const fixture = installerUsageInspection()
+  const read = (r: typeof fixture) =>
+    readInstallerUsage(r, fixture.root, fixture.path, fixture.checkedAt, fixture.checkedAt)
+  expect(read(fixture)).toEqual(fixture)
+  expect(usageInspectionText(fixture)).toContain('请先保留')
+  for (const patch of [
+    { protocol: 2 },
+    { revision: 'other' },
+    { root: '/other' },
+    { path: '/other/Tool.dmg' },
+    { checkedAt: fixture.checkedAt - 6000 },
+    { checkedAt: Infinity },
+    { canExecute: true },
+    { state: 'idle' },
+    { state: 'noOpenHandles' },
+    { state: 'unknown' },
+    { reason: 'limitedView' },
+  ])
+    expect(() => read({ ...fixture, ...patch } as typeof fixture)).toThrow()
+  for (const reason of [
+    'limitedView',
+    'queryUnavailable',
+    'listingUncertain',
+    'listingLimit',
+  ] as const) {
+    expect(usageInspectionText(read({ ...fixture, state: 'unknown', reason }))).toContain('确认')
+  }
+  expect(usageInspectionText({ ...fixture, state: 'unknown', reason: 'limitedView' })).toContain(
+    '视图有限，占用仍未确认',
+  )
+  for (const path of ['/fixture/downloads/a/b/Tool.dmg', '/fixture/downloads/Tool.txt']) {
+    expect(() =>
+      readInstallerUsage({ ...fixture, path }, fixture.root, path, fixture.checkedAt),
+    ).toThrow()
+  }
+})
+
+it('ZIP data tests bind scope and time, distinguish passed from unknown, and never authorize execution', () => {
+  const fixture = installerZipDataInspection()
+  const read = (r: typeof fixture) =>
+    readInstallerZipData(
+      r,
+      fixture.root,
+      fixture.path,
+      fixture.checkedAt,
+      fixture.fileStamp,
+      fixture.checkedAt,
+    )
+  expect(read(fixture)).toEqual(fixture)
+  expect(zipDataInspectionText(fixture)).toBe('ZIP 数据测试通过；签名与用途未确认')
+  for (const patch of [
+    { protocol: 2 },
+    { revision: 'other' },
+    { fileStamp: 'b'.repeat(64) },
+    { root: '/other' },
+    { path: '/other/a.zip' },
+    { checkedAt: fixture.checkedAt - 6000 },
+    { checkedAt: Infinity },
+    { canExecute: true },
+    { state: 'safe' },
+    { state: 'corrupt' },
+    { state: 'unknown' },
+    { reason: 'testUnavailable' },
+  ])
+    expect(() => read({ ...fixture, ...patch } as typeof fixture)).toThrow()
+  for (const reason of ['fileSizeLimit', 'testUnavailable', 'unexpectedOutput'] as const) {
+    const r = read({ ...fixture, state: 'unknown', reason })
+    expect(r.canExecute).toBe(false)
+    expect(zipDataInspectionText(r)).not.toContain('测试通过')
+  }
+  for (const path of ['/fixture/downloads/a/b/test.zip', '/fixture/downloads/test.dmg'])
+    expect(() =>
+      readInstallerZipData(
+        { ...fixture, path },
+        fixture.root,
+        path,
+        fixture.checkedAt,
+        fixture.fileStamp,
+      ),
+    ).toThrow()
 })

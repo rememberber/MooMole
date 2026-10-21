@@ -5,6 +5,7 @@ use crate::{
     process,
 };
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::{
     ffi::CString,
     fs::File,
@@ -18,6 +19,7 @@ use std::{
 };
 const OUTPUT_LIMIT: u64 = 256 * 1024;
 const WINDOW: usize = 50;
+const MAX_DATA_FILE_BYTES: u64 = 64 * 1024 * 1024;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Inspection {
@@ -26,6 +28,7 @@ pub struct Inspection {
     root: String,
     path: String,
     checked_at: i64,
+    file_stamp: String,
     state: &'static str,
     reason: Option<&'static str>,
     total_entries: Option<usize>,
@@ -33,10 +36,24 @@ pub struct Inspection {
     matched_types: Vec<String>,
     can_execute: bool,
 }
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataInspection {
+    protocol: u32,
+    revision: &'static str,
+    root: String,
+    path: String,
+    checked_at: i64,
+    file_stamp: String,
+    state: &'static str,
+    reason: Option<&'static str>,
+    can_execute: bool,
+}
 pub struct Prepared {
     scope: AnchoredPath,
     held: AnchoredPath,
     file: File,
+    stamp: String,
     root: String,
     path: String,
 }
@@ -109,12 +126,50 @@ impl Prepared {
             return Err("打开期间 ZIP 已变化，请重新扫描。".into());
         }
         held.validate()?;
+        let stamp = format!(
+            "{:x}",
+            Sha256::digest(
+                serde_json::to_vec(&held.witness).map_err(|_| "ZIP 文件观察无法编码。")?
+            )
+        );
         Ok(Self {
             scope,
             held,
             file,
+            stamp,
             root: root.to_str().unwrap().into(),
             path: path.to_str().unwrap().into(),
+        })
+    }
+    pub fn open_data(root: &Path, path: &Path, expected_stamp: &str) -> Result<Self, String> {
+        let prepared = Self::open(root, path)?;
+        if expected_stamp.len() != 64
+            || !expected_stamp
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            || prepared.stamp != expected_stamp
+        {
+            return Err(
+                "ZIP 与条目检查时的文件已不一致；旧条目和数据结果已撤回，请重新检查 ZIP。".into(),
+            );
+        }
+        Ok(prepared)
+    }
+    fn finish_data(self, result: Result<(), &'static str>) -> Result<DataInspection, String> {
+        self.scope
+            .validate()
+            .and_then(|_| self.held.validate())
+            .map_err(|_| "校验期间 ZIP 或路径已变化；本次数据结果已撤回，请重新扫描。")?;
+        Ok(DataInspection {
+            protocol: 1,
+            revision: engine::REVISION,
+            root: self.root,
+            path: self.path,
+            checked_at: crate::db::now(),
+            file_stamp: self.stamp,
+            state: if result.is_ok() { "passed" } else { "unknown" },
+            reason: result.err(),
+            can_execute: false,
         })
     }
     fn finish(self, result: Result<Vec<u8>, String>) -> Result<Inspection, String> {
@@ -123,11 +178,12 @@ impl Prepared {
             .and_then(|_| self.held.validate())
             .map_err(|_| "检查期间 ZIP 或路径已变化；本次线索已撤回，请重新扫描。")?;
         let mut report = Inspection {
-            protocol: 1,
+            protocol: 2,
             revision: engine::REVISION,
             root: self.root,
             path: self.path,
             checked_at: crate::db::now(),
+            file_stamp: self.stamp,
             state: "unknown",
             reason: Some("listingUnavailable"),
             total_entries: None,
@@ -189,15 +245,15 @@ fn classify(bytes: &[u8]) -> Result<(usize, Vec<String>), &'static str> {
     }
     Ok((lines.len(), matched))
 }
-pub async fn inspect(prepared: Prepared) -> Result<Inspection, String> {
-    let fd = prepared.file.as_raw_fd();
-    let mut command = tokio::process::Command::new("/usr/bin/zipinfo");
+async fn run(fd: i32, binary: &str, args: &[&str]) -> Result<Vec<u8>, String> {
+    let mut command = tokio::process::Command::new(binary);
     command
+        .current_dir("/")
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("LANG", "C")
         .env("LC_ALL", "C")
-        .args(["-1", "/dev/fd/3"]);
+        .args(args);
     // Only async-signal-safe syscalls run after fork; the parent retains the
     // opened ZIP until the supervised child and all pipes have finished.
     unsafe {
@@ -215,16 +271,55 @@ pub async fn inspect(prepared: Prepared) -> Result<Inspection, String> {
             Ok(())
         });
     }
-    let result = process::output_bounded(
+    process::output_bounded(
         command,
         Arc::new(Job::new(TaskKind::Analyze)),
         Duration::from_secs(2),
         OUTPUT_LIMIT,
     )
+    .await
+}
+pub async fn inspect(prepared: Prepared) -> Result<Inspection, String> {
+    let result = run(
+        prepared.file.as_raw_fd(),
+        "/usr/bin/zipinfo",
+        &["-1", "/dev/fd/3"],
+    )
     .await;
     tauri::async_runtime::spawn_blocking(move || prepared.finish(result))
         .await
         .map_err(|_| "ZIP 检查未完成。".to_string())?
+}
+fn data_result(result: Result<Vec<u8>, String>) -> Result<(), &'static str> {
+    match result {
+        Ok(bytes) if bytes.is_empty() => Ok(()),
+        Ok(_) => Err("unexpectedOutput"),
+        Err(_) => Err("testUnavailable"),
+    }
+}
+pub async fn inspect_data(prepared: Prepared) -> Result<DataInspection, String> {
+    let size = prepared
+        .file
+        .metadata()
+        .map_err(|_| "ZIP 元数据无法读取。")?
+        .len();
+    let result = if size > MAX_DATA_FILE_BYTES {
+        Err("fileSizeLimit")
+    } else {
+        // Test/decompress in the child without writing extracted files. Empty
+        // fixed password prevents prompts; no user secret or extraction option.
+        data_result(
+            run(
+                prepared.file.as_raw_fd(),
+                "/usr/bin/unzip",
+                &["-tqq", "-P", "", "/dev/fd/3"],
+            )
+            .await,
+        )
+    };
+    tauri::async_runtime::spawn_blocking(move || prepared.finish_data(result))
+        .await
+        .map_err(|_| "ZIP 数据校验未完成。".to_string())?
 }
 #[cfg(test)]
 mod tests {
@@ -364,5 +459,99 @@ mod tests {
         assert!(Prepared::open(root.path(), &path).is_err());
         assert!(Prepared::open(Path::new("/"), &path).is_err());
         assert!(Prepared::open(root.path(), &root.path().join("a/b/sample.zip")).is_err());
+    }
+    fn data_fixture(root: &Path, password: bool) -> std::path::PathBuf {
+        let source = root.join("Tool.app");
+        fs::write(&source, b"MooMole CRC fixture payload 101").unwrap();
+        let path = root.join("data.zip");
+        let mut cmd = std::process::Command::new("/usr/bin/zip");
+        cmd.env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .current_dir(root)
+            .args(["-q", "-0"]);
+        if password {
+            cmd.args(["-P", "fixture-only-password"]);
+        }
+        assert!(cmd.arg(&path).arg("Tool.app").status().unwrap().success());
+        fs::remove_file(source).unwrap();
+        path
+    }
+    #[tokio::test]
+    async fn actual_data_test_detects_crc_changes_without_extracting_or_granting_execution() {
+        let root = tempfile::tempdir_in("/private/tmp").unwrap();
+        let path = data_fixture(root.path(), false);
+        let listing = inspect(Prepared::open(root.path(), &path).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(listing.protocol, 2);
+        assert_eq!(listing.file_stamp.len(), 64);
+        assert!(Prepared::open_data(root.path(), &path, &listing.file_stamp).is_ok());
+        assert!(Prepared::open_data(root.path(), &path, &"b".repeat(64)).is_err());
+        let report = inspect_data(Prepared::open(root.path(), &path).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(report.state, "passed");
+        assert_eq!(report.reason, None);
+        assert!(!report.can_execute);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+        let mut bytes = fs::read(&path).unwrap();
+        let start = bytes
+            .windows(b"MooMole CRC fixture ".len())
+            .position(|b| b == b"MooMole CRC fixture ")
+            .unwrap();
+        bytes[start] ^= 1;
+        fs::write(&path, bytes).unwrap();
+        assert!(Prepared::open_data(root.path(), &path, &listing.file_stamp).is_err());
+        // Central names still provide hints while the data no longer passes CRC.
+        assert_eq!(
+            inspect(Prepared::open(root.path(), &path).unwrap())
+                .await
+                .unwrap()
+                .state,
+            "installerHint"
+        );
+        let report = inspect_data(Prepared::open(root.path(), &path).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(report.state, "unknown");
+        assert_eq!(report.reason, Some("testUnavailable"));
+        assert!(!report.can_execute);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+    #[tokio::test]
+    async fn encrypted_large_and_replaced_archives_never_keep_a_passed_data_result() {
+        let root = tempfile::tempdir_in("/private/tmp").unwrap();
+        let path = data_fixture(root.path(), true);
+        let report = inspect_data(Prepared::open(root.path(), &path).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(report.state, "unknown");
+        assert_eq!(report.reason, Some("testUnavailable"));
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+        let prepared = Prepared::open(root.path(), &path).unwrap();
+        fs::rename(&path, root.path().join("old.zip")).unwrap();
+        symlink(root.path().join("old.zip"), &path).unwrap();
+        assert!(inspect_data(prepared).await.is_err());
+        fs::remove_file(&path).unwrap();
+        File::create(&path)
+            .unwrap()
+            .set_len(MAX_DATA_FILE_BYTES + 1)
+            .unwrap();
+        let report = inspect_data(Prepared::open(root.path(), &path).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(report.state, "unknown");
+        assert_eq!(report.reason, Some("fileSizeLimit"));
+    }
+    #[test]
+    fn data_success_requires_complete_success_and_empty_quiet_output() {
+        assert_eq!(data_result(Ok(vec![])), Ok(()));
+        assert_eq!(
+            data_result(Ok(b"unexpected success prefix".to_vec())),
+            Err("unexpectedOutput")
+        );
+        for reason in ["timeout", "output limit", "nonzero", "pipe still open"] {
+            assert_eq!(data_result(Err(reason.into())), Err("testUnavailable"));
+        }
     }
 }

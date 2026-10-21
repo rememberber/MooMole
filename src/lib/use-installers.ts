@@ -4,7 +4,11 @@ import {
   readInstallers,
   installerLocations,
   readInstallerZip,
+  readInstallerZipData,
+  type ZipDataObservations,
   readInstallerConnection,
+  readInstallerUsage,
+  type UsageObservations,
   type ConnectionObservations,
   type InstallersReport,
   type ZipObservations,
@@ -17,6 +21,9 @@ export function useInstallers(active: boolean, home: string) {
   const [choosing, setChoosing] = useState(false)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState('')
+  const [checkKind, setCheckKind] = useState('')
+  const [usageObservations, setUsageObservations] = useState<UsageObservations>({})
+  const [zipDataObservations, setZipDataObservations] = useState<ZipDataObservations>({})
   const [zipObservations, setZipObservations] = useState<ZipObservations>({})
   const [connectionObservations, setConnectionObservations] = useState<ConnectionObservations>({})
   const epoch = useRef(0),
@@ -28,6 +35,7 @@ export function useInstallers(active: boolean, home: string) {
       running.current = false
       picking.current = false
       setChecking('')
+      setCheckKind('')
       setReading(false)
       setChoosing(false)
     }
@@ -43,7 +51,9 @@ export function useInstallers(active: boolean, home: string) {
     setRoot(selected.path)
     setReport(null)
     setZipObservations({})
+    setZipDataObservations({})
     setConnectionObservations({})
+    setUsageObservations({})
     setError('')
   }
   async function choose() {
@@ -58,7 +68,9 @@ export function useInstallers(active: boolean, home: string) {
         setRoot(path.replace(/\/+$/, '') || '/')
         setReport(null)
         setZipObservations({})
+        setZipDataObservations({})
         setConnectionObservations({})
+        setUsageObservations({})
       }
     } catch (error) {
       if (ticket === epoch.current) setError(String(error))
@@ -74,7 +86,9 @@ export function useInstallers(active: boolean, home: string) {
     running.current = true
     setReading(true)
     setZipObservations({})
+    setZipDataObservations({})
     setConnectionObservations({})
+    setUsageObservations({})
     setError('')
     const ticket = ++epoch.current,
       began = Date.now()
@@ -100,24 +114,41 @@ export function useInstallers(active: boolean, home: string) {
       }
     }
   }
-  async function checkFile(path: string, kind: 'zip' | 'connection') {
+  async function checkFile(path: string, kind: 'zip' | 'connection' | 'usage' | 'zipData') {
     if (
       !active ||
       !report?.items.some(
         (item) =>
           item.path === path &&
           item.sharing === 'single' &&
-          (kind === 'zip' ? item.extension === 'zip' : ['dmg', 'iso'].includes(item.extension)),
+          (kind === 'usage' ||
+            (['zip', 'zipData'].includes(kind)
+              ? item.extension === 'zip'
+              : ['dmg', 'iso'].includes(item.extension))),
       ) ||
+      (kind === 'zipData' &&
+        (!zipObservations[path]?.report || zipObservations[path].report!.state === 'unknown')) ||
       running.current ||
       picking.current
     )
       return
-    const label = kind === 'zip' ? 'ZIP' : '映像连接'
+    const expectedStamp = zipObservations[path]?.report?.fileStamp ?? ''
+    const label = { zip: 'ZIP', connection: '映像连接', usage: '文件占用', zipData: 'ZIP 数据' }[
+      kind
+    ]
     running.current = true
     setChecking(path)
-    if (kind === 'zip') setZipObservations((old) => ({ ...old, [path]: {} }))
-    else setConnectionObservations((old) => ({ ...old, [path]: {} }))
+    setCheckKind(kind)
+    if (kind === 'zip') {
+      setZipObservations((old) => ({ ...old, [path]: {} }))
+      setZipDataObservations((old) => {
+        const next = { ...old }
+        delete next[path]
+        return next
+      })
+    } else if (kind === 'zipData') setZipDataObservations((old) => ({ ...old, [path]: {} }))
+    else if (kind === 'connection') setConnectionObservations((old) => ({ ...old, [path]: {} }))
+    else setUsageObservations((old) => ({ ...old, [path]: {} }))
     const ticket = ++epoch.current,
       began = Date.now()
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -125,7 +156,11 @@ export function useInstallers(active: boolean, home: string) {
       const value = await Promise.race([
         kind === 'zip'
           ? api.inspectInstallerZip(root, path)
-          : api.inspectInstallerConnection(root, path),
+          : kind === 'connection'
+            ? api.inspectInstallerConnection(root, path)
+            : kind === 'usage'
+              ? api.inspectInstallerUsage(root, path)
+              : api.inspectInstallerZipData(root, path, expectedStamp),
         new Promise<never>((_, reject) => {
           timer = setTimeout(
             () => reject(new Error(`${label}检查未及时结束，系统读取可能仍在结束，请稍后重试。`)),
@@ -137,22 +172,40 @@ export function useInstallers(active: boolean, home: string) {
         if (kind === 'zip') {
           const result = readInstallerZip(value, root, path, began)
           setZipObservations((old) => ({ ...old, [path]: { report: result } }))
-        } else {
+        } else if (kind === 'connection') {
           const result = readInstallerConnection(value, root, path, began)
           setConnectionObservations((old) => ({ ...old, [path]: { report: result } }))
+        } else if (kind === 'usage') {
+          const result = readInstallerUsage(value, root, path, began)
+          setUsageObservations((old) => ({ ...old, [path]: { report: result } }))
+        } else {
+          const result = readInstallerZipData(value, root, path, began, expectedStamp)
+          setZipDataObservations((old) => ({ ...old, [path]: { report: result } }))
         }
       }
     } catch (error) {
       if (ticket === epoch.current) {
         if (kind === 'zip')
           setZipObservations((old) => ({ ...old, [path]: { error: String(error) } }))
-        else setConnectionObservations((old) => ({ ...old, [path]: { error: String(error) } }))
+        else if (kind === 'connection')
+          setConnectionObservations((old) => ({ ...old, [path]: { error: String(error) } }))
+        else if (kind === 'usage')
+          setUsageObservations((old) => ({ ...old, [path]: { error: String(error) } }))
+        else {
+          setZipDataObservations((old) => ({ ...old, [path]: { error: String(error) } }))
+          setZipObservations((old) => {
+            const next = { ...old }
+            delete next[path]
+            return next
+          })
+        }
       }
     } finally {
       clearTimeout(timer)
       if (ticket === epoch.current) {
         running.current = false
         setChecking('')
+        setCheckKind('')
       }
     }
   }
@@ -165,7 +218,12 @@ export function useInstallers(active: boolean, home: string) {
     choose,
     scan,
     checking,
+    checkKind,
+    usageObservations,
+    checkUsage: (path: string) => checkFile(path, 'usage'),
     zipObservations,
+    zipDataObservations,
+    checkZipData: (path: string) => checkFile(path, 'zipData'),
     checkZip: (path: string) => checkFile(path, 'zip'),
     checkConnection: (path: string) => checkFile(path, 'connection'),
     connectionObservations,

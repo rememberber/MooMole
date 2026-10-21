@@ -5,7 +5,11 @@ import {
   type InstallerSort,
   installerIncompleteReason,
   zipInspectionText,
+  zipDataInspectionText,
+  type ZipDataObservations,
   connectionInspectionText,
+  usageInspectionText,
+  type UsageObservations,
   type ConnectionObservations,
   type ZipObservations,
   type InstallersReport,
@@ -18,7 +22,12 @@ export function Installers({
   error,
   onReveal,
   checking,
+  checkKind,
+  usageObservations,
+  onCheckUsage,
   zipObservations,
+  zipDataObservations,
+  onCheckZipData,
   onCheckZip,
   connectionObservations,
   onCheckConnection,
@@ -28,8 +37,13 @@ export function Installers({
   reading: boolean
   error: string
   checking: string
+  checkKind: string
+  usageObservations: UsageObservations
+  onCheckUsage: (path: string) => void
   connectionObservations: ConnectionObservations
   onCheckConnection: (path: string) => void
+  zipDataObservations: ZipDataObservations
+  onCheckZipData: (path: string) => void
   zipObservations: ZipObservations
   onCheckZip: (path: string) => void
   onReveal: (path: string) => void
@@ -73,7 +87,7 @@ export function Installers({
           <p className="muted">
             上次扫描 {dateTime(report.checkedAt)}
             。清单按扩展名列出，ZIP 可逐项检查条目；DMG/ISO
-            可逐项检查连接；文件占用尚未检查，清理未开放，文件大小不代表可释放空间。
+            可逐项检查连接；可逐项检查占用，清理未开放，文件大小不代表可释放空间。
           </p>
           {report.completion === 'partial' && (
             <p className="notice">
@@ -169,6 +183,66 @@ export function Installers({
                         {zipInspectionText(zipObservations[item.path].report!)}
                       </span>
                     )}
+                    {((zipObservations[item.path]?.report &&
+                      zipObservations[item.path].report!.state !== 'unknown') ||
+                      zipDataObservations[item.path]) && (
+                      <details className="origin-details">
+                        <summary>
+                          {zipDataObservations[item.path]?.report
+                            ? zipDataInspectionText(zipDataObservations[item.path].report!)
+                            : zipDataObservations[item.path]?.error
+                              ? '本次 ZIP 数据校验未确认'
+                              : 'ZIP 数据尚未校验'}
+                        </summary>
+                        <p>
+                          测试压缩数据与 CRC，不写出文件。最多 64 MB ZIP、2
+                          秒运行预算；通过不代表签名可信、可安装或可清理。
+                        </p>
+                        {zipDataObservations[item.path]?.report && (
+                          <p className="muted">
+                            上次数据校验{' '}
+                            {dateTime(zipDataObservations[item.path].report!.checkedAt)}
+                          </p>
+                        )}
+                        {zipDataObservations[item.path]?.error && (
+                          <p className="notice" role="alert">
+                            {zipDataObservations[item.path].error}{' '}
+                            旧条目和数据结果已清除，请重新检查 ZIP。
+                          </p>
+                        )}
+                        <button
+                          className="button secondary compact"
+                          disabled={
+                            reading ||
+                            !!checking ||
+                            item.sharing === 'shared' ||
+                            !zipObservations[item.path]?.report
+                          }
+                          onClick={() => onCheckZipData(item.path)}
+                        >
+                          {checking === item.path && checkKind === 'zipData'
+                            ? '正在校验…'
+                            : zipDataObservations[item.path]
+                              ? '重新校验数据'
+                              : '校验 ZIP 数据'}
+                        </button>
+                      </details>
+                    )}
+                    {usageObservations[item.path]?.report && (
+                      <span
+                        className={
+                          usageObservations[item.path].report!.state === 'busy' ? 'notice' : 'muted'
+                        }
+                      >
+                        上次占用检查 {dateTime(usageObservations[item.path].report!.checkedAt)} ·{' '}
+                        {usageInspectionText(usageObservations[item.path].report!)}
+                      </span>
+                    )}
+                    {usageObservations[item.path]?.error && (
+                      <span className="notice" role="alert">
+                        {usageObservations[item.path].error} 本次未确认，先前占用观察已清除。
+                      </span>
+                    )}
                     {connectionObservations[item.path]?.report && (
                       <span
                         className={
@@ -199,6 +273,22 @@ export function Installers({
                       </strong>
                       <span className="muted">文件逻辑大小</span>
                     </span>
+                    <button
+                      className="button secondary compact"
+                      disabled={reading || !!checking || item.sharing === 'shared'}
+                      title={
+                        item.sharing === 'shared'
+                          ? '共享硬链接暂不检查'
+                          : '只读可见进程记录，不关闭进程或提权'
+                      }
+                      onClick={() => onCheckUsage(item.path)}
+                    >
+                      {checking === item.path && checkKind === 'usage'
+                        ? '正在检查…'
+                        : usageObservations[item.path]
+                          ? '重新检查占用'
+                          : '检查占用'}
+                    </button>
                     {['dmg', 'iso'].includes(item.extension) && (
                       <button
                         className="button secondary compact"
@@ -210,7 +300,7 @@ export function Installers({
                         }
                         onClick={() => onCheckConnection(item.path)}
                       >
-                        {checking === item.path
+                        {checking === item.path && checkKind === 'connection'
                           ? '正在检查…'
                           : connectionObservations[item.path]
                             ? '重新检查连接'
@@ -228,7 +318,7 @@ export function Installers({
                         }
                         onClick={() => onCheckZip(item.path)}
                       >
-                        {checking === item.path
+                        {checking === item.path && checkKind === 'zip'
                           ? '正在检查…'
                           : zipObservations[item.path]
                             ? '重新检查'
@@ -260,13 +350,20 @@ export function Installers({
         </p>
         <p>
           扫描只检查普通文件元数据；点击“检查 ZIP”后使用系统 ZipInfo 取得有界完整条目列表，再核对前
-          50 条的固定 Mole 名称模式（区分大小写）。只展示名称线索，不解压或校验归档数据/签名，不执行
-          installer（含 dry-run）或挂载映像。ZIP
+          50 条的固定 Mole 名称模式（区分大小写）。条目检查只展示名称线索；其后可手动测试 ZIP
+          数据，不写出文件或验证签名，不执行 installer（含 dry-run）或挂载映像。ZIP
           可能是普通个人档案，其他扩展名也不证明文件格式或冗余。链接、包目录、特殊文件、未下载内容和跨文件系统位置保留跳过原因。
         </p>
         <p>
           ZIP 列表最多 256 KB、10000 条、2 秒进程运行预算；特殊名称、读取失败或超限保留未知。前 50
           条未匹配不代表后续没有安装内容；名称线索也不证明格式有效、冗余或可清理。共享硬链接不检查；检查失败、重新扫描或选择范围会清除旧条目线索。
+        </p>
+        <p>
+          数据校验独立调用系统 UnZip
+          测试模式，持有同一只读文件描述符；不解压到磁盘或运行归档内容，不接收密码。 只对最多 64 MB
+          ZIP 执行，2 秒运行/CPU 预算；这是压缩文件大小门槛，不是解压数据量上限。
+          加密、损坏、超时、异常或读取不完整均保留未知；测试通过不证明签名、用途、冗余或执行资格。
+          重新校验、重查 ZIP 条目、重扫或换范围会撤回旧数据结果。
         </p>
         <p>
           DMG/ISO 的“检查连接”只读取系统 DiskImages
@@ -275,9 +372,15 @@ export function Installers({
           不读取其他映像内容或解析别名，不挂载、推出或请求管理员权限；重查、重扫或换范围撤回旧连接观察。
         </p>
         <p>
+          “检查占用”只读可见进程的结构化打开记录，按设备与文件身份核对，排除 MooMole
+          自己的观察句柄。
+          发现其他进程打开时请保留；没有发现仍可能受权限和进程视图限制，不代表文件空闲或可清理。
+          不关闭进程、不提权，不运行完整 Mole 删除保护流程。重查、重扫或换范围会撤回旧占用观察。
+        </p>
+        <p>
           文件大小沿用 Mole 的逻辑字节口径，不是独占物理占用或回收收益。共享硬链接、APFS
           共享/压缩/稀疏及扫描后的变化都可能影响含义；前后复核不是原子快照。Finder
-          入口仅显示当前位置，不打开或安装文件。完整保护、文件占用和连接身份验证、选择与处理仍待接入。
+          入口仅显示当前位置，不打开或安装文件。完整保护、完整占用/活动状态和连接身份验证、选择与处理仍待接入。
         </p>
       </details>
     </section>

@@ -309,6 +309,56 @@ async fn inspect_installer_zip(
 }
 
 #[tauri::command]
+async fn inspect_installer_zip_data(
+    root: String,
+    path: String,
+    expected_stamp: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<installers::zip::DataInspection, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后检查。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .installer_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次安装包读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let prepared = tauri::async_runtime::spawn_blocking(move || {
+            let info = engine::info(&engine_root);
+            if !info.available || info.version.as_deref() != Some("1.59.1") {
+                return Err("Mole 引擎基线无法确认。".into());
+            }
+            installers::zip::Prepared::open_data(
+                std::path::Path::new(&root),
+                std::path::Path::new(&path),
+                &expected_stamp,
+            )
+        })
+        .await
+        .map_err(|_| "无法准备 ZIP 数据校验。".to_string())??;
+        installers::zip::inspect_data(prepared).await
+    });
+    let report = tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "ZIP 数据校验未及时结束；系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "ZIP 数据校验未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("检查期间保护设置已变化，请重新检查。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
 async fn inspect_installer_connection(
     root: String,
     path: String,
@@ -348,6 +398,54 @@ async fn inspect_installer_connection(
         .await
         .map_err(|_| "映像连接检查未及时结束；系统读取可能仍在结束，请稍后重试。")?
         .map_err(|_| "映像连接检查未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("检查期间保护设置已变化，请重新检查。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
+async fn inspect_installer_usage(
+    root: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<installers::usage::Inspection, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后检查。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .installer_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次安装包读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let prepared = tauri::async_runtime::spawn_blocking(move || {
+            let info = engine::info(&engine_root);
+            if !info.available || info.version.as_deref() != Some("1.59.1") {
+                return Err("Mole 引擎基线无法确认。".into());
+            }
+            installers::usage::Prepared::open(
+                std::path::Path::new(&root),
+                std::path::Path::new(&path),
+            )
+        })
+        .await
+        .map_err(|_| "无法准备文件占用只读检查。".to_string())??;
+        installers::usage::inspect(prepared).await
+    });
+    let report = tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "文件占用检查未及时结束；系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "文件占用检查未完成。")??;
     if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
         != settings.protected_paths
     {
@@ -1406,7 +1504,9 @@ pub fn run() {
             inspect_project_artifacts,
             inspect_installers,
             inspect_installer_zip,
+            inspect_installer_zip_data,
             inspect_installer_connection,
+            inspect_installer_usage,
             measure_project_artifact,
             prepare_maintenance_review,
             list_review_plans,

@@ -1367,7 +1367,12 @@ export default function App() {
               error={installers.error}
               onReveal={reveal}
               checking={installers.checking}
+              checkKind={installers.checkKind}
+              usageObservations={installers.usageObservations}
+              onCheckUsage={installers.checkUsage}
               zipObservations={installers.zipObservations}
+              zipDataObservations={installers.zipDataObservations}
+              onCheckZipData={installers.checkZipData}
               onCheckZip={installers.checkZip}
               connectionObservations={installers.connectionObservations}
               onCheckConnection={installers.checkConnection}

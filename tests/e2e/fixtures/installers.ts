@@ -2,7 +2,9 @@ import {
   installerCatalog,
   type InstallersReport,
   type InstallerZipInspection,
+  type InstallerZipDataInspection,
   type InstallerConnectionInspection,
+  type InstallerUsageInspection,
 } from '../../../src/lib/installers'
 export function installersReport(): InstallersReport {
   return {
@@ -55,11 +57,12 @@ export function installersReport(): InstallersReport {
 export function installerZipInspection(): InstallerZipInspection {
   const r = installersReport()
   return {
-    protocol: 1,
+    protocol: 2,
     revision: r.revision,
     root: r.root,
     path: r.items[1].path,
     checkedAt: Date.now(),
+    fileStamp: 'a'.repeat(64),
     state: 'installerHint',
     reason: null,
     totalEntries: 83,
@@ -78,6 +81,35 @@ export function installerConnectionInspection(): InstallerConnectionInspection {
     path: r.items[0].path,
     checkedAt: Date.now(),
     state: 'pathReported',
+    reason: null,
+    canExecute: false,
+  }
+}
+
+export function installerUsageInspection(): InstallerUsageInspection {
+  const r = installersReport()
+  return {
+    protocol: 1,
+    revision: r.revision,
+    root: r.root,
+    path: r.items[0].path,
+    checkedAt: Date.now(),
+    state: 'busy',
+    reason: null,
+    canExecute: false,
+  }
+}
+
+export function installerZipDataInspection(): InstallerZipDataInspection {
+  const r = installerZipInspection()
+  return {
+    protocol: 1,
+    revision: r.revision,
+    root: r.root,
+    path: r.path,
+    checkedAt: Date.now(),
+    fileStamp: r.fileStamp,
+    state: 'passed',
     reason: null,
     canExecute: false,
   }

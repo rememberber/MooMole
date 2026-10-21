@@ -138,11 +138,12 @@ export function installerIncompleteReason(report: InstallersReport): string {
 }
 
 export interface InstallerZipInspection {
-  protocol: 1
+  protocol: 2
   revision: string
   root: string
   path: string
   checkedAt: number
+  fileStamp: string
   state: 'installerHint' | 'noHintInWindow' | 'unknown'
   reason: 'listingUnavailable' | 'listingUncertain' | 'listingLimit' | null
   totalEntries: number | null
@@ -165,7 +166,7 @@ export function readInstallerZip(
   }
   if (
     !r ||
-    r.protocol !== 1 ||
+    r.protocol !== 2 ||
     r.revision !== catalog.revision ||
     r.root !== root ||
     r.path !== path ||
@@ -177,6 +178,8 @@ export function readInstallerZip(
     !count(r.checkedAt, Number.MAX_SAFE_INTEGER) ||
     r.checkedAt < began - 5000 ||
     r.checkedAt > now + 5000 ||
+    typeof r.fileStamp !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(r.fileStamp) ||
     r.canExecute !== false ||
     !['installerHint', 'noHintInWindow', 'unknown'].includes(r.state) ||
     !Array.isArray(r.matchedTypes) ||
@@ -308,5 +311,126 @@ export function connectionInspectionText(report: InstallerConnectionInspection):
       listingUncertain: '连接状态无法确认：列表格式或路径无法识别',
       listingLimit: '连接状态无法确认：列表超出检查限制',
     }[report.reason!] ?? '连接状态无法确认'
+  )
+}
+
+export interface InstallerUsageInspection {
+  protocol: 1
+  revision: string
+  root: string
+  path: string
+  checkedAt: number
+  state: 'busy' | 'unknown'
+  reason: 'limitedView' | 'queryUnavailable' | 'listingUncertain' | 'listingLimit' | null
+  canExecute: false
+}
+export type UsageObservations = Record<
+  string,
+  { report?: InstallerUsageInspection; error?: string }
+>
+export function readInstallerUsage(
+  value: unknown,
+  root: string,
+  path: string,
+  began: number,
+  now = Date.now(),
+): InstallerUsageInspection {
+  const r = value as InstallerUsageInspection | null
+  if (
+    !r ||
+    r.protocol !== 1 ||
+    r.revision !== catalog.revision ||
+    r.root !== root ||
+    r.path !== path ||
+    !absolute(root) ||
+    !absolute(path) ||
+    !path.startsWith(`${root}/`) ||
+    path.slice(root.length + 1).split('/').length > catalog.maxDepth ||
+    !catalog.extensions.includes(path.split('.').at(-1)?.toLowerCase() ?? '') ||
+    !Number.isSafeInteger(r.checkedAt) ||
+    r.checkedAt < 0 ||
+    r.checkedAt < began - 5000 ||
+    r.checkedAt > now + 5000 ||
+    r.canExecute !== false ||
+    !['busy', 'unknown'].includes(r.state) ||
+    (r.state === 'unknown'
+      ? !['limitedView', 'queryUnavailable', 'listingUncertain', 'listingLimit'].includes(
+          r.reason ?? '',
+        )
+      : r.reason !== null)
+  )
+    throw new Error('文件占用结果无法确认，请重新检查。')
+  return r
+}
+export function usageInspectionText(report: InstallerUsageInspection): string {
+  if (report.state === 'busy') return '发现其他进程打开此文件，请先保留'
+  return (
+    {
+      limitedView: '可见进程中未发现其他打开记录；视图有限，占用仍未确认',
+      queryUnavailable: '占用无法确认：读取失败、受限或超时',
+      listingUncertain: '占用无法确认：记录格式或文件身份无法核对',
+      listingLimit: '占用无法确认：记录超出检查限制',
+    }[report.reason!] ?? '占用无法确认'
+  )
+}
+
+export interface InstallerZipDataInspection {
+  protocol: 1
+  revision: string
+  root: string
+  path: string
+  checkedAt: number
+  fileStamp: string
+  state: 'passed' | 'unknown'
+  reason: 'fileSizeLimit' | 'testUnavailable' | 'unexpectedOutput' | null
+  canExecute: false
+}
+export type ZipDataObservations = Record<
+  string,
+  { report?: InstallerZipDataInspection; error?: string }
+>
+export function readInstallerZipData(
+  value: unknown,
+  root: string,
+  path: string,
+  began: number,
+  expectedStamp: string,
+  now = Date.now(),
+): InstallerZipDataInspection {
+  const r = value as InstallerZipDataInspection | null
+  if (
+    !r ||
+    r.protocol !== 1 ||
+    r.revision !== catalog.revision ||
+    r.root !== root ||
+    r.path !== path ||
+    !absolute(root) ||
+    !absolute(path) ||
+    !path.startsWith(`${root}/`) ||
+    path.slice(root.length + 1).split('/').length > catalog.maxDepth ||
+    path.split('.').at(-1)?.toLowerCase() !== 'zip' ||
+    !Number.isSafeInteger(r.checkedAt) ||
+    r.checkedAt < 0 ||
+    r.checkedAt < began - 5000 ||
+    r.checkedAt > now + 5000 ||
+    !/^[a-f0-9]{64}$/.test(expectedStamp) ||
+    r.fileStamp !== expectedStamp ||
+    r.canExecute !== false ||
+    !['passed', 'unknown'].includes(r.state) ||
+    (r.state === 'unknown'
+      ? !['fileSizeLimit', 'testUnavailable', 'unexpectedOutput'].includes(r.reason ?? '')
+      : r.reason !== null)
+  )
+    throw new Error('ZIP 数据校验结果无法确认，请重新校验。')
+  return r
+}
+export function zipDataInspectionText(report: InstallerZipDataInspection): string {
+  if (report.state === 'passed') return 'ZIP 数据测试通过；签名与用途未确认'
+  return (
+    {
+      fileSizeLimit: '未校验：ZIP 文件超过 64 MB 检查上限',
+      testUnavailable: 'ZIP 数据未确认：可能加密、损坏、受限或超时',
+      unexpectedOutput: 'ZIP 数据未确认：工具返回了异常输出',
+    }[report.reason!] ?? 'ZIP 数据未确认'
   )
 }
