@@ -46,6 +46,7 @@ import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { StatusTrend } from './components/StatusTrend'
 import { StatusRates } from './components/StatusRates'
 import { MaintenanceCatalog } from './components/MaintenanceCatalog'
+import { useMaintenance } from './lib/use-maintenance'
 import { TaskHistory } from './components/TaskHistory'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
@@ -140,6 +141,7 @@ export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
+  const maintenance = useMaintenance(page === 'maintenance')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
     const update = () => setToolbarScrolled(window.scrollY > 0)
@@ -770,15 +772,25 @@ export default function App() {
                   </button>
                 )}
                 {page === 'maintenance' && (
-                  <label className="search-field maintenance-search">
-                    <Search size={15} />
-                    <input
-                      aria-label="搜索维护项目"
-                      placeholder="搜索用途、影响或权限"
-                      value={maintenanceQuery}
-                      onChange={(event) => setMaintenanceQuery(event.target.value)}
-                    />
-                  </label>
+                  <>
+                    <label className="search-field maintenance-search">
+                      <Search size={15} />
+                      <input
+                        aria-label="搜索维护项目"
+                        placeholder="搜索用途、影响或权限"
+                        value={maintenanceQuery}
+                        onChange={(event) => setMaintenanceQuery(event.target.value)}
+                      />
+                    </label>
+                    <button
+                      className="button secondary compact"
+                      disabled={!canRun || maintenance.reading}
+                      onClick={() => void maintenance.inspect()}
+                    >
+                      <Search size={15} />
+                      {maintenance.reading ? '正在检查…' : '检查本机设置'}
+                    </button>
+                  </>
                 )}
                 {page === 'history' && (
                   <span className="toolbar-note">
@@ -790,7 +802,7 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            {page === 'cleanup' ? '逐项确认' : page === 'maintenance' ? '项目说明' : '只读检查'}
+            {page === 'cleanup' ? '逐项确认' : '只读检查'}
           </span>
         </header>
         <main className="main-content" aria-label={`${pageName}内容`}>
@@ -1206,7 +1218,13 @@ export default function App() {
           )}
 
           {page === 'maintenance' && (
-            <MaintenanceCatalog query={maintenanceQuery} engine={data.engine} />
+            <MaintenanceCatalog
+              query={maintenanceQuery}
+              engine={data.engine}
+              report={maintenance.report}
+              reading={maintenance.reading}
+              error={maintenance.error}
+            />
           )}
 
           {page === 'history' && (

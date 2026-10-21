@@ -11,6 +11,8 @@ test('source review gate rejects version, code and task coverage drift before en
   try {
     const reference = structuredClone(catalog)
     mkdirSync(join(root, 'lib/optimize'), { recursive: true })
+    mkdirSync(join(root, 'lib/manage'), { recursive: true })
+    mkdirSync(join(root, 'lib/core'), { recursive: true })
     writeFileSync(join(root, 'mole'), `VERSION="${catalog.version}"\n`)
     const sources = {
       'lib/optimize/catalog.sh': catalog.items
@@ -18,6 +20,8 @@ test('source review gate rejects version, code and task coverage drift before en
         .join(''),
       'lib/optimize/tasks.sh': '# reviewed handlers fixture\n',
       'lib/optimize/maintenance.sh': '# reviewed preference helper fixture\n',
+      'lib/manage/whitelist.sh': '# reviewed whitelist fixture\n',
+      'lib/core/base.sh': '# reviewed defaults fixture\n',
     }
     for (const [path, content] of Object.entries(sources)) {
       writeFileSync(join(root, path), content)

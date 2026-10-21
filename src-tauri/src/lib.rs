@@ -23,6 +23,7 @@ mod execution_sandbox;
 mod impact;
 mod instance;
 mod log_cleanup;
+mod maintenance;
 mod mole_history;
 #[cfg(test)]
 mod native_trash_tests;
@@ -62,6 +63,7 @@ struct AppState {
     results: Arc<Mutex<tasks::Results>>,
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
+    maintenance_slots: Arc<tokio::sync::Semaphore>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
     engine_root: PathBuf,
@@ -170,6 +172,40 @@ async fn save_task_diagnostic(
     .await
     .map_err(|e| e.to_string())??;
     Ok(true)
+}
+
+#[tauri::command]
+async fn inspect_maintenance(
+    state: tauri::State<'_, AppState>,
+) -> Result<maintenance::Report, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后检查。".into());
+    }
+    if !db::settings(&*state.db.lock().map_err(|_| "无法读取设置。")?)?.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .maintenance_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次维护检查仍未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let root = state.engine_root.clone();
+    let home = state.home.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        // Hold both leases until the actual worker returns, even if the IPC
+        // deadline expires. A timed-out OS read is not cancelled by dropping it.
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        maintenance::inspect(&home)
+    });
+    tokio::time::timeout(Duration::from_secs(5), worker)
+        .await
+        .map_err(|_| "维护检查超时，未确认的状态仍为未知；系统读取可能尚未结束。".to_string())?
+        .map_err(|_| "维护检查未完成，请重试。".to_string())?
 }
 
 #[tauri::command]
@@ -1072,6 +1108,7 @@ pub fn run() {
                 results: Arc::new(Mutex::new(tasks::Results::default())),
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 engine_root,
@@ -1093,6 +1130,7 @@ pub fn run() {
             get_task_snapshot,
             application_icon,
             inspect_application,
+            inspect_maintenance,
             list_review_plans,
             create_review_plan,
             get_review_plan,

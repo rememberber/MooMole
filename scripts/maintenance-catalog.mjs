@@ -15,7 +15,11 @@ export function verifyMaintenanceCatalog(source, reference = catalog) {
     sourceVersion(readFileSync(resolve(source, 'mole'), 'utf8')) !== reference.version
   )
     throw new Error('Maintenance catalog source baseline mismatch')
-  const paths = ['catalog', 'tasks', 'maintenance'].map((name) => `lib/optimize/${name}.sh`)
+  const paths = [
+    ...['catalog', 'tasks', 'maintenance'].map((name) => `lib/optimize/${name}.sh`),
+    'lib/manage/whitelist.sh',
+    'lib/core/base.sh',
+  ]
   if (Object.keys(reference.sourceHashes).sort().join('|') !== [...paths].sort().join('|'))
     throw new Error('Maintenance catalog source coverage mismatch')
   for (const path of paths) {

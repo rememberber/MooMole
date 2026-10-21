@@ -2896,6 +2896,26 @@ input[type='checkbox'] {
   min-width: 0;
   font-size: 12px;
 }
+.maintenance-summary > .maintenance-observation {
+  color: var(--text);
+  font-size: 12px;
+}
+.maintenance-observed {
+  padding: 12px 14px;
+  margin: 0 0 16px 23px;
+  background: var(--soft);
+  border-radius: 8px;
+}
+.maintenance-item .maintenance-observed dl {
+  margin: 0;
+}
+.maintenance-item .maintenance-observed dl > div {
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+}
+.maintenance-observed p {
+  margin: 12px 0 0;
+  line-height: 1.8;
+}
 .maintenance-list {
   border-top: 1px solid var(--border);
 }

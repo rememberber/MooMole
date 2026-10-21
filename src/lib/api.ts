@@ -28,6 +28,10 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const inspectMaintenance = (): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_maintenance')
+    : Promise.reject(new Error('请在桌面 App 中检查本机维护设置。'))
 export const bootstrap = (): Promise<Bootstrap> =>
   desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
 export const inspectApplication = (taskId: string, index: number): Promise<ApplicationInspection> =>
