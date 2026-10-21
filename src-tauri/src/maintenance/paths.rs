@@ -3,7 +3,7 @@ use super::*;
 use crate::{app_protection, permissions};
 use std::os::macos::fs::MetadataExt as _;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Observation {
     pub location: &'static str,

@@ -55,7 +55,7 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `uninstall --permanent` | 不开放直接透传；永久删除另需明确协议、确认和结果记录 | 同上；默认删除方式为 trash 的设置 |
 | `uninstall --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上 |
 | `uninstall --whitelist` | 此提交不支持；不能在 GUI 暗中调用或声称具备该能力 | 同上明确拒绝分支 |
-| `optimize` / `optimise`、`--dry-run` | 已提供 19 项作用/影响说明及两项设置/项目级保护的只读观察；不运行入口或 dry-run。其余条件及执行待适配，不提供“一键优化”替代 | `mole:main`；`bin/optimize.sh:main`；`lib/optimize/catalog.sh` 与处理函数；[维护边界](system-maintenance.md) |
+| `optimize` / `optimise`、`--dry-run` | 已提供 19 项作用/影响说明，两项设置/项目与文件保护的只读观察、选择及限时条件审阅；不运行入口或 dry-run，不开放执行。其余条件及执行待适配 | `mole:main`；`bin/optimize.sh:main`；`lib/optimize/catalog.sh` 与处理函数；[维护边界](system-maintenance.md)、[审阅协议](maintenance-review.md) |
 | `optimize --whitelist` | 待适配维护保护规则；和 clean 的规则用途区分 | `bin/optimize.sh:main` |
 | `optimize --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上；该分支没有 `-n` 别名 |
 

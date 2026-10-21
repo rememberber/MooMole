@@ -2890,6 +2890,8 @@ input[type='checkbox'] {
 
 .maintenance-search {
   width: min(360px, 100%);
+  flex: 1;
+  min-width: 100px;
 }
 .maintenance-search input {
   flex: 1;
@@ -2938,6 +2940,51 @@ input[type='checkbox'] {
 }
 .maintenance-item {
   border-bottom: 1px solid var(--border);
+}
+.maintenance-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px;
+}
+.maintenance-select {
+  margin-top: 20px;
+  cursor: pointer;
+}
+.maintenance-review-item {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 18px;
+}
+.maintenance-review {
+  width: 640px;
+  max-width: calc(100vw - 80px);
+  padding: 24px;
+  overflow: auto;
+}
+.maintenance-review h2 {
+  padding-right: 32px;
+}
+.maintenance-review .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+.maintenance-review-item p {
+  line-height: 1.8;
+}
+.maintenance-review-item dl > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  margin: 14px 0;
+  line-height: 1.8;
+}
+.maintenance-review-item dt {
+  color: var(--subtle);
+}
+.maintenance-review-item dd {
+  margin: 0;
 }
 .maintenance-item > summary {
   display: flex;

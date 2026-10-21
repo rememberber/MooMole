@@ -57,7 +57,8 @@ export interface MaintenancePath {
   access: 'noRestrictionObserved' | 'restricted' | 'unknown' | 'notChecked'
 }
 export interface MaintenanceReport {
-  protocol: 2
+  protocol: 3
+  observationId: string
   revision: string
   checkedAt: number
   ruleSource: 'current' | 'legacy' | 'defaults' | 'unknown'
@@ -75,7 +76,11 @@ export function readMaintenanceReport(
   }
   if (
     !report ||
-    report.protocol !== 2 ||
+    report.protocol !== 3 ||
+    typeof report.observationId !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      report.observationId,
+    ) ||
     report.revision !== catalog.revision ||
     !Number.isSafeInteger(report.checkedAt) ||
     report.checkedAt < began - 5_000 ||

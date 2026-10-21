@@ -35,7 +35,7 @@ describe('source-bound maintenance reference', () => {
     expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
     for (const mutate of [
       (r: typeof report) => {
-        r.protocol = 1 as 2
+        r.protocol = 2 as 3
       },
       (r: typeof report) => {
         r.revision = 'other'

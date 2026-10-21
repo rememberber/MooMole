@@ -64,6 +64,7 @@ struct AppState {
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
+    maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
     engine_root: PathBuf,
@@ -194,6 +195,11 @@ async fn inspect_maintenance(
     let root = state.engine_root.clone();
     let home = state.home.clone();
     let protected_paths = settings.protected_paths.clone();
+    let generation = state
+        .maintenance_reviews
+        .lock()
+        .map_err(|_| "无法记录本次维护检查。")?
+        .begin()?;
     let worker = tauri::async_runtime::spawn_blocking(move || {
         // Hold both leases until the actual worker returns, even if the IPC
         // deadline expires. A timed-out OS read is not cancelled by dropping it.
@@ -213,7 +219,38 @@ async fn inspect_maintenance(
     {
         return Err("检查期间保护目录已变化，请重新检查。".into());
     }
+    state
+        .maintenance_reviews
+        .lock()
+        .map_err(|_| "无法保存本次维护检查。")?
+        .publish(generation, result.clone(), settings.protected_paths)?;
     Ok(result)
+}
+
+#[tauri::command]
+fn prepare_maintenance_review(
+    observation_id: String,
+    selected_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<maintenance::review::Review, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后再审阅。".into());
+    }
+    let _operation = state.updates.installation.enter()?;
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    state
+        .maintenance_reviews
+        .lock()
+        .map_err(|_| "无法读取维护检查。")?
+        .prepare(
+            &observation_id,
+            &selected_ids,
+            &settings.protected_paths,
+            db::now(),
+        )
 }
 
 #[tauri::command]
@@ -1117,6 +1154,7 @@ pub fn run() {
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 engine_root,
@@ -1139,6 +1177,7 @@ pub fn run() {
             application_icon,
             inspect_application,
             inspect_maintenance,
+            prepare_maintenance_review,
             list_review_plans,
             create_review_plan,
             get_review_plan,

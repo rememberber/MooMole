@@ -32,6 +32,13 @@ export const inspectMaintenance = (): Promise<unknown> =>
   desktop
     ? invoke('inspect_maintenance')
     : Promise.reject(new Error('请在桌面 App 中检查本机维护设置。'))
+export const prepareMaintenanceReview = (
+  observationId: string,
+  selectedIds: string[],
+): Promise<unknown> =>
+  desktop
+    ? invoke('prepare_maintenance_review', { observationId, selectedIds })
+    : Promise.reject(new Error('请在桌面 App 中审阅本机维护条件。'))
 export const bootstrap = (): Promise<Bootstrap> =>
   desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
 export const inspectApplication = (taskId: string, index: number): Promise<ApplicationInspection> =>

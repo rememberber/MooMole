@@ -47,6 +47,7 @@ import { StatusTrend } from './components/StatusTrend'
 import { StatusRates } from './components/StatusRates'
 import { MaintenanceCatalog } from './components/MaintenanceCatalog'
 import { useMaintenance } from './lib/use-maintenance'
+import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
 import { TaskHistory } from './components/TaskHistory'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
@@ -784,11 +785,25 @@ export default function App() {
                     </label>
                     <button
                       className="button secondary compact"
-                      disabled={!canRun || maintenance.reading}
+                      disabled={!canRun || maintenance.reading || maintenance.reviewing}
                       onClick={() => void maintenance.inspect()}
                     >
                       <Search size={15} />
                       {maintenance.reading ? '正在检查…' : '检查本机设置'}
+                    </button>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun ||
+                        maintenance.reading ||
+                        maintenance.reviewing ||
+                        maintenance.selected.length === 0
+                      }
+                      onClick={() => void maintenance.prepareReview()}
+                    >
+                      {maintenance.reviewing
+                        ? '正在审阅…'
+                        : `审阅所选${maintenance.selected.length > 0 ? ` ${maintenance.selected.length} 项` : ''}`}
                     </button>
                   </>
                 )}
@@ -1224,6 +1239,25 @@ export default function App() {
               report={maintenance.report}
               reading={maintenance.reading}
               error={maintenance.error}
+              selected={maintenance.selected}
+              onSelect={maintenance.select}
+              reviewing={maintenance.reviewing}
+            />
+          )}
+
+          {page === 'maintenance' && maintenance.reviewError && (
+            <p className="notice" role="alert">
+              {maintenance.reviewError}
+            </p>
+          )}
+          {page === 'maintenance' && maintenance.review && (
+            <MaintenanceReviewDialog
+              review={maintenance.review}
+              onClose={maintenance.closeReview}
+              onRecheck={() => {
+                maintenance.closeReview()
+                void maintenance.inspect()
+              }}
             />
           )}
 

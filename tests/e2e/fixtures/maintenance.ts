@@ -7,7 +7,8 @@ import {
 
 export function maintenanceReport(): MaintenanceReport {
   return {
-    protocol: 2,
+    protocol: 3,
+    observationId: crypto.randomUUID(),
     revision: maintenanceCatalog.revision,
     checkedAt: Date.now(),
     ruleSource: 'current',

@@ -23,7 +23,7 @@ pub enum Value {
     Unknown,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
     domain: &'static str,
@@ -32,7 +32,7 @@ pub struct Finding {
     value: Value,
     managed: bool,
 }
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Item {
     id: &'static str,
@@ -41,10 +41,11 @@ pub struct Item {
     findings: Vec<Finding>,
     paths: Vec<paths::Observation>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
     protocol: u32,
+    observation_id: String,
     revision: &'static str,
     checked_at: i64,
     rule_source: &'static str,
@@ -282,7 +283,8 @@ pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
         }
     }
     Ok(Report {
-        protocol: 2,
+        protocol: 3,
+        observation_id: uuid::Uuid::new_v4().to_string(),
         revision: engine::REVISION,
         checked_at: crate::db::now(),
         rule_source: source,
@@ -294,5 +296,6 @@ mod native;
 mod paths;
 #[cfg(test)]
 mod preference_sandbox;
+pub(crate) mod review;
 #[cfg(test)]
 mod tests;

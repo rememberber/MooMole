@@ -234,3 +234,128 @@ test('leaving maintenance ignores late observations and does not restart inspect
   await expect(page.getByRole('region', { name: '维护项目说明' })).not.toContainText('上次结果')
   await expect(page.getByRole('button', { name: '检查本机设置', exact: true })).toBeEnabled()
 })
+
+test('selected native conditions are reviewed without mutation; refresh and expiry invalidate review', async ({
+  page,
+}) => {
+  await installTaskMock(page, 'analyze')
+  const fixture = maintenanceReport()
+  const { maintenanceReview, reviewSelection } = await import('./fixtures/maintenance-review')
+  await page.addInitScript(
+    ({ fixture, review }) => {
+      const native = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
+        }
+      ).__TAURI_INTERNALS__
+      const original = native.invoke
+      let checkedAt = 0
+      native.invoke = async (command, args) => {
+        if (command === 'inspect_maintenance') {
+          checkedAt = Date.now()
+          return { ...fixture, checkedAt }
+        }
+        if (command === 'prepare_maintenance_review') {
+          sessionStorage.setItem('review-args', JSON.stringify(args))
+          const selected = (args as { selectedIds: string[] }).selectedIds
+          return {
+            ...review,
+            checkedAt,
+            preparedAt: Date.now(),
+            expiresAt: checkedAt + 60_000,
+            items: review.items.filter((item) => selected.includes(item.id)),
+          }
+        }
+        if (command.includes('maintenance') || command.includes('execute'))
+          sessionStorage.setItem('unexpected-review-command', command)
+        return original(command, args)
+      }
+    },
+    { fixture, review: maintenanceReview(fixture, reviewSelection) },
+  )
+  await page.goto('/')
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '系统维护', exact: true }).click()
+  await expect(page.getByRole('button', { name: '审阅所选', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '检查本机设置', exact: true }).click()
+  const boxes = page.getByRole('checkbox', { name: /进行条件审阅/ })
+  await expect(boxes).toHaveCount(2)
+  await boxes.nth(0).check()
+  await page.setViewportSize({ width: 960, height: 680 })
+  await page.getByRole('button', { name: '审阅所选 1 项', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '维护条件审阅', exact: true })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('无需变更')
+  await expect(dialog).toContainText('执行暂未开放')
+  await expect(dialog.getByRole('button', { name: /执行|应用变更/ })).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('review-args')!))).toEqual({
+    observationId: fixture.observationId,
+    selectedIds: ['prevent_network_dsstore'],
+  })
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.clock.install()
+  await page.clock.fastForward(60_001)
+  await expect(dialog.getByRole('alert')).toContainText('检查已过期')
+  await dialog.getByRole('button', { name: '返回并重新检查', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(boxes.nth(0)).not.toBeChecked()
+  await boxes.nth(1).check()
+  await page.getByRole('button', { name: '审阅所选 1 项', exact: true }).click()
+  await expect(dialog).toContainText('发现保护，保持现状')
+  expect(await page.evaluate(() => sessionStorage.getItem('unexpected-review-command'))).toBeNull()
+})
+
+test('leaving maintenance ignores a late review response', async ({ page }) => {
+  await installTaskMock(page, 'analyze')
+  const fixture = maintenanceReport()
+  const { maintenanceReview, reviewSelection } = await import('./fixtures/maintenance-review')
+  await page.addInitScript(
+    ({ fixture, review }) => {
+      const native = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
+        }
+      ).__TAURI_INTERNALS__
+      const original = native.invoke
+      let checkedAt = 0
+      native.invoke = (command, args) => {
+        if (command === 'inspect_maintenance') {
+          checkedAt = Date.now()
+          return Promise.resolve({ ...fixture, checkedAt })
+        }
+        if (command === 'prepare_maintenance_review')
+          return new Promise((resolve) => {
+            Object.assign(window, {
+              finishReview: () =>
+                resolve({
+                  ...review,
+                  checkedAt,
+                  preparedAt: Date.now(),
+                  expiresAt: checkedAt + 60_000,
+                }),
+            })
+          })
+        return original(command, args)
+      }
+    },
+    { fixture, review: maintenanceReview(fixture, reviewSelection) },
+  )
+  await page.goto('/')
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '系统维护', exact: true }).click()
+  await page.getByRole('button', { name: '检查本机设置', exact: true }).click()
+  await page
+    .getByRole('checkbox', { name: /进行条件审阅/ })
+    .nth(0)
+    .check()
+  await page.getByRole('button', { name: '审阅所选 1 项', exact: true }).click()
+  await expect(page.getByRole('button', { name: '正在审阅…', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await page.evaluate(() => (window as unknown as { finishReview: () => void }).finishReview())
+  await page.getByRole('button', { name: '系统维护', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '维护条件审阅', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '审阅所选', exact: true })).toBeDisabled()
+})
