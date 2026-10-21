@@ -47,6 +47,8 @@ import { StatusTrend } from './components/StatusTrend'
 import { StatusRates } from './components/StatusRates'
 import { MaintenanceCatalog } from './components/MaintenanceCatalog'
 import { useMaintenance } from './lib/use-maintenance'
+import { useProjectArtifacts } from './lib/use-project-artifacts'
+import { ProjectArtifacts } from './components/ProjectArtifacts'
 import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
 import { TaskHistory } from './components/TaskHistory'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
@@ -82,6 +84,7 @@ const navigation = [
   ['apps', Box, '应用列表'],
   ['status', Activity, '系统状态'],
   ['maintenance', Wrench, '系统维护'],
+  ['projects', Code2, '工程产物'],
   ['history', History, '操作历史'],
 ] as const
 
@@ -143,6 +146,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('overview')
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
+  const projects = useProjectArtifacts(page === 'projects')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
     const update = () => setToolbarScrolled(window.scrollY > 0)
@@ -772,6 +776,39 @@ export default function App() {
                     {apps ? '刷新列表' : '读取应用'}
                   </button>
                 )}
+                {page === 'projects' && (
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun || projects.reading || projects.choosing || !!projects.measuring
+                      }
+                      onClick={() => void projects.choose()}
+                    >
+                      <FolderOpen size={15} />
+                      {projects.choosing ? '正在选择…' : '选择目录'}
+                    </button>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun ||
+                        projects.reading ||
+                        projects.choosing ||
+                        !!projects.measuring ||
+                        !projects.root
+                      }
+                      onClick={() => void projects.scan()}
+                    >
+                      <Search size={15} />
+                      {projects.reading ? '正在扫描…' : '扫描目录'}
+                    </button>
+                    {projects.root && (
+                      <span className="toolbar-note project-root" title={projects.root}>
+                        {projects.root}
+                      </span>
+                    )}
+                  </>
+                )}
                 {page === 'maintenance' && (
                   <>
                     <label className="search-field maintenance-search">
@@ -1245,6 +1282,23 @@ export default function App() {
             />
           )}
 
+          {page === 'projects' && (
+            <ProjectArtifacts
+              root={projects.root}
+              report={projects.report}
+              reading={projects.reading}
+              error={projects.error}
+              canAnalyze={canRun}
+              measuring={projects.measuring}
+              measurements={projects.measurements}
+              onMeasure={projects.measure}
+              onAnalyze={(target) => {
+                changePage('analyze')
+                setPath(target)
+                void execute('analyze', target)
+              }}
+            />
+          )}
           {page === 'maintenance' && maintenance.reviewError && (
             <p className="notice" role="alert">
               {maintenance.reviewError}

@@ -13,6 +13,7 @@ import { toolchainEnv } from './env.mjs'
 import { revision, writeManifest } from './engine-manifest.mjs'
 import { prepareTransaction } from './engine-transaction.mjs'
 import { verifyMaintenanceCatalog } from './maintenance-catalog.mjs'
+import { verifyProjectCatalog } from './project-artifacts-catalog.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const source = resolve(root, '.cache/mole-source')
@@ -55,6 +56,7 @@ try {
       mkdirSync(buildSource)
       run('/usr/bin/tar', ['-xf', archive, '-C', buildSource])
       verifyMaintenanceCatalog(buildSource)
+      verifyProjectCatalog(buildSource)
       for (const name of ['mole', 'mo', 'bin', 'lib', 'LICENSE', 'TRADEMARK.md'])
         cpSync(resolve(buildSource, name), resolve(destination, name), {
           recursive: true,

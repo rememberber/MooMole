@@ -3058,3 +3058,56 @@ input[type='checkbox'] {
 .maintenance-pending {
   margin: 12px 0 16px 23px;
 }
+
+.project-root {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-artifact-list {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.project-artifact-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.project-artifact-row > div:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.project-artifact-path {
+  overflow-wrap: anywhere;
+}
+.project-artifact-actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.project-artifact-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.project-measurement {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1050px) {
+  .project-artifact-row {
+    flex-wrap: wrap;
+  }
+  .project-artifact-actions {
+    margin-left: auto;
+  }
+}

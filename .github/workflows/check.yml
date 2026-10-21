@@ -44,6 +44,7 @@ jobs:
       - run: npm run format:check
       - run: npm run test:version
       - run: npm run test:maintenance
+      - run: npm run test:projects
       - run: npm run test:app-artifact
       - run: npm test
       - run: npm run build

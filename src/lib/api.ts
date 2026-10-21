@@ -28,6 +28,14 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const inspectProjectArtifacts = (root: string): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_project_artifacts', { root })
+    : Promise.reject(new Error('请在桌面 App 中扫描工程目录。'))
+export const measureProjectArtifact = (root: string, path: string): Promise<unknown> =>
+  desktop
+    ? invoke('measure_project_artifact', { root, path })
+    : Promise.reject(new Error('请在桌面 App 中测量工程产物。'))
 export const inspectMaintenance = (): Promise<unknown> =>
   desktop
     ? invoke('inspect_maintenance')

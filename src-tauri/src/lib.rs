@@ -30,6 +30,7 @@ mod native_trash_tests;
 mod observation;
 mod permissions;
 mod process;
+mod project_artifacts;
 mod provenance;
 mod review;
 mod rules;
@@ -64,6 +65,7 @@ struct AppState {
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
+    project_slots: Arc<tokio::sync::Semaphore>,
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
@@ -173,6 +175,89 @@ async fn save_task_diagnostic(
     .await
     .map_err(|e| e.to_string())??;
     Ok(true)
+}
+
+#[tauri::command]
+async fn inspect_project_artifacts(
+    root: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<project_artifacts::Report, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后扫描。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次工程目录扫描尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let protected = settings.protected_paths.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&engine_root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        project_artifacts::scan(std::path::Path::new(&root), &protected)
+    });
+    let report = tokio::time::timeout(Duration::from_secs(6), worker)
+        .await
+        .map_err(|_| "工程目录扫描超时，系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "工程目录扫描未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("扫描期间保护设置已变化，请重新扫描。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
+async fn measure_project_artifact(
+    root: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<project_artifacts::measurement::Measurement, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后扫描。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次工程目录读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&engine_root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        project_artifacts::measurement::measure(
+            std::path::Path::new(&root),
+            std::path::Path::new(&path),
+        )
+    });
+    let report = tokio::time::timeout(Duration::from_secs(6), worker)
+        .await
+        .map_err(|_| "工程目录读取超时，系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "工程目录读取未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("读取期间保护设置已变化，请重新扫描。".into());
+    }
+    Ok(report)
 }
 
 #[tauri::command]
@@ -1154,6 +1239,7 @@ pub fn run() {
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
@@ -1177,6 +1263,8 @@ pub fn run() {
             application_icon,
             inspect_application,
             inspect_maintenance,
+            inspect_project_artifacts,
+            measure_project_artifact,
             prepare_maintenance_review,
             list_review_plans,
             create_review_plan,
