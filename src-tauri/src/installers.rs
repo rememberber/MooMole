@@ -13,6 +13,7 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
+pub mod connection;
 pub mod zip;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_ITEMS: usize = 256;

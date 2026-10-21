@@ -2,6 +2,7 @@ import {
   installerCatalog,
   type InstallersReport,
   type InstallerZipInspection,
+  type InstallerConnectionInspection,
 } from '../../../src/lib/installers'
 export function installersReport(): InstallersReport {
   return {
@@ -64,6 +65,20 @@ export function installerZipInspection(): InstallerZipInspection {
     totalEntries: 83,
     checkedEntries: 50,
     matchedTypes: ['app'],
+    canExecute: false,
+  }
+}
+
+export function installerConnectionInspection(): InstallerConnectionInspection {
+  const r = installersReport()
+  return {
+    protocol: 1,
+    revision: r.revision,
+    root: r.root,
+    path: r.items[0].path,
+    checkedAt: Date.now(),
+    state: 'pathReported',
+    reason: null,
     canExecute: false,
   }
 }

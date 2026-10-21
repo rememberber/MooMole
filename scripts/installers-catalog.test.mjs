@@ -10,7 +10,7 @@ test('installer source review binds extensions and depth without executing its l
   try {
     mkdirSync(join(root, 'bin'))
     writeFileSync(join(root, 'mole'), `VERSION="${installerCatalog.version}"\n`)
-    const script = `readonly MAX_ZIP_ENTRIES=50\n# \\.(app|pkg|dmg|xip)(\\/|$)\nreadonly INSTALLER_SCAN_MAX_DEPTH_DEFAULT=2\ncase "$file" in\n${installerCatalog.extensions.map((v) => `*.${v}`).join(' | ')}) ;;\nesac\n`
+    const script = `readonly MAX_ZIP_ENTRIES=50\n# \\.(app|pkg|dmg|xip)(\\/|$)\nreadonly INSTALLER_SCAN_MAX_DEPTH_DEFAULT=2\nreadonly INSTALLER_SCAN_PATHS=(\n${installerCatalog.locations.map((l) => `    "${l.template}"`).join('\n')}\n)\ncase "$file" in\n${installerCatalog.extensions.map((v) => `*.${v}`).join(' | ')}) ;;\nesac\n`
     writeFileSync(join(root, 'bin/installer.sh'), script)
     const ref = {
       ...installerCatalog,
@@ -23,6 +23,14 @@ test('installer source review binds extensions and depth without executing its l
       { ...ref, extensions: ['dmg'] },
       { ...ref, zipWindow: 51 },
       { ...ref, zipHintTypes: ['app'] },
+      { ...ref, locations: ref.locations.slice(1) },
+      { ...ref, locations: ref.locations.toReversed() },
+      {
+        ...ref,
+        locations: ref.locations.map((l, i) =>
+          i ? l : { ...l, template: '$HOME/Library/Updates' },
+        ),
+      },
       { ...ref, sourceHashes: {} },
     ])
       assert.throws(() => verifyInstallerCatalog(root, changed))

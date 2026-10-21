@@ -216,6 +216,7 @@ button svg {
 }
 .topbar button,
 .topbar input,
+.topbar select,
 .topbar form {
   -webkit-app-region: no-drag;
 }
@@ -3170,4 +3171,22 @@ input[type='checkbox'] {
   .installer-actions {
     margin-left: auto;
   }
+}
+
+.installer-location {
+  max-width: 150px;
+}
+.installer-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+.installer-filters input {
+  flex: 1;
+  min-width: 160px;
+}
+.installer-filters select {
+  max-width: 210px;
 }

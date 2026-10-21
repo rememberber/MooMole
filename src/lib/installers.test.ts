@@ -1,10 +1,18 @@
 import { expect, it } from 'vitest'
-import { installersReport, installerZipInspection } from '../../tests/e2e/fixtures/installers'
+import {
+  installersReport,
+  installerZipInspection,
+  installerConnectionInspection,
+} from '../../tests/e2e/fixtures/installers'
 import {
   readInstallers,
+  installerLocations,
+  installerView,
   installerIncompleteReason,
   readInstallerZip,
   zipInspectionText,
+  readInstallerConnection,
+  connectionInspectionText,
 } from './installers'
 it('binds installer metadata to scope, time, supported names and non-executable state', () => {
   const fixture = installersReport()
@@ -150,4 +158,71 @@ it('keeps a complete no-match window distinct from unreadable or truncated ZIP l
   r.totalEntries = null
   expect(readInstallerZip(r, r.root, r.path, r.checkedAt, r.checkedAt).state).toBe('unknown')
   expect(zipInspectionText(r)).toBe('条目列表超出检查限制')
+})
+
+it('resolves all pinned Mole locations literally without probing, adding or broadening scope', () => {
+  const locations = installerLocations('/Users/Fixture User')
+  expect(locations).toHaveLength(12)
+  expect(locations.find((l) => l.id === 'downloads')?.path).toBe('/Users/Fixture User/Downloads')
+  expect(locations.find((l) => l.id === 'shared')?.path).toBe('/Users/Shared')
+  expect(locations.find((l) => l.id === 'icloud')?.path).toBe(
+    '/Users/Fixture User/Library/Mobile Documents/com~apple~CloudDocs/Downloads',
+  )
+  expect(locations.some((l) => l.path.includes('Library/Updates'))).toBe(false)
+  for (const home of ['', '/', 'relative', '/Users/../tmp', '/Users/name\n'])
+    expect(installerLocations(home)).toEqual([])
+})
+it('filters name or path and sorts known sizes above unknowns without removing protected rows or mutating inventory', () => {
+  const report = installersReport()
+  report.items.push({
+    ...report.items[0],
+    name: 'empty.PKG',
+    path: '/fixture/downloads/sub/empty.PKG',
+    extension: 'pkg',
+    sizeBytes: 0,
+  })
+  const before = structuredClone(report.items)
+  expect(installerView(report.items, '', '', 'size').map((i) => i.sizeBytes)).toEqual([
+    1048576,
+    0,
+    null,
+  ])
+  expect(installerView(report.items, 'ARCHIVE', 'zip', 'size')[0].protection).toBe('matched')
+  expect(installerView(report.items, '/SUB/', 'pkg', 'name').map((i) => i.name)).toEqual([
+    'empty.PKG',
+  ])
+  expect(installerView(report.items, 'missing', '', 'size')).toEqual([])
+  expect(report.items).toEqual(before)
+})
+
+it('connection observations bind exact scope and time and never infer safe removal from an unlisted path', () => {
+  const fixture = installerConnectionInspection()
+  const read = (r: typeof fixture) =>
+    readInstallerConnection(r, fixture.root, fixture.path, fixture.checkedAt, fixture.checkedAt)
+  expect(read(fixture)).toEqual(fixture)
+  expect(connectionInspectionText(fixture)).toContain('请先保留')
+  for (const patch of [
+    { protocol: 2 },
+    { revision: 'other' },
+    { root: '/else' },
+    { path: '/else/Tool.dmg' },
+    { checkedAt: fixture.checkedAt - 6000 },
+    { checkedAt: NaN },
+    { canExecute: true },
+    { state: 'safe' },
+    { state: 'unknown' },
+    { reason: 'listingLimit' },
+  ])
+    expect(() => read({ ...fixture, ...patch } as typeof fixture)).toThrow()
+  const negative = { ...fixture, state: 'pathNotListed' as const }
+  expect(connectionInspectionText(read(negative))).toBe('本次连接列表未见此路径；文件占用仍未确认')
+  for (const reason of ['queryUnavailable', 'listingUncertain', 'listingLimit'] as const) {
+    const r = { ...fixture, state: 'unknown' as const, reason }
+    expect(connectionInspectionText(read(r))).toContain('无法确认')
+  }
+  for (const path of ['/fixture/downloads/a/b/Tool.dmg', '/fixture/downloads/Tool.zip']) {
+    expect(() =>
+      readInstallerConnection({ ...fixture, path }, fixture.root, path, fixture.checkedAt),
+    ).toThrow()
+  }
 })

@@ -7,5 +7,79 @@
   "extensions": ["dmg", "pkg", "mpkg", "iso", "xip", "zip"],
   "maxDepth": 2,
   "zipWindow": 50,
-  "zipHintTypes": ["app", "pkg", "dmg", "xip"]
+  "zipHintTypes": ["app", "pkg", "dmg", "xip"],
+  "locations": [
+    {
+      "id": "downloads",
+      "label": "下载",
+      "group": "common",
+      "template": "$HOME/Downloads"
+    },
+    {
+      "id": "desktop",
+      "label": "桌面",
+      "group": "common",
+      "template": "$HOME/Desktop"
+    },
+    {
+      "id": "documents",
+      "label": "文稿",
+      "group": "common",
+      "template": "$HOME/Documents"
+    },
+    {
+      "id": "public",
+      "label": "公共文件夹",
+      "group": "common",
+      "template": "$HOME/Public"
+    },
+    {
+      "id": "library-downloads",
+      "label": "资源库下载",
+      "group": "other",
+      "template": "$HOME/Library/Downloads"
+    },
+    {
+      "id": "shared",
+      "label": "用户共享",
+      "group": "common",
+      "template": "/Users/Shared"
+    },
+    {
+      "id": "shared-downloads",
+      "label": "共享下载",
+      "group": "common",
+      "template": "/Users/Shared/Downloads"
+    },
+    {
+      "id": "homebrew",
+      "label": "Homebrew 缓存",
+      "group": "other",
+      "template": "$HOME/Library/Caches/Homebrew"
+    },
+    {
+      "id": "icloud",
+      "label": "iCloud 下载",
+      "group": "other",
+      "template": "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
+    },
+    {
+      "id": "mail",
+      "label": "邮件附件下载",
+      "group": "other",
+      "template": "$HOME/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
+    },
+    {
+      "id": "telegram",
+      "label": "Telegram 文件",
+      "group": "other",
+      "template": "$HOME/Library/Application Support/Telegram Desktop"
+    },
+    {
+      "id": "telegram-downloads",
+      "label": "Telegram 下载",
+      "group": "other",
+      "template": "$HOME/Downloads/Telegram Desktop"
+    }
+  ]
 }

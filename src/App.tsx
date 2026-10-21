@@ -151,7 +151,7 @@ export default function App() {
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects')
-  const installers = useInstallers(page === 'installers')
+  const installers = useInstallers(page === 'installers', data?.home ?? '')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
     const update = () => setToolbarScrolled(window.scrollY > 0)
@@ -783,6 +783,42 @@ export default function App() {
                 )}
                 {page === 'installers' && (
                   <>
+                    <select
+                      className="installer-location"
+                      aria-label="安装包查找位置"
+                      value={installers.locationId}
+                      disabled={
+                        !canRun ||
+                        installers.reading ||
+                        installers.choosing ||
+                        !!installers.checking ||
+                        installers.locations.length === 0
+                      }
+                      onChange={(event) => installers.selectLocation(event.target.value)}
+                    >
+                      <option value="" disabled>
+                        常用位置…
+                      </option>
+                      <optgroup label="常用位置">
+                        {installers.locations
+                          .filter((l) => l.group === 'common')
+                          .map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="其他 Mole 位置">
+                        {installers.locations
+                          .filter((l) => l.group === 'other')
+                          .map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+
                     <button
                       className="button secondary compact"
                       disabled={
@@ -1333,6 +1369,8 @@ export default function App() {
               checking={installers.checking}
               zipObservations={installers.zipObservations}
               onCheckZip={installers.checkZip}
+              connectionObservations={installers.connectionObservations}
+              onCheckConnection={installers.checkConnection}
             />
           )}
 

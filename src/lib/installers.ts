@@ -216,3 +216,97 @@ export function zipInspectionText(report: InstallerZipInspection): string {
     }[report.reason!] ?? 'ZIP 内容仍未确认'
   )
 }
+
+export function installerLocations(home: string) {
+  if (!absolute(home)) return []
+  return catalog.locations.map((location) => ({
+    ...location,
+    path: location.template.startsWith('$HOME/')
+      ? `${home}/${location.template.slice(6)}`
+      : location.template,
+  }))
+}
+export type InstallerSort = 'size' | 'name'
+export function installerView(
+  items: InstallerItem[],
+  query: string,
+  extension: string,
+  sort: InstallerSort,
+): InstallerItem[] {
+  const search = query.trim().toLowerCase()
+  const filtered = items.filter(
+    (item) =>
+      (!extension || item.extension === extension) &&
+      (!search ||
+        item.name.toLowerCase().includes(search) ||
+        item.path.toLowerCase().includes(search)),
+  )
+  return filtered.sort((a, b) => {
+    if (sort === 'size') {
+      const left = a.measurement === 'measured' ? a.sizeBytes : null,
+        right = b.measurement === 'measured' ? b.sizeBytes : null
+      if (left !== null && right === null) return -1
+      if (left === null && right !== null) return 1
+      if (left !== null && right !== null && left !== right) return right - left
+    }
+    return a.path.localeCompare(b.path, 'zh-CN')
+  })
+}
+
+export interface InstallerConnectionInspection {
+  protocol: 1
+  revision: string
+  root: string
+  path: string
+  checkedAt: number
+  state: 'pathReported' | 'pathNotListed' | 'unknown'
+  reason: 'queryUnavailable' | 'listingUncertain' | 'listingLimit' | null
+  canExecute: false
+}
+export type ConnectionObservations = Record<
+  string,
+  { report?: InstallerConnectionInspection; error?: string }
+>
+export function readInstallerConnection(
+  value: unknown,
+  root: string,
+  path: string,
+  began: number,
+  now = Date.now(),
+): InstallerConnectionInspection {
+  const r = value as InstallerConnectionInspection | null
+  if (
+    !r ||
+    r.protocol !== 1 ||
+    r.revision !== catalog.revision ||
+    r.root !== root ||
+    r.path !== path ||
+    !absolute(root) ||
+    !absolute(path) ||
+    !path.startsWith(`${root}/`) ||
+    path.slice(root.length + 1).split('/').length > catalog.maxDepth ||
+    !['dmg', 'iso'].includes(path.split('.').at(-1)?.toLowerCase() ?? '') ||
+    !Number.isSafeInteger(r.checkedAt) ||
+    r.checkedAt < 0 ||
+    r.checkedAt < began - 5000 ||
+    r.checkedAt > now + 5000 ||
+    r.canExecute !== false ||
+    !['pathReported', 'pathNotListed', 'unknown'].includes(r.state) ||
+    (r.state === 'unknown'
+      ? !['queryUnavailable', 'listingUncertain', 'listingLimit'].includes(r.reason ?? '')
+      : r.reason !== null)
+  )
+    throw new Error('映像连接结果无法确认，请重新检查。')
+  return r
+}
+export function connectionInspectionText(report: InstallerConnectionInspection): string {
+  if (report.state === 'pathReported') return '系统报告此路径已连接，请先保留'
+  if (report.state === 'pathNotListed') return '本次连接列表未见此路径；文件占用仍未确认'
+  return (
+    {
+      queryUnavailable: '连接状态无法确认：读取失败或超时',
+      listingUncertain: '连接状态无法确认：列表格式或路径无法识别',
+      listingLimit: '连接状态无法确认：列表超出检查限制',
+    }[report.reason!] ?? '连接状态无法确认'
+  )
+}

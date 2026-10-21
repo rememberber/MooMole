@@ -35,6 +35,21 @@ export function verifyInstallerCatalog(source, reference = installerCatalog) {
     JSON.stringify(zipTypes) !== JSON.stringify(reference.zipHintTypes)
   )
     throw new Error('Installer ZIP window or hint coverage mismatch')
+  const locationsBody = script.match(/^readonly INSTALLER_SCAN_PATHS=\(\n([\s\S]*?)^\)/m)?.[1]
+  const templates = locationsBody
+    ? [...locationsBody.matchAll(/^\s+"([^"\n]+)"/gm)].map((m) => m[1])
+    : []
+  if (
+    templates.length !== 12 ||
+    !Array.isArray(reference.locations) ||
+    reference.locations.length !== 12 ||
+    JSON.stringify(templates) !== JSON.stringify(reference.locations.map((l) => l.template)) ||
+    new Set(reference.locations.map((l) => l.id)).size !== 12 ||
+    reference.locations.some(
+      (l) => !/^[a-z-]+$/.test(l.id) || !l.label || !['common', 'other'].includes(l.group),
+    )
+  )
+    throw new Error('Installer location coverage mismatch')
   return unique.length
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
