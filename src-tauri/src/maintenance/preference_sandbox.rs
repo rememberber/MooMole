@@ -256,6 +256,7 @@ struct Lab {
     domain: String,
     owner: String,
     journals: tempfile::TempDir,
+    cleanup_on_drop: bool,
 }
 impl Lab {
     // No domain or key comes from a caller, fixture file, environment, or IPC.
@@ -264,6 +265,7 @@ impl Lab {
             domain: format!("{PREFIX}{}", uuid::Uuid::new_v4()),
             owner: uuid::Uuid::new_v4().to_string(),
             journals: tempfile::tempdir().map_err(|e| e.to_string())?,
+            cleanup_on_drop: true,
         };
         for scope in [Scope::AnyHost, Scope::ThisHost] {
             lab.write(scope, Key::Marker, Some(&Atom::text(&lab.owner)))?;
@@ -438,6 +440,9 @@ impl Lab {
 }
 impl Drop for Lab {
     fn drop(&mut self) {
+        if !self.cleanup_on_drop {
+            return;
+        }
         // Only this generated domain and fixture keys, never a whole domain or
         // Apple keys. Unknown ownership keeps the fixture for diagnosis.
         for scope in [Scope::AnyHost, Scope::ThisHost] {
@@ -450,6 +455,8 @@ impl Drop for Lab {
         }
     }
 }
+
+mod recovery;
 
 #[test]
 fn typed_atoms_preserve_bool_integer_text_and_reject_unsupported_values() {
