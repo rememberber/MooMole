@@ -7,7 +7,7 @@ import {
 
 export function maintenanceReport(): MaintenanceReport {
   return {
-    protocol: 3,
+    protocol: 4,
     observationId: crypto.randomUUID(),
     revision: maintenanceCatalog.revision,
     checkedAt: Date.now(),
@@ -34,6 +34,10 @@ export function maintenanceReport(): MaintenanceReport {
         label,
         value: id === 'prevent_network_dsstore' ? 'enabled' : 'unknown',
         managed: false,
+        originalEvidence: [
+          { scope: 'anyHost', state: 'unconfirmed', kind: null },
+          { scope: 'thisHost', state: 'unconfirmed', kind: null },
+        ],
       })),
     })),
   }

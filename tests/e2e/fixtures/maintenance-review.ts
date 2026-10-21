@@ -15,7 +15,7 @@ export function maintenanceReview(
   now = report.checkedAt,
 ): MaintenanceReview {
   return {
-    protocol: 1,
+    protocol: 2,
     revision: report.revision,
     observationId: report.observationId,
     checkedAt: report.checkedAt,
@@ -33,6 +33,7 @@ export function maintenanceReview(
           key: finding.key,
           label: finding.label,
           current: finding.value,
+          originalEvidence: structuredClone(finding.originalEvidence),
           intent: id === 'prevent_network_dsstore' ? 'enableSetting' : 'removeOverride',
           outcome: maintenanceReviewOutcome(item, finding),
         })),

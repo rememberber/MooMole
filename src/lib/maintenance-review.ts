@@ -1,5 +1,6 @@
 import {
   maintenanceCatalog,
+  validOriginalEvidence,
   type MaintenanceObservation,
   type MaintenanceReport,
   type MaintenanceFinding,
@@ -13,11 +14,12 @@ export interface MaintenanceReviewKey {
   key: string
   label: string
   current: MaintenanceFinding['value']
+  originalEvidence: MaintenanceFinding['originalEvidence']
   intent: 'enableSetting' | 'removeOverride'
   outcome: ReviewOutcome
 }
 export interface MaintenanceReview {
-  protocol: 1
+  protocol: 2
   revision: string
   observationId: string
   checkedAt: number
@@ -37,6 +39,7 @@ export function maintenanceReviewOutcome(
   if (item.code === 'restricted') return 'preserveRestricted'
   if (
     finding.value === 'unknown' ||
+    finding.originalEvidence.some((e) => e.state === 'changed') ||
     item.taskProtection === 'unknown' ||
     item.paths.some(
       (path) =>
@@ -75,7 +78,7 @@ export function readMaintenanceReview(
   }
   if (
     !review ||
-    review.protocol !== 1 ||
+    review.protocol !== 2 ||
     review.revision !== maintenanceCatalog.revision ||
     review.mode !== 'reviewOnly' ||
     review.canExecute !== false ||
@@ -114,6 +117,13 @@ export function readMaintenanceReview(
         key.key !== finding.key ||
         key.label !== finding.label ||
         key.current !== finding.value ||
+        !validOriginalEvidence(key.originalEvidence) ||
+        key.originalEvidence.some(
+          (entry, i) =>
+            entry.scope !== finding.originalEvidence[i].scope ||
+            entry.state !== finding.originalEvidence[i].state ||
+            entry.kind !== finding.originalEvidence[i].kind,
+        ) ||
         key.intent !==
           (item.id === 'prevent_network_dsstore' ? 'enableSetting' : 'removeOverride') ||
         key.outcome !== maintenanceReviewOutcome(source, finding)

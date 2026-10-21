@@ -28,12 +28,31 @@ export const maintenanceTargets = {
   ],
 } as const
 export type MaintenanceValue = 'enabled' | 'disabled' | 'unknown'
+export interface MaintenanceOriginalEvidence {
+  scope: 'anyHost' | 'thisHost'
+  state: 'observed' | 'unconfirmed' | 'unsupported' | 'changed' | 'notChecked'
+  kind: 'boolean' | 'integer' | 'string' | null
+}
+export function validOriginalEvidence(value: unknown): value is MaintenanceOriginalEvidence[] {
+  if (!Array.isArray(value) || value.length !== 2) return false
+  return value.every(
+    (entry, index) =>
+      entry &&
+      Object.keys(entry).every((key) => ['scope', 'state', 'kind'].includes(key)) &&
+      entry.scope === (index === 0 ? 'anyHost' : 'thisHost') &&
+      ['observed', 'unconfirmed', 'unsupported', 'changed', 'notChecked'].includes(entry.state) &&
+      (entry.state === 'observed'
+        ? ['boolean', 'integer', 'string'].includes(entry.kind)
+        : entry.kind === null),
+  )
+}
 export interface MaintenanceFinding {
   domain: string
   key: string
   label: string
   value: MaintenanceValue
   managed: boolean
+  originalEvidence: MaintenanceOriginalEvidence[]
 }
 export interface MaintenanceObservation {
   id: keyof typeof maintenanceTargets
@@ -57,7 +76,7 @@ export interface MaintenancePath {
   access: 'noRestrictionObserved' | 'restricted' | 'unknown' | 'notChecked'
 }
 export interface MaintenanceReport {
-  protocol: 3
+  protocol: 4
   observationId: string
   revision: string
   checkedAt: number
@@ -76,7 +95,7 @@ export function readMaintenanceReport(
   }
   if (
     !report ||
-    report.protocol !== 3 ||
+    report.protocol !== 4 ||
     typeof report.observationId !== 'string' ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       report.observationId,
@@ -111,7 +130,8 @@ export function readMaintenanceReport(
         finding.key !== target[1] ||
         finding.label !== target[2] ||
         !['enabled', 'disabled', 'unknown'].includes(finding.value) ||
-        typeof finding.managed !== 'boolean'
+        typeof finding.managed !== 'boolean' ||
+        !validOriginalEvidence(finding.originalEvidence)
       )
         return invalid()
     }
@@ -141,7 +161,10 @@ export function readMaintenanceReport(
         : item.paths.some((path) => path.access === 'restricted')
           ? 'restricted'
           : item.taskProtection === 'unknown' ||
-              item.findings.some((f) => f.value === 'unknown') ||
+              item.findings.some(
+                (f) =>
+                  f.value === 'unknown' || f.originalEvidence.some((e) => e.state === 'changed'),
+              ) ||
               item.paths.some(
                 (path) =>
                   path.state !== 'present' ||

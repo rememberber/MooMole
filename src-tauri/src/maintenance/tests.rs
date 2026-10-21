@@ -93,6 +93,7 @@ fn managed_or_opted_out_items_are_protected_and_missing_is_unknown() {
         label: "App Nap",
         value,
         managed,
+        original_evidence: originals::unavailable("notChecked"),
     };
     assert_eq!(
         item(IDS[1], Some(&[]), vec![finding(Value::Unknown, false)]).code,

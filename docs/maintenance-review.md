@@ -4,7 +4,7 @@
 
 ## 观察与选择绑定
 
-`inspect_maintenance` 返回 v3，增加随机 UUID `observationId`。原生进程只保留最新一份观察及当时的客户端保护列表；尝试刷新即清除旧观察的审阅资格，刷新失败时界面仍可显示明确标注的旧结果。代次计数拒绝旧请求覆盖新观察；重启后缓存为空。
+`inspect_maintenance` 返回 v4，包含明确域证据摘要和随机 UUID `observationId`。原生进程只保留最新一份观察及当时的客户端保护列表；尝试刷新即清除旧观察的审阅资格，刷新失败时界面仍可显示明确标注的旧结果。代次计数拒绝旧请求覆盖新观察；重启后缓存为空。
 
 `prepare_maintenance_review` 仅接收 `observationId` 和 `selectedIds`。选择限于两个固定 ID 的非空、不重复子集，保留选择顺序。前端不传报告、文件路径、偏好域、键、目标值或命令。后端从自己的观察计算结果，要求当前客户端保护列表完全一致，拒绝退出或安装交接中的请求。
 
@@ -22,7 +22,9 @@
 
 Finder 的固定意图为开启两项记录设置；旧覆盖修复仅针对启用的 App Nap/映像验证覆盖值移除覆盖，遵循固定 Mole 1.59.1 语义。有效布尔值不等于原始键值；继承结果、缺失、主机范围和并发写入的边界仍见 [恢复实验](maintenance-preference-lab.md)。
 
-审阅协议 v1 始终返回 `mode: reviewOnly`、`canExecute: false`、`originalsCaptured: false`、`concurrencyResolved: false`。前端再次绑定版本/源码、观察 ID、检查和截止时间、准确选择、完整键与当前值、固定意图及可重新计算的结果；矛盾或过期响应拒绝。离开页面忽略迟到审阅，刷新清除选择与弹窗。
+审阅协议 v2 始终返回 `mode: reviewOnly`、`canExecute: false`、`originalsCaptured: false`、`concurrencyResolved: false`。前端再次绑定版本/源码、观察 ID、检查和截止时间、准确选择、完整键与当前值、明确域证据摘要、固定意图及可重新计算的结果；矛盾或过期响应拒绝。离开页面忽略迟到审阅，刷新清除选择与弹窗。
+
+明确域证据仅供按需展开，不传递原始内容或提供恢复许可，详见 [原值证据](maintenance-originals.md)。两次读取中已观察到变化时，对应键保持未知；未返回值不推断为缺失。
 
 ## 验证范围
 

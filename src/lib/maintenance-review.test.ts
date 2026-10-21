@@ -32,7 +32,7 @@ describe('native maintenance review binding', () => {
     const original = maintenanceReview(report, reviewSelection)
     const mutations = [
       (r: Record<string, any>) => {
-        r.protocol = 2
+        r.protocol = 1
       },
       (r: Record<string, any>) => {
         r.observationId = crypto.randomUUID()
@@ -103,4 +103,20 @@ describe('native maintenance review binding', () => {
     item.code = 'protected'
     expect(maintenanceReviewOutcome(item, key)).toBe('preserveProtected')
   })
+})
+
+it('binds explicit-domain evidence to reviewed keys and keeps changes unknown', () => {
+  const report = maintenanceReport()
+  const finding = report.items[0].findings[0]
+  finding.originalEvidence[0].state = 'changed'
+  report.items[0].code = 'unknown'
+  const review = maintenanceReview(report, reviewSelection)
+  expect(review.items[0].keys[0].outcome).toBe('preserveUnknown')
+  expect(
+    readMaintenanceReview(review, report, reviewSelection, report.checkedAt, report.checkedAt),
+  ).toEqual(review)
+  review.items[0].keys[0].originalEvidence[0].state = 'unconfirmed'
+  expect(() =>
+    readMaintenanceReview(review, report, reviewSelection, report.checkedAt, report.checkedAt),
+  ).toThrow()
 })

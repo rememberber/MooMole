@@ -2986,6 +2986,20 @@ input[type='checkbox'] {
 .maintenance-review-item dd {
   margin: 0;
 }
+.maintenance-originals {
+  margin: 12px 0;
+  line-height: 1.8;
+}
+.maintenance-originals > summary {
+  cursor: pointer;
+  color: var(--subtle);
+}
+.maintenance-original {
+  margin: 12px 0;
+}
+.maintenance-original p {
+  margin: 4px 0;
+}
 .maintenance-item > summary {
   display: flex;
   align-items: center;

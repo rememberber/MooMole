@@ -8,6 +8,7 @@ import {
 import { dateTime } from '../lib/format'
 import type { Bootstrap } from '../types'
 import type { MaintenanceId } from '../lib/maintenance-review'
+import { MaintenanceOriginalEvidence } from './MaintenanceOriginalEvidence'
 
 export function MaintenanceCatalog({
   query,
@@ -123,6 +124,7 @@ export function MaintenanceCatalog({
                         。
                       </p>
                       <p className="muted">原始键值尚未保存，当前没有精确撤销能力。</p>
+                      <MaintenanceOriginalEvidence findings={observed.findings} />
                       <details className="maintenance-paths">
                         <summary>文件保护与访问观察</summary>
                         {observed.paths.map((path) => (

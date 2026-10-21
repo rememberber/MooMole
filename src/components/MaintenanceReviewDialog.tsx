@@ -3,6 +3,7 @@ import { Modal } from './Modal'
 import { maintenanceCatalog } from '../lib/maintenance'
 import { maintenanceOutcomeText, type MaintenanceReview } from '../lib/maintenance-review'
 import { dateTime } from '../lib/format'
+import { MaintenanceOriginalEvidence } from './MaintenanceOriginalEvidence'
 
 export function MaintenanceReviewDialog({
   review,
@@ -29,7 +30,7 @@ export function MaintenanceReviewDialog({
       <p role={stale ? 'alert' : 'status'}>
         {stale
           ? '检查已过期或时间变化，请重新检查；以下仅为较早的审阅结果。'
-          : '原始键值与恢复证据尚未保存，并发变更仍可能被覆盖；执行暂未开放。'}
+          : '尚未建立可用于恢复的原值记录与冲突保护；执行暂未开放。'}
       </p>
       {review.items.map((item) => {
         const metadata = maintenanceCatalog.items.find((value) => value.id === item.id)!
@@ -61,6 +62,7 @@ export function MaintenanceReviewDialog({
                 </div>
               ))}
             </dl>
+            <MaintenanceOriginalEvidence findings={item.keys} />
           </section>
         )
       })}

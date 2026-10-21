@@ -359,3 +359,69 @@ test('leaving maintenance ignores a late review response', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '维护条件审阅', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '审阅所选', exact: true })).toBeDisabled()
 })
+
+test('original evidence is optional detail, distinct from effective values and restoration', async ({
+  page,
+}) => {
+  await installTaskMock(page, 'analyze')
+  const fixture = maintenanceReport()
+  fixture.items[0].findings[0].originalEvidence = [
+    { scope: 'anyHost', state: 'observed', kind: 'boolean' },
+    { scope: 'thisHost', state: 'unconfirmed', kind: null },
+  ]
+  fixture.items[0].findings[1].originalEvidence = [
+    { scope: 'anyHost', state: 'unsupported', kind: null },
+    { scope: 'thisHost', state: 'changed', kind: null },
+  ]
+  fixture.items[0].code = 'unknown'
+  const { maintenanceReview, reviewSelection } = await import('./fixtures/maintenance-review')
+  await page.addInitScript(
+    ({ fixture, review }) => {
+      const native = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
+        }
+      ).__TAURI_INTERNALS__
+      const original = native.invoke
+      let checkedAt = 0
+      native.invoke = async (command, args) => {
+        if (command === 'inspect_maintenance') {
+          checkedAt = Date.now()
+          return { ...fixture, checkedAt }
+        }
+        if (command === 'prepare_maintenance_review')
+          return { ...review, checkedAt, preparedAt: Date.now(), expiresAt: checkedAt + 60_000 }
+        return original(command, args)
+      }
+    },
+    { fixture, review: maintenanceReview(fixture, [reviewSelection[0]]) },
+  )
+  await page.goto('/')
+  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
+  await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '系统维护', exact: true }).click()
+  await page.getByRole('button', { name: '检查本机设置', exact: true }).click()
+  await page
+    .getByRole('checkbox', { name: /进行条件审阅/ })
+    .nth(0)
+    .check()
+  await page.getByRole('button', { name: '审阅所选 1 项', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '维护条件审阅', exact: true })
+  await expect(dialog).toContainText('条件未知，保持现状')
+  const details = dialog.locator('.maintenance-originals')
+  await expect(details.getByText(/两次读取一致/)).not.toBeVisible()
+  await details.locator('summary').click()
+  await expect(details).toContainText('通用主机域：两次读取一致（布尔值），尚不能据此恢复')
+  await expect(details).toContainText('本机域：未返回原值，缺失与读取不可用仍无法区分')
+  await expect(details).toContainText('原始类型或长度暂不支持')
+  await expect(details).toContainText('读取期间观察到变化，需重新检查')
+  await expect(details).toContainText('原始内容未保存为恢复记录')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.getByRole('textbox', { name: '搜索维护项目' }).fill('prevent_network_dsstore')
+  const item = page.locator('.maintenance-item')
+  await item.locator(':scope > summary').click()
+  await item.locator('.maintenance-originals > summary').click()
+  await expect(item.locator('.maintenance-originals')).toContainText('读取期间观察到变化')
+})

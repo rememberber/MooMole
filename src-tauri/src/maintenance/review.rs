@@ -26,7 +26,7 @@ impl Store {
         client: Vec<String>,
     ) -> Result<(), String> {
         if generation != self.generation
-            || report.protocol != 3
+            || report.protocol != 4
             || report.revision != crate::engine::REVISION
         {
             return Err("维护检查已经被更新，请重新检查。".into());
@@ -82,6 +82,10 @@ impl Store {
                         } else if item.code == "restricted" {
                             "preserveRestricted"
                         } else if finding.value == Value::Unknown
+                            || finding
+                                .original_evidence
+                                .iter()
+                                .any(|v| v.state == "changed")
                             || item.task_protection == "unknown"
                             || item.paths.iter().any(|path| {
                                 path.state != "present"
@@ -102,6 +106,7 @@ impl Store {
                             key: finding.key,
                             label: finding.label,
                             current: finding.value,
+                            original_evidence: finding.original_evidence.clone(),
                             intent: if item.id == IDS[0] {
                                 "enableSetting"
                             } else {
@@ -115,7 +120,7 @@ impl Store {
             })
             .collect::<Result<Vec<_>, String>>()?;
         Ok(Review {
-            protocol: 1,
+            protocol: 2,
             revision: crate::engine::REVISION,
             observation_id: report.observation_id.clone(),
             checked_at: report.checked_at,
@@ -151,10 +156,12 @@ struct Item {
     keys: Vec<Key>,
 }
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Key {
     key: &'static str,
     label: &'static str,
     current: Value,
+    original_evidence: Vec<super::originals::Evidence>,
     intent: &'static str,
     outcome: &'static str,
 }
@@ -165,7 +172,7 @@ mod tests {
     use crate::maintenance::{paths, Finding};
     fn report() -> Report {
         Report {
-            protocol: 3,
+            protocol: 4,
             observation_id: uuid::Uuid::new_v4().to_string(),
             revision: crate::engine::REVISION,
             checked_at: 1000,
@@ -186,6 +193,7 @@ mod tests {
                             Value::Enabled
                         },
                         managed: false,
+                        original_evidence: super::super::originals::unavailable("unconfirmed"),
                     }],
                     paths: vec![paths::Observation {
                         location: "fixture",
@@ -217,6 +225,12 @@ mod tests {
             assert!(!review.originals_captured);
             assert!(!review.concurrency_resolved);
             assert_eq!(review.items[0].keys[0].outcome, "needsEvidence");
+            let wire = serde_json::to_value(&review).unwrap();
+            assert_eq!(wire["protocol"], 2);
+            let key = &wire["items"][0]["keys"][0];
+            assert_eq!(key["originalEvidence"][0]["scope"], "anyHost");
+            assert_eq!(key["originalEvidence"][1]["state"], "unconfirmed");
+            assert!(key.get("original_evidence").is_none());
         }
         for now in [999, 61_000, 90_000] {
             assert!(store.prepare(&id, &selected, &[], now).is_err())

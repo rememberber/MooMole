@@ -1,5 +1,5 @@
 //! Six allowlisted CFPreferences reads; no synchronize/set/delete or user prompts.
-use super::Value;
+use super::{originals, Value};
 use core_foundation_sys::{
     base::{CFGetTypeID, CFRelease, CFTypeRef},
     number::{
@@ -51,7 +51,7 @@ fn string_value(value: &str, legacy: bool) -> Value {
 }
 // Only fixed preference keys reach this function. Return neither raw strings nor
 // arbitrary plist data to the webview. Missing and unreadable remain indistinct.
-pub(super) fn read(domain: &str, key: &str) -> (Value, bool) {
+pub(super) fn read(domain: &str, key: &str) -> (Value, bool, Vec<originals::Evidence>) {
     if !matches!(
         (domain, key),
         (
@@ -63,30 +63,38 @@ pub(super) fn read(domain: &str, key: &str) -> (Value, bool) {
                 "skip-verify" | "skip-verify-locked" | "skip-verify-remote"
             )
     ) {
-        return (Value::Unknown, false);
+        return (Value::Unknown, false, originals::unavailable("notChecked"));
     }
     let Some(key_ref) = text(key) else {
-        return (Value::Unknown, false);
+        return (Value::Unknown, false, originals::unavailable("notChecked"));
     };
     let app = if domain == "-g" { None } else { text(domain) };
     if domain != "-g" && app.is_none() {
-        return (Value::Unknown, false);
+        return (Value::Unknown, false, originals::unavailable("notChecked"));
     }
     unsafe {
         let application = app
             .as_ref()
             .map_or(kCFPreferencesAnyApplication, |v| v.0.cast());
         let managed = CFPreferencesAppValueIsForced(key_ref.0.cast(), application) != 0;
-        let raw = CFPreferencesCopyAppValue(key_ref.0.cast(), application);
-        if raw.is_null() {
-            return (Value::Unknown, managed);
-        }
-        let value = Owned(raw);
-        let decoded = decode(value.0, domain != "com.apple.desktopservices");
+        let effective = || {
+            let raw = CFPreferencesCopyAppValue(key_ref.0.cast(), application);
+            if raw.is_null() {
+                return Value::Unknown;
+            }
+            let value = Owned(raw);
+            decode(value.0, domain != "com.apple.desktopservices")
+        };
+        let decoded = effective();
+        let evidence = originals::capture(application, key_ref.0.cast());
+        let after = effective();
         if managed != (CFPreferencesAppValueIsForced(key_ref.0.cast(), application) != 0) {
-            return (Value::Unknown, true);
+            return (Value::Unknown, true, originals::unavailable("changed"));
         }
-        (decoded, managed)
+        if decoded != after {
+            return (Value::Unknown, managed, originals::unavailable("changed"));
+        }
+        (decoded, managed, evidence)
     }
 }
 

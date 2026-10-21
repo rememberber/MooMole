@@ -31,6 +31,7 @@ pub struct Finding {
     label: &'static str,
     value: Value,
     managed: bool,
+    original_evidence: Vec<originals::Evidence>,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -181,7 +182,10 @@ fn item(id: &'static str, patterns: Option<&[String]>, findings: Vec<Finding>) -
     };
     let code = if task_protection == "matched" || findings.iter().any(|f| f.managed) {
         "protected"
-    } else if findings.iter().any(|f| f.value == Value::Unknown) || patterns.is_none() {
+    } else if findings.iter().any(|f| {
+        f.value == Value::Unknown || f.original_evidence.iter().any(|v| v.state == "changed")
+    }) || patterns.is_none()
+    {
         "unknown"
     } else {
         "observed"
@@ -199,10 +203,10 @@ pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
     let began = Instant::now();
     let (source, patterns) = rules(home);
     let read = |domain: &'static str, key: &'static str, label: &'static str| {
-        let (value, managed) = if began.elapsed().as_secs() < 4 {
+        let (value, managed, original_evidence) = if began.elapsed().as_secs() < 4 {
             native::read(domain, key)
         } else {
-            (Value::Unknown, false)
+            (Value::Unknown, false, originals::unavailable("notChecked"))
         };
         Finding {
             domain,
@@ -210,6 +214,7 @@ pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
             label,
             value,
             managed,
+            original_evidence,
         }
     };
     let finder = vec![
@@ -283,7 +288,7 @@ pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
         }
     }
     Ok(Report {
-        protocol: 3,
+        protocol: 4,
         observation_id: uuid::Uuid::new_v4().to_string(),
         revision: engine::REVISION,
         checked_at: crate::db::now(),
@@ -293,6 +298,7 @@ pub fn inspect(home: &Path, client: &[String]) -> Result<Report, String> {
 }
 
 mod native;
+mod originals;
 mod paths;
 #[cfg(test)]
 mod preference_sandbox;

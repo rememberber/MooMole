@@ -35,7 +35,7 @@ describe('source-bound maintenance reference', () => {
     expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
     for (const mutate of [
       (r: typeof report) => {
-        r.protocol = 2 as 3
+        r.protocol = 3 as 4
       },
       (r: typeof report) => {
         r.revision = 'other'
@@ -115,5 +115,37 @@ describe('source-bound maintenance reference', () => {
     first.code = 'unknown'
     expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
     expect(maintenanceConclusion(first)).toBe('部分状态未知，暂不作维护判断')
+  })
+})
+
+describe('explicit-domain original evidence', () => {
+  it('requires both fixed scopes, exact evidence states and type consistency without raw payloads', () => {
+    const report = maintenanceReport()
+    const evidence = report.items[0].findings[0].originalEvidence
+    evidence[0] = { scope: 'anyHost', state: 'observed', kind: 'integer' }
+    expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
+    const invalid = [
+      [],
+      [evidence[0]],
+      [evidence[1], evidence[0]],
+      [evidence[0], evidence[0]],
+      [{ ...evidence[0], kind: null }, evidence[1]],
+      [{ ...evidence[0], state: 'missing' }, evidence[1]],
+      [{ ...evidence[0], kind: 'float' }, evidence[1]],
+      [{ ...evidence[0], rawValue: 'private original' }, evidence[1]],
+      [{ ...evidence[0], state: 'unconfirmed' }, evidence[1]],
+    ]
+    for (const originalEvidence of invalid) {
+      const changed = structuredClone(report)
+      Object.assign(changed.items[0].findings[0], { originalEvidence })
+      expect(() => readMaintenanceReport(changed, report.checkedAt, report.checkedAt)).toThrow()
+    }
+  })
+  it('does not let effective values hide observed changes in an explicit scope', () => {
+    const report = maintenanceReport()
+    report.items[0].findings[0].originalEvidence[1].state = 'changed'
+    expect(() => readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toThrow()
+    report.items[0].code = 'unknown'
+    expect(readMaintenanceReport(report, report.checkedAt, report.checkedAt)).toEqual(report)
   })
 })
