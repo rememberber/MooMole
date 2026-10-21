@@ -1,4 +1,5 @@
-export type Page = 'overview' | 'analyze' | 'cleanup' | 'apps' | 'status' | 'history'
+export type Page =
+  'overview' | 'analyze' | 'cleanup' | 'apps' | 'status' | 'maintenance' | 'history'
 export type TaskKind = 'analyze' | 'status' | 'apps' | 'cleanup' | 'clean' | 'history'
 export type ScanState = 'complete' | 'partial' | 'unavailable'
 export interface Settings {
@@ -9,7 +10,7 @@ export interface Settings {
 }
 export interface TaskRecord {
   id: string
-  kind: TaskKind
+  kind: string
   path: string | null
   state: string
   createdAt: number
@@ -63,9 +64,11 @@ export interface Snapshot {
   uptime?: string
   health_score?: number
   hardware?: { model?: string; cpu_model?: string; total_ram?: string; os_version?: string }
-  cpu?: { usage?: number; logical_cpu?: number }
+  cpu?: { usage?: number; logical_cpu?: number; per_core_estimated?: boolean | null }
   memory?: { total?: number; used?: number; used_percent?: number; pressure?: string }
   disks?: { mount: string; total: number; used: number; used_percent: number; external: boolean }[]
+  disk_io?: { read_rate?: number | null; write_rate?: number | null } | null
+  network?: { name: string; rx_rate_mbs?: number | null; tx_rate_mbs?: number | null }[] | null
   top_processes?: ProcessSample[] | null
   process_collected_at?: string | null
   process_stale?: boolean | null

@@ -63,7 +63,7 @@ fn exited(pid: u32) -> Result<bool, String> {
 }
 
 struct Reader {
-    handle: JoinHandle<Result<Vec<u8>, std::io::Error>>,
+    handle: JoinHandle<Result<Vec<u8>, String>>,
     value: Option<Result<Vec<u8>, String>>,
     limit: u64,
 }
@@ -72,11 +72,53 @@ impl Reader {
         Self {
             handle: tokio::spawn(async move {
                 let mut data = vec![];
-                stream.take(limit + 1).read_to_end(&mut data).await?;
+                stream
+                    .take(limit + 1)
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|e| e.to_string())?;
                 Ok(data)
             }),
             value: None,
             limit,
+        }
+    }
+    fn lines(
+        mut stream: impl AsyncRead + Unpin + Send + 'static,
+        mut receive: impl FnMut(&[u8]) -> Result<(), String> + Send + 'static,
+    ) -> Self {
+        Self {
+            handle: tokio::spawn(async move {
+                let mut pending = Vec::new();
+                let mut chunk = [0u8; 8192];
+                loop {
+                    let count =
+                        tokio::time::timeout(Duration::from_secs(45), stream.read(&mut chunk))
+                            .await
+                            .map_err(|_| "状态流长时间没有输出，请重新开始采集。".to_string())?
+                            .map_err(|e| e.to_string())?;
+                    if count == 0 {
+                        return if pending.is_empty() {
+                            Ok(vec![])
+                        } else {
+                            Err("状态流最后一条记录不完整。".into())
+                        };
+                    }
+                    for byte in &chunk[..count] {
+                        if *byte == b'\n' {
+                            receive(&pending)?;
+                            pending.clear();
+                        } else {
+                            if pending.len() >= 512 * 1024 {
+                                return Err("状态流单条记录超过上限。".into());
+                            }
+                            pending.push(*byte);
+                        }
+                    }
+                }
+            }),
+            value: None,
+            limit: 512 * 1024,
         }
     }
     async fn poll_finished(&mut self) {
@@ -89,9 +131,9 @@ impl Reader {
             );
         }
     }
-    fn problem(&self) -> Option<&'static str> {
+    fn problem(&self) -> Option<&str> {
         match &self.value {
-            Some(Err(_)) => Some("无法完整读取任务输出。"),
+            Some(Err(error)) => Some(error),
             Some(Ok(bytes)) if bytes.len() as u64 > self.limit => {
                 Some("任务输出超过上限，请缩小扫描目录。")
             }
@@ -121,10 +163,37 @@ pub async fn output(command: Command, job: Arc<Job>, timeout: Duration) -> Resul
 }
 
 pub async fn output_bounded(
+    command: Command,
+    job: Arc<Job>,
+    timeout: Duration,
+    limit: u64,
+) -> Result<Vec<u8>, String> {
+    supervise(command, job, timeout, limit, None).await
+}
+
+type LineReceiver = Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>;
+pub(crate) async fn stream_lines(
+    command: Command,
+    job: Arc<Job>,
+    receive: impl FnMut(&[u8]) -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
+    // One session is deliberately bounded; continuing after 24h is explicit.
+    supervise(
+        command,
+        job,
+        Duration::from_secs(24 * 3600),
+        64 * 1024,
+        Some(Box::new(receive)),
+    )
+    .await
+    .map(|_| ())
+}
+async fn supervise(
     mut command: Command,
     job: Arc<Job>,
     timeout: Duration,
     limit: u64,
+    receive: Option<LineReceiver>,
 ) -> Result<Vec<u8>, String> {
     if limit == 0 || limit > OUTPUT_LIMIT {
         return Err("输出边界无法识别。".into());
@@ -160,11 +229,16 @@ pub async fn output_bounded(
         lease,
         armed: true,
     };
-    let mut out = Reader::new(child.stdout.take().ok_or("无法读取任务输出。")?, limit);
+    let streaming = receive.is_some();
+    let stdout = child.stdout.take().ok_or("无法读取任务输出。")?;
+    let mut out = match receive {
+        Some(receive) => Reader::lines(stdout, receive),
+        None => Reader::new(stdout, limit),
+    };
     let mut err = Reader::new(child.stderr.take().ok_or("无法读取任务诊断。")?, limit);
     let started = Instant::now();
     let mut exited_at = None;
-    let mut stopping: Option<(&str, Instant)> = None;
+    let mut stopping: Option<(String, Instant)> = None;
     loop {
         out.poll_finished().await;
         err.poll_finished().await;
@@ -181,15 +255,17 @@ pub async fn output_bounded(
         }
         if stopping.is_none() {
             let reason = if job.cancelled.load(Ordering::SeqCst) {
-                Some("任务已取消。")
+                Some("任务已取消。".to_string())
             } else if started.elapsed() >= timeout {
-                Some("任务超时，可缩小扫描范围后重试。")
+                Some("任务超时，可缩小扫描范围后重试。".to_string())
             } else if let Some(problem) = out.problem().or(err.problem()) {
-                Some(problem)
+                Some(problem.to_string())
+            } else if streaming && out.value.is_some() && exited_at.is_none() {
+                Some("状态流输出通道已结束，请重新开始采集。".to_string())
             } else if exited_at.is_some_and(|at| at.elapsed() >= PIPE_GRACE)
                 && (out.value.is_none() || err.value.is_none())
             {
-                Some("主进程已结束，但输出通道未关闭。")
+                Some("主进程已结束，但输出通道未关闭。".to_string())
             } else {
                 None
             };
@@ -205,7 +281,10 @@ pub async fn output_bounded(
         if stopping.is_some() && exited_at.is_some() && out.value.is_some() && err.value.is_some() {
             break;
         }
-        if stopping.is_some_and(|(_, at)| at.elapsed() >= STOP_GRACE) {
+        if stopping
+            .as_ref()
+            .is_some_and(|(_, at)| at.elapsed() >= STOP_GRACE)
+        {
             break;
         }
         tokio::time::sleep(Duration::from_millis(25)).await;
@@ -225,7 +304,7 @@ pub async fn output_bounded(
         Err(_) => {
             return Err(format!(
                 "{}输出通道仍未关闭，可能有脱离进程组的子进程；请重新检查。",
-                stopping.map_or("", |(reason, _)| reason)
+                stopping.as_ref().map_or("", |(reason, _)| reason.as_str())
             ))
         }
     };

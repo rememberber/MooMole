@@ -24,6 +24,7 @@ pub enum TaskKind {
     Review,
     History,
     LogTrash,
+    StatusWatch,
 }
 
 impl TaskKind {
@@ -37,6 +38,7 @@ impl TaskKind {
             Self::Review => "review",
             Self::History => "history",
             Self::LogTrash => "logtrash",
+            Self::StatusWatch => "statuswatch",
         }
     }
 }
@@ -312,9 +314,11 @@ pub async fn run(
                 .env("TERM", "dumb");
             command
         }
-        TaskKind::Cleanup | TaskKind::Review | TaskKind::History | TaskKind::LogTrash => {
-            return Err("请使用对应的专用任务入口。".into())
-        }
+        TaskKind::Cleanup
+        | TaskKind::Review
+        | TaskKind::History
+        | TaskKind::LogTrash
+        | TaskKind::StatusWatch => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -351,6 +355,9 @@ pub async fn run(
         preview.output = plain_terminal_text(&text);
         return serde_json::to_value(preview).map_err(|e| e.to_string());
     }
+    if job.kind == TaskKind::Status {
+        return crate::status_watch::validate(&bytes);
+    }
     let mut result: Value =
         serde_json::from_slice(&bytes).map_err(|e| format!("Mole 输出格式无法识别：{e}"))?;
     let valid = match job.kind {
@@ -365,7 +372,7 @@ pub async fn run(
         TaskKind::Clean => false,
         TaskKind::Review => false,
         TaskKind::History => false,
-        TaskKind::LogTrash => false,
+        TaskKind::LogTrash | TaskKind::StatusWatch => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

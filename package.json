@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:adapter": "node scripts/test-clean-preview.mjs && node scripts/test-review-rules.mjs",
     "test:engine": "node --test scripts/engine-manifest.test.mjs",
+    "test:maintenance": "node --test scripts/maintenance-catalog.test.mjs",
     "test:e2e": "playwright test",
     "format:check": "prettier --check .github src scripts tests package.json update-manifest.json tsconfig.json vite.config.ts playwright.config.ts index.html src-tauri/tauri.conf.json src-tauri/capabilities/default.json",
     "check:rust": "node scripts/cargo.mjs test",

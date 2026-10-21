@@ -520,6 +520,139 @@ h3 {
 .metric-card .meter {
   margin-top: 14px;
 }
+.status-trend {
+  min-height: 82px;
+  margin-top: 12px;
+}
+.status-metrics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.status-interval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--subtle);
+  font-size: 11px;
+}
+.status-interval select {
+  padding: 5px 7px;
+  min-height: 29px;
+  font-size: 11px;
+}
+.status-trend svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+  overflow: visible;
+}
+.status-trend path {
+  fill: none;
+  stroke: var(--lavender-ink);
+  stroke-width: 1.5;
+}
+.status-trend circle {
+  fill: var(--lavender-ink);
+}
+.status-trend .status-trend-guide {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.status-trend-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 9px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.status-trend p {
+  font-size: 10px;
+  padding-top: 25px;
+}
+.status-trend-scale {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.status-trend-note {
+  font-size: 10px;
+  margin: -4px 0 14px;
+}
+.status-rates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.status-rate-group {
+  padding: 16px;
+  min-width: 0;
+}
+.status-rate-group + .status-rate-group {
+  border-left: 1px solid var(--border);
+}
+.status-rate-group h2 {
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.status-rate-group h2 span {
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: 5px;
+}
+.status-rate-group p,
+.status-metric-scope p {
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.status-rate-pair {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+}
+.status-rate-pair dt {
+  font-size: 10px;
+  color: var(--subtle);
+  margin-bottom: 6px;
+}
+.status-rate-pair dd {
+  margin: 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.status-rate-group table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+}
+.status-rate-group th {
+  text-align: left;
+  color: var(--subtle);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.status-rate-group td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.status-rate-group thead th:not(:first-child) {
+  text-align: right;
+}
+.status-rate-group th,
+.status-rate-group td {
+  padding: 4px 0;
+}
+.status-metric-scope {
+  grid-column: 1 / -1;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--subtle);
+  font-size: 10px;
+}
 .section-heading {
   display: flex;
   justify-content: space-between;
@@ -2753,4 +2886,77 @@ input[type='checkbox'] {
 .association-path {
   display: block;
   overflow-wrap: anywhere;
+}
+
+.maintenance-search {
+  width: min(360px, 100%);
+}
+.maintenance-search input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+.maintenance-list {
+  border-top: 1px solid var(--border);
+}
+.maintenance-item {
+  border-bottom: 1px solid var(--border);
+}
+.maintenance-item > summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+.maintenance-item > summary::-webkit-details-marker {
+  display: none;
+}
+.maintenance-item > summary::before {
+  content: '›';
+  color: var(--subtle);
+  font-size: 18px;
+}
+.maintenance-item[open] > summary::before {
+  transform: rotate(90deg);
+}
+.maintenance-item > summary:focus-visible {
+  outline: 2px solid var(--lavender-ink);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.maintenance-summary {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.maintenance-summary > span {
+  color: var(--subtle);
+  line-height: 1.6;
+}
+.maintenance-item > summary .tag {
+  flex-shrink: 0;
+}
+.maintenance-item dl {
+  margin: 0 0 12px 23px;
+}
+.maintenance-item dl > div {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 12px;
+  margin: 10px 0;
+  line-height: 1.8;
+}
+.maintenance-item dt {
+  color: var(--subtle);
+}
+.maintenance-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.maintenance-item > .origin-details,
+.maintenance-pending {
+  margin: 12px 0 16px 23px;
 }

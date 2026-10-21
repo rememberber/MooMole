@@ -33,6 +33,7 @@ mod provenance;
 mod review;
 mod rules;
 mod shutdown;
+mod status_watch;
 mod tasks;
 mod tree;
 mod update_download;
@@ -62,6 +63,7 @@ struct AppState {
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
+    status_watch: Arc<Mutex<status_watch::Store>>,
     engine_root: PathBuf,
     home: PathBuf,
     shutdown: Arc<shutdown::Controller>,
@@ -243,7 +245,10 @@ fn start_task(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
-    if matches!(kind, TaskKind::Review | TaskKind::LogTrash) {
+    if matches!(
+        kind,
+        TaskKind::Review | TaskKind::LogTrash | TaskKind::StatusWatch
+    ) {
         return Err("请从审阅计划启动规则复查。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
@@ -264,7 +269,12 @@ fn start_task(
     if state.shutdown.closing() {
         return Err("应用正在退出，请重新打开后再开始检查。".into());
     }
-    if jobs.len() >= 3 || jobs.contains_key(&task_id) || jobs.values().any(|job| job.kind == kind) {
+    if jobs.len() >= 3
+        || jobs.contains_key(&task_id)
+        || jobs.values().any(|job| {
+            job.kind == kind || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
+        })
+    {
         return Err("已有同类任务正在运行，请等待或取消。".into());
     }
     db::start(
@@ -699,6 +709,133 @@ fn cancel_task(task_id: String, state: tauri::State<'_, AppState>) -> Result<(),
 }
 
 #[tauri::command]
+fn start_status_watch(
+    session_id: String,
+    interval_seconds: u64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let interval = status_watch::Interval::try_from(interval_seconds)?;
+    let operation = state.updates.installation.enter()?;
+    uuid::Uuid::parse_str(&session_id).map_err(|_| "采集会话 ID 无效。")?;
+    let database = state.db.lock().map_err(|e| e.to_string())?;
+    if !db::settings(&database)?.acknowledged {
+        return Err("请先确认首次使用说明。".into());
+    }
+    let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+    if state.shutdown.closing()
+        || jobs.len() >= 3
+        || jobs.contains_key(&session_id)
+        || jobs
+            .values()
+            .any(|j| matches!(j.kind, TaskKind::Status | TaskKind::StatusWatch))
+    {
+        return Err("已有状态采集正在运行或应用正在退出，请稍后重试。".into());
+    }
+    let mut store = state.status_watch.lock().map_err(|e| e.to_string())?;
+    store.begin(&session_id, interval)?;
+    if let Err(error) = db::start(&database, &session_id, "statuswatch", None) {
+        store.finish(&session_id, Some(error.clone()));
+        return Err(error);
+    }
+    let job = Arc::new(Job::new(TaskKind::StatusWatch));
+    jobs.insert(session_id.clone(), job.clone());
+    drop(store);
+    drop(jobs);
+    drop(database);
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        let _operation = operation;
+        let result = status_watch::run(
+            &state.engine_root,
+            &state.home,
+            session_id.clone(),
+            job.clone(),
+            state.status_watch.clone(),
+            interval,
+        )
+        .await;
+        let cancelled = job.cancelled.load(Ordering::SeqCst);
+        let error = if cancelled {
+            None
+        } else {
+            Some(
+                result
+                    .err()
+                    .unwrap_or("Mole 状态流已结束，请重新开始。".into()),
+            )
+        };
+        let message = error
+            .as_deref()
+            .unwrap_or("持续采集已停止，最后快照仅供查阅。");
+        let persisted = state.db.lock().map_err(|e| e.to_string()).and_then(|db| {
+            db::finish(
+                &db,
+                &session_id,
+                if cancelled { "cancelled" } else { "failed" },
+                message,
+            )
+        });
+        if let Ok(mut store) = state.status_watch.lock() {
+            store.finish(
+                &session_id,
+                persisted
+                    .err()
+                    .map(|e| format!("采集已停止，历史写入失败：{e}"))
+                    .or(error),
+            );
+        }
+        if let Ok(mut jobs) = state.jobs.lock() {
+            jobs.remove(&session_id);
+        }
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn get_status_watch(
+    session_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<status_watch::Snapshot, String> {
+    state
+        .status_watch
+        .lock()
+        .map_err(|e| e.to_string())?
+        .read(&session_id)
+}
+
+#[tauri::command]
+async fn stop_status_watch(
+    session_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if let Some(job) = state
+        .jobs
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&session_id)
+        .filter(|j| j.kind == TaskKind::StatusWatch)
+    {
+        job.cancel();
+    }
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        if !state
+            .jobs
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&session_id)
+            .is_some_and(|j| j.kind == TaskKind::StatusWatch)
+        {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err("仍在等待采集进程停止，请稍后重试。".into());
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
+#[tauri::command]
 async fn reveal_path(path: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let home = state.home.clone();
     let path = if path == "~" {
@@ -862,6 +999,23 @@ async fn open_update_releases() -> Result<(), String> {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                || (matches!(event, tauri::WindowEvent::Resized(_))
+                    && window.is_minimized().unwrap_or(false))
+            {
+                if let Some(state) = window.try_state::<AppState>() {
+                    if let Ok(jobs) = state.jobs.lock() {
+                        for job in jobs
+                            .values()
+                            .filter(|job| job.kind == TaskKind::StatusWatch)
+                        {
+                            job.cancel();
+                        }
+                    }
+                }
+            }
+        })
         .setup(|app| {
             let data = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data)?;
@@ -919,6 +1073,7 @@ pub fn run() {
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
+                status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(shutdown::Controller::default()),
@@ -947,6 +1102,9 @@ pub fn run() {
             cancel_log_cleanup,
             start_task,
             cancel_task,
+            start_status_watch,
+            get_status_watch,
+            stop_status_watch,
             reveal_path,
             open_official,
             check_updates,

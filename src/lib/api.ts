@@ -18,6 +18,14 @@ import type {
 import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
 import { taskResult } from './task-result'
+import type { StatusTransport } from './status-watch'
+
+export const statusTransport: StatusTransport = {
+  start: (sessionId, intervalSeconds) =>
+    invoke('start_status_watch', { sessionId, intervalSeconds }),
+  read: (sessionId) => invoke('get_status_watch', { sessionId }),
+  stop: (sessionId) => invoke('stop_status_watch', { sessionId }),
+}
 
 export const desktop = isTauri()
 export const bootstrap = (): Promise<Bootstrap> =>

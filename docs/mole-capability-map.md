@@ -6,11 +6,11 @@
 
 | 模块 | 1.0 要交付的完整流程 | 当前状态 |
 | --- | --- | --- |
-| 清理 | 结构化扫描 → 用途/影响与保护说明 → 明确选中 → 当次规则及身份复核 → 按项处理 → 结果与恢复边界 | 扫描/审阅/保护/计划/路径规则、调用来源绑定、两类有限模块判断及有界后代路径保护已接入，真实执行未开放 |
+| 清理 | 结构化扫描 → 用途/影响与保护说明 → 明确选中 → 当次规则及身份复核 → 按项处理 → 结果与恢复边界 | 扫描/审阅/保护与有限模块复核已接入，来源明确的单文件日志已有受限确认/执行循环；本机实际占用未知仍保留，发布 App 验收未完成 |
 | 应用卸载 | 应用清单 → 精确归属的关联数据 → 个人数据默认保留 → 运行状态确认 → 选中卸载 → 按项结果 | 只读清单已接入 |
 | 磁盘分析 | 选择范围 → 完整性与测量说明 → 分页/筛选/图形联动/下钻 → Finder 定位；可修改范围沿用统一计划 | 已有只读空间图/列表联动、分页/筛选、会话导航及查阅上下文恢复、读取来源、返回子项完整性及 Mole 大文件独立查阅/筛选/定位；完整发现与完整测量矩阵待补 |
-| 系统状态 | 快照与单进程 NDJSON 流 → 有限长度图表 → 暂停/恢复与休眠策略 → 缺失/陈旧说明 | 快照已接入，长驻流待做 |
-| 维护 | 维护目录与预览 → 条件/权限/影响说明 → 逐项选择 → 按需授权 → 实际结果 | 未接入 |
+| 系统状态 | 快照与单进程 NDJSON 流 → 有限长度图表 → 暂停/恢复与休眠策略 → 缺失/陈旧说明 | 快照及可选 1/2/5 秒的单进程流、暂停/重开、有界趋势和磁盘/逐接口网络速率已接入；完整资源/休眠及其余指标待完成 |
+| 维护 | 维护目录与预览 → 条件/权限/影响说明 → 逐项选择 → 按需授权 → 实际结果 | 已提供固定版本 19 项说明与影响预览；本机条件检查、保护规则、选择和执行待接入 |
 | 工程产物 | 项目根目录 → 结构化候选 → 活动构建/源码/Git 保护 → 选中处理 → 结果 | 未接入 |
 | 安装包 | 明确扫描范围 → 包类型/占用状态 → 保护挂载与活动映像 → 选中处理 → 结果 | 未接入 |
 | 历史与本地数据 | 客户端任务与 Mole 操作记录分来源 → 搜索/筛选/详情 → 本地保留与清除 → 脱敏诊断预览/主动导出 | 客户端历史、任务接回、只读计划及执行记录层/只读详情已接入，真实执行器未连接 |
@@ -44,7 +44,7 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | CLI 参数/输入 | 客户端状态与处理 | 依据 |
 | --- | --- | --- |
 | `clean --dry-run` / `-n` | 已接入固定版本 NUL ledger，只读候选与原始日志，跳过需要管理员权限的系统项目 | `bin/clean.sh:main`；客户端 `mole-clean-preview.sh` |
-| `clean` 无参数 | 待接入受限按项执行；不能重新跑全量 clean 替代选中计划 | 同上 |
+| `clean` 无参数 | 已有有限日志按项确认/执行，本机占用未知仍保留；其他范围与发布 App 权限验收待完成，不能重新跑全量 clean 替代计划 | 同上 |
 | `clean --external PATH` | 待接入外接卷范围及卸载/重挂载身份检查；当前清理页不提供 | 同上 |
 | `clean --whitelist` | Mole 有效规则只读复查已接入；管理界面待做。客户端保护列表单独保存，不等同于修改上游白名单 | 同上；`lib/manage/whitelist.sh` |
 | `clean --debug`、`--help|-h` | 全局诊断/模块说明替代 | `bin/clean.sh:main` |
@@ -55,7 +55,7 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `uninstall --permanent` | 不开放直接透传；永久删除另需明确协议、确认和结果记录 | 同上；默认删除方式为 trash 的设置 |
 | `uninstall --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上 |
 | `uninstall --whitelist` | 此提交不支持；不能在 GUI 暗中调用或声称具备该能力 | 同上明确拒绝分支 |
-| `optimize` / `optimise`、`--dry-run` | 待适配逐项任务、预览与影响；不提供“一键优化”替代 | `mole:main`；`bin/optimize.sh:main` |
+| `optimize` / `optimise`、`--dry-run` | 已提供源自目录的 19 项用途/条件/权限/影响/恢复说明；不运行入口或 dry-run。本机条件检查及执行待适配，不提供“一键优化”替代 | `mole:main`；`bin/optimize.sh:main`；`lib/optimize/catalog.sh` 与处理函数；[维护边界](system-maintenance.md) |
 | `optimize --whitelist` | 待适配维护保护规则；和 clean 的规则用途区分 | `bin/optimize.sh:main` |
 | `optimize --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上；该分支没有 `-n` 别名 |
 
@@ -66,7 +66,7 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `analyze` / `analyse [PATH] --json` | 已接入显式目录 JSON，路径选择/下钻替代 TUI；GUI 始终明确传目录。CLI 无路径的全机概览不等同于直接扫描 `/`，当前未接入全机概览 | `cmd/analyze/main.go:parseArgs/resolveScanTarget` |
 | `analyze --help|-h` | 模块说明替代；输入路径转为规范绝对目录 | 同上 |
 | `status --json` | 已接入一次快照 | `cmd/status/main.go:parseArgs/main` |
-| `status --watch --interval DURATION` | 单一 warm collector 的 NDJSON 流待接入，不以频繁重启进程模拟 | `cmd/status/main.go`；`watch.go` |
+| `status --watch --interval DURATION` | 已接入单一 warm collector，可选 1/2/5s（默认 2），暂停后调整，新会话绑定周期；离页/隐藏停止，完整休眠验收待完成 | `cmd/status/main.go`；`watch.go` |
 | `status --proc-cpu-alerts`、`--proc-cpu-threshold PERCENT`、`--proc-cpu-window DURATION` | 配置与高 CPU 提示待适配；当前快照保持引擎默认值，不宣称已有持续告警 | `cmd/status/main.go` flag 注册与 `validateFlags` |
 | `status --help|-h` | 模块说明替代 | 同上 |
 | `purge --paths` | 项目范围管理待接入，不直接启动交互式编辑器 | `bin/purge.sh:main` |

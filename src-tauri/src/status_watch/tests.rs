@@ -1,0 +1,194 @@
+use super::*;
+use crate::engine::TaskKind;
+
+#[test]
+fn sampling_intervals_are_fixed_and_bound_to_each_session() {
+    for (seconds, argument) in [(1, "1s"), (2, "2s"), (5, "5s")] {
+        let interval = Interval::try_from(seconds).unwrap();
+        assert_eq!(interval.argument(), argument);
+        let mut store = Store::default();
+        store.begin("sample", interval).unwrap();
+        assert_eq!(store.read("sample").unwrap().interval_seconds, seconds);
+    }
+    for invalid in [0, 3, 10, 60, u64::MAX] {
+        assert!(Interval::try_from(invalid).is_err());
+    }
+}
+
+#[test]
+fn io_and_network_fields_preserve_zero_missing_and_limits_without_exposing_ip_or_history() {
+    let value = validate(br#"{"collected_at":"2026-10-21T00:00:00Z","cpu":{"usage":0,"per_core_estimated":true},"disk_io":{"read_rate":0,"write_rate":1.5},"network":[{"name":"utun7","rx_rate_mbs":2.5,"tx_rate_mbs":null,"ip":"fixture-private"}],"network_history":{"rx_history":[1,2,3]}}"#).unwrap();
+    assert_eq!(value["disk_io"]["read_rate"], 0.0);
+    assert_eq!(value["cpu"]["per_core_estimated"], true);
+    assert_eq!(value["network"][0]["rx_rate_mbs"], 2.5);
+    assert!(value["network"][0]["tx_rate_mbs"].is_null());
+    assert!(value["network"][0].get("ip").is_none());
+    assert!(value.get("network_history").is_none());
+    assert!(validate(br#"{"collected_at":"t"}"#).unwrap()["disk_io"].is_null());
+    assert_eq!(
+        validate(br#"{"collected_at":"t","network":[]}"#).unwrap()["network"],
+        serde_json::json!([])
+    );
+    for bad in [
+        r#"{"collected_at":"t","disk_io":{"read_rate":"invalid"}}"#,
+        r#"{"collected_at":"t","network":[{"name":""}]}"#,
+        r#"{"collected_at":"t","network":[{"name":"en0"},{"name":"en0"}]}"#,
+        r#"{"collected_at":"t","network":[{"name":"a"},{"name":"b"},{"name":"c"},{"name":"d"}]}"#,
+    ] {
+        assert!(validate(bad.as_bytes()).is_err());
+    }
+}
+
+#[test]
+fn latest_only_binding_expiry_and_bad_records_preserve_last_evidence() {
+    let mut store = Store::default();
+    store.begin("first", Interval::Two).unwrap();
+    assert!(store.begin("second", Interval::Five).is_err());
+    assert!(store.read("wrong").is_err());
+    for n in 0..200 {
+        store
+            .receive(
+                "first",
+                format!(r#"{{"collected_at":"2026-10-20T00:00:00Z","cpu":{{"usage":{n}}}}}"#)
+                    .as_bytes(),
+            )
+            .unwrap();
+    }
+    assert_eq!(store.read("first").unwrap().sequence, 200);
+    assert_eq!(
+        store.read("first").unwrap().data.unwrap()["cpu"]["usage"],
+        199.0
+    );
+    for bad in [
+        r#"{"collected_at":""}"#,
+        r#"{"collected_at":"t","cpu":[]}"#,
+        r#"{"collected_at":"t","host":{}}"#,
+        r#"{"collected_at":"t","top_processes":[{"pid":"bad","name":"x"}]}"#,
+    ] {
+        assert!(store.receive("first", bad.as_bytes()).is_err());
+        assert_eq!(store.read("first").unwrap().sequence, 200);
+    }
+    store.0.as_mut().unwrap().touched = Instant::now() - LEASE;
+    assert!(store.read("first").is_err()); // read cannot revive expired lease
+    assert!(!store.alive("first"));
+    store.finish("first", None);
+    assert_eq!(store.read("first").unwrap().state, "stopped");
+    store.begin("second", Interval::Five).unwrap();
+    store.finish("first", Some("late old response".into()));
+    assert!(store.read("second").unwrap().error.is_none());
+    assert!(store.receive("first", br#"{"collected_at":"t"}"#).is_err());
+}
+
+#[tokio::test]
+async fn stream_bounds_bad_framing_eof_and_cancellation_reap_owned_process() {
+    for script in [
+        "$|=1; print qq({bad}\\n); sleep 20",
+        "$|=1; print 'x' x (512*1024+1); sleep 20",
+        "$|=1; print qq({\"collected_at\":\"t\"}); exit",
+        "close STDOUT; sleep 20",
+    ] {
+        let mut command = tokio::process::Command::new("/usr/bin/perl");
+        command.args(["-e", script]);
+        let job = Arc::new(Job::new(TaskKind::StatusWatch));
+        let result = tokio::time::timeout(
+            Duration::from_secs(6),
+            process::stream_lines(command, job.clone(), |bytes| validate(bytes).map(|_| ())),
+        )
+        .await
+        .unwrap();
+        assert!(result.is_err());
+        assert_eq!(job.process_id(), None);
+    }
+    let mut command = tokio::process::Command::new("/usr/bin/perl");
+    command.args([
+        "-e",
+        "$|=1; print qq({\"collected_at\":\"t\"}\\n); sleep 20",
+    ]);
+    let job = Arc::new(Job::new(TaskKind::StatusWatch));
+    let stop = job.clone();
+    let result = process::stream_lines(command, job.clone(), move |bytes| {
+        validate(bytes)?;
+        stop.cancel();
+        Ok(())
+    })
+    .await;
+    assert!(result.unwrap_err().contains("取消"));
+    assert_eq!(job.process_id(), None);
+}
+
+#[tokio::test]
+async fn split_and_joined_records_are_delivered_without_accumulating_history() {
+    let mut command = tokio::process::Command::new("/usr/bin/perl");
+    command.args(["-e", "$|=1; print '{\"collected_'; select(undef,undef,undef,0.05); print qq(at\":\"t\"}\\n{\"collected_at\":\"t\"}\\n); sleep 20"]);
+    let job = Arc::new(Job::new(TaskKind::StatusWatch));
+    let stop = job.clone();
+    let store = Arc::new(Mutex::new(Store::default()));
+    store.lock().unwrap().begin("s", Interval::Two).unwrap();
+    let target = store.clone();
+    process::stream_lines(command, job.clone(), move |bytes| {
+        target.lock().unwrap().receive("s", bytes)?;
+        if target.lock().unwrap().read("s")?.sequence == 2 {
+            stop.cancel();
+        }
+        Ok(())
+    })
+    .await
+    .unwrap_err();
+    assert_eq!(store.lock().unwrap().read("s").unwrap().sequence, 2);
+    assert_eq!(job.process_id(), None);
+}
+
+#[tokio::test]
+#[ignore = "Explicit real pinned Mole warm collector; reads system metrics, no user files changed"]
+async fn pinned_warm_collector_delivers_multiple_snapshots_and_stops() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let home = tempfile::tempdir().unwrap();
+    let id = "pinned".to_string();
+    let store = Arc::new(Mutex::new(Store::default()));
+    store.lock().unwrap().begin(&id, Interval::Two).unwrap();
+    let job = Arc::new(Job::new(TaskKind::StatusWatch));
+    let running_job = job.clone();
+    let running_store = store.clone();
+    let running = tokio::spawn(async move {
+        run(
+            &root,
+            home.path(),
+            id,
+            running_job,
+            running_store,
+            Interval::Two,
+        )
+        .await
+    });
+    let mut pid = None;
+    let observed = tokio::time::timeout(Duration::from_secs(35), async {
+        loop {
+            let snapshot = store.lock().unwrap().read("pinned").unwrap();
+            if let Some(current) = job.process_id() {
+                if let Some(previous) = pid {
+                    assert_eq!(previous, current, "collector restarted");
+                }
+                pid = Some(current);
+            }
+            if snapshot.sequence >= 3 {
+                return snapshot;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await;
+    job.cancel();
+    let result = tokio::time::timeout(Duration::from_secs(6), running)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(job.process_id(), None);
+    assert!(result.unwrap_err().contains("取消"));
+    let snapshot = observed.unwrap();
+    assert!(pid.is_some());
+    assert_eq!(snapshot.state, "running");
+    eprintln!(
+        "Pinned status watch: {} snapshots; single PID {:?}; stopped and reaped",
+        snapshot.sequence, pid
+    );
+}

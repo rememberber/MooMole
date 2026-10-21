@@ -5,7 +5,14 @@ use std::{io::Write, path::Path};
 const SCHEMA: &str = "moomole-client-task-summary-v1";
 const NOTE: &str = "客户端任务元数据摘要；不含路径、任务 ID、精确时间和原始诊断，不是扫描结果或清理/恢复凭证。引擎信息为生成报告时的当前版本，不代表历史任务使用的版本。";
 const KINDS: &[&str] = &[
-    "analyze", "status", "apps", "cleanup", "clean", "history", "unknown",
+    "analyze",
+    "status",
+    "statuswatch",
+    "apps",
+    "cleanup",
+    "clean",
+    "history",
+    "unknown",
 ];
 const STATES: &[&str] = &[
     "queued",

@@ -21,9 +21,15 @@ import {
   ShieldCheck,
   Sparkles,
   Square,
+  Play,
+  Pause,
+  Wrench,
   X,
 } from 'lucide-react'
 import * as api from './lib/api'
+import { useStatusWatch } from './lib/use-status-watch'
+import { statusIntervals, type StatusInterval } from './lib/status-watch'
+import { statusPercent } from './lib/status-metrics'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -37,6 +43,9 @@ import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleHistoryView } from './components/MoleHistoryView'
 import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
+import { StatusTrend } from './components/StatusTrend'
+import { StatusRates } from './components/StatusRates'
+import { MaintenanceCatalog } from './components/MaintenanceCatalog'
 import { TaskHistory } from './components/TaskHistory'
 import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
@@ -70,6 +79,7 @@ const navigation = [
   ['cleanup', Sparkles, '清理'],
   ['apps', Box, '应用列表'],
   ['status', Activity, '系统状态'],
+  ['maintenance', Wrench, '系统维护'],
   ['history', History, '操作历史'],
 ] as const
 
@@ -99,12 +109,14 @@ function Metric({
   detail,
   icon: Icon,
   usage,
+  children,
 }: {
   label: string
   value: string
   detail: string
   icon: typeof Cpu
   usage?: number
+  children?: React.ReactNode
 }) {
   return (
     <div className="metric-card">
@@ -114,11 +126,12 @@ function Metric({
       </div>
       <strong>{value}</strong>
       <span>{detail}</span>
-      {usage != null && (
+      {usage != null && !children && (
         <div className="meter">
           <div style={{ width: `${Math.max(0, Math.min(usage, 100))}%` }} />
         </div>
       )}
+      {children}
     </div>
   )
 }
@@ -126,6 +139,7 @@ function Metric({
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
+  const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
     const update = () => setToolbarScrolled(window.scrollY > 0)
@@ -134,6 +148,7 @@ export default function App() {
     return () => window.removeEventListener('scroll', update)
   }, [])
   const [snapshot, setSnapshot] = useState<Snapshot | null>(api.desktop ? null : demoSnapshot)
+  const statusWatch = useStatusWatch(page === 'status', setSnapshot)
   const [analysis, setAnalysis] = useState<Analysis | null>(api.desktop ? null : demoAnalysis)
   const [analysisNavigation, setAnalysisNavigation] = useState<AnalysisNavigationHistory>(() => ({
     paths: api.desktop ? [] : [demoAnalysis.path],
@@ -208,6 +223,20 @@ export default function App() {
     try {
       const initial = await api.bootstrap()
       if (observation.current.signal.aborted) return
+      const oldStreams = initial.history.filter(
+        (task) => task.kind === 'statuswatch' && task.state === 'running',
+      )
+      let streamWarning = ''
+      if (oldStreams.length) {
+        autoStatus.current = true
+        const stops = await Promise.allSettled(
+          oldStreams.map((task) => api.statusTransport.stop(task.id)),
+        )
+        if (stops.some((result) => result.status === 'rejected'))
+          streamWarning = '旧采集仍在停止，请稍后在系统状态中重新开始。'
+        initial.history = await api.history()
+        if (observation.current.signal.aborted) return
+      }
       const active = initial.history.filter(
         (task) => task.state === 'running' && Object.hasOwn(kindNames, task.kind),
       )
@@ -215,7 +244,7 @@ export default function App() {
       setData(initial)
       if (api.desktop && initial.latestCleanPreview) setCleanPreview(initial.latestCleanPreview)
       setPath(initial.home)
-      setError('')
+      setError(streamWarning)
       if (api.desktop && active.length) void followTasks(active)
     } catch (error) {
       setError(String(error))
@@ -322,7 +351,10 @@ export default function App() {
     analysisTarget?: AnalysisHistoryTarget,
     taskId?: string | null,
   ) {
-    if (kind === 'status') setSnapshot(result as Snapshot)
+    if (kind === 'status') {
+      setSnapshot(result as Snapshot)
+      statusWatch.clearHistory()
+    }
     if (kind === 'analyze') {
       setAnalysisTask(null)
       const value = result as Analysis
@@ -352,7 +384,10 @@ export default function App() {
     }
   }
 
-  async function followTasks(tasks: TaskRecord[]) {
+  async function followTasks(records: TaskRecord[]) {
+    const tasks = records.filter((task): task is TaskRecord & { kind: TaskKind } =>
+      Object.hasOwn(kindNames, task.kind),
+    )
     if (busyRef.current || !tasks.length) return
     busyRef.current = true
     setCancelPending(false)
@@ -541,6 +576,8 @@ export default function App() {
     disk && disk.total > 0 ? Math.max(0, Math.min(100, (disk.used / disk.total) * 100)) : 0
   const pageName = navigation.find(([id]) => id === page)![2]
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
+  const cpuUsage = statusPercent(snapshot?.cpu?.usage) ?? undefined
+  const memoryUsage = statusPercent(snapshot?.memory?.used_percent) ?? undefined
   const totalCandidates = cleanup?.items.reduce((sum, item) => sum + (item.size ?? 0), 0)
 
   return (
@@ -658,12 +695,59 @@ export default function App() {
                 {(page === 'overview' || page === 'status') && (
                   <button
                     className="button secondary compact"
-                    disabled={!canRun}
+                    disabled={!canRun || statusWatch.phase !== 'idle'}
                     onClick={() => void execute('status')}
                   >
                     <RefreshCw size={15} className={busy?.kind === 'status' ? 'spin' : ''} />
                     {page === 'overview' ? '刷新状态' : '刷新快照'}
                   </button>
+                )}
+                {page === 'status' && (
+                  <>
+                    <label
+                      className="status-interval"
+                      title={
+                        statusWatch.phase === 'idle'
+                          ? '选择下一次采集的周期'
+                          : '暂停采集后可调整周期'
+                      }
+                    >
+                      <span>采样</span>
+                      <select
+                        aria-label="采样周期"
+                        value={statusWatch.interval}
+                        disabled={!api.desktop || statusWatch.phase !== 'idle'}
+                        onChange={(event) =>
+                          statusWatch.chooseInterval(Number(event.target.value) as StatusInterval)
+                        }
+                      >
+                        {statusIntervals.map((seconds) => (
+                          <option key={seconds} value={seconds}>
+                            {seconds} 秒{seconds === 2 ? '（默认）' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        statusWatch.phase === 'stopping' ||
+                        (statusWatch.phase === 'idle' && !canRun)
+                      }
+                      onClick={() =>
+                        statusWatch.phase === 'idle'
+                          ? void statusWatch.start()
+                          : statusWatch.pause()
+                      }
+                    >
+                      {statusWatch.phase === 'idle' ? <Play size={15} /> : <Pause size={15} />}
+                      {statusWatch.phase === 'idle'
+                        ? '持续采集'
+                        : statusWatch.phase === 'stopping'
+                          ? '正在暂停'
+                          : '暂停采集'}
+                    </button>
+                  </>
                 )}
                 {page === 'cleanup' && (
                   <button
@@ -685,6 +769,17 @@ export default function App() {
                     {apps ? '刷新列表' : '读取应用'}
                   </button>
                 )}
+                {page === 'maintenance' && (
+                  <label className="search-field maintenance-search">
+                    <Search size={15} />
+                    <input
+                      aria-label="搜索维护项目"
+                      placeholder="搜索用途、影响或权限"
+                      value={maintenanceQuery}
+                      onChange={(event) => setMaintenanceQuery(event.target.value)}
+                    />
+                  </label>
+                )}
                 {page === 'history' && (
                   <span className="toolbar-note">
                     客户端任务保留 {data.settings.retentionDays} 天
@@ -695,7 +790,7 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            {page === 'cleanup' ? '逐项确认' : '只读检查'}
+            {page === 'cleanup' ? '逐项确认' : page === 'maintenance' ? '项目说明' : '只读检查'}
           </span>
         </header>
         <main className="main-content" aria-label={`${pageName}内容`}>
@@ -816,21 +911,21 @@ export default function App() {
               <div className="metrics-grid">
                 <Metric
                   label="CPU 使用率"
-                  value={percent(snapshot?.cpu?.usage)}
+                  value={percent(cpuUsage)}
                   detail={
                     snapshot?.cpu?.logical_cpu
                       ? `${snapshot.cpu.logical_cpu} 个逻辑核心`
                       : '等待系统快照'
                   }
                   icon={Cpu}
-                  usage={snapshot?.cpu?.usage}
+                  usage={cpuUsage}
                 />
                 <Metric
                   label="内存占用"
                   value={bytes(snapshot?.memory?.used)}
                   detail={`总内存 ${bytes(snapshot?.memory?.total)}`}
                   icon={MemoryStick}
-                  usage={snapshot?.memory?.used_percent}
+                  usage={memoryUsage}
                 />
                 <Metric
                   label="运行时间"
@@ -1036,6 +1131,9 @@ export default function App() {
 
           {page === 'status' && (
             <>
+              <p className="muted" role={statusWatch.error ? 'alert' : 'status'}>
+                {statusWatch.message}
+              </p>
               {snapshot ? (
                 <>
                   <div className="device-card card">
@@ -1049,31 +1147,48 @@ export default function App() {
                         {snapshot.hardware?.total_ram ?? '内存未知'} ·{' '}
                         {snapshot.hardware?.os_version ?? snapshot.platform ?? 'macOS'}
                       </p>
+                      <p>
+                        运行时间 {snapshot.uptime ?? '未知'} · 采集时间 {lastSnapshot}
+                      </p>
                     </div>
-                    <span className="tag">{api.desktop ? '本机快照' : '示例快照'}</span>
+                    <span className="tag">
+                      {api.desktop
+                        ? statusWatch.phase === 'running'
+                          ? '持续采集'
+                          : '本机快照'
+                        : '示例快照'}
+                    </span>
                   </div>
-                  <div className="metrics-grid">
+                  <div className="metrics-grid status-metrics-grid">
                     <Metric
                       label="CPU 使用率"
-                      value={percent(snapshot.cpu?.usage)}
-                      detail={`${snapshot.cpu?.logical_cpu ?? '—'} 个逻辑核心`}
+                      value={cpuUsage == null ? '未知' : percent(cpuUsage)}
+                      detail={`${snapshot.cpu?.logical_cpu ?? '—'} 个逻辑核心${snapshot.cpu?.per_core_estimated === true ? ' · 当前为估算值' : snapshot.cpu?.per_core_estimated == null ? ' · 估算状态未报告' : ''}`}
                       icon={Cpu}
-                      usage={snapshot.cpu?.usage}
-                    />
+                      usage={cpuUsage}
+                    >
+                      <StatusTrend samples={statusWatch.samples} metric="cpu" />
+                    </Metric>
                     <Metric
                       label="内存占用"
                       value={bytes(snapshot.memory?.used)}
                       detail={`总内存 ${bytes(snapshot.memory?.total)}`}
                       icon={MemoryStick}
-                      usage={snapshot.memory?.used_percent}
-                    />
-                    <Metric
-                      label="运行时间"
-                      value={snapshot.uptime ?? '—'}
-                      detail={`采集时间 ${lastSnapshot}`}
-                      icon={Clock3}
-                    />
+                      usage={memoryUsage}
+                    >
+                      <StatusTrend samples={statusWatch.samples} metric="memory" />
+                    </Metric>
                   </div>
+                  {statusWatch.samples.length > 0 && (
+                    <p className="muted status-trend-note">
+                      本轮保留 {statusWatch.samples.length} 份已接收记录 · 最多 5 分钟 / 120 份 ·
+                      缺失处断开显示
+                    </p>
+                  )}
+                  <StatusRates
+                    snapshot={snapshot}
+                    stale={statusWatch.phase !== 'running' || statusWatch.stale}
+                  />
                   <ProcessSnapshot snapshot={snapshot} refreshing={busy?.kind === 'status'} />
                 </>
               ) : (
@@ -1088,6 +1203,10 @@ export default function App() {
                 </section>
               )}
             </>
+          )}
+
+          {page === 'maintenance' && (
+            <MaintenanceCatalog query={maintenanceQuery} engine={data.engine} />
           )}
 
           {page === 'history' && (
