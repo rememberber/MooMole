@@ -176,6 +176,7 @@ it('keeps complete empty measurements distinct from partial zero observations', 
   r.skipped.links = 1
   r.completion = 'partial'
   r.contentSignals.reason = 'incomplete'
+  r.activity.reason = 'incomplete'
   expect(readProjectMeasurement(r, r.root, r.path, r.checkedAt, r.checkedAt).completion).toBe(
     'partial',
   )
@@ -245,8 +246,12 @@ it('requires bound metadata name signals and rejects clearance or contradictory 
   const found = { ...base, contentSignals: { state: 'found' as const, reason: null, evidence } }
   expect(read(found).contentSignals.evidence).toEqual(evidence)
   expect(
-    read({ ...found, completion: 'partial', skipped: { ...base.skipped, links: 1 } }).contentSignals
-      .state,
+    read({
+      ...found,
+      activity: { ...base.activity, reason: 'incomplete' },
+      completion: 'partial',
+      skipped: { ...base.skipped, links: 1 },
+    }).contentSignals.state,
   ).toBe('found')
   expect(
     read({ ...base, contentSignals: { state: 'unknown', reason: 'unavailable', evidence: null } })

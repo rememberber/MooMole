@@ -92,6 +92,19 @@ async function install(page: Page) {
             path: (args as { path: string }).path,
             checkedAt: Date.now(),
           }
+          result.activity = { ...measurement.activity, referenceAt: result.checkedAt }
+          if (sessionStorage.getItem('measure-recent'))
+            result.activity = {
+              windowDays: 7,
+              referenceAt: result.checkedAt,
+              state: 'recent',
+              reason: null,
+              evidence: {
+                kind: 'file',
+                path: result.path + '/nested/output.bin',
+                modifiedAt: Math.floor(result.checkedAt / 1000) * 1000,
+              },
+            }
           if (sessionStorage.getItem('measure-zero'))
             Object.assign(result, { allocatedBytes: 0, files: 0 })
           if (sessionStorage.getItem('measure-signal'))
@@ -117,6 +130,12 @@ async function install(page: Page) {
             return {
               ...result,
               contentSignals: { state: 'unknown', reason: 'incomplete', evidence: null },
+              activity: {
+                ...result.activity,
+                state: 'unknown',
+                reason: 'incomplete',
+                evidence: null,
+              },
               completion: 'partial',
               files: 0,
               allocatedBytes: 0,
@@ -678,4 +697,57 @@ test('pending Git checks hold engineering controls and ignore late success; reme
   await expect(row).toContainText('Git 索引中仍有 2 条记录')
   await row.getByRole('button', { name: '重新测量', exact: true }).click()
   await expect(row).toContainText('Git 记录尚未检查')
+})
+
+test('recent modification hints use existing measurement, withdraw on failed retry and clear on scan', async ({
+  page,
+}) => {
+  await install(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+  await page.evaluate(() => sessionStorage.setItem('measure-recent', '1'))
+  await row.getByRole('button', { name: '测量占用', exact: true }).click()
+  await expect(row.locator('summary')).toHaveText('近 7 天有修改，请先保留')
+  await expect(
+    page.getByText('文件：/fixture/projects/web/node_modules/nested/output.bin', { exact: true }),
+  ).not.toBeVisible()
+  await row.locator('summary').click()
+  const activity = row.getByRole('group', { name: '近期修改观察' })
+  await expect(activity).toContainText('近 7 天观察到修改，请先保留。')
+  await expect(activity).toContainText('文件：/fixture/projects/web/node_modules/nested/output.bin')
+  await expect(activity).toContainText('系统报告修改时间')
+  await expect(activity).toContainText('不能证明构建是否仍在进行')
+  expect(await page.evaluate(() => sessionStorage.getItem('git-calls'))).toBeNull()
+  await page.evaluate(() => sessionStorage.setItem('measure-fail', '1'))
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(row).toContainText('保留上次测量，本次未更新')
+  await expect(activity).toContainText('之前的近期修改线索已撤回')
+  await expect(activity).not.toContainText('nested/output.bin')
+  await expect(row.locator('summary')).toHaveText('内容保护本次未确认')
+  await expect(row).toContainText('8 KB')
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(row).toContainText('未测量')
+  await expect(row.getByRole('group', { name: '近期修改观察' })).toHaveCount(0)
+})
+
+test('no recent observation and incomplete measurement never imply no active build', async ({
+  page,
+}) => {
+  await install(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+  await row.getByRole('button', { name: '测量占用', exact: true }).click()
+  await row.locator('summary').click()
+  const activity = row.getByRole('group', { name: '近期修改观察' })
+  await expect(activity).toContainText('本次未观察到近 7 天修改，不代表没有活动构建或占用。')
+  await page.evaluate(() => sessionStorage.setItem('measure-partial', '1'))
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(activity).toContainText('测量未覆盖全部内容；无法确认近期修改情况。')
+  await expect(row).toContainText('占用未确认')
 })

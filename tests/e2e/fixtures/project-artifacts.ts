@@ -61,15 +61,23 @@ export function projectArtifactsReport(): ProjectArtifactsReport {
 
 export function projectMeasurement(): ProjectMeasurement {
   const report = projectArtifactsReport()
+  const checkedAt = Date.now()
   return {
-    protocol: 2,
+    protocol: 3,
     revision: report.revision,
     root: report.root,
     path: report.items[0].path,
-    checkedAt: Date.now(),
+    checkedAt,
     completion: 'complete',
     stopReason: null,
     allocatedBytes: 8192,
+    activity: {
+      windowDays: 7,
+      referenceAt: checkedAt,
+      state: 'unknown',
+      reason: 'notObserved',
+      evidence: null,
+    },
     contentSignals: { state: 'unknown', reason: 'notObserved', evidence: null },
     files: 2,
     visited: 3,

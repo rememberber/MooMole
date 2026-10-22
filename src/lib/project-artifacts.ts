@@ -1,3 +1,4 @@
+import { readProjectActivity, type ProjectActivity } from './project-activity'
 import catalog from './project-artifacts-catalog.json' with { type: 'json' }
 export const projectCatalog = catalog
 export interface ProjectHint {
@@ -193,7 +194,7 @@ export interface ProjectContentSignals {
   evidence: { kind: 'repositoryMarker' | 'keypairName'; path: string } | null
 }
 export interface ProjectMeasurement {
-  protocol: 2
+  protocol: 3
   revision: string
   root: string
   path: string
@@ -201,6 +202,7 @@ export interface ProjectMeasurement {
   completion: 'complete' | 'partial'
   stopReason: 'timeLimit' | 'entryLimit' | 'sizeLimit' | null
   allocatedBytes: number
+  activity: ProjectActivity
   contentSignals: ProjectContentSignals
   files: number
   visited: number
@@ -223,7 +225,7 @@ export function readProjectMeasurement(
   const count = (v: number, max: number) => Number.isSafeInteger(v) && v >= 0 && v <= max
   if (
     !r ||
-    r.protocol !== 2 ||
+    r.protocol !== 3 ||
     r.revision !== catalog.revision ||
     r.root !== root ||
     r.path !== path ||
@@ -271,6 +273,7 @@ export function readProjectMeasurement(
         : 'complete')
   )
     return invalid()
+  readProjectActivity(r.activity, path, r.checkedAt, r.completion === 'partial')
   const signal = r.contentSignals
   if (!signal || !['found', 'unknown'].includes(signal.state)) return invalid()
   if (signal.state === 'found') {

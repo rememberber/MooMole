@@ -9,6 +9,7 @@ use std::{
     path::Path,
     time::Instant,
 };
+mod activity;
 mod content;
 mod context;
 pub mod git_index;

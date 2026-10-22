@@ -1,4 +1,5 @@
 import { ProjectGitCheck } from './ProjectGitCheck'
+import { ProjectActivity } from './ProjectActivity'
 import {
   projectArtifactView,
   type ProjectArtifactFilters,
@@ -266,7 +267,9 @@ export function ProjectArtifacts({
                                     ? '内容保护本次未确认'
                                     : measured.report.contentSignals.state === 'found'
                                       ? '发现需保留的名称线索'
-                                      : '内容保护仍未确认'}
+                                      : measured.report.activity.state === 'recent'
+                                        ? '近 7 天有修改，请先保留'
+                                        : '内容保护仍未确认'}
                               </summary>
                               {measured.signalsValid === true &&
                               measured.report.contentSignals.evidence ? (
@@ -297,6 +300,13 @@ export function ProjectArtifacts({
                                 记录可在下方单独检查；其他用户数据、活动构建与完整 Mole
                                 保护仍未确认。这不是清理许可，也不是持续监测。
                               </p>
+                              <ProjectActivity
+                                report={
+                                  measured.signalsValid === true
+                                    ? measured.report.activity
+                                    : undefined
+                                }
+                              />
                               <ProjectGitCheck
                                 observation={measured.git}
                                 checking={checkingGit === item.path}
@@ -388,14 +398,16 @@ export function ProjectArtifacts({
         </p>
         <p>
           相邻 package.json / Cargo.toml 仅提供类型线索，不证明可重建、Git
-          归属或清理许可。没有计算可回收大小、判断七天保留规则、执行 purge 或改写 purge_paths。
+          归属或清理许可。没有计算可回收大小、判定完整清理资格、执行 purge 或改写 purge_paths。
           “读取 Mole 目录”只读取当前账户 ~/.config/mole/purge_paths：最多 64 KiB、256 行、64 处。
           识别空行、整行注释、绝对路径与 ~/；不运行 Shell、自动发现目录或校正路径大小写。
           配置中的目标在选择后仍需手动扫描，链接、权限和扫描范围继续由扫描端核对。
         </p>
         <p>
           测量由用户逐项发起：最多 32 层、20000 个子项、约 3
-          秒，仅统计普通单链接文件的系统已分配块（含隐藏文件），不读取文件内容。跳过链接、共享硬链接、特殊文件、跨文件系统及未下载内容，保留不完整原因。目录自身元数据不计入；APFS
+          秒，仅统计普通单链接文件的系统已分配块（含隐藏文件），不读取文件内容。同期观察产物目录自身及普通文件的修改时间，近
+          7
+          天提示保留；未看到修改仍为未知，不证明没有活动构建。跳过链接、共享硬链接、特殊文件、跨文件系统及未下载内容，保留不完整原因。目录自身元数据不计入；APFS
           共享、压缩、稀疏文件可能使显示值不同于逻辑大小，不能据此预测释放空间。结果不是原子快照，也不证明归属或可重建。
         </p>
         <p>

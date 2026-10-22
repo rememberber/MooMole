@@ -1,4 +1,5 @@
 //! Bounded metadata-only file allocation observations, never reclaim estimates.
+use super::activity::{Activity, ActivityProbe};
 use super::content::{ContentSignals, SignalProbe};
 use super::{local, open_child, stat_at, Skipped, Stream};
 use crate::engine;
@@ -28,6 +29,7 @@ pub struct Measurement {
     stop_reason: Option<&'static str>,
     allocated_bytes: u64,
     content_signals: ContentSignals,
+    activity: Option<Activity>,
     files: usize,
     visited: usize,
     skipped: Skipped,
@@ -37,6 +39,7 @@ pub struct Measurement {
 }
 struct Walker {
     signals: SignalProbe,
+    activity: ActivityProbe,
     result: Measurement,
     began: Instant,
     budget: Duration,
@@ -123,6 +126,7 @@ impl Walker {
                 continue;
             };
             self.signals.observe(directory, path, &name, &stat);
+            self.activity.observe(directory, path, &name, &stat, false);
             let kind = stat.st_mode & libc::S_IFMT;
             if kind == libc::S_IFLNK {
                 self.result.skipped.links += 1;
@@ -203,8 +207,9 @@ fn measure_with(
     let (scope, target) = super::scope::open(root, path)?;
     let mut walker = Walker {
         signals: SignalProbe::default(),
+        activity: ActivityProbe::new(path, crate::db::now()),
         result: Measurement {
-            protocol: 2,
+            protocol: 3,
             revision: engine::REVISION,
             root: root.to_str().unwrap().into(),
             path: path.to_str().unwrap().into(),
@@ -213,6 +218,7 @@ fn measure_with(
             stop_reason: None,
             allocated_bytes: 0,
             content_signals: ContentSignals::unknown("notObserved"),
+            activity: None,
             files: 0,
             visited: 0,
             skipped: Skipped::default(),
@@ -243,6 +249,10 @@ fn measure_with(
         walker.result.completion = "partial";
     }
     walker.result.content_signals = walker.signals.finish(walker.result.completion == "partial");
+    walker.result.activity = Some(walker.activity.finish(
+        walker.result.completion == "partial",
+        walker.result.checked_at,
+    ));
     Ok(walker.result)
 }
 #[cfg(test)]
@@ -332,7 +342,7 @@ mod tests {
         )
         .unwrap();
         let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
-        assert_eq!(wire["protocol"], 2);
+        assert_eq!(wire["protocol"], 3);
         assert_eq!(wire["contentSignals"]["state"], "found");
         assert_eq!(wire["contentSignals"]["evidence"]["kind"], "keypairName");
         assert_eq!(wire["canExecute"], false);
@@ -348,6 +358,44 @@ mod tests {
         let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
         assert_eq!(wire["contentSignals"]["state"], "found");
         assert_eq!(wire["completion"], "partial");
+    }
+    #[test]
+    fn measurement_combines_recent_hints_without_extra_walks_or_idle_clearance() {
+        let root = tempfile::tempdir_in("/private/tmp").unwrap();
+        let target = root.path().join("target");
+        fs::create_dir_all(target.join("nested")).unwrap();
+        let file = target.join("nested/file");
+        fs::write(&file, b"fixture bytes").unwrap();
+        let old = std::time::SystemTime::now() - Duration::from_secs(10 * 86400);
+        let age = |path: &Path| File::open(path).unwrap().set_modified(old).unwrap();
+        age(&target);
+        let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
+        assert_eq!(wire["protocol"], 3);
+        assert_eq!(wire["activity"]["state"], "recent");
+        assert_eq!(wire["activity"]["evidence"]["kind"], "file");
+        assert_eq!(wire["activity"]["evidence"]["path"], file.to_str().unwrap());
+        age(&file);
+        let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
+        assert_eq!(wire["activity"]["reason"], "notObserved");
+        // A recent nested directory alone is not a root-directory/file signal.
+        assert_eq!(wire["activity"]["state"], "unknown");
+        let wire = serde_json::to_value(
+            measure_with(root.path(), &target, ENTRY_LIMIT, Duration::ZERO).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(wire["activity"]["reason"], "incomplete");
+        File::open(&target)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now())
+            .unwrap();
+        let wire = serde_json::to_value(
+            measure_with(root.path(), &target, ENTRY_LIMIT, Duration::ZERO).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(wire["activity"]["state"], "recent");
+        assert_eq!(wire["activity"]["evidence"]["kind"], "directory");
+        assert_eq!(wire["canExecute"], false);
+        assert_eq!(fs::read(file).unwrap(), b"fixture bytes");
     }
     #[test]
     fn depth_bound_never_reports_a_truncated_tree_as_complete() {
