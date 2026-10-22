@@ -3216,3 +3216,13 @@ input[type='checkbox'] {
 .project-pagination {
   justify-content: flex-end;
 }
+
+.project-content-signals {
+  margin: 0;
+}
+
+.project-git-check {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}

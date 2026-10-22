@@ -896,6 +896,7 @@ export default function App() {
                         projects.reading ||
                         projects.choosing ||
                         !!projects.measuring ||
+                        !!projects.checkingGit ||
                         projects.loadingRoots
                       }
                       onClick={() => void projects.loadRoots()}
@@ -913,6 +914,7 @@ export default function App() {
                           projects.reading ||
                           projects.choosing ||
                           !!projects.measuring ||
+                          !!projects.checkingGit ||
                           projects.loadingRoots
                         }
                         onChange={(event) => projects.selectRoot(event.target.value)}
@@ -934,6 +936,7 @@ export default function App() {
                         projects.reading ||
                         projects.choosing ||
                         !!projects.measuring ||
+                        !!projects.checkingGit ||
                         projects.loadingRoots
                       }
                       onClick={() => void projects.choose()}
@@ -949,6 +952,7 @@ export default function App() {
                         projects.reading ||
                         projects.choosing ||
                         !!projects.measuring ||
+                        !!projects.checkingGit ||
                         !projects.root
                       }
                       onClick={() => void projects.scan()}
@@ -1470,6 +1474,8 @@ export default function App() {
               reading={projects.reading}
               error={projects.error}
               canAnalyze={canRun && !projects.loadingRoots && !projects.choosing}
+              checkingGit={projects.checkingGit}
+              onCheckGit={projects.checkGit}
               measuring={projects.measuring}
               measurements={projects.measurements}
               onMeasure={projects.measure}

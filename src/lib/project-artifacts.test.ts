@@ -175,6 +175,7 @@ it('keeps complete empty measurements distinct from partial zero observations', 
   r.special = 1
   r.skipped.links = 1
   r.completion = 'partial'
+  r.contentSignals.reason = 'incomplete'
   expect(readProjectMeasurement(r, r.root, r.path, r.checkedAt, r.checkedAt).completion).toBe(
     'partial',
   )
@@ -234,4 +235,67 @@ it('groups exact workspace hints together while leaving unresolved directories s
   expect(groups[0].items.map((i) => i.name)).toEqual(['node_modules', 'target'])
   expect(groups[1].hint.state).toBe('notFound')
   expect(groups[1].items[0].name).toBe('dist')
+})
+
+it('requires bound metadata name signals and rejects clearance or contradictory evidence', () => {
+  const base = projectMeasurement()
+  const read = (r: unknown) =>
+    readProjectMeasurement(r, base.root, base.path, base.checkedAt, base.checkedAt)
+  const evidence = { kind: 'repositoryMarker' as const, path: `${base.path}/nested/.git` }
+  const found = { ...base, contentSignals: { state: 'found' as const, reason: null, evidence } }
+  expect(read(found).contentSignals.evidence).toEqual(evidence)
+  expect(
+    read({ ...found, completion: 'partial', skipped: { ...base.skipped, links: 1 } }).contentSignals
+      .state,
+  ).toBe('found')
+  expect(
+    read({ ...base, contentSignals: { state: 'unknown', reason: 'unavailable', evidence: null } })
+      .contentSignals.state,
+  ).toBe('unknown')
+  for (const change of [
+    { protocol: 1 },
+    { contentSignals: undefined },
+    { contentSignals: { state: 'safe', reason: null, evidence: null } },
+    { contentSignals: { state: 'found', reason: 'notObserved', evidence } },
+    { contentSignals: { state: 'found', reason: null, evidence: null } },
+    { contentSignals: { state: 'unknown', reason: 'notObserved', evidence } },
+    { contentSignals: { state: 'unknown', reason: 'incomplete', evidence: null } },
+    {
+      contentSignals: {
+        state: 'found',
+        reason: null,
+        evidence: { ...evidence, path: '/outside/.git' },
+      },
+    },
+    {
+      contentSignals: {
+        state: 'found',
+        reason: null,
+        evidence: { ...evidence, path: base.path + '/../.git' },
+      },
+    },
+    {
+      contentSignals: {
+        state: 'found',
+        reason: null,
+        evidence: { ...evidence, path: base.path + '/not-git' },
+      },
+    },
+    {
+      contentSignals: {
+        state: 'found',
+        reason: null,
+        evidence: { ...evidence, kind: 'keypairName' },
+      },
+    },
+    {
+      contentSignals: {
+        state: 'found',
+        reason: null,
+        evidence: { ...evidence, kind: 'gitTracked' },
+      },
+    },
+    { visited: 0, files: 0, allocatedBytes: 0 },
+  ])
+    expect(() => read({ ...found, ...change })).toThrow()
 })

@@ -9,9 +9,12 @@ use std::{
     path::Path,
     time::Instant,
 };
+mod content;
 mod context;
+pub mod git_index;
 pub mod measurement;
 pub mod roots;
+mod scope;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_CANDIDATES: usize = 256;
 const MAX_DEPTH: usize = 6;

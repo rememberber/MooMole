@@ -1,11 +1,15 @@
 //! Bounded metadata-only file allocation observations, never reclaim estimates.
-use super::{catalog, local, open_child, stat_at, Skipped, Stream, MAX_DEPTH};
-use crate::{engine, observation::AnchoredPath};
+use super::content::{ContentSignals, SignalProbe};
+use super::{local, open_child, stat_at, Skipped, Stream};
+use crate::engine;
 use serde::Serialize;
 use std::{
-    ffi::{CStr, CString},
+    ffi::{CStr, CString, OsStr},
     fs::File,
-    os::{fd::AsRawFd, unix::fs::MetadataExt},
+    os::{
+        fd::AsRawFd,
+        unix::{ffi::OsStrExt, fs::MetadataExt},
+    },
     path::Path,
     time::{Duration, Instant},
 };
@@ -23,6 +27,7 @@ pub struct Measurement {
     completion: &'static str,
     stop_reason: Option<&'static str>,
     allocated_bytes: u64,
+    content_signals: ContentSignals,
     files: usize,
     visited: usize,
     skipped: Skipped,
@@ -31,6 +36,7 @@ pub struct Measurement {
     can_execute: bool,
 }
 struct Walker {
+    signals: SignalProbe,
     result: Measurement,
     began: Instant,
     budget: Duration,
@@ -64,7 +70,7 @@ impl Walker {
         };
         self.result.stop_reason.is_none()
     }
-    fn walk(&mut self, directory: &File, depth: usize) {
+    fn walk(&mut self, directory: &File, path: &Path, depth: usize) {
         if !self.ready() {
             return;
         }
@@ -116,6 +122,7 @@ impl Walker {
                 self.result.skipped.unreadable += 1;
                 continue;
             };
+            self.signals.observe(directory, path, &name, &stat);
             let kind = stat.st_mode & libc::S_IFMT;
             if kind == libc::S_IFLNK {
                 self.result.skipped.links += 1;
@@ -138,7 +145,11 @@ impl Walker {
                     self.result.skipped.non_local += 1;
                     continue;
                 }
-                self.walk(&child, depth + 1);
+                self.walk(
+                    &child,
+                    &path.join(OsStr::from_bytes(name.to_bytes())),
+                    depth + 1,
+                );
                 if !stat_at(directory, &name).is_ok_and(|now| same(&stat, &now)) {
                     self.result.skipped.changed += 1;
                 }
@@ -189,55 +200,11 @@ fn measure_with(
     limit: usize,
     budget: Duration,
 ) -> Result<Measurement, String> {
-    let names = catalog()?.targets;
-    let valid = |p: &Path| {
-        p.to_str().is_some_and(|s| {
-            s.len() <= 4096
-                && s.starts_with('/')
-                && !s.ends_with('/')
-                && !s.chars().any(char::is_control)
-                && !s[1..].split('/').any(|v| ["", ".", ".."].contains(&v))
-        })
-    };
-    if !valid(root)
-        || !valid(path)
-        || root
-            .file_name()
-            .and_then(|v| v.to_str())
-            .is_some_and(|n| names.iter().any(|v| v == n))
-    {
-        return Err("请选择有效的项目范围并重新扫描。".into());
-    }
-    let relative = path
-        .strip_prefix(root)
-        .map_err(|_| "测量目录不在所选项目范围内。")?;
-    let parts = relative
-        .iter()
-        .map(|v| v.to_str().unwrap())
-        .collect::<Vec<_>>();
-    if parts.is_empty()
-        || parts.len() > MAX_DEPTH
-        || !names.iter().any(|v| v == parts[parts.len() - 1])
-        || parts[..parts.len() - 1].iter().any(|n| {
-            n.starts_with('.')
-                || ["Library", "Applications"].contains(n)
-                || names.iter().any(|v| v == n)
-        })
-    {
-        return Err("测量目录不属于本次名称发现范围。".into());
-    }
-    let scope = AnchoredPath::open(root)?;
-    let target = AnchoredPath::open(path)?;
-    if !scope.target().metadata().is_ok_and(|m| m.is_dir())
-        || !target.target().metadata().is_ok_and(|m| m.is_dir())
-        || !scope.local_materialized()
-        || !target.local_materialized()
-    {
-        return Err("只能测量已下载到本机的物理目录。".into());
-    }
+    let (scope, target) = super::scope::open(root, path)?;
     let mut walker = Walker {
+        signals: SignalProbe::default(),
         result: Measurement {
-            protocol: 1,
+            protocol: 2,
             revision: engine::REVISION,
             root: root.to_str().unwrap().into(),
             path: path.to_str().unwrap().into(),
@@ -245,6 +212,7 @@ fn measure_with(
             completion: "complete",
             stop_reason: None,
             allocated_bytes: 0,
+            content_signals: ContentSignals::unknown("notObserved"),
             files: 0,
             visited: 0,
             skipped: Skipped::default(),
@@ -261,7 +229,7 @@ fn measure_with(
             .map_err(|_| "目录无法读取。")?
             .dev(),
     };
-    walker.walk(target.target(), 0);
+    walker.walk(target.target(), path, 0);
     scope
         .validate()
         .and_then(|_| target.validate())
@@ -274,6 +242,7 @@ fn measure_with(
     {
         walker.result.completion = "partial";
     }
+    walker.result.content_signals = walker.signals.finish(walker.result.completion == "partial");
     Ok(walker.result)
 }
 #[cfg(test)]
@@ -351,6 +320,34 @@ mod tests {
         fs::rename(&target, root.path().join("old")).unwrap();
         symlink(root.path().join("old"), &target).unwrap();
         assert!(measure(root.path(), &target).is_err());
+    }
+    #[test]
+    fn metadata_walk_reports_a_name_signal_without_granting_content_clearance() {
+        let root = tempfile::tempdir_in("/private/tmp").unwrap();
+        let target = root.path().join("target");
+        fs::create_dir_all(target.join("deploy")).unwrap();
+        fs::write(
+            target.join("deploy/wallet-keypair.json"),
+            b"not parsed JSON",
+        )
+        .unwrap();
+        let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
+        assert_eq!(wire["protocol"], 2);
+        assert_eq!(wire["contentSignals"]["state"], "found");
+        assert_eq!(wire["contentSignals"]["evidence"]["kind"], "keypairName");
+        assert_eq!(wire["canExecute"], false);
+        fs::remove_file(target.join("deploy/wallet-keypair.json")).unwrap();
+        let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
+        assert_eq!(wire["contentSignals"]["reason"], "notObserved");
+        let wire = serde_json::to_value(
+            measure_with(root.path(), &target, ENTRY_LIMIT, Duration::ZERO).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(wire["contentSignals"]["reason"], "incomplete");
+        symlink(root.path().join("missing"), target.join(".git")).unwrap();
+        let wire = serde_json::to_value(measure(root.path(), &target).unwrap()).unwrap();
+        assert_eq!(wire["contentSignals"]["state"], "found");
+        assert_eq!(wire["completion"], "partial");
     }
     #[test]
     fn depth_bound_never_reports_a_truncated_tree_as_complete() {

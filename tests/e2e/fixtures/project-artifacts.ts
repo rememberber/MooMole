@@ -62,7 +62,7 @@ export function projectArtifactsReport(): ProjectArtifactsReport {
 export function projectMeasurement(): ProjectMeasurement {
   const report = projectArtifactsReport()
   return {
-    protocol: 1,
+    protocol: 2,
     revision: report.revision,
     root: report.root,
     path: report.items[0].path,
@@ -70,6 +70,7 @@ export function projectMeasurement(): ProjectMeasurement {
     completion: 'complete',
     stopReason: null,
     allocatedBytes: 8192,
+    contentSignals: { state: 'unknown', reason: 'notObserved', evidence: null },
     files: 2,
     visited: 3,
     skipped: report.skipped,

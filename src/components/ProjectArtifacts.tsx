@@ -1,11 +1,15 @@
-import { projectArtifactView, type ProjectArtifactFilters } from '../lib/project-artifact-view'
+import { ProjectGitCheck } from './ProjectGitCheck'
+import {
+  projectArtifactView,
+  type ProjectArtifactFilters,
+  type ProjectMeasurements,
+} from '../lib/project-artifact-view'
 import type { ProjectRootsReport } from '../lib/project-roots'
 import {
   projectCatalog,
   projectContextText,
   projectIncompleteReason,
   projectMeasurementReason,
-  type ProjectMeasurement,
   type ProjectArtifactsReport,
 } from '../lib/project-artifacts'
 import { bytes, dateTime } from '../lib/format'
@@ -21,6 +25,8 @@ export function ProjectArtifacts({
   error,
   canAnalyze,
   measuring,
+  checkingGit,
+  onCheckGit,
   measurements,
   onMeasure,
   onAnalyze,
@@ -35,13 +41,15 @@ export function ProjectArtifacts({
   reading: boolean
   error: string
   canAnalyze: boolean
+  checkingGit: string
+  onCheckGit: (path: string) => void
   measuring: string
-  measurements: Record<string, { report?: ProjectMeasurement; error?: string }>
+  measurements: ProjectMeasurements
   onMeasure: (path: string) => void
   onAnalyze: (path: string) => void
 }) {
   const view = projectArtifactView(report?.items ?? [], measurements, filters)
-  const locked = reading || loadingRoots || !!measuring
+  const locked = reading || loadingRoots || !!measuring || !!checkingGit
   const clearFilters = () => onFiltersChange({ ...filters, query: '', context: '', page: 1 })
   return (
     <section aria-label="工程产物结果">
@@ -249,6 +257,54 @@ export function ProjectArtifacts({
                                 ` · ${projectMeasurementReason(measured.report)}`}
                             </span>
                           )}
+                          {measured?.report && (
+                            <details className="origin-details project-content-signals">
+                              <summary>
+                                {measured.git?.report?.state === 'recorded'
+                                  ? 'Git 索引中有记录，请先保留'
+                                  : measured.signalsValid !== true
+                                    ? '内容保护本次未确认'
+                                    : measured.report.contentSignals.state === 'found'
+                                      ? '发现需保留的名称线索'
+                                      : '内容保护仍未确认'}
+                              </summary>
+                              {measured.signalsValid === true &&
+                              measured.report.contentSignals.evidence ? (
+                                <>
+                                  <p>
+                                    {measured.report.contentSignals.evidence.kind ===
+                                    'repositoryMarker'
+                                      ? '上次测量看到仓库标记名称 .git，请先保留。'
+                                      : '上次测量看到密钥文件命名线索，请先保留；未判断文件内容。'}
+                                  </p>
+                                  <p className="project-artifact-path">
+                                    {measured.report.contentSignals.evidence.path}
+                                  </p>
+                                </>
+                              ) : (
+                                <p>
+                                  {measured.signalsValid !== true
+                                    ? '重新测量尚未得到有效观察；之前的内容线索已撤回。'
+                                    : measured.report.contentSignals.reason === 'notObserved'
+                                      ? '本次测量未看到 .git 或 *-keypair.json 名称，不代表没有用户数据。'
+                                      : measured.report.contentSignals.reason === 'incomplete'
+                                        ? '测量未覆盖全部内容；无法确认是否存在这些名称。'
+                                        : '名称或路径在复核时无法确认；本次不发布具体线索。'}
+                                </p>
+                              )}
+                              <p>
+                                只观察名称和元数据，不读取密钥或仓库文件内容、不运行 Git。Git
+                                记录可在下方单独检查；其他用户数据、活动构建与完整 Mole
+                                保护仍未确认。这不是清理许可，也不是持续监测。
+                              </p>
+                              <ProjectGitCheck
+                                observation={measured.git}
+                                checking={checkingGit === item.path}
+                                disabled={!canAnalyze || locked}
+                                onCheck={() => onCheckGit(item.path)}
+                              />
+                            </details>
+                          )}
                           {measured?.error && (
                             <span className="notice" role="alert">
                               {measured.error}
@@ -276,7 +332,7 @@ export function ProjectArtifacts({
                           </span>
                           <button
                             className="button secondary compact"
-                            disabled={!canAnalyze || reading || !!measuring}
+                            disabled={!canAnalyze || reading || !!measuring || !!checkingGit}
                             onClick={() => onMeasure(item.path)}
                           >
                             {measuring === item.path
@@ -287,7 +343,7 @@ export function ProjectArtifacts({
                           </button>
                           <button
                             className="button secondary compact"
-                            disabled={!canAnalyze || reading || !!measuring}
+                            disabled={!canAnalyze || reading || !!measuring || !!checkingGit}
                             onClick={() => onAnalyze(item.path)}
                           >
                             查看空间

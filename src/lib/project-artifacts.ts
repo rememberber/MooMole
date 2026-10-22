@@ -187,8 +187,13 @@ export function projectIncompleteReason(
   return reasons.join('；')
 }
 
+export interface ProjectContentSignals {
+  state: 'found' | 'unknown'
+  reason: 'notObserved' | 'incomplete' | 'unavailable' | null
+  evidence: { kind: 'repositoryMarker' | 'keypairName'; path: string } | null
+}
 export interface ProjectMeasurement {
-  protocol: 1
+  protocol: 2
   revision: string
   root: string
   path: string
@@ -196,6 +201,7 @@ export interface ProjectMeasurement {
   completion: 'complete' | 'partial'
   stopReason: 'timeLimit' | 'entryLimit' | 'sizeLimit' | null
   allocatedBytes: number
+  contentSignals: ProjectContentSignals
   files: number
   visited: number
   skipped: ProjectArtifactsReport['skipped']
@@ -217,7 +223,7 @@ export function readProjectMeasurement(
   const count = (v: number, max: number) => Number.isSafeInteger(v) && v >= 0 && v <= max
   if (
     !r ||
-    r.protocol !== 1 ||
+    r.protocol !== 2 ||
     r.revision !== catalog.revision ||
     r.root !== root ||
     r.path !== path ||
@@ -263,6 +269,32 @@ export function readProjectMeasurement(
       (r.stopReason || r.hardLinks || r.special || keys.some((k) => r.skipped[k] > 0)
         ? 'partial'
         : 'complete')
+  )
+    return invalid()
+  const signal = r.contentSignals
+  if (!signal || !['found', 'unknown'].includes(signal.state)) return invalid()
+  if (signal.state === 'found') {
+    const evidence = signal.evidence
+    if (
+      signal.reason !== null ||
+      !evidence ||
+      !absolute(evidence.path) ||
+      new TextEncoder().encode(evidence.path).length > 4096 ||
+      /[\u0080-\u009f]/.test(evidence.path) ||
+      !evidence.path.startsWith(`${path}/`) ||
+      evidence.path.slice(path.length + 1).split('/').length > 33 ||
+      !['repositoryMarker', 'keypairName'].includes(evidence.kind) ||
+      r.visited === 0 ||
+      (evidence.kind === 'repositoryMarker'
+        ? evidence.path.split('/').at(-1) !== '.git'
+        : !evidence.path.endsWith('-keypair.json'))
+    )
+      return invalid()
+  } else if (
+    signal.evidence !== null ||
+    !['notObserved', 'incomplete', 'unavailable'].includes(signal.reason ?? '') ||
+    (signal.reason === 'notObserved' && r.completion !== 'complete') ||
+    (signal.reason === 'incomplete' && r.completion !== 'partial')
   )
     return invalid()
   return r

@@ -535,6 +535,49 @@ async fn inspect_installer_image(
 }
 
 #[tauri::command]
+async fn inspect_project_git(
+    root: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<project_artifacts::git_index::Report, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后扫描。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次工程目录读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&engine_root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        project_artifacts::git_index::inspect(
+            std::path::Path::new(&root),
+            std::path::Path::new(&path),
+        )
+    });
+    let report = tokio::time::timeout(Duration::from_secs(6), worker)
+        .await
+        .map_err(|_| "工程目录读取超时，系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "工程目录读取未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("读取期间保护设置已变化，请重新扫描。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
 async fn measure_project_artifact(
     root: String,
     path: String,
@@ -1590,6 +1633,7 @@ pub fn run() {
             inspect_installer_usage,
             inspect_installer_image,
             measure_project_artifact,
+            inspect_project_git,
             prepare_maintenance_review,
             list_review_plans,
             create_review_plan,

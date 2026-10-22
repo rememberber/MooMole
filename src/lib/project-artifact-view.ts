@@ -1,9 +1,18 @@
+import type { ProjectGitObservation } from './project-git'
 import {
   groupProjectArtifacts,
   type ProjectArtifact,
   type ProjectMeasurement,
 } from './project-artifacts'
-export type ProjectMeasurements = Record<string, { report?: ProjectMeasurement; error?: string }>
+export type ProjectMeasurements = Record<
+  string,
+  {
+    report?: ProjectMeasurement
+    error?: string
+    signalsValid?: boolean
+    git?: ProjectGitObservation
+  }
+>
 export interface ProjectArtifactFilters {
   query: string
   context: '' | ProjectArtifact['context']

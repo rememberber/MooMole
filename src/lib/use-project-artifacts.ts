@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from './api'
-import { initialProjectFilters, type ProjectArtifactFilters } from './project-artifact-view'
+import { readProjectGit } from './project-git'
+import {
+  initialProjectFilters,
+  type ProjectArtifactFilters,
+  type ProjectMeasurements,
+} from './project-artifact-view'
 import { readProjectRoots, type ProjectRootsReport } from './project-roots'
 import {
   readProjectArtifacts,
   readProjectMeasurement,
   type ProjectArtifactsReport,
-  type ProjectMeasurement,
 } from './project-artifacts'
 export function useProjectArtifacts(active: boolean, home: string) {
   const [loadingRoots, setLoadingRoots] = useState(false)
@@ -19,9 +23,8 @@ export function useProjectArtifacts(active: boolean, home: string) {
   const [choosing, setChoosing] = useState(false)
   const [error, setError] = useState('')
   const [measuring, setMeasuring] = useState('')
-  const [measurements, setMeasurements] = useState<
-    Record<string, { report?: ProjectMeasurement; error?: string }>
-  >({})
+  const [checkingGit, setCheckingGit] = useState('')
+  const [measurements, setMeasurements] = useState<ProjectMeasurements>({})
   const epoch = useRef(0),
     running = useRef(false),
     picking = useRef(false)
@@ -32,6 +35,7 @@ export function useProjectArtifacts(active: boolean, home: string) {
       picking.current = false
       setLoadingRoots(false)
       setMeasuring('')
+      setCheckingGit('')
       setReading(false)
       setChoosing(false)
     }
@@ -144,7 +148,10 @@ export function useProjectArtifacts(active: boolean, home: string) {
       return
     running.current = true
     setMeasuring(path)
-    setMeasurements((old) => ({ ...old, [path]: { report: old[path]?.report } }))
+    setMeasurements((old) => ({
+      ...old,
+      [path]: { report: old[path]?.report, signalsValid: false },
+    }))
     const ticket = ++epoch.current,
       began = Date.now()
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -160,19 +167,64 @@ export function useProjectArtifacts(active: boolean, home: string) {
       ])
       if (ticket === epoch.current) {
         const result = readProjectMeasurement(value, root, path, began)
-        setMeasurements((old) => ({ ...old, [path]: { report: result } }))
+        setMeasurements((old) => ({ ...old, [path]: { report: result, signalsValid: true } }))
       }
     } catch (error) {
       if (ticket === epoch.current)
         setMeasurements((old) => ({
           ...old,
-          [path]: { report: old[path]?.report, error: String(error) },
+          [path]: { report: old[path]?.report, error: String(error), signalsValid: false },
         }))
     } finally {
       clearTimeout(timer)
       if (ticket === epoch.current) {
         running.current = false
         setMeasuring('')
+      }
+    }
+  }
+  async function checkGit(path: string) {
+    if (
+      !active ||
+      !report?.items.some((item) => item.path === path) ||
+      running.current ||
+      picking.current
+    )
+      return
+    running.current = true
+    setCheckingGit(path)
+    setMeasurements((old) => ({ ...old, [path]: { ...old[path], git: { attempted: true } } }))
+    const ticket = ++epoch.current,
+      began = Date.now()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const value = await Promise.race([
+        api.inspectProjectGit(root, path),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Git 检查未及时返回，系统读取可能仍在结束，请稍后重试。')),
+            8000,
+          )
+        }),
+      ])
+      if (ticket === epoch.current) {
+        const result = readProjectGit(value, root, path, began)
+        setMeasurements((old) => ({
+          ...old,
+          [path]: { ...old[path], git: { report: result, attempted: true } },
+        }))
+      }
+    } catch (error) {
+      if (ticket === epoch.current)
+        setMeasurements((old) => ({
+          ...old,
+          [path]: { ...old[path], git: { error: String(error), attempted: true } },
+        }))
+    } finally {
+      clearTimeout(timer)
+      if (ticket === epoch.current) {
+        running.current = false
+        setCheckingGit('')
       }
     }
   }
@@ -187,6 +239,8 @@ export function useProjectArtifacts(active: boolean, home: string) {
     choose,
     scan,
     measuring,
+    checkingGit,
+    checkGit,
     measurements,
     measure,
     roots,

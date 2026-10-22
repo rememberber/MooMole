@@ -43,6 +43,43 @@ async function install(page: Page) {
             )
           return result
         }
+        if (command === 'inspect_project_git') {
+          sessionStorage.setItem('git-args', JSON.stringify(args))
+          sessionStorage.setItem(
+            'git-calls',
+            String(Number(sessionStorage.getItem('git-calls') ?? 0) + 1),
+          )
+          if (sessionStorage.getItem('git-fail')) throw new Error('fixture 索引读取受限')
+          const path = (args as { path: string }).path
+          const result = {
+            protocol: 1,
+            revision: fixture.revision,
+            root: fixture.root,
+            path,
+            checkedAt: Date.now(),
+            state: 'recorded',
+            reason: null as string | null,
+            repository: fixture.root as string | null,
+            records: 2 as number | null,
+            example: (path.slice(fixture.root.length + 1) + '/source.rs') as string | null,
+            canExecute: false,
+          }
+          const reason = sessionStorage.getItem('git-reason')
+          if (reason)
+            Object.assign(result, {
+              state: 'unknown',
+              reason,
+              repository: null,
+              records: null,
+              example: null,
+            })
+          if (sessionStorage.getItem('git-invalid')) result.repository = '/outside'
+          if (sessionStorage.getItem('git-defer'))
+            return new Promise((resolve) =>
+              Object.assign(window, { finishGit: () => resolve(result) }),
+            )
+          return result
+        }
         if (command === 'measure_project_artifact') {
           sessionStorage.setItem('measure-args', JSON.stringify(args))
           sessionStorage.setItem(
@@ -57,12 +94,34 @@ async function install(page: Page) {
           }
           if (sessionStorage.getItem('measure-zero'))
             Object.assign(result, { allocatedBytes: 0, files: 0 })
+          if (sessionStorage.getItem('measure-signal'))
+            result.contentSignals = {
+              state: 'found',
+              reason: null,
+              evidence: {
+                kind: sessionStorage.getItem('measure-keypair')
+                  ? 'keypairName'
+                  : 'repositoryMarker',
+                path:
+                  result.path +
+                  (sessionStorage.getItem('measure-keypair')
+                    ? '/deploy/wallet-keypair.json'
+                    : '/nested/.git'),
+              },
+            }
           if (sessionStorage.getItem('measure-defer'))
             return new Promise((resolve) =>
               Object.assign(window, { finishMeasurement: () => resolve(result) }),
             )
           if (sessionStorage.getItem('measure-partial'))
-            return { ...result, completion: 'partial', files: 0, allocatedBytes: 0, hardLinks: 2 }
+            return {
+              ...result,
+              contentSignals: { state: 'unknown', reason: 'incomplete', evidence: null },
+              completion: 'partial',
+              files: 0,
+              allocatedBytes: 0,
+              hardLinks: 2,
+            }
           return result
         }
         if (command === 'inspect_project_artifacts') {
@@ -468,4 +527,155 @@ test('project pagination retains page on navigation, resets on filtering and cla
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   await expect(pages).toHaveCount(0)
   await expect(region.getByRole('article')).toHaveCount(3)
+})
+
+test('measurement shows scoped content signals on demand and rechecking withdraws prior names on failure', async ({
+  page,
+}) => {
+  await install(page)
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+  await expect(row.getByText('发现需保留的名称线索', { exact: true })).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.setItem('measure-signal', 'yes'))
+  await row.getByRole('button', { name: '测量占用', exact: true }).click()
+  await row.getByText('发现需保留的名称线索', { exact: true }).click()
+  await expect(row).toContainText('上次测量看到仓库标记名称 .git，请先保留')
+  await expect(row).toContainText('/fixture/projects/web/node_modules/nested/.git')
+  await expect(row).toContainText('Git 记录可在下方单独检查')
+  await expect(row).toContainText('8 KB')
+  await page.evaluate(() => sessionStorage.setItem('measure-fail', 'yes'))
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(row).toContainText('内容保护本次未确认')
+  await expect(
+    row.getByText('/fixture/projects/web/node_modules/nested/.git', { exact: true }),
+  ).toHaveCount(0)
+  await expect(row).toContainText('保留上次测量，本次未更新')
+  await page.evaluate(() => {
+    sessionStorage.removeItem('measure-fail')
+    sessionStorage.removeItem('measure-signal')
+  })
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(row).toContainText('内容保护仍未确认')
+  await expect(row).toContainText('不代表没有用户数据')
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(row.getByText('内容保护仍未确认', { exact: true })).toHaveCount(0)
+})
+
+test('leaving a pending remeasurement cannot restore withdrawn content evidence', async ({
+  page,
+}) => {
+  await install(page)
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+  await page.evaluate(() => {
+    sessionStorage.setItem('measure-signal', 'yes')
+    sessionStorage.setItem('measure-keypair', 'yes')
+  })
+  await row.getByRole('button', { name: '测量占用', exact: true }).click()
+  await row.getByText('发现需保留的名称线索', { exact: true }).click()
+  await expect(row).toContainText('密钥文件命名线索')
+  await page.evaluate(() => sessionStorage.setItem('measure-defer', 'yes'))
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(row).toContainText('内容保护本次未确认')
+  await expect(row).not.toContainText('wallet-keypair.json')
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await page.evaluate(() =>
+    (window as unknown as { finishMeasurement: () => void }).finishMeasurement(),
+  )
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await expect(row).toContainText('内容保护本次未确认')
+  await expect(row).not.toContainText('wallet-keypair.json')
+  await expect(row).toContainText('8 KB')
+})
+
+async function measuredGitRow(page: Page) {
+  await install(page)
+  await page.getByRole('button', { name: '选择目录', exact: true }).click()
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
+  await row.getByRole('button', { name: '测量占用', exact: true }).click()
+  await row.getByText('内容保护仍未确认', { exact: true }).click()
+  return row
+}
+test('Git index observation is explicit and scope-bound; recorded paths stay distinct from reclaimability', async ({
+  page,
+}) => {
+  const row = await measuredGitRow(page)
+  expect(await page.evaluate(() => sessionStorage.getItem('git-calls'))).toBeNull()
+  await expect(row).toContainText('Git 记录尚未检查')
+  await row.getByRole('button', { name: '检查 Git 记录', exact: true }).click()
+  await expect(row).toContainText('Git 索引中仍有 2 条记录，请先保留')
+  await expect(row).toContainText('索引记录：web/node_modules/source.rs')
+  await expect(row).toContainText('当前已不存在的路径')
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('git-args')!))).toEqual({
+    root: '/fixture/projects',
+    path: '/fixture/projects/web/node_modules',
+  })
+  await row.getByText('Git 索引中有记录，请先保留', { exact: true }).click()
+  await expect(row.getByText('Git 索引中有记录，请先保留', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await expect(row.getByText('Git 索引中有记录，请先保留', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('git-calls'))).toBe('1')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+test('Git unknown reasons, protocol mismatch and failed retries never retain recorded evidence', async ({
+  page,
+}) => {
+  const row = await measuredGitRow(page)
+  await row.getByRole('button', { name: '检查 Git 记录', exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('git-fail', 'yes'))
+  await row.getByRole('button', { name: '重新检查 Git 记录', exact: true }).click()
+  await expect(row.getByRole('alert')).toContainText('之前的 Git 记录观察已撤回')
+  await expect(row).not.toContainText('web/node_modules/source.rs')
+  await expect(row).toContainText('8 KB')
+  await page.evaluate(() => sessionStorage.removeItem('git-fail'))
+  for (const [reason, message] of [
+    ['notListed', '本次索引未列出'],
+    ['unsupportedRepository', '工作树指针'],
+    ['unsupportedIndex', '扩展尚未支持'],
+    ['sizeLimit', '4 MiB'],
+  ]) {
+    await page.evaluate((reason) => sessionStorage.setItem('git-reason', reason), reason)
+    await row.getByRole('button', { name: '重新检查 Git 记录', exact: true }).click()
+    await expect(row).toContainText(message)
+    await expect(row).toContainText('Git 记录仍未确认')
+    await expect(row).not.toContainText('web/node_modules/source.rs')
+  }
+  await page.evaluate(() => {
+    sessionStorage.removeItem('git-reason')
+    sessionStorage.setItem('git-invalid', 'yes')
+  })
+  await row.getByRole('button', { name: '重新检查 Git 记录', exact: true }).click()
+  await expect(row.getByRole('alert')).toContainText('Git 记录观察无法确认')
+  await expect(row).not.toContainText('web/node_modules/source.rs')
+})
+test('pending Git checks hold engineering controls and ignore late success; remeasurement clears the observation', async ({
+  page,
+}) => {
+  const row = await measuredGitRow(page)
+  await row.getByRole('button', { name: '检查 Git 记录', exact: true }).click()
+  await page.evaluate(() => sessionStorage.setItem('git-defer', 'yes'))
+  await row.getByRole('button', { name: '重新检查 Git 记录', exact: true }).click()
+  await expect(row.getByRole('button', { name: '正在检查 Git 记录…', exact: true })).toBeDisabled()
+  await expect(row).not.toContainText('web/node_modules/source.rs')
+  await expect(page.getByRole('button', { name: '读取 Mole 目录', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '选择目录', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
+  await expect(row.getByRole('button', { name: '重新测量', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: '筛选工程产物' })).toBeDisabled()
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await page.evaluate(() => (window as unknown as { finishGit: () => void }).finishGit())
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await row.getByText('内容保护仍未确认', { exact: true }).click()
+  await expect(row).toContainText('Git 记录本次未确认')
+  await expect(row).not.toContainText('web/node_modules/source.rs')
+  await page.evaluate(() => sessionStorage.removeItem('git-defer'))
+  await row.getByRole('button', { name: '重新检查 Git 记录', exact: true }).click()
+  await expect(row).toContainText('Git 索引中仍有 2 条记录')
+  await row.getByRole('button', { name: '重新测量', exact: true }).click()
+  await expect(row).toContainText('Git 记录尚未检查')
 })
