@@ -581,6 +581,48 @@ h3 {
   font-size: 10px;
   margin: -4px 0 14px;
 }
+.status-rate-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--subtle);
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+.status-rate-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.status-rate-line {
+  width: 14px;
+  border-top: 2px solid var(--lavender-ink);
+}
+.status-rate-line-1 {
+  border-top-style: dashed;
+  border-color: var(--subtle);
+}
+.status-rate-trend .status-rate-series-1 path {
+  stroke: var(--subtle);
+  stroke-dasharray: 4 3;
+}
+.status-rate-trend .status-rate-series-1 circle {
+  fill: var(--subtle);
+}
+.status-network-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--subtle);
+}
+.status-network-choice select {
+  min-width: 0;
+  max-width: 75%;
+  padding: 4px 7px;
+  font-size: 11px;
+}
 .status-rates {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1409,6 +1409,7 @@ export default function App() {
                   )}
                   <StatusRates
                     snapshot={snapshot}
+                    samples={statusWatch.samples}
                     stale={statusWatch.phase !== 'running' || statusWatch.stale}
                   />
                   <ProcessSnapshot snapshot={snapshot} refreshing={busy?.kind === 'status'} />

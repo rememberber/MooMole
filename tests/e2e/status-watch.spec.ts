@@ -317,3 +317,91 @@ test('trends and interface rates preserve units, zero and missing values, pause 
   await page.getByRole('button', { name: '刷新快照', exact: true }).click()
   await expect(page.getByText(/本轮保留 \d+ 份已接收记录/)).toHaveCount(0)
 })
+
+test('rate trends separate directions and interfaces, keep missing gaps and retain historical curves on pause', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        collected_at: '2026-10-21T00:00:01Z',
+        disk_io: { read_rate: 0, write_rate: 4 },
+        network: [
+          { name: 'en0', rx_rate_mbs: 2, tx_rate_mbs: 4 },
+          { name: 'utun9', rx_rate_mbs: 100, tx_rate_mbs: 0 },
+        ],
+      }),
+    ),
+  )
+  await start(page).click()
+  const disk = page.getByRole('img', { name: /^磁盘读写趋势/ })
+  const en0 = page.getByRole('img', { name: /^en0 网络趋势/ })
+  const selector = page.getByRole('combobox', { name: '趋势网络接口', exact: true })
+  await expect(disk).toHaveAttribute('aria-label', /纵轴 0 至 5 MiB\/s/)
+  await expect(en0).toHaveAttribute('aria-label', /纵轴 0 至 5 MiB\/s/)
+  await expect(selector).toHaveValue('en0')
+  await selector.selectOption('utun9')
+  await expect(page.getByRole('img', { name: /^utun9 网络趋势/ })).toHaveAttribute(
+    'aria-label',
+    /纵轴 0 至 100 MiB\/s/,
+  )
+  await selector.selectOption('en0')
+  const advance = async (
+    sequence: number,
+    network: unknown[],
+    disk_io = { read_rate: sequence, write_rate: sequence },
+  ) => {
+    await page.evaluate(
+      ({ sequence, network, disk_io }) => {
+        sessionStorage.setItem(
+          'watch-metrics',
+          JSON.stringify({ collected_at: `2026-10-21T00:00:0${sequence}Z`, network, disk_io }),
+        )
+        sessionStorage.setItem('watch-sequence', String(sequence))
+      },
+      { sequence, network, disk_io },
+    )
+    await expect(
+      page.getByText(`本轮保留 ${sequence} 份已接收记录`, { exact: false }),
+    ).toBeVisible()
+  }
+  await advance(2, [{ name: 'utun9', rx_rate_mbs: 100, tx_rate_mbs: 0 }])
+  await expect(selector).toHaveValue('en0')
+  await expect(page.getByText('本次未返回 en0；保留本轮已接收曲线，缺失处断开。')).toBeVisible()
+  await expect(en0).toHaveAttribute('aria-label', /接收 1 个有效记录/)
+  await advance(3, [{ name: 'en0', rx_rate_mbs: 4, tx_rate_mbs: null }])
+  await advance(4, [{ name: 'en0', rx_rate_mbs: 6, tx_rate_mbs: 2 }])
+  await expect(en0).toHaveAttribute('aria-label', /接收 3 个有效记录，发送 2 个有效记录/)
+  await expect(en0.locator('g[data-series="接收"] circle')).toHaveCount(1)
+  await expect(en0.locator('g[data-series="接收"] path')).toHaveCount(1)
+  await expect(en0.locator('g[data-series="发送"] circle')).toHaveCount(2)
+  await expect(en0.locator('g[data-series="发送"] path')).toHaveCount(0)
+  await expect(disk).toHaveAttribute('aria-label', /读取 4 个有效记录，写入 4 个有效记录/)
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/status-rate-trends-${theme}.png`,
+      animations: 'disabled',
+      fullPage: true,
+    })
+  }
+  await page.getByRole('button', { name: '暂停采集', exact: true }).click()
+  await expect(start(page)).toBeEnabled()
+  await expect(en0).toHaveAttribute('aria-label', /接收 3 个有效记录/)
+  await expect(
+    page.getByRole('region', { name: '磁盘与网络速率' }).getByText('最后报告值', { exact: true }),
+  ).toHaveCount(2)
+  await start(page).click()
+  await expect(page.getByText('本轮保留 1 份已接收记录', { exact: false })).toBeVisible()
+  await expect(en0).toHaveAttribute('aria-label', /接收 1 个有效记录，发送 1 个有效记录/)
+  expect(
+    await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts')!).length),
+  ).toBe(2)
+  await page.getByRole('button', { name: '暂停采集', exact: true }).click()
+})

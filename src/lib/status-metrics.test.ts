@@ -3,6 +3,7 @@ import {
   appendStatusSample,
   statusPercent,
   statusRate,
+  statusRateTrend,
   statusTrend,
   type StatusSample,
 } from './status-metrics'
@@ -82,5 +83,85 @@ describe('bounded status history and displayed measures', () => {
     ])
     expect(statusTrend([], 'cpu')).toEqual([])
     expect(statusTrend(history.slice(0, 1), 'cpu')).toEqual([[{ x: 160, y: 62 }]])
+  })
+  it('copies bounded per-direction rates without summing interfaces or turning missing values into zero', () => {
+    const value = sample(1)
+    value.data!.disk_io = { read_rate: 0, write_rate: -1 }
+    value.data!.network = [
+      { name: 'en0', rx_rate_mbs: 2, tx_rate_mbs: 0.001 },
+      { name: 'utun9', rx_rate_mbs: 3, tx_rate_mbs: 0 },
+      { name: 'en0', rx_rate_mbs: 99, tx_rate_mbs: 99 },
+      { name: 'extra', rx_rate_mbs: 999 },
+    ]
+    const history = appendStatusSample([], value)
+    expect(history[0].disk).toEqual({ read: 0, write: null })
+    expect(history[0].network).toEqual([
+      { name: 'en0', rx: 2, tx: 0.001 },
+      { name: 'utun9', rx: 3, tx: 0 },
+    ])
+    value.data!.network[0].rx_rate_mbs = 100
+    expect(history[0].network[0].rx).toBe(2)
+    expect(statusRateTrend(history, 'network', 'en0').upper).toBe(2)
+    expect(statusRateTrend(history, 'network', 'utun9').upper).toBe(5)
+    expect(statusRateTrend(history, 'network', 'absent').series.every((s) => s.count === 0)).toBe(
+      true,
+    )
+  })
+  it('uses a shared zero-based rate axis and breaks each direction independently at missing records', () => {
+    let history: StatusSample[] = []
+    for (const [sequence, time, read, write] of [
+      [1, 1000, 0, 1],
+      [2, 2000, 2, 1],
+      [3, 5000, NaN, 4],
+      [4, 6000, 1, NaN],
+    ]) {
+      const value = sample(sequence, time)
+      value.data!.disk_io = { read_rate: read, write_rate: write }
+      history = appendStatusSample(history, value)
+    }
+    const result = statusRateTrend(history, 'disk')
+    expect(result.upper).toBe(5)
+    expect(result.series[0].count).toBe(3)
+    expect(result.series[0].segments).toEqual([
+      [
+        { x: 0, y: 62 },
+        { x: 64, y: 38 },
+      ],
+      [{ x: 320, y: 50 }],
+    ])
+    expect(result.series[1].segments).toHaveLength(1)
+    expect(result.series[1].count).toBe(3)
+    const skipped = sample(6, 8000)
+    skipped.data!.disk_io = { read_rate: 2, write_rate: 3 }
+    history = appendStatusSample(history, skipped)
+    expect(statusRateTrend(history, 'disk').series[0].segments).toHaveLength(3)
+    const slow = sample(7, 20000)
+    slow.data!.disk_io = { read_rate: 1 }
+    history = appendStatusSample(history, slow)
+    expect(statusRateTrend(history, 'disk').series[0].segments).toHaveLength(4)
+  })
+  it('keeps absent interfaces disconnected when they return and handles extreme valid rates with finite coordinates', () => {
+    let history: StatusSample[] = []
+    for (let sequence = 1; sequence <= 3; sequence++) {
+      const value = sample(sequence)
+      value.data!.network =
+        sequence === 2 ? [] : [{ name: 'en0', rx_rate_mbs: sequence, tx_rate_mbs: 0 }]
+      history = appendStatusSample(history, value)
+    }
+    expect(statusRateTrend(history, 'network', 'en0').series[0].segments).toHaveLength(2)
+    for (const rate of [0, 1e-12, 123, Number.MAX_VALUE]) {
+      const value = sample(1)
+      value.data!.disk_io = { read_rate: rate, write_rate: rate }
+      const trend = statusRateTrend(appendStatusSample([], value), 'disk')
+      expect(Number.isFinite(trend.upper)).toBe(true)
+      expect(trend.upper).toBeGreaterThanOrEqual(rate)
+      expect(trend.upper).toBeGreaterThan(0)
+      for (const point of trend.series.flatMap((s) => s.segments.flat())) {
+        expect(Number.isFinite(point.y)).toBe(true)
+        expect(point.y).toBeGreaterThanOrEqual(2)
+        expect(point.y).toBeLessThanOrEqual(62)
+      }
+    }
+    expect(statusRateTrend([], 'disk').series.every((s) => s.count === 0)).toBe(true)
   })
 })
