@@ -427,6 +427,15 @@ h3 {
   align-items: center;
   justify-content: center;
 }
+.storage-ring[data-unknown='true'] {
+  background: var(--soft);
+  outline: 1px dashed var(--border);
+}
+.storage-scope {
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
 .storage-ring strong {
   font-size: 26px;
   font-weight: 600;
@@ -674,6 +683,116 @@ h3 {
 .status-memory-details dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+.status-hardware {
+  margin-top: 14px;
+  overflow: hidden;
+}
+.status-hardware > header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 14px 16px 0;
+  font-size: 10px;
+}
+.status-hardware h2,
+.status-hardware h3 {
+  margin: 0;
+  font-size: 12px;
+}
+.status-hardware-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.status-hardware-grid > section {
+  padding: 14px 16px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.status-hardware-grid > section + section {
+  border-left: 1px solid var(--border);
+}
+.status-hardware-grid p,
+.status-hardware-grid details {
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.status-hardware-device {
+  margin-top: 8px;
+  font-size: 11px;
+}
+.status-hardware summary {
+  cursor: pointer;
+  color: var(--subtle);
+}
+.status-hardware dl {
+  margin: 8px 0;
+}
+.status-hardware dl > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.status-hardware dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.status-disks {
+  margin-top: 14px;
+  overflow: hidden;
+}
+.status-disks > header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 14px 16px 0;
+  font-size: 10px;
+}
+.status-disks h2 {
+  margin: 0;
+  font-size: 12px;
+}
+.status-disk-summary {
+  margin: 8px 16px 12px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.status-disks table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+}
+.status-disks th,
+.status-disks td {
+  padding: 10px 12px;
+  text-align: right;
+  vertical-align: top;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.status-disks th:first-child {
+  width: 30%;
+  text-align: left;
+  font-weight: 500;
+}
+.status-disks thead th {
+  color: var(--subtle);
+  font-weight: 400;
+}
+.status-disks tbody th span,
+.status-disks tbody th small {
+  display: block;
+}
+.status-disks tbody th small {
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 400;
 }
 .status-rate-group {
   padding: 16px;

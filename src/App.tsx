@@ -31,6 +31,7 @@ import * as api from './lib/api'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
+import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -116,6 +117,12 @@ const StatusRates = deferredView(async () => ({
 }))
 const StatusMemory = deferredView(async () => ({
   default: (await import('./components/StatusMemory')).StatusMemory,
+}))
+const StatusHardware = deferredView(async () => ({
+  default: (await import('./components/StatusHardware')).StatusHardware,
+}))
+const StatusDisks = deferredView(async () => ({
+  default: (await import('./components/StatusDisks')).StatusDisks,
 }))
 
 const navigation = [
@@ -618,11 +625,8 @@ export default function App() {
     )
 
   const canRun = api.desktop && data.engine.available && !busy && analysisTask?.state !== 'starting'
-  const disk =
-    snapshot?.disks?.find((disk) => disk.mount === '/') ??
-    snapshot?.disks?.find((disk) => !disk.external)
-  const diskPercent =
-    disk && disk.total > 0 ? Math.max(0, Math.min(100, (disk.used / disk.total) * 100)) : 0
+  const disk = systemDisk(snapshot?.disks)
+  const diskPercent = disk?.percent ?? null
   const pageName = navigation.find(([id]) => id === page)![2]
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
   const cpuUsage = statusPercent(snapshot?.cpu?.usage) ?? undefined
@@ -1091,46 +1095,72 @@ export default function App() {
           {page === 'overview' && (
             <>
               <EngineSummary engine={data.engine} desktop={api.desktop} />
-              <section className="storage-card card">
+              <section className="storage-card card" aria-label="系统卷空间">
                 <div className="storage-main">
                   <div className="section-top">
                     <div>
                       <span className="section-label">磁盘空间</span>
                       <h2>{snapshot?.host ?? '这台 Mac'}</h2>
                     </div>
-                    <span className="tag">{disk ? '启动磁盘' : '等待快照'}</span>
+                    <span className="tag">
+                      {disk ? '系统卷 /' : snapshot ? '系统卷未确认' : '等待快照'}
+                    </span>
                   </div>
                   <div className="storage-detail">
                     <div
                       className="storage-ring"
-                      style={{ '--used': `${diskPercent}%` } as CSSProperties}
+                      data-unknown={diskPercent === null}
+                      role="img"
+                      aria-label={
+                        diskPercent === null
+                          ? '系统卷占用比例未知'
+                          : `系统卷占用比例 ${diskPercent.toFixed(1)}%`
+                      }
+                      style={{ '--used': `${diskPercent ?? 0}%` } as CSSProperties}
                     >
                       <div>
-                        <strong>{disk ? `${diskPercent.toFixed(0)}%` : '—'}</strong>
+                        <strong>
+                          {diskPercent !== null
+                            ? `${diskPercent.toFixed(0)}%`
+                            : snapshot
+                              ? '未知'
+                              : '—'}
+                        </strong>
                         <span>已使用</span>
                       </div>
                     </div>
                     <div className="storage-numbers">
                       <div className="disk-free">
-                        <strong>{disk ? bytes(disk.total - disk.used) : '—'}</strong>
-                        <span>可用空间</span>
+                        <strong>{snapshot ? diskBytes(disk?.remaining) : '—'}</strong>
+                        <span>报告余量</span>
                       </div>
                       <p>
-                        共 {disk ? bytes(disk.total) : '—'} ·{' '}
+                        共 {snapshot ? diskBytes(disk?.total) : '—'} ·{' '}
                         {snapshot?.hardware?.cpu_model ?? '读取后显示设备信息'}
                       </p>
                       <div className="disk-legend">
                         <span>
                           <i />
-                          已使用 {bytes(disk?.used)}
+                          已使用 {snapshot ? diskBytes(disk?.used) : '—'}
                         </span>
                         <span>
                           <i />
-                          可用
+                          余量（计算）
                         </span>
                       </div>
                     </div>
                   </div>
+                  {snapshot && !disk && (
+                    <p className="storage-scope muted">
+                      未取得唯一的系统卷 / 报告；可在系统状态查看已返回的磁盘。
+                    </p>
+                  )}
+                  {disk?.inconsistent && (
+                    <p className="storage-scope muted">已用超过总量，本次余量与比例无法确认。</p>
+                  )}
+                  <p className="storage-scope muted">
+                    按 Mole 报告总量减去已用计算，不是可清理量；容量可能来自较早缓存。
+                  </p>
                 </div>
               </section>
               <div className="metrics-grid">
@@ -1420,6 +1450,14 @@ export default function App() {
                     stale={statusWatch.phase !== 'running' || statusWatch.stale}
                   />
                   <ProcessSnapshot snapshot={snapshot} refreshing={busy?.kind === 'status'} />
+                  <StatusDisks
+                    snapshot={snapshot}
+                    stale={statusWatch.phase !== 'running' || statusWatch.stale}
+                  />
+                  <StatusHardware
+                    snapshot={snapshot}
+                    stale={statusWatch.phase !== 'running' || statusWatch.stale}
+                  />
                 </>
               ) : (
                 <section className="card">

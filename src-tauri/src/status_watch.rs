@@ -144,6 +144,9 @@ struct Metrics {
     hardware: Option<Hardware>,
     cpu: Option<Cpu>,
     memory: Option<Memory>,
+    gpu: Option<Vec<Gpu>>,
+    batteries: Option<Vec<Battery>>,
+    thermal: Option<Thermal>,
     disks: Option<Vec<Disk>>,
     disk_io: Option<DiskIo>,
     network: Option<Vec<Network>>,
@@ -173,6 +176,23 @@ struct Memory {
     available: Option<u64>,
     swap_used: Option<u64>,
     swap_total: Option<u64>,
+}
+#[derive(Deserialize, Serialize)]
+struct Gpu {
+    name: Option<String>,
+    usage: Option<f64>,
+    core_count: Option<i64>,
+}
+#[derive(Deserialize, Serialize)]
+struct Battery {
+    percent: Option<f64>,
+    status: Option<String>,
+    cycle_count: Option<i64>,
+    capacity: Option<i64>,
+}
+#[derive(Deserialize, Serialize)]
+struct Thermal {
+    battery_temp: Option<f64>,
 }
 #[derive(Deserialize, Serialize)]
 struct Disk {
@@ -224,8 +244,20 @@ pub(crate) fn validate(bytes: &[u8]) -> Result<Value, String> {
     if let Some(mem) = &m.memory {
         texts.push(mem.pressure.as_ref());
     }
+    if let Some(gpus) = &m.gpu {
+        if gpus.len() > 8 {
+            return Err("状态记录 GPU 数量超过支持范围。".into());
+        }
+        texts.extend(gpus.iter().map(|gpu| gpu.name.as_ref()));
+    }
+    if let Some(batteries) = &m.batteries {
+        if batteries.len() > 4 {
+            return Err("状态记录电池数量超过支持范围。".into());
+        }
+        texts.extend(batteries.iter().map(|battery| battery.status.as_ref()));
+    }
     if let Some(disks) = &m.disks {
-        if disks.len() > 256 {
+        if disks.len() > 3 {
             return Err("状态记录磁盘数量超过上限。".into());
         }
         for d in disks {

@@ -515,3 +515,248 @@ test('missing, unsupported and contradictory memory fields cannot become healthy
   await expect(start(page)).toBeEnabled()
   await expect(memory).toContainText('最后报告值 · 更新时间未知')
 })
+
+test('hardware reports preserve zero charge, missing GPU usage, possible capacity estimates and temperature scope', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        gpu: [
+          { name: 'Apple Fixture', usage: -1, core_count: 10 },
+          { name: 'GPU ' + 'long-name-'.repeat(20), usage: 0, core_count: 0 },
+        ],
+        batteries: [{ percent: 0, status: 'discharging', capacity: 85, cycle_count: 42 }],
+        thermal: { battery_temp: 35.5, cpu_temp: 90, gpu_temp: 80 },
+      }),
+    ),
+  )
+  await start(page).click()
+  const hardware = page.getByRole('region', { name: '硬件报告', exact: true })
+  const battery = hardware.getByRole('group', { name: '电池样本 1', exact: true })
+  const gpu = hardware.getByRole('region', { name: 'GPU 报告', exact: true })
+  const thermal = hardware.getByRole('region', { name: '温度报告', exact: true })
+  await expect(hardware).toContainText('Mole 报告值 · 独立更新时间未知')
+  await expect(battery).toContainText('0.0% · 使用电池')
+  await expect(battery.getByText('最大容量（可能为估算）', { exact: true })).not.toBeVisible()
+  await battery.getByText('电池报告详情', { exact: true }).click()
+  await expect(battery.locator('dd')).toHaveText(['85%', '42'])
+  await expect(battery).toContainText('可能来自上游估算，未提供来源区分')
+  await expect(gpu).toContainText('Apple Fixture')
+  await expect(gpu).toContainText('使用率 未知 · 10 个核心')
+  await expect(gpu).toContainText('使用率 0.0%')
+  await expect(thermal).toContainText('电池温度 35.5 °C')
+  await expect(thermal).toContainText('未提供 CPU/GPU 温度，不以电池温度代替')
+  await expect(thermal).not.toContainText('90 °C')
+  await expect(thermal).not.toContainText('80 °C')
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/status-hardware-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  await page.getByRole('button', { name: '暂停采集', exact: true }).click()
+  await expect(start(page)).toBeEnabled()
+  await expect(hardware).toContainText('最后报告值 · 独立更新时间未知')
+  await expect(battery.locator('dd')).toHaveText(['85%', '42'])
+  expect(
+    await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts')!).length),
+  ).toBe(1)
+})
+
+test('unavailable hardware, fallback names and unknown numeric reports never become healthy zero readings', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({ gpu: null, batteries: null, thermal: null }),
+    ),
+  )
+  await start(page).click()
+  const hardware = page.getByRole('region', { name: '硬件报告', exact: true })
+  await expect(hardware).toContainText('本次未提供电池数据')
+  await expect(hardware).toContainText('本次未提供 GPU 数据')
+  await expect(hardware).toContainText('电池温度 未知')
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        gpu: [
+          { name: 'No GPU metrics available', usage: 0 },
+          { name: 'GPU info unavailable', usage: 0 },
+          { name: 'GPU read failed', usage: 0 },
+        ],
+        batteries: [],
+        thermal: { battery_temp: 0 },
+      }),
+    )
+    sessionStorage.setItem('watch-sequence', '2')
+  })
+  await expect(hardware).toContainText('不能据此判断设备没有电池')
+  await expect(hardware).toContainText('本次未提供可识别的 GPU 记录')
+  await expect(hardware).not.toContainText('0.0%')
+  await expect(hardware).not.toContainText('0 °C')
+  await expect(hardware).not.toContainText('No GPU metrics available')
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        gpu: [{ name: 'Fixture GPU', usage: 101, core_count: -1 }],
+        batteries: [{ percent: 101, status: 'unexpected', capacity: 0, cycle_count: 0 }],
+        thermal: { battery_temp: -1 },
+      }),
+    )
+    sessionStorage.setItem('watch-sequence', '3')
+  })
+  const battery = hardware.getByRole('group', { name: '电池样本 1', exact: true })
+  await expect(battery).toContainText('电量未知 · 状态未知')
+  await battery.getByText('电池报告详情', { exact: true }).click()
+  await expect(battery.locator('dd')).toHaveText(['未知', '未知'])
+  await expect(hardware).toContainText('使用率 未知')
+  await expect(hardware).toContainText('电池温度 未知')
+  await expect(hardware).not.toContainText('unexpected')
+  await page.evaluate(() => {
+    sessionStorage.setItem('watch-metrics', JSON.stringify({ thermal: { battery_temp: 0.01 } }))
+    sessionStorage.setItem('watch-sequence', '4')
+  })
+  await expect(hardware).toContainText('电池温度 < 0.1 °C')
+  await expect(hardware).not.toContainText('0 °C')
+  await page.evaluate(() => sessionStorage.setItem('watch-fail', 'yes'))
+  await expect(page.getByRole('alert')).toContainText('fixture 采集已中断')
+  await expect(start(page)).toBeEnabled()
+  await expect(hardware).toContainText('最后报告值 · 独立更新时间未知')
+})
+
+test('disk capacity reports use consistent bytes, retain shared-pool limits and match the overview system root', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        disks: [
+          { mount: '/', total: 8192, used: 2048, used_percent: 0, external: false },
+          {
+            mount: '/Volumes/外接 [literal] ' + 'long-name-'.repeat(20),
+            total: 4096,
+            used: 0,
+            used_percent: 100,
+            external: true,
+          },
+          {
+            mount: '/Volumes/conflict',
+            total: 1024,
+            used: 2048,
+            used_percent: 200,
+            external: false,
+          },
+        ],
+      }),
+    ),
+  )
+  await start(page).click()
+  const disks = page.getByRole('region', { name: 'Mole 磁盘空间', exact: true })
+  const rows = disks.getByRole('table', { name: '磁盘容量报告', exact: true }).locator('tbody tr')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0).locator('td')).toHaveText(['2 KB', '8 KB', '6 KB', '25.0%'])
+  await expect(rows.nth(1)).toContainText('外接线索（Mole）')
+  await expect(rows.nth(1).locator('td')).toHaveText(['0 B', '4 KB', '4 KB', '0.0%'])
+  await expect(rows.nth(2)).toContainText('已用超过总量，本次无法计算余量')
+  await expect(rows.nth(2).locator('td')).toHaveText(['未知', '1 KB', '未知', '未知'])
+  await expect(disks).toContainText('不汇总共享空间')
+  await expect(disks).toContainText('Mole 报告值 · 独立更新时间未知')
+  await disks.getByText('磁盘空间口径', { exact: true }).click()
+  await expect(disks).toContainText('多个卷也可能共享容量池')
+  await expect(disks).toContainText('不保证当前可写入这些空间')
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/status-disks-${theme}.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  await page.getByRole('button', { name: '暂停采集', exact: true }).click()
+  await expect(start(page)).toBeEnabled()
+  await expect(disks).toContainText('最后报告值 · 独立更新时间未知')
+  await expect(rows).toHaveCount(3)
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  const overview = page.getByRole('region', { name: '系统卷空间', exact: true })
+  await expect(overview).toContainText('系统卷 /')
+  await expect(overview).toContainText('6 KB')
+  await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '系统卷占用比例 25.0%')
+  expect(
+    await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts')!).length),
+  ).toBe(1)
+})
+
+test('missing and empty disk reports never turn into a disk total or connected-device verdict', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem('watch-metrics', JSON.stringify({ disks: null })),
+  )
+  await start(page).click()
+  const disks = page.getByRole('region', { name: 'Mole 磁盘空间', exact: true })
+  await expect(disks).toContainText('本次未提供磁盘报告')
+  await page.evaluate(() => {
+    sessionStorage.setItem('watch-metrics', JSON.stringify({ disks: [] }))
+    sessionStorage.setItem('watch-sequence', '2')
+  })
+  await expect(disks).toContainText('不代表没有已连接的磁盘')
+  await expect(disks.getByRole('table')).toHaveCount(0)
+  await page.evaluate(() => sessionStorage.setItem('watch-fail', 'yes'))
+  await expect(page.getByRole('alert')).toContainText('fixture 采集已中断')
+  await expect(disks).toContainText('最后报告值 · 独立更新时间未知')
+})
+
+test('overview refuses to replace the system root with another volume or clamp contradictory root bytes', async ({
+  page,
+}) => {
+  await open(page)
+  for (const kind of ['other', 'duplicate', 'conflict']) {
+    await page.evaluate((kind) => {
+      const root = { mount: '/', total: 1024, used: 2048, used_percent: 100, external: false }
+      const disks =
+        kind === 'other'
+          ? [{ ...root, mount: '/Volumes/Internal-looking', used: 512 }]
+          : kind === 'duplicate'
+            ? [
+                { ...root, used: 512 },
+                { ...root, used: 512 },
+              ]
+            : [root]
+      sessionStorage.setItem('watch-metrics', JSON.stringify({ disks }))
+    }, kind)
+    await start(page).click()
+    await expect(page.getByText('持续采集中 · 约每 2 秒更新', { exact: true })).toBeVisible()
+    await expect(process(page)).toContainText('warm-1')
+    await page.getByRole('button', { name: '概览', exact: true }).click()
+    const overview = page.getByRole('region', { name: '系统卷空间', exact: true })
+    await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '系统卷占用比例未知')
+    await expect(overview.locator('.storage-ring')).toHaveAttribute('data-unknown', 'true')
+    await expect(overview.locator('.disk-free strong')).toHaveText('未知')
+    await expect(overview).not.toContainText('100%')
+    await expect(overview).toContainText(
+      kind === 'conflict' ? '已用超过总量' : '未取得唯一的系统卷 / 报告',
+    )
+    await page.getByRole('button', { name: '系统状态', exact: true }).click()
+    await expect(start(page)).toBeEnabled()
+  }
+})

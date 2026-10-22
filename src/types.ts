@@ -83,6 +83,16 @@ export interface Snapshot {
     swap_total?: number | null
   } | null
   disks?: { mount: string; total: number; used: number; used_percent: number; external: boolean }[]
+  gpu?: { name?: string | null; usage?: number | null; core_count?: number | null }[] | null
+  batteries?:
+    | {
+        percent?: number | null
+        status?: string | null
+        cycle_count?: number | null
+        capacity?: number | null
+      }[]
+    | null
+  thermal?: { battery_temp?: number | null } | null
   disk_io?: { read_rate?: number | null; write_rate?: number | null } | null
   network?: { name: string; rx_rate_mbs?: number | null; tx_rate_mbs?: number | null }[] | null
   top_processes?: ProcessSample[] | null

@@ -84,6 +84,102 @@ fn memory_annotations_preserve_reported_counters_and_unknowns_without_inventing_
 }
 
 #[test]
+fn hardware_subset_is_bounded_keeps_unknowns_and_does_not_publish_fake_temperature_or_timestamps() {
+    let raw = br#"{"collected_at":"2026-10-22T00:00:00Z","gpu":[{"name":"Apple Fixture","usage":-1,"core_count":10,"note":"omit"}],"batteries":[{"percent":0,"status":"discharging","capacity":85,"cycle_count":42,"time_left":"omit"}],"thermal":{"cpu_temp":99,"gpu_temp":88,"battery_temp":35.5,"system_power":12},"hardware_collected_at":"omit"}"#;
+    let value = validate(raw).unwrap();
+    assert_eq!(value["gpu"][0]["usage"], -1.0);
+    assert_eq!(value["gpu"][0]["core_count"], 10);
+    assert_eq!(value["batteries"][0]["percent"], 0.0);
+    assert_eq!(value["batteries"][0]["capacity"], 85);
+    assert_eq!(value["thermal"]["battery_temp"], 35.5);
+    assert!(value["gpu"][0].get("note").is_none());
+    assert!(value["batteries"][0].get("time_left").is_none());
+    assert!(value["thermal"].get("cpu_temp").is_none());
+    assert!(value["thermal"].get("gpu_temp").is_none());
+    assert!(value["thermal"].get("system_power").is_none());
+    assert!(value.get("hardware_collected_at").is_none());
+    let missing = validate(br#"{"collected_at":"t"}"#).unwrap();
+    for field in ["gpu", "batteries", "thermal"] {
+        assert!(missing[field].is_null());
+    }
+    let empty = validate(br#"{"collected_at":"t","gpu":[],"batteries":[],"thermal":{}}"#).unwrap();
+    assert_eq!(empty["gpu"], serde_json::json!([]));
+    assert_eq!(empty["batteries"], serde_json::json!([]));
+    assert!(empty["thermal"]["battery_temp"].is_null());
+    for (field, limit) in [("gpu", 8), ("batteries", 4)] {
+        let mut value = serde_json::json!({"collected_at":"t"});
+        value[field] = serde_json::json!(vec![serde_json::json!({}); limit]);
+        assert!(validate(&serde_json::to_vec(&value).unwrap()).is_ok());
+        value[field]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({}));
+        assert!(validate(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
+    for raw in [
+        serde_json::json!({"collected_at":"t","gpu":[{"name":"x".repeat(4097)}]}),
+        serde_json::json!({"collected_at":"t","batteries":[{"status":"x".repeat(4097)}]}),
+        serde_json::json!({"collected_at":"t","gpu":[{"usage":"0"}]}),
+        serde_json::json!({"collected_at":"t","batteries":[{"percent":"0"}]}),
+        serde_json::json!({"collected_at":"t","thermal":{"battery_temp":"35"}}),
+    ] {
+        assert!(validate(&serde_json::to_vec(&raw).unwrap()).is_err());
+    }
+    let mut store = Store::default();
+    store.begin("hardware", Interval::Two).unwrap();
+    store.receive("hardware", raw).unwrap();
+    assert!(store
+        .receive("hardware", br#"{"collected_at":"t","gpu":"invalid"}"#)
+        .is_err());
+    assert_eq!(store.read("hardware").unwrap().sequence, 1);
+    assert_eq!(
+        store.read("hardware").unwrap().data.unwrap()["thermal"]["battery_temp"],
+        35.5
+    );
+}
+
+#[test]
+fn disk_reports_follow_pinned_three_record_limit_and_reject_bad_updates_without_losing_last_snapshot(
+) {
+    let disk =
+        serde_json::json!({"mount":"/", "total":4096, "used":0,"used_percent":0,"external":false});
+    let raw = serde_json::json!({"collected_at":"2026-10-22T00:00:00Z","disks":[disk.clone(),disk.clone(),disk.clone()]});
+    let mut store = Store::default();
+    store.begin("disks", Interval::Two).unwrap();
+    store
+        .receive("disks", &serde_json::to_vec(&raw).unwrap())
+        .unwrap();
+    let value = store.read("disks").unwrap().data.unwrap();
+    assert_eq!(value["disks"].as_array().unwrap().len(), 3);
+    assert_eq!(value["disks"][0]["used"], 0);
+    let mut too_many = raw.clone();
+    too_many["disks"].as_array_mut().unwrap().push(disk.clone());
+    assert!(store
+        .receive("disks", &serde_json::to_vec(&too_many).unwrap())
+        .is_err());
+    assert_eq!(store.read("disks").unwrap().sequence, 1);
+    assert_eq!(store.read("disks").unwrap().data.unwrap(), value);
+    for invalid in [
+        serde_json::json!(-1),
+        serde_json::json!(0.5),
+        serde_json::json!("0"),
+    ] {
+        let mut malformed = disk.clone();
+        malformed["used"] = invalid;
+        assert!(validate(
+            &serde_json::to_vec(&serde_json::json!({"collected_at":"t","disks":[malformed]}))
+                .unwrap()
+        )
+        .is_err());
+    }
+    assert!(validate(br#"{"collected_at":"t"}"#).unwrap()["disks"].is_null());
+    assert_eq!(
+        validate(br#"{"collected_at":"t","disks":[]}"#).unwrap()["disks"],
+        serde_json::json!([])
+    );
+}
+
+#[test]
 fn latest_only_binding_expiry_and_bad_records_preserve_last_evidence() {
     let mut store = Store::default();
     store.begin("first", Interval::Two).unwrap();
