@@ -181,6 +181,38 @@ async fn save_task_diagnostic(
 }
 
 #[tauri::command]
+async fn read_project_roots(
+    state: tauri::State<'_, AppState>,
+) -> Result<project_artifacts::roots::Report, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后读取。".into());
+    }
+    if !db::settings(&*state.db.lock().map_err(|_| "无法读取使用设置。")?)?.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次工程目录读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let home = state.home.clone();
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let (_permit, _operation) = (permit, operation);
+        let info = engine::info(&engine_root);
+        if !info.available || info.version.as_deref() != Some("1.59.1") {
+            return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
+        }
+        project_artifacts::roots::read(&home)
+    });
+    tokio::time::timeout(Duration::from_secs(6), worker)
+        .await
+        .map_err(|_| "Mole 目录读取超时，系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "Mole 目录读取未完成。")?
+}
+
+#[tauri::command]
 async fn inspect_project_artifacts(
     root: String,
     state: tauri::State<'_, AppState>,
@@ -1550,6 +1582,7 @@ pub fn run() {
             inspect_application,
             inspect_maintenance,
             inspect_project_artifacts,
+            read_project_roots,
             inspect_installers,
             inspect_installer_zip,
             inspect_installer_zip_data,

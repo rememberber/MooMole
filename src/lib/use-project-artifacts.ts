@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from './api'
+import { initialProjectFilters, type ProjectArtifactFilters } from './project-artifact-view'
+import { readProjectRoots, type ProjectRootsReport } from './project-roots'
 import {
   readProjectArtifacts,
   readProjectMeasurement,
   type ProjectArtifactsReport,
   type ProjectMeasurement,
 } from './project-artifacts'
-export function useProjectArtifacts(active: boolean) {
+export function useProjectArtifacts(active: boolean, home: string) {
+  const [loadingRoots, setLoadingRoots] = useState(false)
+  const [roots, setRoots] = useState<ProjectRootsReport | null>(null)
+  const [rootsError, setRootsError] = useState('')
+  const [filters, setFilters] = useState<ProjectArtifactFilters>(initialProjectFilters)
   const [root, setRoot] = useState('')
   const [report, setReport] = useState<ProjectArtifactsReport | null>(null)
   const [reading, setReading] = useState(false)
@@ -24,6 +30,7 @@ export function useProjectArtifacts(active: boolean) {
       epoch.current++
       running.current = false
       picking.current = false
+      setLoadingRoots(false)
       setMeasuring('')
       setReading(false)
       setChoosing(false)
@@ -32,6 +39,45 @@ export function useProjectArtifacts(active: boolean) {
       epoch.current++
     }
   }, [active])
+  function selectRoot(path: string) {
+    if (!active || running.current || picking.current || !roots?.paths.includes(path)) return
+    epoch.current++
+    setRoot(path)
+    setFilters(initialProjectFilters)
+    setReport(null)
+    setMeasurements({})
+    setError('')
+  }
+  async function loadRoots() {
+    if (!active || !home || running.current || picking.current) return
+    running.current = true
+    setLoadingRoots(true)
+    setRoots(null)
+    setRootsError('')
+    const ticket = ++epoch.current,
+      began = Date.now()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const value = await Promise.race([
+        api.readProjectRoots(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Mole 目录读取未及时返回，系统读取可能仍在结束，请稍后重试。')),
+            8000,
+          )
+        }),
+      ])
+      if (ticket === epoch.current) setRoots(readProjectRoots(value, home, began))
+    } catch (error) {
+      if (ticket === epoch.current) setRootsError(String(error))
+    } finally {
+      clearTimeout(timer)
+      if (ticket === epoch.current) {
+        running.current = false
+        setLoadingRoots(false)
+      }
+    }
+  }
   async function choose() {
     if (!active || running.current || picking.current) return
     picking.current = true
@@ -42,6 +88,7 @@ export function useProjectArtifacts(active: boolean) {
       const selected = await api.chooseDirectory()
       if (ticket === epoch.current && selected) {
         setRoot(selected.replace(/\/+$/, '') || '/')
+        setFilters(initialProjectFilters)
         setReport(null)
         setMeasurements({})
       }
@@ -73,7 +120,10 @@ export function useProjectArtifacts(active: boolean) {
           )
         }),
       ])
-      if (ticket === epoch.current) setReport(readProjectArtifacts(value, root, began))
+      if (ticket === epoch.current) {
+        setReport(readProjectArtifacts(value, root, began))
+        setFilters((current) => ({ ...current, page: 1 }))
+      }
     } catch (error) {
       if (ticket === epoch.current) setError(String(error))
     } finally {
@@ -126,5 +176,23 @@ export function useProjectArtifacts(active: boolean) {
       }
     }
   }
-  return { root, report, reading, choosing, error, choose, scan, measuring, measurements, measure }
+  return {
+    root,
+    filters,
+    setFilters,
+    report,
+    reading,
+    choosing,
+    error,
+    choose,
+    scan,
+    measuring,
+    measurements,
+    measure,
+    roots,
+    rootsError,
+    loadingRoots,
+    loadRoots,
+    selectRoot,
+  }
 }

@@ -1,6 +1,7 @@
+import { projectArtifactView, type ProjectArtifactFilters } from '../lib/project-artifact-view'
+import type { ProjectRootsReport } from '../lib/project-roots'
 import {
   projectCatalog,
-  groupProjectArtifacts,
   projectContextText,
   projectIncompleteReason,
   projectMeasurementReason,
@@ -10,6 +11,11 @@ import {
 import { bytes, dateTime } from '../lib/format'
 export function ProjectArtifacts({
   report,
+  filters,
+  onFiltersChange,
+  roots,
+  rootsError,
+  loadingRoots,
   root,
   reading,
   error,
@@ -19,6 +25,11 @@ export function ProjectArtifacts({
   onMeasure,
   onAnalyze,
 }: {
+  filters: ProjectArtifactFilters
+  onFiltersChange: (filters: ProjectArtifactFilters) => void
+  roots: ProjectRootsReport | null
+  rootsError: string
+  loadingRoots: boolean
   report: ProjectArtifactsReport | null
   root: string
   reading: boolean
@@ -29,8 +40,31 @@ export function ProjectArtifacts({
   onMeasure: (path: string) => void
   onAnalyze: (path: string) => void
 }) {
+  const view = projectArtifactView(report?.items ?? [], measurements, filters)
+  const locked = reading || loadingRoots || !!measuring
+  const clearFilters = () => onFiltersChange({ ...filters, query: '', context: '', page: 1 })
   return (
     <section aria-label="工程产物结果">
+      {loadingRoots && (
+        <p className="muted" role="status">
+          正在读取 Mole 保存的目录；不会扫描这些目录…
+        </p>
+      )}
+      {rootsError && (
+        <p className="notice" role="alert">
+          {rootsError} 可继续手动选择目录；先前的配置列表已撤回。
+        </p>
+      )}
+      {roots && (
+        <p className="muted" role="status">
+          {roots.state === 'missing'
+            ? 'Mole 尚未保存项目目录。可手动选择目录。'
+            : roots.paths.length === 0
+              ? 'Mole 保存的目录列表为空。可手动选择目录。'
+              : `已读取 ${roots.paths.length} 处 Mole 目录；从顶部逐处选择后再扫描。目录是否可访问尚未检查。`}
+        </p>
+      )}
+
       {error && (
         <p className="notice" role="alert">
           {error}
@@ -67,14 +101,85 @@ export function ProjectArtifacts({
               本次未覆盖：{projectIncompleteReason(report)}。可缩小目录后重试，未显示不代表不存在。
             </p>
           )}
+          {report.items.length > 0 && (
+            <>
+              <div className="project-filters" role="group" aria-label="工程产物列表筛选">
+                <input
+                  aria-label="筛选工程产物"
+                  placeholder="名称或路径…"
+                  maxLength={256}
+                  value={filters.query}
+                  disabled={locked}
+                  onChange={(event) =>
+                    onFiltersChange({ ...filters, query: event.target.value, page: 1 })
+                  }
+                />
+                <select
+                  aria-label="工程产物类型线索"
+                  value={filters.context}
+                  disabled={locked}
+                  onChange={(event) =>
+                    onFiltersChange({
+                      ...filters,
+                      context: event.target.value as ProjectArtifactFilters['context'],
+                      page: 1,
+                    })
+                  }
+                >
+                  <option value="">全部类型线索</option>
+                  <option value="nodeContext">Node 依赖线索</option>
+                  <option value="rustContext">Rust 构建线索</option>
+                  <option value="nameOnly">用途待确认</option>
+                </select>
+                <select
+                  aria-label="工程产物组内排序"
+                  value={filters.sort}
+                  disabled={locked}
+                  onChange={(event) =>
+                    onFiltersChange({
+                      ...filters,
+                      sort: event.target.value as ProjectArtifactFilters['sort'],
+                      page: 1,
+                    })
+                  }
+                >
+                  <option value="path">组内路径顺序</option>
+                  <option value="size">组内已测占用从大到小</option>
+                </select>
+                {(filters.query || filters.context) && (
+                  <button
+                    className="button secondary compact"
+                    disabled={locked}
+                    onClick={clearFilters}
+                  >
+                    清除筛选
+                  </button>
+                )}
+              </div>
+              <p className="muted" role="status">
+                显示 {view.start}–{view.end} / {view.total} 个匹配目录 · 本次共发现{' '}
+                {report.items.length} 处
+              </p>
+              {filters.sort === 'size' && (
+                <p className="muted">
+                  仅比较组内已测文件占用，可能包含部分或上次测量；未测量、占用未确认排在组内末尾，不代表可释放空间。
+                </p>
+              )}
+            </>
+          )}
           {report.items.length === 0 ? (
             <div className="empty-state">
               <h3>本次未发现匹配目录</h3>
               <p className="muted">这里只查找固定 Mole 版本的产物名称，不代表没有工程产物。</p>
             </div>
+          ) : view.total === 0 ? (
+            <div className="empty-state">
+              <h3>当前筛选没有匹配目录</h3>
+              <p className="muted">可清除筛选查看本次发现的目录；筛选不会扩大扫描范围。</p>
+            </div>
           ) : (
             <div className="project-artifact-list">
-              {groupProjectArtifacts(report.items).map((group) => (
+              {view.groups.map((group) => (
                 <section
                   className="project-group"
                   key={group.key}
@@ -195,6 +300,27 @@ export function ProjectArtifacts({
               ))}
             </div>
           )}
+          {view.pages > 1 && (
+            <div className="project-pagination" role="group" aria-label="工程产物分页">
+              <span className="muted">
+                第 {view.page} / {view.pages} 页 · 每页最多 50 项
+              </span>
+              <button
+                className="button secondary compact"
+                disabled={locked || view.page <= 1}
+                onClick={() => onFiltersChange({ ...filters, page: view.page - 1 })}
+              >
+                上一页
+              </button>
+              <button
+                className="button secondary compact"
+                disabled={locked || view.page >= view.pages}
+                onClick={() => onFiltersChange({ ...filters, page: view.page + 1 })}
+              >
+                下一页
+              </button>
+            </div>
+          )}
         </>
       )}
       <details className="origin-details">
@@ -207,6 +333,9 @@ export function ProjectArtifacts({
         <p>
           相邻 package.json / Cargo.toml 仅提供类型线索，不证明可重建、Git
           归属或清理许可。没有计算可回收大小、判断七天保留规则、执行 purge 或改写 purge_paths。
+          “读取 Mole 目录”只读取当前账户 ~/.config/mole/purge_paths：最多 64 KiB、256 行、64 处。
+          识别空行、整行注释、绝对路径与 ~/；不运行 Shell、自动发现目录或校正路径大小写。
+          配置中的目标在选择后仍需手动扫描，链接、权限和扫描范围继续由扫描端核对。
         </p>
         <p>
           测量由用户逐项发起：最多 32 层、20000 个子项、约 3

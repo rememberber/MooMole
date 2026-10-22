@@ -56,6 +56,10 @@ export const inspectInstallers = (root: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_installers', { root })
     : Promise.reject(new Error('请在桌面 App 中扫描安装包。'))
+export const readProjectRoots = (): Promise<unknown> =>
+  desktop
+    ? invoke('read_project_roots')
+    : Promise.reject(new Error('请在桌面 App 中读取 Mole 目录。'))
 export const inspectProjectArtifacts = (root: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_project_artifacts', { root })

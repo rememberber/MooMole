@@ -3190,3 +3190,29 @@ input[type='checkbox'] {
 .installer-filters select {
   max-width: 210px;
 }
+
+.project-root-select {
+  width: 220px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.project-filters,
+.project-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.project-filters input {
+  flex: 1;
+  min-width: 160px;
+}
+.project-filters select {
+  max-width: 100%;
+  min-width: 0;
+}
+.project-pagination {
+  justify-content: flex-end;
+}

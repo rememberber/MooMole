@@ -185,7 +185,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('overview')
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
-  const projects = useProjectArtifacts(page === 'projects')
+  const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
   const installers = useInstallers(page === 'installers', data?.home ?? '')
   const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
   useEffect(() => {
@@ -892,7 +892,49 @@ export default function App() {
                     <button
                       className="button secondary compact"
                       disabled={
-                        !canRun || projects.reading || projects.choosing || !!projects.measuring
+                        !canRun ||
+                        projects.reading ||
+                        projects.choosing ||
+                        !!projects.measuring ||
+                        projects.loadingRoots
+                      }
+                      onClick={() => void projects.loadRoots()}
+                      title="只读取 Mole 已保存的项目目录，不扫描或修改配置"
+                    >
+                      {projects.loadingRoots ? '正在读取…' : '读取 Mole 目录'}
+                    </button>
+                    {projects.roots && projects.roots.paths.length > 0 && (
+                      <select
+                        className="project-root-select"
+                        aria-label="Mole 已保存的项目目录"
+                        value=""
+                        disabled={
+                          !canRun ||
+                          projects.reading ||
+                          projects.choosing ||
+                          !!projects.measuring ||
+                          projects.loadingRoots
+                        }
+                        onChange={(event) => projects.selectRoot(event.target.value)}
+                      >
+                        <option value="" disabled>
+                          选择 Mole 目录…
+                        </option>
+                        {projects.roots.paths.map((path) => (
+                          <option value={path} key={path}>
+                            {path}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      className="button secondary compact"
+                      disabled={
+                        !canRun ||
+                        projects.reading ||
+                        projects.choosing ||
+                        !!projects.measuring ||
+                        projects.loadingRoots
                       }
                       onClick={() => void projects.choose()}
                     >
@@ -903,6 +945,7 @@ export default function App() {
                       className="button secondary compact"
                       disabled={
                         !canRun ||
+                        projects.loadingRoots ||
                         projects.reading ||
                         projects.choosing ||
                         !!projects.measuring ||
@@ -1417,11 +1460,16 @@ export default function App() {
 
           {page === 'projects' && (
             <ProjectArtifacts
+              filters={projects.filters}
+              onFiltersChange={projects.setFilters}
+              roots={projects.roots}
+              rootsError={projects.rootsError}
+              loadingRoots={projects.loadingRoots}
               root={projects.root}
               report={projects.report}
               reading={projects.reading}
               error={projects.error}
-              canAnalyze={canRun}
+              canAnalyze={canRun && !projects.loadingRoots && !projects.choosing}
               measuring={projects.measuring}
               measurements={projects.measurements}
               onMeasure={projects.measure}

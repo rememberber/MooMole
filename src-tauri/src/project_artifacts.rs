@@ -11,6 +11,7 @@ use std::{
 };
 mod context;
 pub mod measurement;
+pub mod roots;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_CANDIDATES: usize = 256;
 const MAX_DEPTH: usize = 6;
