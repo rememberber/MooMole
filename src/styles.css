@@ -629,6 +629,52 @@ h3 {
   margin-bottom: 14px;
   overflow: hidden;
 }
+.status-memory {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.status-memory p {
+  margin: 4px 0;
+}
+.status-memory-pressure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+.status-memory-pressure strong {
+  font-size: 11px;
+  margin: 0;
+  letter-spacing: normal;
+}
+.status-memory-pressure[data-pressure='warn'] strong,
+.status-memory-pressure[data-pressure='critical'] strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.status-memory-details {
+  margin-top: 6px;
+}
+.status-memory-details summary {
+  cursor: pointer;
+  color: var(--subtle);
+}
+.status-memory-details dl {
+  margin: 8px 0;
+}
+.status-memory-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.status-memory-details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
 .status-rate-group {
   padding: 16px;
   min-width: 0;

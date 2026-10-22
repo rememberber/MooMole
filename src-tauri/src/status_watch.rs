@@ -170,6 +170,9 @@ struct Memory {
     used: Option<u64>,
     used_percent: Option<f64>,
     pressure: Option<String>,
+    available: Option<u64>,
+    swap_used: Option<u64>,
+    swap_total: Option<u64>,
 }
 #[derive(Deserialize, Serialize)]
 struct Disk {

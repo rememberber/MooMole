@@ -40,6 +40,50 @@ fn io_and_network_fields_preserve_zero_missing_and_limits_without_exposing_ip_or
 }
 
 #[test]
+fn memory_annotations_preserve_reported_counters_and_unknowns_without_inventing_freshness() {
+    let raw = br#"{"collected_at":"2026-10-22T00:00:00Z","memory":{"pressure":"warn","available":1024,"swap_used":0,"swap_total":2048,"pressure_collected_at":"not-a-supported-field","private_detail":"omit"}}"#;
+    let report = validate(raw).unwrap();
+    let memory = &report["memory"];
+    assert_eq!(memory["pressure"], "warn");
+    assert_eq!(memory["available"], 1024);
+    assert_eq!(memory["swap_used"], 0);
+    assert_eq!(memory["swap_total"], 2048);
+    assert!(memory.get("pressure_collected_at").is_none());
+    assert!(memory.get("private_detail").is_none());
+    for pressure in ["normal", "critical", "", "unsupported"] {
+        let raw = serde_json::json!({"collected_at":"2026-10-22T00:00:00Z", "memory":{"pressure":pressure}});
+        let report = validate(&serde_json::to_vec(&raw).unwrap()).unwrap();
+        assert_eq!(report["memory"]["pressure"], pressure);
+        for key in ["available", "swap_used", "swap_total"] {
+            assert!(report["memory"][key].is_null());
+        }
+    }
+    let mut store = Store::default();
+    store.begin("memory", Interval::Two).unwrap();
+    store.receive("memory", raw).unwrap();
+    for field in ["available", "swap_used", "swap_total"] {
+        for invalid in [
+            serde_json::json!(-1),
+            serde_json::json!(0.5),
+            serde_json::json!("0"),
+        ] {
+            let mut value = serde_json::json!({"collected_at":"2026-10-22T00:00:00Z","memory":{}});
+            value["memory"][field] = invalid;
+            assert!(store
+                .receive("memory", &serde_json::to_vec(&value).unwrap())
+                .is_err());
+            assert_eq!(store.read("memory").unwrap().sequence, 1);
+            assert_eq!(
+                store.read("memory").unwrap().data.unwrap()["memory"]["pressure"],
+                "warn"
+            );
+        }
+    }
+    let oversized = serde_json::json!({"collected_at":"t", "memory":{"pressure":"x".repeat(4097)}});
+    assert!(validate(&serde_json::to_vec(&oversized).unwrap()).is_err());
+}
+
+#[test]
 fn latest_only_binding_expiry_and_bad_records_preserve_last_evidence() {
     let mut store = Store::default();
     store.begin("first", Interval::Two).unwrap();

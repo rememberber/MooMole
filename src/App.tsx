@@ -114,6 +114,9 @@ const StatusTrend = deferredView(async () => ({
 const StatusRates = deferredView(async () => ({
   default: (await import('./components/StatusRates')).StatusRates,
 }))
+const StatusMemory = deferredView(async () => ({
+  default: (await import('./components/StatusMemory')).StatusMemory,
+}))
 
 const navigation = [
   ['overview', LayoutGrid, '概览'],
@@ -1399,6 +1402,10 @@ export default function App() {
                       usage={memoryUsage}
                     >
                       <StatusTrend samples={statusWatch.samples} metric="memory" />
+                      <StatusMemory
+                        memory={snapshot.memory}
+                        stale={statusWatch.phase !== 'running' || statusWatch.stale}
+                      />
                     </Metric>
                   </div>
                   {statusWatch.samples.length > 0 && (

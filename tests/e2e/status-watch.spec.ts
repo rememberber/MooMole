@@ -405,3 +405,113 @@ test('rate trends separate directions and interfaces, keep missing gaps and reta
   ).toBe(2)
   await page.getByRole('button', { name: '暂停采集', exact: true }).click()
 })
+
+test('memory pressure stays separate from occupancy, preserves unknown freshness and exposes counters on demand', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        memory: {
+          total: 8192,
+          used: 8192,
+          used_percent: 100,
+          pressure: 'normal',
+          available: 1024,
+          swap_used: 0,
+          swap_total: 0,
+        },
+      }),
+    ),
+  )
+  await start(page).click()
+  const memory = page.getByRole('group', { name: '内存压力与交换空间', exact: true })
+  await expect(memory).toContainText('正常')
+  await expect(memory).toContainText('Mole 报告值 · 更新时间未知')
+  await expect(memory.getByText('可用内存（报告值）', { exact: true })).not.toBeVisible()
+  await memory.getByText('内存指标说明', { exact: true }).click()
+  await expect(memory).toContainText('1 KB')
+  await expect(memory.locator('dd')).toHaveText(['1 KB', '0 B', '0 B'])
+  await expect(memory).toContainText('零值也可能来自采集失败')
+  await expect(memory).toContainText('正常也不保证当前仍正常')
+  await expect(memory).not.toContainText('可查看下方进程样本')
+  for (const [sequence, pressure, label] of [
+    [2, 'warn', '偏高'],
+    [3, 'critical', '很高'],
+  ] as const) {
+    await page.evaluate(
+      ({ sequence, pressure }) => {
+        sessionStorage.setItem(
+          'watch-metrics',
+          JSON.stringify({ memory: { used_percent: 0, pressure } }),
+        )
+        sessionStorage.setItem('watch-sequence', String(sequence))
+      },
+      { sequence, pressure },
+    )
+    await expect(memory.locator('.status-memory-pressure strong')).toHaveText(label)
+    await expect(memory).toContainText('保存工作后按需关闭暂时不用的应用')
+    await expect(memory.locator('dd')).toHaveText(['未知', '未知', '未知'])
+  }
+  await page.setViewportSize({ width: 960, height: 780 })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/status-memory-${theme}.png`,
+      animations: 'disabled',
+      fullPage: true,
+    })
+  }
+  await page.getByRole('button', { name: '暂停采集', exact: true }).click()
+  await expect(start(page)).toBeEnabled()
+  await expect(memory).toContainText('很高')
+  await expect(memory).toContainText('最后报告值 · 更新时间未知')
+  expect(
+    await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts')!).length),
+  ).toBe(1)
+})
+
+test('missing, unsupported and contradictory memory fields cannot become healthy or zero claims', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() =>
+    sessionStorage.setItem('watch-metrics', JSON.stringify({ memory: null })),
+  )
+  await start(page).click()
+  const memory = page.getByRole('group', { name: '内存压力与交换空间', exact: true })
+  await expect(memory.locator('.status-memory-pressure strong')).toHaveText('未知')
+  await expect(memory).toContainText('不能用占用比例推断')
+  await memory.getByText('内存指标说明', { exact: true }).click()
+  await expect(memory.locator('dd')).toHaveText(['未知', '未知', '未知'])
+  await expect(memory).not.toContainText('0 B')
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      'watch-metrics',
+      JSON.stringify({
+        memory: {
+          total: 1024,
+          available: 2048,
+          used_percent: 1,
+          pressure: 'unexpected',
+          swap_used: 2048,
+          swap_total: 1024,
+        },
+      }),
+    )
+    sessionStorage.setItem('watch-sequence', '2')
+  })
+  await expect(memory).toContainText('交换字段不一致，本次无法确认')
+  await expect(memory.locator('.status-memory-pressure strong')).toHaveText('未知')
+  await expect(memory.locator('dd')).toHaveText(['未知', '未知', '未知'])
+  await expect(memory).not.toContainText('unexpected')
+  await page.evaluate(() => sessionStorage.setItem('watch-fail', 'yes'))
+  await expect(page.getByRole('alert')).toContainText('fixture 采集已中断')
+  await expect(start(page)).toBeEnabled()
+  await expect(memory).toContainText('最后报告值 · 更新时间未知')
+})

@@ -73,7 +73,15 @@ export interface Snapshot {
   health_score?: number
   hardware?: { model?: string; cpu_model?: string; total_ram?: string; os_version?: string }
   cpu?: { usage?: number; logical_cpu?: number; per_core_estimated?: boolean | null }
-  memory?: { total?: number; used?: number; used_percent?: number; pressure?: string }
+  memory?: {
+    total?: number
+    used?: number
+    used_percent?: number
+    pressure?: string | null
+    available?: number | null
+    swap_used?: number | null
+    swap_total?: number | null
+  } | null
   disks?: { mount: string; total: number; used: number; used_percent: number; external: boolean }[]
   disk_io?: { read_rate?: number | null; write_rate?: number | null } | null
   network?: { name: string; rx_rate_mbs?: number | null; tx_rate_mbs?: number | null }[] | null
