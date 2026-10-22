@@ -14,6 +14,8 @@ use std::{
     time::{Duration, Instant},
 };
 pub mod connection;
+mod file;
+pub mod image;
 pub mod usage;
 pub mod zip;
 const MAX_ENTRIES: usize = 10_000;

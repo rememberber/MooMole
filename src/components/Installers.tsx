@@ -6,6 +6,8 @@ import {
   installerIncompleteReason,
   zipInspectionText,
   zipDataInspectionText,
+  imageInspectionText,
+  type ImageObservations,
   type ZipDataObservations,
   connectionInspectionText,
   usageInspectionText,
@@ -26,6 +28,8 @@ export function Installers({
   usageObservations,
   onCheckUsage,
   zipObservations,
+  imageObservations,
+  onCheckImage,
   zipDataObservations,
   onCheckZipData,
   onCheckZip,
@@ -42,6 +46,8 @@ export function Installers({
   onCheckUsage: (path: string) => void
   connectionObservations: ConnectionObservations
   onCheckConnection: (path: string) => void
+  imageObservations: ImageObservations
+  onCheckImage: (path: string) => void
   zipDataObservations: ZipDataObservations
   onCheckZipData: (path: string) => void
   zipObservations: ZipObservations
@@ -177,6 +183,42 @@ export function Installers({
                           : '未命中客户端保护；其他清理条件未确认'}
                       {item.sharing === 'shared' && ' · 共享硬链接'}
                     </span>
+                    {item.extension === 'dmg' && (
+                      <details className="origin-details">
+                        <summary>
+                          {imageObservations[item.path]?.report
+                            ? imageInspectionText(imageObservations[item.path].report!)
+                            : imageObservations[item.path]?.error
+                              ? '本次 DMG 校验未确认'
+                              : 'DMG 数据尚未校验'}
+                        </summary>
+                        <p>
+                          只读核对映像内部 CRC32，不挂载或安装。最多 128 MB、4
+                          秒运行预算；内部校验和不覆盖所有文件字节，通过不代表签名可信、未被使用或可清理。
+                        </p>
+                        {imageObservations[item.path]?.report && (
+                          <p className="muted">
+                            上次 DMG 校验 {dateTime(imageObservations[item.path].report!.checkedAt)}
+                          </p>
+                        )}
+                        {imageObservations[item.path]?.error && (
+                          <p className="notice" role="alert">
+                            {imageObservations[item.path].error} 先前 DMG 校验结果已清除。
+                          </p>
+                        )}
+                        <button
+                          className="button secondary compact"
+                          disabled={reading || !!checking || item.sharing === 'shared'}
+                          onClick={() => onCheckImage(item.path)}
+                        >
+                          {checking === item.path && checkKind === 'image'
+                            ? '正在校验…'
+                            : imageObservations[item.path]
+                              ? '重新校验 DMG'
+                              : '校验 DMG 数据'}
+                        </button>
+                      </details>
+                    )}
                     {zipObservations[item.path]?.report && (
                       <span className="muted">
                         上次检查 {dateTime(zipObservations[item.path].report!.checkedAt)} ·{' '}
@@ -364,6 +406,14 @@ export function Installers({
           ZIP 执行，2 秒运行/CPU 预算；这是压缩文件大小门槛，不是解压数据量上限。
           加密、损坏、超时、异常或读取不完整均保留未知；测试通过不证明签名、用途、冗余或执行资格。
           重新校验、重查 ZIP 条目、重扫或换范围会撤回旧数据结果。
+        </p>
+        <p>
+          DMG 数据校验单独使用系统 hdiutil verify 的 plist 结果，仅完整成功且 CRC32
+          的实际/预期值相等才显示匹配。
+          不读取或写入校验缓存，不挂载、不安装、不接收密码或验证签名；最多 128 MB 映像、4 秒运行/CPU
+          预算。
+          缺少或不支持校验和、加密、损坏、受限、超时与异常报告保留未知；内部校验和不覆盖所有文件字节，不是来源认证或可清理证明。
+          重试、重扫或换范围撤回旧结果，检查后状态仍可能变化。
         </p>
         <p>
           DMG/ISO 的“检查连接”只读取系统 DiskImages

@@ -31,7 +31,9 @@ export function ExecutionHistory({
   onRecordsChange,
   onCancel,
   onRevealReceipt,
+  onReady,
 }: {
+  onReady?: (section: HTMLElement | null) => void
   initialRecords: ExecutionSummary[]
   loadRecords: () => Promise<ExecutionSummary[]>
   loadDetail: (id: string) => Promise<ExecutionDetail>
@@ -136,6 +138,7 @@ export function ExecutionHistory({
   return (
     <>
       <section
+        ref={onReady}
         id="execution-records"
         tabIndex={-1}
         className="card saved-plans execution-history"

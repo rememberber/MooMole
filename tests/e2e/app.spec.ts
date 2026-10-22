@@ -68,7 +68,7 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   await expect(page.getByRole('button', { name: 'Projects 文件夹' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Library 文件夹' })).toHaveCount(0)
   await page.getByRole('button', { name: '清理', exact: true }).click()
-  await expect(page.getByText('当前只提供扫描与审阅', { exact: false })).toBeVisible()
+  await expect(page.getByText('扫描与审阅不会删除文件', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: '重新扫描', exact: true })).toBeDisabled()
   expect(errors).toEqual([])
 })

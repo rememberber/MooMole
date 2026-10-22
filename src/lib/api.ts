@@ -28,6 +28,10 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const inspectInstallerImage = (root: string, path: string): Promise<unknown> =>
+  desktop
+    ? invoke('inspect_installer_image', { root, path })
+    : Promise.reject(new Error('请在桌面 App 中校验 DMG。'))
 export const inspectInstallerUsage = (root: string, path: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_installer_usage', { root, path })

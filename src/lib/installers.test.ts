@@ -5,6 +5,7 @@ import {
   installerZipDataInspection,
   installerConnectionInspection,
   installerUsageInspection,
+  installerImageInspection,
 } from '../../tests/e2e/fixtures/installers'
 import {
   readInstallers,
@@ -19,6 +20,8 @@ import {
   connectionInspectionText,
   readInstallerUsage,
   usageInspectionText,
+  readInstallerImage,
+  imageInspectionText,
 } from './installers'
 it('binds installer metadata to scope, time, supported names and non-executable state', () => {
   const fixture = installersReport()
@@ -324,5 +327,42 @@ it('ZIP data tests bind scope and time, distinguish passed from unknown, and nev
         fixture.checkedAt,
         fixture.fileStamp,
       ),
+    ).toThrow()
+})
+
+it('DMG checksum observations bind scope and time without admitting trust, execution or unrecognized reports', () => {
+  const fixture = installerImageInspection()
+  const read = (r: typeof fixture) =>
+    readInstallerImage(r, fixture.root, fixture.path, fixture.checkedAt, fixture.checkedAt)
+  expect(read(fixture)).toEqual(fixture)
+  expect(imageInspectionText(fixture)).toBe('DMG 内部校验和匹配；签名与用途未确认')
+  for (const patch of [
+    { protocol: 2 },
+    { revision: 'other' },
+    { root: '/other' },
+    { path: '/other/a.dmg' },
+    { fileStamp: 'bad' },
+    { checkedAt: fixture.checkedAt - 6000 },
+    { checkedAt: NaN },
+    { canExecute: true },
+    { state: 'safe' },
+    { state: 'corrupt' },
+    { state: 'unknown' },
+    { reason: 'checksumUnconfirmed' },
+  ])
+    expect(() => read({ ...fixture, ...patch } as typeof fixture)).toThrow()
+  for (const reason of [
+    'fileSizeLimit',
+    'verificationUnavailable',
+    'checksumUnconfirmed',
+    'reportUncertain',
+  ] as const) {
+    const r = read({ ...fixture, state: 'unknown', reason })
+    expect(r.canExecute).toBe(false)
+    expect(imageInspectionText(r)).not.toContain('匹配；签名')
+  }
+  for (const path of ['/fixture/downloads/a/b/test.dmg', '/fixture/downloads/test.iso'])
+    expect(() =>
+      readInstallerImage({ ...fixture, path }, fixture.root, path, fixture.checkedAt),
     ).toThrow()
 })

@@ -6,11 +6,12 @@ import {
   installerZipDataInspection,
   installerConnectionInspection,
   installerUsageInspection,
+  installerImageInspection,
 } from './fixtures/installers'
 async function install(page: Page) {
   await installTaskMock(page, 'analyze')
   await page.addInitScript(
-    ({ fixture, zip, zipData, connection, usage }) => {
+    ({ fixture, zip, zipData, connection, usage, image }) => {
       const native = (
         window as unknown as {
           __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> }
@@ -23,6 +24,24 @@ async function install(page: Page) {
         if (command === 'reveal_path') {
           sessionStorage.setItem('installer-reveal', JSON.stringify(args))
           return null
+        }
+        if (command === 'inspect_installer_image') {
+          sessionStorage.setItem('image-args', JSON.stringify(args))
+          if (sessionStorage.getItem('image-fail')) throw new Error('fixture DMG 文件已变化')
+          const result = structuredClone({ ...image, checkedAt: Date.now() })
+          if (sessionStorage.getItem('image-unknown')) {
+            result.state = 'unknown'
+            result.reason = 'checksumUnconfirmed'
+          }
+          if (sessionStorage.getItem('image-large')) {
+            result.state = 'unknown'
+            result.reason = 'fileSizeLimit'
+          }
+          if (sessionStorage.getItem('image-defer'))
+            return new Promise((resolve) =>
+              Object.assign(window, { finishImage: () => resolve(result) }),
+            )
+          return result
         }
         if (command === 'inspect_installer_usage') {
           sessionStorage.setItem('usage-args', JSON.stringify(args))
@@ -124,6 +143,7 @@ async function install(page: Page) {
       zipData: installerZipDataInspection(),
       connection: installerConnectionInspection(),
       usage: installerUsageInspection(),
+      image: installerImageInspection(),
     },
   )
   await page.goto('/')
@@ -509,4 +529,65 @@ test('ZIP data test locks other operations and filters and ignores late results 
   await expect(zip).toContainText('ZIP 数据尚未校验')
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   await expect(zip).not.toContainText('ZIP 数据尚未校验')
+})
+
+async function prepareImageData(page: Page) {
+  const image = await prepareConnection(page)
+  expect(await page.evaluate(() => sessionStorage.getItem('image-args'))).toBeNull()
+  await image.getByText('DMG 数据尚未校验', { exact: true }).click()
+  expect(await page.evaluate(() => sessionStorage.getItem('image-args'))).toBeNull()
+  return image
+}
+test('DMG checksum verification is explicit and scoped and retry failure withdraws passed while connection evidence stays independent', async ({
+  page,
+}) => {
+  const image = await prepareImageData(page)
+  await image.getByRole('button', { name: '检查连接', exact: true }).click()
+  await image.getByRole('button', { name: '校验 DMG 数据', exact: true }).click()
+  await expect(image).toContainText('DMG 内部校验和匹配；签名与用途未确认')
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('image-args')!))).toEqual({
+    root: '/fixture/downloads',
+    path: '/fixture/downloads/Tool.dmg',
+  })
+  await page.evaluate(() => sessionStorage.setItem('image-fail', 'yes'))
+  await image.getByRole('button', { name: '重新校验 DMG', exact: true }).click()
+  await expect(image.getByRole('alert')).toContainText('先前 DMG 校验结果已清除')
+  await expect(image).not.toContainText('DMG 内部校验和匹配')
+  await expect(image).toContainText('系统报告此路径已连接')
+  await page.setViewportSize({ width: 960, height: 680 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+test('DMG missing checksums and size limits remain unknown and rescan or changed scope clears data evidence', async ({
+  page,
+}) => {
+  const image = await prepareImageData(page)
+  await page.evaluate(() => sessionStorage.setItem('image-unknown', 'yes'))
+  await image.getByRole('button', { name: '校验 DMG 数据', exact: true }).click()
+  await expect(image).toContainText('DMG 校验和未确认：缺失、不支持或不匹配')
+  await page.evaluate(() => sessionStorage.setItem('image-large', 'yes'))
+  await image.getByRole('button', { name: '重新校验 DMG', exact: true }).click()
+  await expect(image).toContainText('DMG 文件超过 128 MB 检查上限')
+  await page.getByRole('button', { name: '扫描目录', exact: true }).click()
+  await expect(image).toContainText('DMG 数据尚未校验')
+  await expect(image).not.toContainText('上次 DMG 校验')
+  await page
+    .getByRole('combobox', { name: '安装包查找位置', exact: true })
+    .selectOption('downloads')
+  await expect(page.getByRole('article')).toHaveCount(0)
+})
+test('DMG verification locks range and other checks and ignores late data after navigation', async ({
+  page,
+}) => {
+  const image = await prepareImageData(page)
+  await page.evaluate(() => sessionStorage.setItem('image-defer', 'yes'))
+  await image.getByRole('button', { name: '校验 DMG 数据', exact: true }).click()
+  await expect(image.getByRole('button', { name: '正在校验…', exact: true })).toBeDisabled()
+  await expect(image.getByRole('button', { name: '检查连接', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await page.evaluate(() => (window as unknown as { finishImage: () => void }).finishImage())
+  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await expect(image).not.toContainText('DMG 内部校验和匹配')
+  await expect(image).toContainText('DMG 数据尚未校验')
 })

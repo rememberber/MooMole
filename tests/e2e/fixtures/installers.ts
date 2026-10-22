@@ -5,6 +5,7 @@ import {
   type InstallerZipDataInspection,
   type InstallerConnectionInspection,
   type InstallerUsageInspection,
+  type InstallerImageInspection,
 } from '../../../src/lib/installers'
 export function installersReport(): InstallersReport {
   return {
@@ -109,6 +110,21 @@ export function installerZipDataInspection(): InstallerZipDataInspection {
     path: r.path,
     checkedAt: Date.now(),
     fileStamp: r.fileStamp,
+    state: 'passed',
+    reason: null,
+    canExecute: false,
+  }
+}
+
+export function installerImageInspection(): InstallerImageInspection {
+  const r = installersReport()
+  return {
+    protocol: 1,
+    revision: r.revision,
+    root: r.root,
+    path: r.items[0].path,
+    checkedAt: Date.now(),
+    fileStamp: 'c'.repeat(64),
     state: 'passed',
     reason: null,
     canExecute: false,

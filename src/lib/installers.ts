@@ -434,3 +434,70 @@ export function zipDataInspectionText(report: InstallerZipDataInspection): strin
     }[report.reason!] ?? 'ZIP 数据未确认'
   )
 }
+
+export interface InstallerImageInspection {
+  protocol: 1
+  revision: string
+  root: string
+  path: string
+  checkedAt: number
+  fileStamp: string
+  state: 'passed' | 'unknown'
+  reason:
+    'fileSizeLimit' | 'verificationUnavailable' | 'checksumUnconfirmed' | 'reportUncertain' | null
+  canExecute: false
+}
+export type ImageObservations = Record<
+  string,
+  { report?: InstallerImageInspection; error?: string }
+>
+export function readInstallerImage(
+  value: unknown,
+  root: string,
+  path: string,
+  began: number,
+  now = Date.now(),
+): InstallerImageInspection {
+  const r = value as InstallerImageInspection | null
+  if (
+    !r ||
+    r.protocol !== 1 ||
+    r.revision !== catalog.revision ||
+    r.root !== root ||
+    r.path !== path ||
+    !absolute(root) ||
+    !absolute(path) ||
+    !path.startsWith(`${root}/`) ||
+    path.slice(root.length + 1).split('/').length > catalog.maxDepth ||
+    path.split('.').at(-1)?.toLowerCase() !== 'dmg' ||
+    !Number.isSafeInteger(r.checkedAt) ||
+    r.checkedAt < 0 ||
+    r.checkedAt < began - 5000 ||
+    r.checkedAt > now + 5000 ||
+    typeof r.fileStamp !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(r.fileStamp) ||
+    r.canExecute !== false ||
+    !['passed', 'unknown'].includes(r.state) ||
+    (r.state === 'unknown'
+      ? ![
+          'fileSizeLimit',
+          'verificationUnavailable',
+          'checksumUnconfirmed',
+          'reportUncertain',
+        ].includes(r.reason ?? '')
+      : r.reason !== null)
+  )
+    throw new Error('DMG 校验结果无法确认，请重新校验。')
+  return r
+}
+export function imageInspectionText(report: InstallerImageInspection): string {
+  if (report.state === 'passed') return 'DMG 内部校验和匹配；签名与用途未确认'
+  return (
+    {
+      fileSizeLimit: '未校验：DMG 文件超过 128 MB 检查上限',
+      verificationUnavailable: 'DMG 数据未确认：可能加密、损坏、受限或超时',
+      checksumUnconfirmed: 'DMG 校验和未确认：缺失、不支持或不匹配',
+      reportUncertain: 'DMG 数据未确认：系统报告无法识别',
+    }[report.reason!] ?? 'DMG 数据未确认'
+  )
+}

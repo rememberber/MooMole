@@ -455,6 +455,54 @@ async fn inspect_installer_usage(
 }
 
 #[tauri::command]
+async fn inspect_installer_image(
+    root: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<installers::image::Inspection, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后检查。".into());
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let permit = state
+        .installer_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上次安装包读取尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let engine_root = state.engine_root.clone();
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let prepared = tauri::async_runtime::spawn_blocking(move || {
+            let info = engine::info(&engine_root);
+            if !info.available || info.version.as_deref() != Some("1.59.1") {
+                return Err("Mole 引擎基线无法确认。".into());
+            }
+            installers::image::Prepared::open(
+                std::path::Path::new(&root),
+                std::path::Path::new(&path),
+            )
+        })
+        .await
+        .map_err(|_| "无法准备DMG 只读校验。".to_string())??;
+        installers::image::inspect(prepared).await
+    });
+    let report = tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "DMG 校验未及时结束；系统读取可能仍在结束，请稍后重试。")?
+        .map_err(|_| "DMG 校验未完成。")??;
+    if db::settings(&*state.db.lock().map_err(|_| "无法读取当前保护设置。")?)?.protected_paths
+        != settings.protected_paths
+    {
+        return Err("检查期间保护设置已变化，请重新检查。".into());
+    }
+    Ok(report)
+}
+
+#[tauri::command]
 async fn measure_project_artifact(
     root: String,
     path: String,
@@ -1507,6 +1555,7 @@ pub fn run() {
             inspect_installer_zip_data,
             inspect_installer_connection,
             inspect_installer_usage,
+            inspect_installer_image,
             measure_project_artifact,
             prepare_maintenance_review,
             list_review_plans,

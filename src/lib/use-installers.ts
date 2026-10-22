@@ -3,8 +3,11 @@ import * as api from './api'
 import {
   readInstallers,
   installerLocations,
+  installerCatalog,
   readInstallerZip,
   readInstallerZipData,
+  readInstallerImage,
+  type ImageObservations,
   type ZipDataObservations,
   readInstallerConnection,
   readInstallerUsage,
@@ -23,6 +26,7 @@ export function useInstallers(active: boolean, home: string) {
   const [checking, setChecking] = useState('')
   const [checkKind, setCheckKind] = useState('')
   const [usageObservations, setUsageObservations] = useState<UsageObservations>({})
+  const [imageObservations, setImageObservations] = useState<ImageObservations>({})
   const [zipDataObservations, setZipDataObservations] = useState<ZipDataObservations>({})
   const [zipObservations, setZipObservations] = useState<ZipObservations>({})
   const [connectionObservations, setConnectionObservations] = useState<ConnectionObservations>({})
@@ -52,6 +56,7 @@ export function useInstallers(active: boolean, home: string) {
     setReport(null)
     setZipObservations({})
     setZipDataObservations({})
+    setImageObservations({})
     setConnectionObservations({})
     setUsageObservations({})
     setError('')
@@ -69,6 +74,7 @@ export function useInstallers(active: boolean, home: string) {
         setReport(null)
         setZipObservations({})
         setZipDataObservations({})
+        setImageObservations({})
         setConnectionObservations({})
         setUsageObservations({})
       }
@@ -87,6 +93,7 @@ export function useInstallers(active: boolean, home: string) {
     setReading(true)
     setZipObservations({})
     setZipDataObservations({})
+    setImageObservations({})
     setConnectionObservations({})
     setUsageObservations({})
     setError('')
@@ -114,17 +121,22 @@ export function useInstallers(active: boolean, home: string) {
       }
     }
   }
-  async function checkFile(path: string, kind: 'zip' | 'connection' | 'usage' | 'zipData') {
+  async function checkFile(
+    path: string,
+    kind: 'zip' | 'connection' | 'usage' | 'zipData' | 'image',
+  ) {
+    const extensions = {
+      zip: ['zip'],
+      zipData: ['zip'],
+      image: ['dmg'],
+      connection: ['dmg', 'iso'],
+      usage: installerCatalog.extensions,
+    }[kind]
     if (
       !active ||
       !report?.items.some(
         (item) =>
-          item.path === path &&
-          item.sharing === 'single' &&
-          (kind === 'usage' ||
-            (['zip', 'zipData'].includes(kind)
-              ? item.extension === 'zip'
-              : ['dmg', 'iso'].includes(item.extension))),
+          item.path === path && item.sharing === 'single' && extensions.includes(item.extension),
       ) ||
       (kind === 'zipData' &&
         (!zipObservations[path]?.report || zipObservations[path].report!.state === 'unknown')) ||
@@ -133,9 +145,13 @@ export function useInstallers(active: boolean, home: string) {
     )
       return
     const expectedStamp = zipObservations[path]?.report?.fileStamp ?? ''
-    const label = { zip: 'ZIP', connection: '映像连接', usage: '文件占用', zipData: 'ZIP 数据' }[
-      kind
-    ]
+    const label = {
+      zip: 'ZIP',
+      connection: '映像连接',
+      usage: '文件占用',
+      zipData: 'ZIP 数据',
+      image: 'DMG 校验',
+    }[kind]
     running.current = true
     setChecking(path)
     setCheckKind(kind)
@@ -146,7 +162,8 @@ export function useInstallers(active: boolean, home: string) {
         delete next[path]
         return next
       })
-    } else if (kind === 'zipData') setZipDataObservations((old) => ({ ...old, [path]: {} }))
+    } else if (kind === 'image') setImageObservations((old) => ({ ...old, [path]: {} }))
+    else if (kind === 'zipData') setZipDataObservations((old) => ({ ...old, [path]: {} }))
     else if (kind === 'connection') setConnectionObservations((old) => ({ ...old, [path]: {} }))
     else setUsageObservations((old) => ({ ...old, [path]: {} }))
     const ticket = ++epoch.current,
@@ -160,7 +177,9 @@ export function useInstallers(active: boolean, home: string) {
             ? api.inspectInstallerConnection(root, path)
             : kind === 'usage'
               ? api.inspectInstallerUsage(root, path)
-              : api.inspectInstallerZipData(root, path, expectedStamp),
+              : kind === 'image'
+                ? api.inspectInstallerImage(root, path)
+                : api.inspectInstallerZipData(root, path, expectedStamp),
         new Promise<never>((_, reject) => {
           timer = setTimeout(
             () => reject(new Error(`${label}检查未及时结束，系统读取可能仍在结束，请稍后重试。`)),
@@ -178,6 +197,9 @@ export function useInstallers(active: boolean, home: string) {
         } else if (kind === 'usage') {
           const result = readInstallerUsage(value, root, path, began)
           setUsageObservations((old) => ({ ...old, [path]: { report: result } }))
+        } else if (kind === 'image') {
+          const result = readInstallerImage(value, root, path, began)
+          setImageObservations((old) => ({ ...old, [path]: { report: result } }))
         } else {
           const result = readInstallerZipData(value, root, path, began, expectedStamp)
           setZipDataObservations((old) => ({ ...old, [path]: { report: result } }))
@@ -191,6 +213,8 @@ export function useInstallers(active: boolean, home: string) {
           setConnectionObservations((old) => ({ ...old, [path]: { error: String(error) } }))
         else if (kind === 'usage')
           setUsageObservations((old) => ({ ...old, [path]: { error: String(error) } }))
+        else if (kind === 'image')
+          setImageObservations((old) => ({ ...old, [path]: { error: String(error) } }))
         else {
           setZipDataObservations((old) => ({ ...old, [path]: { error: String(error) } }))
           setZipObservations((old) => {
@@ -221,6 +245,8 @@ export function useInstallers(active: boolean, home: string) {
     checkKind,
     usageObservations,
     checkUsage: (path: string) => checkFile(path, 'usage'),
+    imageObservations,
+    checkImage: (path: string) => checkFile(path, 'image'),
     zipObservations,
     zipDataObservations,
     checkZipData: (path: string) => checkFile(path, 'zipData'),

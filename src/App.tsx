@@ -34,27 +34,14 @@ import { statusPercent } from './lib/status-metrics'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
+import { deferredView } from './components/DeferredView'
 import { Modal } from './components/Modal'
-import { SettingsModal } from './components/SettingsModal'
-import { CleanReview } from './components/CleanReview'
-import { ReviewPlanDialog } from './components/ReviewPlanDialog'
 import { EngineSummary } from './components/EngineSummary'
-import { ExecutionHistory } from './components/ExecutionHistory'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
-import { MoleHistoryView } from './components/MoleHistoryView'
-import { ApplicationLibrary } from './components/ApplicationLibrary'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
-import { StatusTrend } from './components/StatusTrend'
-import { StatusRates } from './components/StatusRates'
-import { MaintenanceCatalog } from './components/MaintenanceCatalog'
 import { useMaintenance } from './lib/use-maintenance'
 import { useProjectArtifacts } from './lib/use-project-artifacts'
 import { useInstallers } from './lib/use-installers'
-import { Installers } from './components/Installers'
-import { ProjectArtifacts } from './components/ProjectArtifacts'
-import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
-import { TaskHistory } from './components/TaskHistory'
-import { AnalysisExplorer } from './components/AnalysisExplorer'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
 import { AnalysisTaskNotice } from './components/AnalysisTaskNotice'
 import { analysisTaskActive, failedAnalysisTask, type AnalysisTask } from './lib/analysis-task'
@@ -79,6 +66,54 @@ import type {
   ReviewPlan,
   MoleHistory,
 } from './types'
+
+const SettingsModal = deferredView(
+  async () => ({ default: (await import('./components/SettingsModal')).SettingsModal }),
+  { onClose: (props) => props.onClose() },
+)
+const CleanReview = deferredView(async () => ({
+  default: (await import('./components/CleanReview')).CleanReview,
+}))
+const ReviewPlanDialog = deferredView(
+  async () => ({ default: (await import('./components/ReviewPlanDialog')).ReviewPlanDialog }),
+  { onClose: (props) => props.onClose() },
+)
+const ExecutionHistory = deferredView(async () => ({
+  default: (await import('./components/ExecutionHistory')).ExecutionHistory,
+}))
+const MoleHistoryView = deferredView(async () => ({
+  default: (await import('./components/MoleHistoryView')).MoleHistoryView,
+}))
+const ApplicationLibrary = deferredView(async () => ({
+  default: (await import('./components/ApplicationLibrary')).ApplicationLibrary,
+}))
+const MaintenanceCatalog = deferredView(async () => ({
+  default: (await import('./components/MaintenanceCatalog')).MaintenanceCatalog,
+}))
+const Installers = deferredView(async () => ({
+  default: (await import('./components/Installers')).Installers,
+}))
+const ProjectArtifacts = deferredView(async () => ({
+  default: (await import('./components/ProjectArtifacts')).ProjectArtifacts,
+}))
+const MaintenanceReviewDialog = deferredView(
+  async () => ({
+    default: (await import('./components/MaintenanceReviewDialog')).MaintenanceReviewDialog,
+  }),
+  { onClose: (props) => props.onClose() },
+)
+const TaskHistory = deferredView(async () => ({
+  default: (await import('./components/TaskHistory')).TaskHistory,
+}))
+const AnalysisExplorer = deferredView(async () => ({
+  default: (await import('./components/AnalysisExplorer')).AnalysisExplorer,
+}))
+const StatusTrend = deferredView(async () => ({
+  default: (await import('./components/StatusTrend')).StatusTrend,
+}))
+const StatusRates = deferredView(async () => ({
+  default: (await import('./components/StatusRates')).StatusRates,
+}))
 
 const navigation = [
   ['overview', LayoutGrid, '概览'],
@@ -222,14 +257,13 @@ export default function App() {
   }, [executionActive])
   const handledRecoveryNavigation = useRef(0)
 
-  useEffect(() => {
-    if (page !== 'history' || recoveryNavigation === handledRecoveryNavigation.current) return
-    const section = document.getElementById('execution-records')
-    if (!section) return
+  function focusExecutionRecords(section: HTMLElement | null) {
+    if (!section || page !== 'history' || recoveryNavigation === handledRecoveryNavigation.current)
+      return
     handledRecoveryNavigation.current = recoveryNavigation
-    section?.focus({ preventScroll: true })
-    section?.scrollIntoView({ block: 'start' })
-  }, [page, recoveryNavigation])
+    section.focus({ preventScroll: true })
+    section.scrollIntoView({ block: 'start' })
+  }
 
   async function load() {
     try {
@@ -1371,6 +1405,8 @@ export default function App() {
               usageObservations={installers.usageObservations}
               onCheckUsage={installers.checkUsage}
               zipObservations={installers.zipObservations}
+              imageObservations={installers.imageObservations}
+              onCheckImage={installers.checkImage}
               zipDataObservations={installers.zipDataObservations}
               onCheckZipData={installers.checkZipData}
               onCheckZip={installers.checkZip}
@@ -1452,6 +1488,7 @@ export default function App() {
                 </section>
               )}
               <ExecutionHistory
+                onReady={focusExecutionRecords}
                 initialRecords={data.executions}
                 loadRecords={api.executions}
                 loadDetail={api.execution}

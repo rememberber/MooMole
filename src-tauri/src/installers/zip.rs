@@ -1,18 +1,11 @@
 //! On-demand, complete bounded ZipInfo listing; names are hints, never cleanup authority.
 use crate::{
     engine::{self, Job, TaskKind},
-    observation::AnchoredPath,
     process,
 };
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use std::{
-    ffi::CString,
-    fs::File,
-    os::{
-        fd::{AsRawFd, FromRawFd},
-        unix::{fs::MetadataExt, process::CommandExt},
-    },
+    os::{fd::AsRawFd, unix::process::CommandExt},
     path::Path,
     sync::Arc,
     time::Duration,
@@ -49,97 +42,10 @@ pub struct DataInspection {
     reason: Option<&'static str>,
     can_execute: bool,
 }
-pub struct Prepared {
-    scope: AnchoredPath,
-    held: AnchoredPath,
-    file: File,
-    stamp: String,
-    root: String,
-    path: String,
-}
+pub struct Prepared(super::file::FileProbe);
 impl Prepared {
     pub fn open(root: &Path, path: &Path) -> Result<Self, String> {
-        let valid = |p: &Path| {
-            p.to_str().is_some_and(|s| {
-                s.len() <= 4096
-                    && s.starts_with('/')
-                    && !s.ends_with('/')
-                    && !s.chars().any(char::is_control)
-                    && !s[1..].split('/').any(|v| ["", ".", ".."].contains(&v))
-            })
-        };
-        if !valid(root) || !valid(path) {
-            return Err("请选择有效的扫描范围与 ZIP 文件。".into());
-        }
-        let relative = path
-            .strip_prefix(root)
-            .map_err(|_| "ZIP 不在所选范围内。")?;
-        if relative.components().count() == 0
-            || relative.components().count() > 2
-            || !path
-                .extension()
-                .is_some_and(|v| v.eq_ignore_ascii_case("zip"))
-        {
-            return Err("只能检查所选范围两层内的 ZIP 文件。".into());
-        }
-        let scope = AnchoredPath::open(root)?;
-        let held = AnchoredPath::open(path)?;
-        let before = held
-            .target()
-            .metadata()
-            .map_err(|_| "ZIP 元数据无法读取。")?;
-        if !scope
-            .target()
-            .metadata()
-            .is_ok_and(|m| m.is_dir() && m.dev() == before.dev())
-            || !before.is_file()
-            || !scope.local_materialized()
-            || !held.local_materialized()
-        {
-            return Err("只能读取已下载到本机的普通 ZIP 文件。".into());
-        }
-        let name = CString::new(path.file_name().unwrap().as_encoded_bytes())
-            .map_err(|_| "文件名称无效。")?;
-        let fd = unsafe {
-            libc::openat(
-                held.parent().as_raw_fd(),
-                name.as_ptr(),
-                libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
-            )
-        };
-        if fd < 0 {
-            return Err("ZIP 无法只读打开，请检查访问权限。".into());
-        }
-        let file = unsafe { File::from_raw_fd(fd) };
-        let after = file.metadata().map_err(|_| "ZIP 元数据无法读取。")?;
-        if !crate::directory_probe::local(&file)
-            || !after.is_file()
-            || before.dev() != after.dev()
-            || before.ino() != after.ino()
-            || before.size() != after.size()
-            || before.mtime() != after.mtime()
-            || before.mtime_nsec() != after.mtime_nsec()
-            || before.ctime() != after.ctime()
-            || before.ctime_nsec() != after.ctime_nsec()
-            || before.nlink() != after.nlink()
-        {
-            return Err("打开期间 ZIP 已变化，请重新扫描。".into());
-        }
-        held.validate()?;
-        let stamp = format!(
-            "{:x}",
-            Sha256::digest(
-                serde_json::to_vec(&held.witness).map_err(|_| "ZIP 文件观察无法编码。")?
-            )
-        );
-        Ok(Self {
-            scope,
-            held,
-            file,
-            stamp,
-            root: root.to_str().unwrap().into(),
-            path: path.to_str().unwrap().into(),
-        })
+        super::file::FileProbe::open(root, path, "zip").map(Self)
     }
     pub fn open_data(root: &Path, path: &Path, expected_stamp: &str) -> Result<Self, String> {
         let prepared = Self::open(root, path)?;
@@ -147,7 +53,7 @@ impl Prepared {
             || !expected_stamp
                 .bytes()
                 .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-            || prepared.stamp != expected_stamp
+            || prepared.0.stamp != expected_stamp
         {
             return Err(
                 "ZIP 与条目检查时的文件已不一致；旧条目和数据结果已撤回，请重新检查 ZIP。".into(),
@@ -156,34 +62,36 @@ impl Prepared {
         Ok(prepared)
     }
     fn finish_data(self, result: Result<(), &'static str>) -> Result<DataInspection, String> {
-        self.scope
+        self.0
+            .scope
             .validate()
-            .and_then(|_| self.held.validate())
+            .and_then(|_| self.0.held.validate())
             .map_err(|_| "校验期间 ZIP 或路径已变化；本次数据结果已撤回，请重新扫描。")?;
         Ok(DataInspection {
             protocol: 1,
             revision: engine::REVISION,
-            root: self.root,
-            path: self.path,
+            root: self.0.root,
+            path: self.0.path,
             checked_at: crate::db::now(),
-            file_stamp: self.stamp,
+            file_stamp: self.0.stamp,
             state: if result.is_ok() { "passed" } else { "unknown" },
             reason: result.err(),
             can_execute: false,
         })
     }
     fn finish(self, result: Result<Vec<u8>, String>) -> Result<Inspection, String> {
-        self.scope
+        self.0
+            .scope
             .validate()
-            .and_then(|_| self.held.validate())
+            .and_then(|_| self.0.held.validate())
             .map_err(|_| "检查期间 ZIP 或路径已变化；本次线索已撤回，请重新扫描。")?;
         let mut report = Inspection {
             protocol: 2,
             revision: engine::REVISION,
-            root: self.root,
-            path: self.path,
+            root: self.0.root,
+            path: self.0.path,
             checked_at: crate::db::now(),
-            file_stamp: self.stamp,
+            file_stamp: self.0.stamp,
             state: "unknown",
             reason: Some("listingUnavailable"),
             total_entries: None,
@@ -281,7 +189,7 @@ async fn run(fd: i32, binary: &str, args: &[&str]) -> Result<Vec<u8>, String> {
 }
 pub async fn inspect(prepared: Prepared) -> Result<Inspection, String> {
     let result = run(
-        prepared.file.as_raw_fd(),
+        prepared.0.file.as_raw_fd(),
         "/usr/bin/zipinfo",
         &["-1", "/dev/fd/3"],
     )
@@ -299,6 +207,7 @@ fn data_result(result: Result<Vec<u8>, String>) -> Result<(), &'static str> {
 }
 pub async fn inspect_data(prepared: Prepared) -> Result<DataInspection, String> {
     let size = prepared
+        .0
         .file
         .metadata()
         .map_err(|_| "ZIP 元数据无法读取。")?
@@ -310,7 +219,7 @@ pub async fn inspect_data(prepared: Prepared) -> Result<DataInspection, String> 
         // fixed password prevents prompts; no user secret or extraction option.
         data_result(
             run(
-                prepared.file.as_raw_fd(),
+                prepared.0.file.as_raw_fd(),
                 "/usr/bin/unzip",
                 &["-tqq", "-P", "", "/dev/fd/3"],
             )
@@ -324,7 +233,11 @@ pub async fn inspect_data(prepared: Prepared) -> Result<DataInspection, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, io::Write, os::unix::fs::symlink};
+    use std::{
+        fs::{self, File},
+        io::Write,
+        os::unix::fs::symlink,
+    };
     #[test]
     fn complete_listing_uses_the_original_case_sensitive_first_fifty_window() {
         assert_eq!(
