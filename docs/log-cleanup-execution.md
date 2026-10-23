@@ -55,3 +55,5 @@ node scripts/cargo.mjs test --locked log_cleanup -- --ignored --nocapture --skip
 固定源码 `lib/core/file_ops.sh:_mole_complete_lsof_mode` 先尝试读取 PID 1 的 root 进程字段，证明完整视图后才允许空匹配成为 noOpenHandles。当前适配批次清除继承的视图结论并设置 `MOLE_TEST_NO_AUTH=1`，不走 sudo 授权回退。本机普通账户的实际结果是 unknown，因此当前真实 App 不应显示可执行确认；构建、fixture 正面执行或新增原生故障测试都不能改变这一事实。
 
 后续需要验证无付费开发者证书条件下的受限按次系统授权、调用方/来源/协议核对及文件隐私权限边界，不能简单删除完整视图要求、启动整个 App 为 root、传密码或开放通用 Shell 来完成验收。此项继续阻止日志功能的发布完成声明；状态持续采集等不修改文件的核心流程可同步推进。
+
+2026-10-23 补充：固定只读授权诊断已接入实际 App；所选普通日志的计划摘要、用户、对象/祖先、期限及占用检查核心也已实现，详见 [授权检查与剩余交接](cleanup-authorization-probe.md)。对象检查暂无生产调用方，不改变上述执行可达性。接入时必须解决用户确认、授权等待后的新鲜规则、单次观察期限及最终普通用户执行的连续交接；不能仅让准备阶段显示可执行、执行时却仍按 no-auth 返回 unknown，也不对每个文件反复弹出系统授权。
