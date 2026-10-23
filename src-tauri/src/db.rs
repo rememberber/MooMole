@@ -178,25 +178,37 @@ pub fn save_settings(connection: &Connection, settings: &Settings) -> Result<(),
     {
         return Err("设置内容无效。".into());
     }
-    connection.execute("INSERT INTO settings VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET value = excluded.value", [serde_json::to_string(settings).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
-    prune(connection, settings.retention_days)
+    // Settings and every retention/cascade deletion form one operation. A later
+    // failure must not persist a new preference or an earlier partial prune.
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    transaction.execute("INSERT INTO settings VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET value = excluded.value", [serde_json::to_string(settings).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
+    prune_in_transaction(&transaction, settings.retention_days)?;
+    transaction.commit().map_err(|e| e.to_string())
 }
 
 fn prune(connection: &Connection, days: u32) -> Result<(), String> {
-    connection
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    prune_in_transaction(&transaction, days)?;
+    transaction.commit().map_err(|e| e.to_string())
+}
+
+fn prune_in_transaction(transaction: &rusqlite::Transaction<'_>, days: u32) -> Result<(), String> {
+    let before = now() - i64::from(days) * 86_400_000;
+    transaction
         .execute(
             "DELETE FROM tasks WHERE created_at < ?1 AND state NOT IN ('queued', 'running')",
-            [now() - i64::from(days) * 86_400_000],
+            [before],
         )
         .map_err(|e| e.to_string())?;
-    connection
-        .execute(
-            "DELETE FROM clean_scans WHERE created_at < ?1",
-            [now() - i64::from(days) * 86_400_000],
-        )
+    transaction
+        .execute("DELETE FROM clean_scans WHERE created_at < ?1", [before])
         .map_err(|e| e.to_string())?;
-    prune_reviews(connection)?;
-    crate::execution::prune(connection, now() - i64::from(days) * 86_400_000)?;
+    prune_reviews(transaction)?;
+    crate::execution::prune(transaction, before)?;
     Ok(())
 }
 
@@ -333,6 +345,10 @@ pub fn task(connection: &Connection, id: &str) -> Result<Option<TaskRecord>, Str
         Ok(TaskRecord { id: row.get(0)?, kind: row.get(1)?, path: row.get(2)?, state: row.get(3)?, created_at: row.get(4)?, finished_at: row.get(5)?, message: row.get(6)? })
     }).optional().map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+#[path = "db/retention_tests.rs"]
+mod retention_tests;
 
 #[cfg(test)]
 mod tests {

@@ -81,7 +81,8 @@ select:focus-visible {
   outline: 2px solid #9c8bce;
   outline-offset: 3px;
 }
-.review-plan-modal summary:focus-visible {
+.review-plan-modal summary:focus-visible,
+.settings-retention summary:focus-visible {
   outline: 2px solid #9c8bce;
   outline-offset: 3px;
   border-radius: 3px;
@@ -2143,6 +2144,24 @@ select {
   font-size: 12px;
   line-height: 1.9;
   margin: -4px 0 20px;
+}
+.settings-retention-note,
+.settings-retention {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.settings-retention-note {
+  margin: 12px 0 8px;
+}
+.settings-retention {
+  color: var(--muted);
+}
+.settings-retention summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.settings-retention p {
+  margin: 8px 0 0;
 }
 .protected-list {
   margin-bottom: 20px;

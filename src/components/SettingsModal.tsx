@@ -92,7 +92,7 @@ export function SettingsModal({
             <div className="setting-group">
               <label className="setting-row">
                 <span>
-                  历史记录保留时间<small>只保存任务信息，不保存文件内容</small>
+                  历史记录保留时间<small>任务、扫描、计划等记录；部分执行凭证会保留</small>
                 </span>
                 <select
                   aria-label="历史记录保留时间"
@@ -117,6 +117,18 @@ export function SettingsModal({
                 </span>
               </div>
             </div>
+            <p className="muted settings-retention-note">
+              启动或保存设置时回收过期记录，不删除你的文件。
+            </p>
+            <details className="settings-retention">
+              <summary>保留范围与例外</summary>
+              <p>记录可能包含路径和检查结果，不保存文件正文。</p>
+              <p>扫描最多保留 10 份，关联审阅计划最多 20 份，可能早于所选期限回收。</p>
+              <p>
+                等待或进行中的任务会保留。已移入废纸篓、结果待确认或中断的执行凭证也会继续保留，供你核对。
+              </p>
+              <p>Mole 原始历史、独立备份与导出文件不在此回收范围内。</p>
+            </details>
           </>
         )}
         {tab === 'protected' && (

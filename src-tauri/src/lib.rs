@@ -130,7 +130,8 @@ fn save_settings(
         &previous.protected_paths,
         &state.home,
     )?;
-    db::save_settings(&db, &settings)?;
+    db::save_settings(&db, &settings)
+        .map_err(|error| format!("设置保存失败，请重试。诊断：{error}"))?;
     Ok(settings)
 }
 

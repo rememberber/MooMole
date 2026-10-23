@@ -545,7 +545,13 @@ export default function App() {
           }
         : null,
     )
-    await refreshRecords()
+    try {
+      await refreshRecords(true)
+    } catch (error) {
+      // The preference transaction has already committed. A failed readback
+      // must not be reported as a failed save or invite a duplicate save.
+      setError(`设置已保存，但历史记录无法刷新：${String(error)}`)
+    }
   }
   async function acknowledge() {
     if (!data) return
