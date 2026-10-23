@@ -64,6 +64,9 @@ pub struct OfficialObservation {
     issue: Option<&'static str>,
 }
 impl OfficialObservation {
+    pub(crate) fn code(&self) -> &'static str {
+        self.code
+    }
     pub fn unknown(issue: &'static str) -> Self {
         Self {
             version: 1,

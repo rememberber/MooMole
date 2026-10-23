@@ -59,6 +59,39 @@ pub struct TreeWitness {
     pub entries: usize,
 }
 
+// A different type/domain prevents whole-App observations (which record links
+// without following them) from becoming ordinary clean-directory eligibility.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BundleWitness {
+    pub version: u32,
+    pub digest: String,
+    pub entries: usize,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Mode {
+    Strict,
+    Bundle,
+}
+
+fn link_bytes(parent: &File, name: &CStr) -> Result<Vec<u8>, String> {
+    let mut bytes = vec![0u8; 4097];
+    let count = unsafe {
+        libc::readlinkat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            bytes.as_mut_ptr().cast(),
+            bytes.len(),
+        )
+    };
+    if count <= 0 || count as usize > 4096 {
+        return Err("应用包链接无法完整记录。".into());
+    }
+    bytes.truncate(count as usize);
+    Ok(bytes)
+}
+
 fn open_directory(parent: &File, name: &CStr) -> Result<File, String> {
     // SAFETY: parent owns the directory fd; name is NUL terminated. The returned
     // descriptor has exactly one File owner and cannot follow a symlink.
@@ -172,6 +205,7 @@ fn walk(
     path: &Path,
     device: u64,
     depth: usize,
+    mode: Mode,
     digest: &mut Sha256,
     budget: &mut Budget,
     count: &mut usize,
@@ -183,7 +217,12 @@ fn walk(
     }
     let before = stat_fd(directory)?;
     digest.update(b"directory-start");
-    digest.update(stamp(&before));
+    // The caller separately binds the full root witness. Excluding only the
+    // bundle root stamp lets future relocation receipts compare its CONTENTS;
+    // the root inode/path/ctime must still be checked separately by that caller.
+    if mode == Mode::Strict || depth != 0 {
+        digest.update(stamp(&before));
+    }
     for name in names(directory, budget)? {
         budget.check_time()?;
         let stat = stat_entry(directory, &name)?;
@@ -191,8 +230,14 @@ fn walk(
             return Err("目录内存在其他挂载卷，需要单独审阅。".into());
         }
         let kind = stat.st_mode & libc::S_IFMT;
-        if kind != libc::S_IFDIR && kind != libc::S_IFREG {
+        if kind != libc::S_IFDIR
+            && kind != libc::S_IFREG
+            && !(mode == Mode::Bundle && kind == libc::S_IFLNK)
+        {
             return Err("目录包含符号链接或特殊文件，需要单独审阅。".into());
+        }
+        if mode == Mode::Bundle && stat.st_flags & 0x40000000 != 0 {
+            return Err("应用包包含尚未落地的云占位项目，本次不生成完整快照。".into());
         }
         if kind == libc::S_IFREG && stat.st_nlink > 1 {
             return Err("目录包含共享硬链接文件，需要单独审阅。".into());
@@ -200,6 +245,12 @@ fn walk(
         digest.update((name.to_bytes().len() as u64).to_le_bytes());
         digest.update(name.to_bytes());
         digest.update(stamp(&stat));
+        if kind == libc::S_IFLNK {
+            let bytes = link_bytes(directory, &name)?;
+            digest.update(b"literal-link");
+            digest.update((bytes.len() as u64).to_le_bytes());
+            digest.update(bytes);
+        }
         *count += 1;
         let child_path = path.join(std::ffi::OsStr::from_bytes(name.to_bytes()));
         visit(&child_path)?;
@@ -214,6 +265,7 @@ fn walk(
                 &child_path,
                 device,
                 depth + 1,
+                mode,
                 digest,
                 budget,
                 count,
@@ -295,6 +347,32 @@ fn inspect_observed(
     dev: u64,
     ino: u64,
     budget: &mut Budget,
+    hook: impl FnMut(Checkpoint<'_>),
+    visit: impl FnMut(&Path) -> Result<(), String>,
+) -> Result<TreeWitness, String> {
+    inspect_mode(path, dev, ino, budget, Mode::Strict, hook, visit)
+}
+
+pub(crate) fn inspect_bundle(
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
+) -> Result<BundleWitness, String> {
+    let witness = inspect_mode(path, dev, ino, budget, Mode::Bundle, |_| {}, |_| Ok(()))?;
+    Ok(BundleWitness {
+        version: 1,
+        digest: witness.digest,
+        entries: witness.entries,
+    })
+}
+
+fn inspect_mode(
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
+    mode: Mode,
     mut hook: impl FnMut(Checkpoint<'_>),
     mut visit: impl FnMut(&Path) -> Result<(), String>,
 ) -> Result<TreeWitness, String> {
@@ -311,12 +389,16 @@ fn inspect_observed(
     budget.tick()?;
     hook(Checkpoint::Opened);
     let mut digest = Sha256::new();
+    if mode == Mode::Bundle {
+        digest.update(b"MooMole.bundle.tree.v1");
+    }
     let mut count = 0;
     walk(
         directory,
         path,
         dev,
         0,
+        mode,
         &mut digest,
         budget,
         &mut count,

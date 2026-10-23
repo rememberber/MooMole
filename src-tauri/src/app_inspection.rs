@@ -5,6 +5,8 @@ use tokio::sync::Semaphore;
 #[cfg(test)]
 mod profile;
 mod worker;
+#[cfg(target_os = "macos")]
+pub(crate) use mac::identity;
 use worker::{Phase, Progress};
 // Only a static per-request phase and stop flag in production; no log or timings.
 macro_rules! checkpoint {
@@ -226,6 +228,7 @@ fn inspect(
 #[cfg(target_os = "macos")]
 mod mac {
     mod embedded;
+    pub(crate) mod identity;
     use super::*;
     use objc2::{rc::autoreleasepool, runtime::AnyObject};
     use objc2_app_kit::NSRunningApplication;
@@ -416,6 +419,8 @@ mod mac {
         version: Option<String>,
         build: Option<String>,
         background: crate::app_background::Marker,
+        executable: Option<String>,
+        package_type: Option<String>,
     }
     fn background_marker(value: Option<&AnyObject>) -> crate::app_background::Marker {
         use crate::app_background::Marker;
@@ -491,6 +496,8 @@ mod mac {
                 id: field("CFBundleIdentifier", 255).filter(|v| valid_id(v)),
                 version: field("CFBundleShortVersionString", 128),
                 build: field("CFBundleVersion", 128),
+                executable: field("CFBundleExecutable", 255),
+                package_type: field("CFBundlePackageType", 16),
                 background: background_marker(
                     dictionary
                         .objectForKey(&NSString::from_str("LSBackgroundOnly"))

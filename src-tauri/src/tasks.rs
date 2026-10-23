@@ -50,6 +50,29 @@ impl Write for Counter {
 }
 
 impl Results {
+    pub(crate) fn uninstall_target(
+        &mut self,
+        id: &str,
+        index: usize,
+    ) -> Result<crate::uninstall_plan::Source, String> {
+        self.prune(Instant::now());
+        let snapshot = &self
+            .entries
+            .iter()
+            .find(|e| e.snapshot.id == id)
+            .ok_or("应用清单已失效，请重新读取列表。")?
+            .snapshot;
+        if snapshot.kind != "apps" || snapshot.state != "succeeded" {
+            return Err("卸载计划只能使用成功读取的 Mole 应用清单。".into());
+        }
+        let row = snapshot
+            .result
+            .as_ref()
+            .and_then(Value::as_array)
+            .and_then(|rows| rows.get(index))
+            .ok_or("清单中没有该应用，请重新读取列表。")?;
+        crate::uninstall_plan::Source::from_row(id, index, row)
+    }
     pub fn remember(&mut self, snapshot: &Snapshot) {
         self.prune(Instant::now());
         self.entries

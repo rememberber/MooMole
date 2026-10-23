@@ -42,6 +42,7 @@ mod shutdown;
 mod status_watch;
 mod tasks;
 mod tree;
+mod uninstall_plan;
 mod update_download;
 mod update_install;
 mod update_preferences;
@@ -74,6 +75,7 @@ struct AppState {
     installer_slots: Arc<tokio::sync::Semaphore>,
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
+    uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
     cleanup_visibility: Arc<Mutex<activity_authorization::Store>>,
     engine_root: PathBuf,
@@ -957,6 +959,150 @@ async fn inspect_application(
     Ok(result)
 }
 
+fn uninstall_context(
+    state: &AppState,
+    current_id: &str,
+) -> Result<uninstall_plan::Context, String> {
+    let settings = db::settings(&*state.db.lock().map_err(|_| "无法读取保护设置。")?)?;
+    if !settings.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let executable = std::env::current_exe().ok();
+    Ok(uninstall_plan::Context {
+        home: state.home.clone(),
+        engine_root: state.engine_root.clone(),
+        current_id: current_id.into(),
+        current_app: executable
+            .as_deref()
+            .and_then(app_protection::containing_app)
+            .map(std::path::Path::to_path_buf),
+        protected_paths: settings.protected_paths,
+    })
+}
+
+async fn observe_uninstall_plan(
+    state: AppState,
+    ctx: uninstall_plan::Context,
+    source: uninstall_plan::Source,
+    existing: Option<uninstall_plan::Plan>,
+) -> Result<uninstall_plan::View, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，请重新打开后再准备卸载计划。".into());
+    }
+    let permit = state
+        .inspection_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "已有应用检查尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let path = source.path().to_string();
+    let generation = state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法准备卸载计划。")?
+        .begin(&path, existing.as_ref().map(uninstall_plan::Plan::id))?;
+    // The worker retains admission/ownership if the WebView observer disappears
+    // or the IPC timeout fires. No native handles cross this thread boundary.
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let result = async {
+            let work_source = source.clone();
+            let work_ctx = ctx.clone();
+            let plan = tauri::async_runtime::spawn_blocking(move || {
+                if let Some(plan) = existing {
+                    plan.recheck(&work_ctx, db::now())?;
+                    Ok(plan)
+                } else {
+                    uninstall_plan::Plan::prepare(work_source, &work_ctx)
+                }
+            })
+            .await
+            .map_err(|_| "应用快照检查未完成。".to_string())??;
+            if state.shutdown.closing() {
+                return Err("应用正在退出，未保留本次卸载计划。".into());
+            }
+            let latest = uninstall_context(&state, &ctx.current_id)?;
+            if latest.protected_paths != ctx.protected_paths {
+                return Err("检查期间保护设置已变化，请重新准备卸载计划。".into());
+            }
+            let (task_id, index) = plan.source_address();
+            let current = state
+                .results
+                .lock()
+                .map_err(|_| "无法重新核对应用清单。")?
+                .uninstall_target(task_id, index)?;
+            if !plan.source_matches(&current) || !plan.source_matches(&source) {
+                return Err("原应用清单已变化，请重新读取后再准备卸载计划。".into());
+            }
+            state
+                .uninstall_plans
+                .lock()
+                .map_err(|_| "无法保留卸载计划。")?
+                .publish(generation, plan, db::now())
+        }
+        .await;
+        if let Ok(mut store) = state.uninstall_plans.lock() {
+            store.finish_attempt(&path, generation);
+        }
+        result
+    });
+    tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "应用计划检查未及时完成；系统只读检查可能仍在结束，请稍后重试。")?
+        .map_err(|_| "应用计划检查未完成。".to_string())?
+}
+
+#[tauri::command]
+async fn prepare_application_uninstall_plan(
+    app: tauri::AppHandle,
+    task_id: String,
+    index: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<uninstall_plan::View, String> {
+    let ctx = uninstall_context(&state, &app.config().identifier)?;
+    let source = state
+        .results
+        .lock()
+        .map_err(|_| "无法读取应用清单。")?
+        .uninstall_target(&task_id, index)?;
+    observe_uninstall_plan(state.inner().clone(), ctx, source, None).await
+}
+
+#[tauri::command]
+async fn recheck_application_uninstall_plan(
+    app: tauri::AppHandle,
+    plan_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<uninstall_plan::View, String> {
+    uuid::Uuid::parse_str(&plan_id).map_err(|_| "卸载计划标识无效。")?;
+    let ctx = uninstall_context(&state, &app.config().identifier)?;
+    let plan = state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法读取卸载计划。")?
+        .get(&plan_id, db::now())?;
+    let (task_id, index) = plan.source_address();
+    let source = state
+        .results
+        .lock()
+        .map_err(|_| "无法核对原应用清单。")?
+        .uninstall_target(task_id, index)?;
+    observe_uninstall_plan(state.inner().clone(), ctx, source, Some(plan)).await
+}
+
+#[tauri::command]
+fn discard_application_uninstall_plan(
+    plan_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法撤下卸载计划。")?
+        .discard(&plan_id);
+    Ok(())
+}
+
 #[tauri::command]
 fn list_review_plans(
     state: tauri::State<'_, AppState>,
@@ -1712,6 +1858,7 @@ pub fn run() {
                 installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
+                uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
                 engine_root,
@@ -1744,6 +1891,9 @@ pub fn run() {
             get_task_snapshot,
             application_icon,
             inspect_application,
+            prepare_application_uninstall_plan,
+            recheck_application_uninstall_plan,
+            discard_application_uninstall_plan,
             inspect_maintenance,
             inspect_project_artifacts,
             read_project_roots,
