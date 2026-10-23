@@ -985,6 +985,17 @@ h3 {
   outline: 2px solid #9c8bce;
   outline-offset: 1px;
 }
+.analysis-recent {
+  width: 98px;
+  flex-shrink: 0;
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
 .path-bar input {
   flex: 1;
   min-width: 0;

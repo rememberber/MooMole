@@ -1,3 +1,7 @@
+mod analysis_protocol;
+// Read-only authorization feasibility experiment; no production IPC or grant.
+#[cfg(test)]
+mod activity_authorization;
 mod app_associations;
 mod app_background;
 mod app_discovery;

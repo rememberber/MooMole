@@ -49,6 +49,12 @@ export function AnalysisTaskNotice({
             </p>
           )}
           {!active && task.state !== 'cancelled' && <p>{task.detail}</p>}
+          {!active && task.diagnostic && (
+            <details key={`${task.id}:${task.diagnostic}`} className="analysis-boundaries">
+              <summary>查看格式诊断</summary>
+              <p className="mono">{task.diagnostic}</p>
+            </details>
+          )}
           {task.state === 'unconfirmed' && <p>本机任务可能仍在运行，请先从操作历史继续跟踪。</p>}
           <p>
             {hasResult

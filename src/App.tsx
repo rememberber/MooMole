@@ -45,6 +45,7 @@ import { useMaintenance } from './lib/use-maintenance'
 import { useProjectArtifacts } from './lib/use-project-artifacts'
 import { useInstallers } from './lib/use-installers'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
+import { recentAnalysisPaths } from './lib/recent-analysis'
 import { AnalysisTaskNotice } from './components/AnalysisTaskNotice'
 import { analysisTaskActive, failedAnalysisTask, type AnalysisTask } from './lib/analysis-task'
 import { AnalysisContexts, type AnalysisExplorerHandle } from './lib/analysis-context'
@@ -239,6 +240,8 @@ export default function App() {
   const [accepted, setAccepted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [path, setPath] = useState('')
+  const analysisPathInput = useRef<HTMLInputElement>(null)
+  const recentPaths = recentAnalysisPaths(data?.history ?? [])
   const [cancelPending, setCancelPending] = useState(false)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
@@ -726,6 +729,7 @@ export default function App() {
                   }}
                 >
                   <input
+                    ref={analysisPathInput}
                     aria-label="扫描目录"
                     value={path}
                     onChange={(event) => setPath(event.target.value)}
@@ -744,6 +748,30 @@ export default function App() {
                     开始分析
                   </button>
                 </form>
+                {data && recentPaths.length > 0 && (
+                  <select
+                    className="analysis-recent"
+                    aria-label="最近分析目录"
+                    title="选入路径后点击开始分析，重新读取当前目录；历史记录不代表目录仍可访问。"
+                    value=""
+                    disabled={!canRun}
+                    onChange={(event) => {
+                      const selected = event.target.value
+                      if (!canRun || !recentPaths.includes(selected)) return
+                      setPath(selected)
+                      analysisPathInput.current?.focus({ preventScroll: true })
+                    }}
+                  >
+                    <option value="" disabled>
+                      最近目录
+                    </option>
+                    {recentPaths.map((recent) => (
+                      <option key={recent} value={recent}>
+                        {shortPath(recent, data.home)}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   className="icon-button"
                   disabled={!canRun}

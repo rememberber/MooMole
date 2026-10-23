@@ -285,7 +285,9 @@ pub async fn run(
     let mut command = match job.kind {
         TaskKind::Analyze => {
             let mut command = command(&root.join("bin/analyze-go"));
-            command.arg("--json").arg(path.ok_or("缺少扫描目录。")?);
+            command
+                .arg("--json")
+                .arg(path.as_ref().ok_or("缺少扫描目录。")?);
             command
         }
         TaskKind::Status => {
@@ -378,6 +380,7 @@ pub async fn run(
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
     }
     if job.kind == TaskKind::Analyze {
+        crate::analysis_protocol::validate(&result, path.as_deref().ok_or("缺少扫描目录。")?)?;
         record_analysis_read(
             &mut result,
             started_at,

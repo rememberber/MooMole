@@ -1,0 +1,85 @@
+{
+  "base": {
+    "path": "/fixture",
+    "scan_status": "complete",
+    "total_size": 1024,
+    "total_files": 1,
+    "overview": false,
+    "entries": [
+      {
+        "name": "child",
+        "path": "/fixture/child",
+        "size": 1024,
+        "is_dir": true,
+        "scan_status": "complete"
+      }
+    ],
+    "large_files": []
+  },
+  "accept": [
+    { "pointer": "/entries/0/name", "value": "child →" },
+    {
+      "pointer": "/entries/0",
+      "value": {
+        "name": "child →",
+        "path": "/fixture/child →",
+        "size": 0,
+        "is_dir": false,
+        "scan_status": "complete"
+      }
+    },
+    {
+      "pointer": "/entries/0",
+      "value": {
+        "name": "child → →",
+        "path": "/fixture/child →",
+        "size": 0,
+        "is_dir": false,
+        "scan_status": "complete"
+      }
+    },
+    { "pointer": "/scan_status", "value": "partial" },
+    { "pointer": "/scan_status", "value": "unavailable" },
+    { "pointer": "/total_size", "value": 0 },
+    { "pointer": "/total_size", "value": -1 },
+    { "pointer": "/total_size", "value": 9007199254740991 },
+    { "pointer": "/entries/0/size", "value": -1 },
+    { "pointer": "/entries/0/scan_status", "value": "unavailable" },
+    { "pointer": "/entries", "value": [] },
+    { "pointer": "/large_files", "value": null },
+    { "pointer": "/large_files", "value": [null, { "size": 100 }] }
+  ],
+  "reject": [
+    { "pointer": "/entries/0/name", "value": "child → →" },
+    { "pointer": "/entries/0/path", "value": "/" },
+    { "pointer": "/path", "value": null },
+    { "pointer": "/path", "value": 1 },
+    { "pointer": "/path", "value": "relative" },
+    { "pointer": "/path", "value": "/fixture/" },
+    { "pointer": "/path", "value": "/fixture/../elsewhere" },
+    { "pointer": "/path", "value": "/fixture//x" },
+    { "pointer": "/path", "value": "/fixture\u0000" },
+    { "pointer": "/scan_status", "value": "future" },
+    { "pointer": "/total_size", "value": "1024" },
+    { "pointer": "/total_size", "value": -2 },
+    { "pointer": "/total_size", "value": 1.5 },
+    { "pointer": "/total_size", "value": 9007199254740992 },
+    { "pointer": "/total_files", "value": null },
+    { "pointer": "/total_files", "value": -1 },
+    { "pointer": "/overview", "value": true },
+    { "pointer": "/overview", "value": "false" },
+    { "pointer": "/entries", "value": null },
+    { "pointer": "/entries", "value": {} },
+    { "pointer": "/entries/0", "value": null },
+    { "pointer": "/entries/0/name", "value": "" },
+    { "pointer": "/entries/0/name", "value": "../child" },
+    { "pointer": "/entries/0/path", "value": "/fixture/else" },
+    { "pointer": "/entries/0/path", "value": "/outside/child" },
+    { "pointer": "/entries/0/path", "value": "/fixture/nested/child" },
+    { "pointer": "/entries/0/is_dir", "value": "true" },
+    { "pointer": "/entries/0/scan_status", "value": "future" },
+    { "pointer": "/entries/0/size", "value": null },
+    { "pointer": "/entries/0/size", "value": 9007199254740992 },
+    { "pointer": "/large_files", "value": "none" }
+  ]
+}

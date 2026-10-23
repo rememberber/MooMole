@@ -121,7 +121,7 @@ export async function installTaskMock(
                                 entries: [
                                   {
                                     name: 'child',
-                                    path: `${task.path}/child`,
+                                    path: `${task.path === '/fixture/alias' ? '/fixture/canonical' : task.path === '/' ? '' : task.path}/child`,
                                     size: 1024,
                                     scan_status: 'complete',
                                     is_dir: true,

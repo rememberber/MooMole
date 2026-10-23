@@ -15,6 +15,7 @@ export interface AnalysisTask {
     | 'unavailable'
     | 'unconfirmed'
   detail?: string
+  diagnostic?: string
   cancelError?: string
 }
 
@@ -30,10 +31,15 @@ export function failedAnalysisTask(task: AnalysisTask, error: unknown): Analysis
     if (error.state === 'interrupted') state = 'interrupted'
     if (error.state === 'succeeded') state = 'unavailable'
   }
+  const detail = String(error).replace(/^(?:TaskResultError|Error): /, '')
+  const diagnostic = detail.startsWith('空间分析结果格式异常，未更新。')
+    ? /诊断：(summary|overview|total_files|entries|entry|large_files)$/.exec(detail)
+    : null
   return {
     ...task,
     state,
-    detail: String(error).replace(/^(?:TaskResultError|Error): /, ''),
+    detail: diagnostic ? detail.slice(0, diagnostic.index).trim() : detail,
+    diagnostic: diagnostic ? `不匹配字段：${diagnostic[1]}` : undefined,
     cancelError: undefined,
   }
 }
