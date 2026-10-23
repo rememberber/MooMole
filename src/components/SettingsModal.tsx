@@ -6,6 +6,7 @@ import { Modal } from './Modal'
 import { appVersion } from '../lib/app-version'
 import { UpdateCheck } from './UpdateCheck'
 import { restoreFocus } from '../lib/focus-return'
+import { CleanupVisibility } from './CleanupVisibility'
 
 export function SettingsModal({
   settings,
@@ -242,6 +243,10 @@ export function SettingsModal({
               </div>
             </div>
             <UpdateCheck saving={!!pending} />
+            <details className="settings-retention">
+              <summary>清理权限检查</summary>
+              <CleanupVisibility saving={!!pending} />
+            </details>
             <div className="setting-group about-copy">
               <p>
                 本项目仅供学习和研究使用，是独立的非官方项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。

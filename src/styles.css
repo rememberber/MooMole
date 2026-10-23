@@ -2193,6 +2193,14 @@ select {
 .about-copy {
   padding: 20px;
 }
+.cleanup-visibility p {
+  margin: 10px 0;
+}
+.cleanup-visibility .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .update-check {
   margin-bottom: 18px;
   padding-bottom: 12px;

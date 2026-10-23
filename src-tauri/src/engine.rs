@@ -25,6 +25,7 @@ pub enum TaskKind {
     History,
     LogTrash,
     StatusWatch,
+    VisibilityProbe,
 }
 
 impl TaskKind {
@@ -39,6 +40,7 @@ impl TaskKind {
             Self::History => "history",
             Self::LogTrash => "logtrash",
             Self::StatusWatch => "statuswatch",
+            Self::VisibilityProbe => "visibilityprobe",
         }
     }
 }
@@ -320,7 +322,8 @@ pub async fn run(
         | TaskKind::Review
         | TaskKind::History
         | TaskKind::LogTrash
-        | TaskKind::StatusWatch => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::StatusWatch
+        | TaskKind::VisibilityProbe => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -374,7 +377,7 @@ pub async fn run(
         TaskKind::Clean => false,
         TaskKind::Review => false,
         TaskKind::History => false,
-        TaskKind::LogTrash | TaskKind::StatusWatch => false,
+        TaskKind::LogTrash | TaskKind::StatusWatch | TaskKind::VisibilityProbe => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

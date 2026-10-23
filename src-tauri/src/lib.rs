@@ -1,7 +1,5 @@
-mod analysis_protocol;
-// Read-only authorization feasibility experiment; no production IPC or grant.
-#[cfg(test)]
 mod activity_authorization;
+mod analysis_protocol;
 mod app_associations;
 mod app_background;
 mod app_discovery;
@@ -77,6 +75,7 @@ struct AppState {
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
+    cleanup_visibility: Arc<Mutex<activity_authorization::Store>>,
     engine_root: PathBuf,
     home: PathBuf,
     shutdown: Arc<shutdown::Controller>,
@@ -780,9 +779,9 @@ fn start_task(
     let operation = state.updates.installation.enter()?;
     if matches!(
         kind,
-        TaskKind::Review | TaskKind::LogTrash | TaskKind::StatusWatch
+        TaskKind::Review | TaskKind::LogTrash | TaskKind::StatusWatch | TaskKind::VisibilityProbe
     ) {
-        return Err("请从审阅计划启动规则复查。".into());
+        return Err("请使用该功能的专用操作入口。".into());
     }
     uuid::Uuid::parse_str(&task_id).map_err(|_| "任务 ID 无效。")?;
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -1159,7 +1158,9 @@ async fn execute_log_cleanup(
         if state.shutdown.closing()
             || jobs.len() >= 3
             || jobs.contains_key(&request_id)
-            || jobs.values().any(|j| j.kind == TaskKind::LogTrash)
+            || jobs
+                .values()
+                .any(|j| matches!(j.kind, TaskKind::LogTrash | TaskKind::VisibilityProbe))
         {
             return Err("已有日志处理正在进行或应用正在退出，请稍后重试。".into());
         }
@@ -1239,6 +1240,87 @@ fn cancel_task(task_id: String, state: tauri::State<'_, AppState>) -> Result<(),
         job.cancel();
     }
     Ok(())
+}
+
+#[tauri::command]
+fn get_cleanup_visibility(
+    state: tauri::State<'_, AppState>,
+) -> Result<activity_authorization::Snapshot, String> {
+    Ok(state
+        .cleanup_visibility
+        .lock()
+        .map_err(|_| "无法读取权限检查状态。")?
+        .snapshot())
+}
+
+#[tauri::command]
+fn start_cleanup_visibility(
+    state: tauri::State<'_, AppState>,
+) -> Result<activity_authorization::Snapshot, String> {
+    let operation = state.updates.installation.enter()?;
+    if !db::settings(&*state.db.lock().map_err(|_| "无法读取使用设置。")?)?.acknowledged {
+        return Err("请先阅读并确认首次使用说明。".into());
+    }
+    let mut jobs = state.jobs.lock().map_err(|_| "无法确认当前任务。")?;
+    if state.shutdown.closing()
+        || jobs.len() >= 3
+        || jobs
+            .values()
+            .any(|j| matches!(j.kind, TaskKind::VisibilityProbe | TaskKind::LogTrash))
+    {
+        return Err("当前正在处理文件、检查权限或退出，请稍后重试。".into());
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let job = Arc::new(Job::new(TaskKind::VisibilityProbe));
+    let snapshot = state
+        .cleanup_visibility
+        .lock()
+        .map_err(|_| "无法开始权限检查。")?
+        .begin(id.clone(), db::now())?;
+    jobs.insert(id.clone(), job.clone());
+    drop(jobs);
+    let state = state.inner().clone();
+    // Own the operation beyond the IPC observer/dialog. A UI reload only reads
+    // the snapshot; it never replays authorization or starts another process.
+    tauri::async_runtime::spawn(async move {
+        let _operation = operation;
+        let (result, diagnostic) = activity_authorization::run(job.clone()).await;
+        if let Ok(mut jobs) = state.jobs.lock() {
+            if let Ok(mut store) = state.cleanup_visibility.lock() {
+                store.finish_with_diagnostic(
+                    &id,
+                    if job.cancelled.load(Ordering::SeqCst) {
+                        activity_authorization::Observation::Cancelled
+                    } else {
+                        result
+                    },
+                    db::now(),
+                    diagnostic,
+                );
+            }
+            jobs.remove(&id);
+        }
+    });
+    Ok(snapshot)
+}
+
+#[tauri::command]
+fn cancel_cleanup_visibility(
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<activity_authorization::Snapshot, String> {
+    let jobs = state.jobs.lock().map_err(|_| "无法读取检查任务。")?;
+    let job = jobs
+        .get(&request_id)
+        .filter(|j| j.kind == TaskKind::VisibilityProbe)
+        .ok_or("这次检查已结束，请刷新查看结果。")?;
+    let snapshot = state
+        .cleanup_visibility
+        .lock()
+        .map_err(|_| "无法读取检查状态。")?
+        .cancel(&request_id)?;
+    job.cancel();
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -1631,6 +1713,7 @@ pub fn run() {
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
+                cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(shutdown::Controller::default()),
@@ -1649,6 +1732,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap,
             save_settings,
+            start_cleanup_visibility,
+            get_cleanup_visibility,
+            cancel_cleanup_visibility,
             get_history,
             prepare_task_diagnostic,
             save_task_diagnostic,

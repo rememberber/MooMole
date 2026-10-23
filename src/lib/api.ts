@@ -28,6 +28,10 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const getCleanupVisibility = (): Promise<unknown> => invoke('get_cleanup_visibility')
+export const startCleanupVisibility = (): Promise<unknown> => invoke('start_cleanup_visibility')
+export const cancelCleanupVisibility = (requestId: string): Promise<unknown> =>
+  invoke('cancel_cleanup_visibility', { requestId })
 export const inspectInstallerImage = (root: string, path: string): Promise<unknown> =>
   desktop
     ? invoke('inspect_installer_image', { root, path })
