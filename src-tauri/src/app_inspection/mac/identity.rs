@@ -9,9 +9,50 @@ use crate::{
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
+    fs::File,
     path::{Component, Path},
     time::{Duration, Instant},
 };
+
+mod returned;
+
+enum HeldPath {
+    Source(AnchoredPath),
+    Returned(returned::ReturnedPath),
+}
+impl HeldPath {
+    fn open(path: &Path, returned: bool) -> Result<Self, String> {
+        if returned {
+            Ok(Self::Returned(returned::ReturnedPath::open(path)?))
+        } else {
+            Ok(Self::Source(AnchoredPath::open(path)?))
+        }
+    }
+    fn target(&self) -> &File {
+        match self {
+            Self::Source(p) => p.target(),
+            Self::Returned(p) => p.target(),
+        }
+    }
+    fn witness(&self) -> &Witness {
+        match self {
+            Self::Source(p) => &p.witness,
+            Self::Returned(p) => &p.witness,
+        }
+    }
+    fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::Source(p) => p.validate(),
+            Self::Returned(p) => p.validate(),
+        }
+    }
+    fn local_materialized(&self) -> bool {
+        match self {
+            Self::Source(p) => p.local_materialized(),
+            Self::Returned(p) => p.local_materialized(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,9 +72,19 @@ pub(crate) struct Snapshot {
 }
 
 pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String> {
+    capture_with(path, expected_id, false)
+}
+
+// Post-call evidence for an EXACT native return only. Never use this weaker
+// ancestor observation as a source/plan or mutation target preparation route.
+pub(crate) fn capture_returned(path: &Path, expected_id: &str) -> Result<Snapshot, String> {
+    capture_with(path, expected_id, true)
+}
+
+fn capture_with(path: &Path, expected_id: &str, returned: bool) -> Result<Snapshot, String> {
     let started = Instant::now();
     let raw = path.to_str().ok_or("应用路径无法编码。")?;
-    let root = AnchoredPath::open(path)?;
+    let root = HeldPath::open(path, returned)?;
     if !root.local_materialized() {
         return Err("本次只记录已落地的本地 App 包。".into());
     }
@@ -63,9 +114,9 @@ pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String
                     .all(|c| matches!(c, Component::Normal(_)))
         })
         .ok_or("应用主程序名称缺失或不是单个文件名。")?;
-    let contents = AnchoredPath::open(&path.join("Contents"))?;
-    let info = AnchoredPath::open(&path.join("Contents/Info.plist"))?;
-    let executable = AnchoredPath::open(&path.join("Contents/MacOS").join(&name))?;
+    let contents = HeldPath::open(&path.join("Contents"), returned)?;
+    let info = HeldPath::open(&path.join("Contents/Info.plist"), returned)?;
+    let executable = HeldPath::open(&path.join("Contents/MacOS").join(&name), returned)?;
     let metadata = executable
         .target()
         .metadata()
@@ -87,8 +138,18 @@ pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String
     {
         return Err("应用身份/主程序的文件类型、链接、权限或本地布局不支持。".into());
     }
-    let node = root.witness.nodes.last().ok_or("缺少应用目录身份。")?;
-    let inventory = tree::inspect_bundle(path, node.dev, node.ino, &mut tree::Budget::new())?;
+    let node = root.witness().nodes.last().ok_or("缺少应用目录身份。")?;
+    let inventory = if returned {
+        tree::inspect_bundle_held(
+            root.target(),
+            path,
+            node.dev,
+            node.ino,
+            &mut tree::Budget::new(),
+        )?
+    } else {
+        tree::inspect_bundle(path, node.dev, node.ino, &mut tree::Budget::new())?
+    };
     root.validate()?;
     contents.validate()?;
     info.validate()?;
@@ -103,10 +164,10 @@ pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String
         build: fields.build,
         background: fields.background,
         executable_name: name,
-        root: root.witness,
-        contents: contents.witness,
-        info: info.witness,
-        executable: executable.witness,
+        root: root.witness().clone(),
+        contents: contents.witness().clone(),
+        info: info.witness().clone(),
+        executable: executable.witness().clone(),
         info_sha256: format!("{:x}", Sha256::digest(&bytes)),
         inventory,
     })

@@ -184,6 +184,17 @@ impl Plan {
         (&self.source.task_id, self.source.index)
     }
 
+    // Native target preparation remains independent of execution permission.
+    // Only a future sealed executor may supply confirmation/runtime gates.
+    pub(crate) fn bundle_binding(&self) -> (&str, &identity::Snapshot, i64, i64) {
+        (
+            &self.source.path,
+            &self.snapshot,
+            self.created_at,
+            self.expires_at,
+        )
+    }
+
     pub(crate) fn recheck(&self, ctx: &Context, now: i64) -> Result<View, String> {
         if now < self.created_at
             || now >= self.expires_at

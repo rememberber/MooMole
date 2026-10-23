@@ -367,6 +367,50 @@ pub(crate) fn inspect_bundle(
     })
 }
 
+// Read only an already held App root and descriptor-relative descendants.
+// The caller must bind/revalidate its exact returned location separately. This
+// route deliberately grants no source ancestry or mutation qualification.
+pub(crate) fn inspect_bundle_held(
+    directory: &File,
+    path: &Path,
+    dev: u64,
+    ino: u64,
+    budget: &mut Budget,
+) -> Result<BundleWitness, String> {
+    budget.tick()?;
+    let before = stat_fd(directory)?;
+    if before.st_mode & libc::S_IFMT != libc::S_IFDIR
+        || before.st_dev as u64 != dev
+        || before.st_ino != ino
+    {
+        return Err("返回的 App 根身份不一致。".into());
+    }
+    let mut digest = Sha256::new();
+    digest.update(b"MooMole.bundle.tree.v1");
+    let mut entries = 0;
+    walk(
+        directory,
+        path,
+        dev,
+        0,
+        Mode::Bundle,
+        &mut digest,
+        budget,
+        &mut entries,
+        &mut |_| {},
+        &mut |_| Ok(()),
+    )?;
+    if stamp(&before) != stamp(&stat_fd(directory)?) {
+        return Err("返回的 App 根在核对期间变化。".into());
+    }
+    budget.check_time()?;
+    Ok(BundleWitness {
+        version: 1,
+        digest: format!("{:x}", digest.finalize()),
+        entries,
+    })
+}
+
 fn inspect_mode(
     path: &Path,
     dev: u64,

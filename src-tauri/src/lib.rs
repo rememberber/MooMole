@@ -43,6 +43,7 @@ mod status_watch;
 mod tasks;
 mod tree;
 mod uninstall_plan;
+mod uninstall_target;
 mod update_download;
 mod update_install;
 mod update_preferences;
