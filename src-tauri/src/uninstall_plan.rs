@@ -3,7 +3,7 @@
 use crate::{
     app_background::Marker, app_inspection::identity, app_protection, app_uninstall_rules, engine,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, path::PathBuf};
@@ -11,7 +11,8 @@ use std::{collections::HashMap, path::PathBuf};
 const LIFETIME_MS: i64 = 5 * 60_000;
 const MAX_PLANS: usize = 8;
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Source {
     task_id: String,
     index: usize,
@@ -144,10 +145,21 @@ fn guards(source: &Source, ctx: &Context) -> Result<(), String> {
 }
 
 fn digest(source: &Source, snapshot: &identity::Snapshot) -> Result<String, String> {
-    let bytes = serde_json::to_vec(&(engine::REVISION, source, snapshot))
-        .map_err(|_| "无法固定本次 App 身份。")?;
+    digest_at_revision(engine::REVISION, source, snapshot)
+}
+
+fn digest_at_revision(
+    revision: &str,
+    source: &Source,
+    snapshot: &identity::Snapshot,
+) -> Result<String, String> {
+    let bytes =
+        serde_json::to_vec(&(revision, source, snapshot)).map_err(|_| "无法固定本次 App 身份。")?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
+
+mod record;
+pub(crate) use record::{absolute, hash, Archive};
 
 impl Plan {
     pub(crate) fn id(&self) -> &str {

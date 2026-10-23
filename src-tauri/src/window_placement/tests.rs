@@ -139,6 +139,9 @@ fn optional_storage_roundtrips_without_changing_settings_history_or_schema_versi
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("app.sqlite");
     let db = crate::db::open_fixture(&path).unwrap();
+    let schema_before: u32 = db
+        .pragma_query_value(None, "user_version", |r| r.get(0))
+        .unwrap();
     crate::db::save_settings(&db, &crate::db::Settings::default()).unwrap();
     crate::db::start(&db, "test", "status", Some("/fixture")).unwrap();
     let before: String = db
@@ -165,7 +168,7 @@ fn optional_storage_roundtrips_without_changing_settings_history_or_schema_versi
     assert_eq!(
         db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        3
+        schema_before
     );
     assert_eq!(
         db.pragma_query_value::<u64, _>(None, "busy_timeout", |r| r.get(0))

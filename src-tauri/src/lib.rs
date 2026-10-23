@@ -20,6 +20,7 @@ mod directory_probe;
 mod engine;
 mod engine_manifest;
 mod execution;
+mod execution_admission;
 mod execution_location;
 #[cfg(test)]
 mod execution_sandbox;
@@ -42,6 +43,7 @@ mod shutdown;
 mod status_watch;
 mod tasks;
 mod tree;
+mod uninstall_journal;
 mod uninstall_plan;
 mod uninstall_target;
 mod update_download;

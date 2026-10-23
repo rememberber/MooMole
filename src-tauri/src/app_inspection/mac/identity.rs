@@ -6,7 +6,7 @@ use crate::{
     observation::{AnchoredPath, Witness},
     tree::{self, BundleWitness},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
@@ -54,8 +54,8 @@ impl HeldPath {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Snapshot {
     pub version: u32,
     pub bundle_id: String,

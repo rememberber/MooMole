@@ -1,6 +1,8 @@
 //! Durable accounting only: this module never touches cleanup targets. Mutators
 //! are internal building blocks, NOT execution permission. The log executor
 //! independently checks sealed confirmation, module rules and native identity.
+#[cfg(test)]
+use crate::execution_admission::{MAX_RESERVED, MAX_RUNS};
 use crate::review::Plan;
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
@@ -10,8 +12,6 @@ use std::path::{Component, Path};
 const MAX_REASON: usize = 1024;
 const MAX_RECEIPT: usize = 4096;
 const MAX_PLAN: usize = 8 * 1024 * 1024;
-const MAX_RUNS: i64 = 64;
-const MAX_RESERVED: i64 = 64 * 1024 * 1024;
 // Covers three bounded events, current receipt/reason and row overhead per item.
 const RESERVE_PER_ITEM: i64 = 32 * 1024;
 
@@ -205,13 +205,7 @@ pub fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<String, String
     }
     let reserved = body.len() as i64 + plan.items.len() as i64 * RESERVE_PER_ITEM;
     let tx = transaction(db)?;
-    let (count, used, blocked): (i64,i64,i64) = tx.query_row("SELECT count(*),coalesce(sum(reserved_bytes),0),coalesce(sum(state='running' OR EXISTS(SELECT 1 FROM execution_items i WHERE i.run_id=execution_runs.id AND i.state='uncertain')),0) FROM execution_runs", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(sql)?;
-    if blocked != 0 {
-        return Err("已有运行中或结果待核实的批次，不能开始新的修改操作。".into());
-    }
-    if count >= MAX_RUNS || used + reserved > MAX_RESERVED {
-        return Err("执行记录达到容量上限；需要先处理保留记录，不能丢弃恢复证据。".into());
-    }
+    crate::execution_admission::reserve(&tx, reserved)?;
     let id = uuid::Uuid::new_v4().to_string();
     let digest = format!("{:x}", Sha256::digest(body.as_bytes()));
     tx.execute(

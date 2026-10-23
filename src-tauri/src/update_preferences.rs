@@ -42,6 +42,9 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("db.sqlite");
         let db = crate::db::open_fixture(&path).unwrap();
+        let schema_before: u32 = db
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
         assert!(!load(&db).unwrap());
         assert_eq!(
             db.query_row::<i64, _, _>(
@@ -61,7 +64,7 @@ mod tests {
         assert_eq!(
             db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
                 .unwrap(),
-            3
+            schema_before
         );
     }
     #[test]

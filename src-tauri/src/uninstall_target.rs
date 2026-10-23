@@ -10,7 +10,7 @@ use crate::{
 };
 use objc2::rc::{autoreleasepool, Retained};
 use objc2_foundation::{NSFileManager, NSString, NSURL};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
@@ -28,8 +28,8 @@ pub(crate) struct PreparedBundle {
 
 // Distinct from an ordinary-file outcome/receipt. The minimal native location
 // shares only the lossless decimal device/inode encoding, never its authority.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Receipt {
     pub version: u32,
     pub actual: crate::execution::Receipt,

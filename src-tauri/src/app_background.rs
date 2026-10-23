@@ -1,7 +1,7 @@
 //! Read-only adaptation of Mole's background-only / direct search-root condition.
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Marker {
     Absent,
