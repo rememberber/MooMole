@@ -95,7 +95,14 @@ pub(crate) struct Attempt {
 
 impl PreparedFile {
     pub(crate) fn move_to_trash(&self) -> Result<Attempt, String> {
-        autoreleasepool(|_| self.trash_with(|| {}))
+        self.move_to_trash_checked(|| Ok(()))
+    }
+
+    pub(crate) fn move_to_trash_checked(
+        &self,
+        gate: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Attempt, String> {
+        autoreleasepool(|_| self.trash_with(gate))
     }
 
     /// Test-only operation, restricted to the current fixture's direct children.
@@ -110,12 +117,18 @@ impl PreparedFile {
         if self.path.parent() != Some(fixture_root.join("source").as_path()) {
             return Err("native experiment is outside this fixture source".into());
         }
-        self.trash_with(after_gate)
+        self.trash_with(|| {
+            after_gate();
+            Ok(())
+        })
     }
 
     // Any Err is strictly BEFORE the native call. Once called, missing/error
     // evidence is an Uncertain result, never a known-no-change failure.
-    fn trash_with(&self, after_gate: impl FnOnce()) -> Result<Attempt, String> {
+    fn trash_with(
+        &self,
+        after_gate: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Attempt, String> {
         use crate::execution::{Outcome, Receipt};
         use objc2_foundation::NSFileManager;
         self.validate()?;
@@ -127,7 +140,7 @@ impl PreparedFile {
             return Err(access.refusal_reason());
         }
         self.validate()?;
-        after_gate();
+        after_gate()?;
         let mut actual = None;
         let result = NSFileManager::defaultManager()
             .trashItemAtURL_resultingItemURL_error(&self.reference, Some(&mut actual));

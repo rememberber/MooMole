@@ -74,7 +74,7 @@ export function mount(mode = 'normal') {
               },
             })),
             cleanupPreparation: {
-              version: mode === 'invalid' ? 9 : 1,
+              version: mode === 'invalid' ? 9 : 2,
               planId: initial.id,
               scope: 'userLogFiles',
               method: 'trash',
@@ -82,6 +82,7 @@ export function mount(mode = 'normal') {
               checkedAt: checked,
               expiresAt: checked + 30_000,
               observedCount: 1,
+              authorizationCount: 0,
               items: [
                 {
                   id: 'item-0',

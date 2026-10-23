@@ -88,3 +88,48 @@ test('completed result can locate its actual receipt without repeating execution
   await expect(page.getByLabel('调用次数')).toHaveText('1')
   await expect(result).toContainText('当前没有应用内恢复')
 })
+
+test('unknown occupancy stays conditional until the fixed-scope action is acknowledged', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 800 })
+  await mount(page, 'authorization')
+  await expect(page.getByLabel('调用次数')).toHaveText('0')
+  await expect(page.getByText('需要当次授权检查', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看授权后移入范围' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认移入废纸篓' })
+  await expect(dialog).toContainText('只读检查所列文件的占用')
+  await expect(dialog).toContainText('符合条件的文件由当前账户移入废纸篓')
+  const action = dialog.getByRole('button', { name: '授权检查并移入废纸篓', exact: true })
+  await expect(action).toBeDisabled()
+  await dialog.getByRole('checkbox').check()
+  await expect(page.getByLabel('调用次数')).toHaveText('0')
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await page.screenshot({
+      path: `test-results/log-authorization-${theme}.png`,
+      animations: 'disabled',
+    })
+  }
+  await action.click()
+  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByLabel('调用次数')).toHaveText('1')
+})
+
+test('authorization waiting can be cancelled after the confirmation expires', async ({ page }) => {
+  await page.clock.install()
+  await mount(page, 'authorization-cancel')
+  await page.getByRole('button', { name: '查看授权后移入范围' }).click()
+  await page.getByRole('checkbox').check()
+  await page.getByRole('button', { name: '授权检查并移入废纸篓', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '正在处理日志' })
+  await expect(dialog).toContainText('系统确认窗口需要你本人操作')
+  await expect(dialog).toContainText('若窗口仍在，请亲自取消')
+  await page.clock.fastForward(31000)
+  await dialog.getByRole('button', { name: '停止后续项目' }).click()
+  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByLabel('调用次数')).toHaveText('1')
+})

@@ -83,7 +83,7 @@ fn assert_fixture_contents(home: &Path) {
 fn report(plan: &review::Plan) -> cleanup_preparation::Report {
     let now = db::now();
     cleanup_preparation::Report {
-        version: 1,
+        version: cleanup_preparation::VERSION,
         plan_id: plan.id.clone(),
         scope: "userLogFiles",
         method: "trash",
@@ -91,6 +91,7 @@ fn report(plan: &review::Plan) -> cleanup_preparation::Report {
         checked_at: now,
         expires_at: now + 30_000,
         observed_count: 2,
+        authorization_count: 0,
         items: plan
             .items
             .iter()

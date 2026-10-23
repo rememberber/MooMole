@@ -38,7 +38,7 @@ function fixture(): ReviewPlan {
     ruleCheckedAt: 1000,
     items,
     cleanupPreparation: {
-      version: 1,
+      version: 2,
       planId: 'plan',
       scope: 'userLogFiles',
       method: 'trash',
@@ -46,6 +46,7 @@ function fixture(): ReviewPlan {
       checkedAt: 1000,
       expiresAt: 31_000,
       observedCount: 1,
+      authorizationCount: 0,
       items: [
         { id: 'log', code: 'observed', reason: '本轮日志准备已核对。' },
         { id: 'cache', code: 'retained', reason: '缓存不在单文件日志范围，保留。' },
@@ -55,13 +56,30 @@ function fixture(): ReviewPlan {
 }
 
 describe('single-log preparation evidence', () => {
+  it('does not count authorization-required logs as observed or retained', () => {
+    const plan = fixture()
+    plan.items[0].state = 'activityUnknown'
+    plan.items[0].moleRule!.activity!.code = 'unknown'
+    plan.cleanupPreparation!.items[0].code = 'authorizationRequired'
+    plan.cleanupPreparation!.observedCount = 0
+    plan.cleanupPreparation!.authorizationCount = 1
+    const result = cleanupPreparation(plan, 1001)!
+    expect(result.valid).toBe(true)
+    expect(result.summary).toContain('1 项仍需授权检查 · 1 项保留')
+    expect(result.summary).not.toContain('完成本轮准备检查')
+    expect(result.next).toContain('本人进行当次系统授权')
+    for (const count of [-1, 0, 2, NaN, 1.5]) {
+      plan.cleanupPreparation!.authorizationCount = count
+      expect(cleanupPreparation(plan, 1001)?.valid).toBe(false)
+    }
+  })
   it('joins only the current plan, separates retained scope, and grants no action', () => {
     const plan = fixture()
     const result = cleanupPreparation(plan, 1001)!
     expect(result.valid).toBe(true)
     expect(result.summary).toContain('1 项日志完成本轮准备检查 · 1 项保留')
     expect(result.items.get('cache')?.code).toBe('retained')
-    expect(result.next).toContain('当前未开放执行')
+    expect(result.next).toContain('不代表清理授权')
     plan.cleanupPreparation = null
     expect(cleanupPreparation(plan, 1001)).toBeNull()
   })

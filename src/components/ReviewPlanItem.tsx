@@ -51,7 +51,11 @@ export function ReviewPlanItem({
         {permission.problem && <span className="tag plan-problem">{permission.label}</span>}
         {preparation && (
           <span className="tag">
-            {preparation.code === 'observed' ? '日志准备已核对' : '日志暂不处理'}
+            {preparation.code === 'observed'
+              ? '日志准备已核对'
+              : preparation.code === 'authorizationRequired'
+                ? '需要当次授权检查'
+                : '日志暂不处理'}
           </span>
         )}
       </div>

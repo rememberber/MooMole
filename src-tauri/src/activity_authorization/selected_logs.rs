@@ -1,11 +1,17 @@
-//! A sealed, read-only exact-log observer, staged before executor integration.
+//! A sealed, read-only exact-log observer used by confirmed log execution.
 //! PID-1 diagnostics cannot construct this request or supply its evidence.
-//! No IPC, persistence, rule override, confirmation or mutation is provided here.
+//! No direct IPC, persistence, confirmation or mutation is provided here.
 use super::{apple_literal, monotonic_ms, shell_literal};
 use crate::{engine::Job, observation::AnchoredPath, provenance, review, rules};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, path::Path, sync::atomic::Ordering, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    sync::atomic::Ordering,
+    sync::Arc,
+    time::Duration,
+};
 
 const PROGRAM: &str = include_str!("selected_logs.pl");
 const END: &str = "MooMole.logs.end.v1";
@@ -46,6 +52,18 @@ struct Request {
 pub(crate) struct Evidence {
     request: Request,
     report: Report,
+}
+
+// Each result retains its ORIGINAL native time and target. Final Trash calls
+// must revalidate it; conversion to a RuleCheck alone is not lasting authority.
+pub(crate) struct Guard {
+    source_digest: String,
+    one: review::Plan,
+    home: PathBuf,
+    checked_ms: u64,
+    expires_ms: u64,
+    job: Arc<Job>,
+    code: Code,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -224,10 +242,16 @@ impl Request {
             return Err(invalid());
         }
         let text = std::str::from_utf8(bytes).map_err(|_| invalid())?;
-        let body = text
-            .strip_prefix("ok\n")
-            .and_then(|s| s.strip_suffix(&format!("\n{END}\n")))
+        let framed = text
+            .strip_suffix(&format!("\n{END}\n"))
             .ok_or_else(invalid)?;
+        if framed.starts_with("error\n-128\n") {
+            // Standard Additions' explicit user-cancel result. This withdraws
+            // the same execution Job; it never establishes authorization.
+            self.job.cancel();
+            return Err("系统授权已取消，未取得当次占用观察。".into());
+        }
+        let body = framed.strip_prefix("ok\n").ok_or_else(invalid)?;
         let report: Report = serde_json::from_str(body).map_err(|_| invalid())?;
         let evidence = Evidence {
             request: self,
@@ -289,7 +313,8 @@ impl Evidence {
         Ok(())
     }
 
-    pub(crate) fn consume(
+    #[cfg(test)]
+    fn consume(
         self,
         plan: &review::Plan,
         home: &Path,
@@ -303,10 +328,111 @@ impl Evidence {
             .map(|i| (i.id, i.code))
             .collect())
     }
+
+    pub(crate) fn into_guards(
+        self,
+        plan: &review::Plan,
+        home: &Path,
+        now: i64,
+    ) -> Result<HashMap<String, Guard>, String> {
+        self.validate(plan, home, now)?;
+        let p = self.request.payload;
+        Ok(self
+            .report
+            .items
+            .into_iter()
+            .zip(&plan.items)
+            .map(|(result, item)| {
+                (
+                    result.id,
+                    Guard {
+                        source_digest: p.digest.clone(),
+                        one: review::Plan {
+                            items: vec![item.clone()],
+                            ..plan.clone()
+                        },
+                        home: home.to_path_buf(),
+                        checked_ms: result.checked_ms,
+                        expires_ms: p.expires_ms,
+                        job: self.request.job.clone(),
+                        code: result.code,
+                    },
+                )
+            })
+            .collect())
+    }
 }
 
-/// Not exposed to IPC yet: integration must hold the task/update lease, obtain
-/// explicit user intent, and preserve fresh Mole rules and final user-mode Trash.
+impl Guard {
+    fn current_time(&self) -> Result<(), String> {
+        let now = monotonic_ms().ok_or("无法复核占用检查时间，保留文件。")?;
+        if self.job.cancelled.load(Ordering::SeqCst)
+            || now < self.checked_ms
+            || now >= self.expires_ms
+            || now.saturating_sub(self.checked_ms) >= FRESH_MS
+        {
+            return Err("当次占用观察已取消或过期，保留文件；请重新扫描并缩小选择。".into());
+        }
+        Ok(())
+    }
+
+    fn identity(&self) -> Result<(), String> {
+        self.current_time()?;
+        validate_plan(&self.one, &self.home, crate::db::now())?;
+        self.current_time()
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if self.code != Code::NoOpenHandles {
+            return Err("缺少当前对象的空闲正面观察，保留文件。".into());
+        }
+        self.identity()
+    }
+
+    pub(crate) fn apply(
+        &self,
+        plan: &review::Plan,
+        checks: &mut HashMap<String, rules::RuleCheck>,
+    ) -> Result<(), String> {
+        if digest(plan)? != self.source_digest {
+            return Err("占用检查不属于本次固定选择。".into());
+        }
+        self.identity()?;
+        let rule = checks
+            .get_mut(&self.one.items[0].candidate.id)
+            .ok_or("缺少当次 Mole 规则，保留文件。")?;
+        if rule.code != "passed"
+            || rule.module.version != rules::MODULE_VERSION
+            || rule.module.binding != "userLogs"
+            || rule.module.scope != "userLogs"
+            || rule.module.code != "checked"
+            || rule.activity.version != rules::ACTIVITY_VERSION
+        {
+            return Err("当次 Mole 路径或日志模块条件未通过，保留文件。".into());
+        }
+        // Never erase a positive busy result or a failed/incomplete rule run.
+        if !matches!(rule.activity.code.as_str(), "noOpenHandles" | "unknown") {
+            return Ok(());
+        }
+        let code = match self.code {
+            Code::NoOpenHandles => "noOpenHandles",
+            Code::Busy => "busy",
+            Code::BudgetExhausted => "budgetExhausted",
+            Code::Changed => "checkFailed",
+            Code::Unknown => "unknown",
+        };
+        let mut activity = rules::ActivityCheck::from_code(code)?;
+        activity.source = "客户端当次授权观察 · Mole 占用检查语义".into();
+        if code == "noOpenHandles" {
+            activity.reason = "本次完整视图证明及精确文件查询未发现打开句柄；只适用于当前对象与短期观察，执行前仍会核对，不保证持续空闲。".into();
+        }
+        rule.activity = activity;
+        Ok(())
+    }
+}
+
+/// Only the existing confirmed worker calls this, owning its task/update lease.
+#[cfg_attr(test, allow(dead_code))] // Unit regressions never request OS authorization.
 pub(crate) async fn observe(
     plan: &review::Plan,
     home: &Path,
@@ -347,3 +473,21 @@ pub(crate) async fn observe(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(crate) fn fixture_evidence(
+    plan: &review::Plan,
+    home: &Path,
+    job: Arc<Job>,
+) -> Result<Evidence, String> {
+    // Nonprivileged protocol fixture only. No production flag/IPC accepts this.
+    let request = Request::new(plan, home, crate::db::now(), job)?;
+    let items = request.payload.items.iter().map(|i| serde_json::json!({"id":i.id,"code":"noOpenHandles","checked_ms":monotonic_ms().unwrap()})).collect::<Vec<_>>();
+    let body = serde_json::json!({"version":1,"nonce":request.payload.nonce,"digest":request.payload.digest,"uid":0,"visibility":"observed","items":items,"complete":"MooMole.logs.complete.v1"});
+    request.finish(
+        plan,
+        home,
+        format!("ok\n{body}\n{END}\n").as_bytes(),
+        crate::db::now(),
+    )
+}

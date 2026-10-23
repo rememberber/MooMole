@@ -12,7 +12,7 @@ export function cleanupPreparation(plan: ReviewPlan, now: number) {
   if (
     plan.readOnly !== true ||
     plan.requiresMoleRecheck !== true ||
-    report.version !== 1 ||
+    report.version !== 2 ||
     report.planId !== plan.id ||
     report.scope !== 'userLogFiles' ||
     report.method !== 'trash' ||
@@ -39,11 +39,11 @@ export function cleanupPreparation(plan: ReviewPlan, now: number) {
       const rule = source.moleRule
       return (
         item.id !== source.id ||
-        !['observed', 'retained', 'notChecked'].includes(item.code) ||
+        !['observed', 'authorizationRequired', 'retained', 'notChecked'].includes(item.code) ||
         typeof item.reason !== 'string' ||
         !item.reason.trim() ||
-        (item.code === 'observed' &&
-          (source.state !== 'unchanged' ||
+        ((item.code === 'observed' || item.code === 'authorizationRequired') &&
+          (source.state !== (item.code === 'observed' ? 'unchanged' : 'activityUnknown') ||
             source.permissions?.version !== 1 ||
             source.permissions.code !== 'noRestrictionObserved' ||
             rule?.code !== 'passed' ||
@@ -52,11 +52,17 @@ export function cleanupPreparation(plan: ReviewPlan, now: number) {
             rule.module.scope !== 'userLogs' ||
             rule.module.code !== 'checked' ||
             rule.activity?.version !== 1 ||
-            rule.activity.code !== 'noOpenHandles'))
+            rule.activity.code !== (item.code === 'observed' ? 'noOpenHandles' : 'unknown')))
       )
     }) ||
-    report.observedCount > 20 ||
-    report.observedCount !== report.items.filter((item) => item.code === 'observed').length
+    !Number.isSafeInteger(report.observedCount) ||
+    report.observedCount < 0 ||
+    !Number.isSafeInteger(report.authorizationCount) ||
+    report.authorizationCount < 0 ||
+    report.observedCount + report.authorizationCount > 20 ||
+    report.observedCount !== report.items.filter((item) => item.code === 'observed').length ||
+    report.authorizationCount !==
+      report.items.filter((item) => item.code === 'authorizationRequired').length
   )
     return invalid
   if (now < report.checkedAt || now >= report.expiresAt || now >= plan.expiresAt)
@@ -67,12 +73,16 @@ export function cleanupPreparation(plan: ReviewPlan, now: number) {
     }
   return {
     valid: true,
-    summary: report.observedCount
-      ? `${report.observedCount} 项日志完成本轮准备检查 · ${report.items.length - report.observedCount} 项保留`
-      : '本轮所选项目全部保留',
-    next: report.observedCount
-      ? '下一步：逐项核对日志用途与影响。当前未开放执行，准备结果不代表清理授权。'
-      : '下一步：查看逐项保留原因；不要根据文件名或大小扩大处理范围。',
+    summary: report.authorizationCount
+      ? `${report.observedCount + report.authorizationCount} 项日志可核对处理范围，其中 ${report.authorizationCount} 项仍需授权检查 · ${report.items.length - report.observedCount - report.authorizationCount} 项保留`
+      : report.observedCount
+        ? `${report.observedCount} 项日志完成本轮准备检查 · ${report.items.length - report.observedCount} 项保留`
+        : '本轮所选项目全部保留',
+    next: report.authorizationCount
+      ? '下一步：核对固定范围并明确确认，再由本人进行当次系统授权；占用仍未知的文件保留。'
+      : report.observedCount
+        ? '下一步：逐项核对日志用途与影响。准备结果不代表清理授权，实际处理前仍会重新检查。'
+        : '下一步：查看逐项保留原因；不要根据文件名或大小扩大处理范围。',
     items: new Map(report.items.map((item) => [item.id, item])),
   }
 }

@@ -4,11 +4,8 @@ use crate::engine::Job;
 use std::sync::{atomic::Ordering, Arc};
 use std::time::{Duration, Instant};
 
-mod state;
-// Staged backend building block. It has no IPC/action until the confirmation and
-// ordinary-user executor can consume the same bound, fresh observation.
-#[allow(dead_code)]
 pub(crate) mod selected_logs;
+mod state;
 pub(crate) use state::{Snapshot, Store};
 
 const HEADER: &str = "MooMole.visibility.v1";

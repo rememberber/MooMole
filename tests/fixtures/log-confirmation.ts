@@ -35,7 +35,7 @@ export function confirmationPlan(): ReviewPlan {
     ruleCheckedAt: 1000,
     items,
     cleanupPreparation: {
-      version: 1,
+      version: 2,
       planId: 'plan',
       scope: 'userLogFiles',
       method: 'trash',
@@ -43,6 +43,7 @@ export function confirmationPlan(): ReviewPlan {
       checkedAt: 1000,
       expiresAt: 31_000,
       observedCount: 1,
+      authorizationCount: 0,
       items: [
         { id: 'log', code: 'observed', reason: '本轮日志准备已核对。' },
         { id: 'cache', code: 'retained', reason: '缓存不在单文件日志范围，保留。' },
@@ -50,7 +51,7 @@ export function confirmationPlan(): ReviewPlan {
     },
   }
   plan.cleanupConfirmation = {
-    version: 1,
+    version: 2,
     id: '12345678-1234-4123-8123-123456789abc',
     planId: plan.id,
     snapshotSha256: 'a'.repeat(64),
@@ -58,6 +59,7 @@ export function confirmationPlan(): ReviewPlan {
     createdAt: 1000,
     expiresAt: 31000,
     retainedCount: 1,
+    requiresAuthorization: false,
     items: [{ id: 'log', path: '/fixture/log', sizeBytes: 10 }],
   }
   return plan

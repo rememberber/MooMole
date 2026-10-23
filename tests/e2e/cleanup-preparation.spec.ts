@@ -13,7 +13,7 @@ test('real-rule preparation summary keeps scope, retention and recovery boundari
   await expect(
     dialog.getByText('1 项日志完成本轮准备检查 · 1 项保留', { exact: true }),
   ).toBeVisible()
-  await expect(dialog.getByRole('status')).toContainText('当前未开放执行')
+  await expect(dialog.getByRole('status')).toContainText('准备结果不代表清理授权')
   await expect(dialog.getByText('日志准备已核对', { exact: true })).toHaveCount(1)
   await expect(dialog.getByText('日志暂不处理', { exact: true })).toHaveCount(1)
   await dialog.getByRole('checkbox', { name: '只看需要确认的项目' }).check()

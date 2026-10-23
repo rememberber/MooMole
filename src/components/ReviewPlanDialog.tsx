@@ -197,15 +197,22 @@ export function ReviewPlanDialog({
                   ? '下一步：复查 Mole 规则，再逐项了解用途与影响。'
                   : '下一步：查看逐项检查结果与可能影响。'}
       </p>
-      {onExecute && preparation?.valid && plan.cleanupPreparation!.observedCount > 0 && (
-        <button
-          className="button primary compact"
-          disabled={!offer || pending != null}
-          onClick={() => offer && setConfirming(offer)}
-        >
-          {offer ? '查看移入废纸篓范围' : '重新复查后生成确认范围'}
-        </button>
-      )}
+      {onExecute &&
+        preparation?.valid &&
+        plan.cleanupPreparation!.observedCount + plan.cleanupPreparation!.authorizationCount >
+          0 && (
+          <button
+            className="button primary compact"
+            disabled={!offer || pending != null}
+            onClick={() => offer && setConfirming(offer)}
+          >
+            {offer
+              ? offer.requiresAuthorization
+                ? '查看授权后移入范围'
+                : '查看移入废纸篓范围'
+              : '重新复查后生成确认范围'}
+          </button>
+        )}
       <details className="plan-info">
         <summary>计划信息与检查范围</summary>
         <p>

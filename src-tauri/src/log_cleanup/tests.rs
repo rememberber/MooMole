@@ -78,7 +78,7 @@ impl Fixture {
         // Explicit fixture-only eligibility to exercise confirmation/journal.
         // The production executor must independently recheck each actual rule.
         cleanup_preparation::Report {
-            version: 1,
+            version: cleanup_preparation::VERSION,
             plan_id: self.plan.id.clone(),
             scope: "userLogFiles",
             method: "trash",
@@ -86,6 +86,7 @@ impl Fixture {
             checked_at: now,
             expires_at: now + 30_000,
             observed_count: self.plan.items.len(),
+            authorization_count: 0,
             items: self
                 .plan
                 .items
@@ -106,11 +107,146 @@ impl Fixture {
             .unwrap();
         store.take(&offer.id, db::now()).unwrap()
     }
+    fn authorize_required(&self) -> Authorized {
+        let mut report = self.report();
+        report.authorization_count = report.observed_count;
+        report.observed_count = 0;
+        for item in &mut report.items {
+            item.code = "authorizationRequired";
+        }
+        let mut store = Confirmations::default();
+        let offer = store
+            .issue(&self.plan, &report, db::now())
+            .unwrap()
+            .unwrap();
+        assert!(offer.requires_authorization);
+        store.take(&offer.id, db::now()).unwrap()
+    }
     fn original_files(&self) -> usize {
         std::fs::read_dir(self.home.join("Library/Logs"))
             .unwrap()
             .filter(|entry| entry.as_ref().unwrap().file_type().unwrap().is_file())
             .count()
+    }
+}
+
+#[tokio::test]
+async fn conditional_authorization_failure_and_cancellation_have_durable_non_mutating_results() {
+    for cancel in [false, true] {
+        let f = Fixture::new();
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let result = run_authorized(
+            f.db.clone(),
+            f.home.clone(),
+            f.authorize_required(),
+            Arc::new(Job::new(TaskKind::LogTrash)),
+            |_, _| async { panic!("failed authorization must not reach rules or Trash") },
+            move |_, _, job| async move {
+                observed_calls.fetch_add(1, Ordering::SeqCst);
+                if cancel {
+                    job.cancel();
+                }
+                Err("nonprivileged authorization failure fixture".into())
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(result.summary.moved_count, 0);
+        assert!(result
+            .items
+            .iter()
+            .all(|i| i.state == if cancel { "cancelled" } else { "skipped" }));
+        assert!(result.items.iter().all(|i| i.receipt.is_none()));
+        assert_eq!(f.original_files(), 3);
+    }
+}
+
+#[tokio::test]
+async fn authorized_observation_cannot_override_new_policy_busy_rules_or_changed_saved_plan() {
+    for mode in [
+        "busy",
+        "checkFailed",
+        "protected",
+        "sourceChanged",
+        "module",
+        "cancel",
+    ] {
+        let f = Fixture::new();
+        let db = f.db.clone();
+        let saved = f.plan.clone();
+        let home = f.home.clone();
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let result = run_authorized(
+            f.db.clone(),
+            f.home.clone(),
+            f.authorize_required(),
+            Arc::new(Job::new(TaskKind::LogTrash)),
+            move |requested, job| {
+                let db = db.clone();
+                let home = home.clone();
+                let mut saved = saved.clone();
+                async move {
+                    if mode == "cancel" {
+                        job.cancel();
+                    }
+                    if mode == "protected" {
+                        let db = db.lock().unwrap();
+                        let mut settings = db::settings(&db).unwrap();
+                        settings
+                            .protected_paths
+                            .push(home.join("Library/Logs").to_str().unwrap().into());
+                        db::save_settings(&db, &settings).unwrap();
+                    }
+                    if mode == "sourceChanged" {
+                        saved.items[0]
+                            .candidate
+                            .section
+                            .push_str(" changed during authorization");
+                        db.lock()
+                            .unwrap()
+                            .execute(
+                                "UPDATE review_plans SET body=?1 WHERE id=?2",
+                                rusqlite::params![serde_json::to_string(&saved).unwrap(), saved.id],
+                            )
+                            .unwrap();
+                    }
+                    let mut checks = clear(requested);
+                    for rule in checks.values_mut() {
+                        rule.activity = rules::ActivityCheck::from_code(
+                            if matches!(mode, "busy" | "checkFailed") {
+                                mode
+                            } else {
+                                "unknown"
+                            },
+                        )
+                        .unwrap();
+                        if mode == "module" {
+                            rule.module.code = "unsupported".into();
+                        }
+                    }
+                    Ok(checks)
+                }
+            },
+            move |plan, home, job| async move {
+                observed_calls.fetch_add(1, Ordering::SeqCst);
+                selected_logs::fixture_evidence(&plan, &home, job)
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "one observation per batch: {mode}"
+        );
+        assert_eq!(result.summary.moved_count, 0, "{mode}");
+        assert!(result.items.iter().all(|i| i.receipt.is_none()));
+        assert_eq!(f.original_files(), 3, "{mode}");
     }
 }
 fn clear(requested: Vec<(String, String, String)>) -> HashMap<String, rules::RuleCheck> {

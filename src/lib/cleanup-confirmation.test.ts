@@ -4,6 +4,21 @@ import { cleanupConfirmation } from './cleanup-confirmation'
 import type { ReviewPlan } from '../types'
 
 describe('server-owned log confirmation display', () => {
+  it('keeps unknown occupancy conditional and requires the matching authorization flag', () => {
+    const plan = confirmationPlan()
+    plan.cleanupPreparation!.observedCount = 0
+    plan.cleanupPreparation!.authorizationCount = 1
+    plan.cleanupPreparation!.items[0].code = 'authorizationRequired'
+    plan.items[0].state = 'activityUnknown'
+    plan.items[0].moleRule!.activity!.code = 'unknown'
+    expect(cleanupConfirmation(plan, 1001)).toBeNull()
+    plan.cleanupConfirmation!.requiresAuthorization = true
+    expect(cleanupConfirmation(plan, 1001)?.requiresAuthorization).toBe(true)
+    for (const code of ['busy', 'checkFailed', 'budgetExhausted', 'notChecked']) {
+      plan.items[0].moleRule!.activity!.code = code
+      expect(cleanupConfirmation(plan, 1001)).toBeNull()
+    }
+  })
   it('requires current preparation and exact ordered scope', () => {
     const plan = confirmationPlan()
     expect(cleanupConfirmation(plan, 1001)).toBe(plan.cleanupConfirmation)

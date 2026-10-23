@@ -478,3 +478,145 @@ fn new_request(plan: &review::Plan, home: &Path, now: i64) -> Result<Request, St
         Arc::new(Job::new(crate::engine::TaskKind::LogTrash)),
     )
 }
+
+fn current_rules(plan: &review::Plan, activity: &str) -> HashMap<String, rules::RuleCheck> {
+    plan.items
+        .iter()
+        .map(|item| {
+            (
+                item.candidate.id.clone(),
+                rules::RuleCheck {
+                    code: "passed".into(),
+                    source: "fixture".into(),
+                    reason: "fixture".into(),
+                    module: rules::ModuleCheck::from_codes("userLogs", "checked", "userLogs")
+                        .unwrap(),
+                    activity: rules::ActivityCheck::from_code(activity).unwrap(),
+                },
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn guards_keep_original_freshness_and_never_override_busy_protected_or_failed_rules() {
+    let (_temp, home, plan) = setup(&["first.log", "second.log"]);
+    for activity in [
+        "unknown",
+        "busy",
+        "checkFailed",
+        "notChecked",
+        "budgetExhausted",
+    ] {
+        let job = Arc::new(Job::new(crate::engine::TaskKind::LogTrash));
+        let mut guards = fixture_evidence(&plan, &home, job.clone())
+            .unwrap()
+            .into_guards(&plan, &home, crate::db::now())
+            .unwrap();
+        let mut guard = guards.remove(&plan.items[0].candidate.id).unwrap();
+        let mut checks = current_rules(&plan, activity);
+        guard.apply(&plan, &mut checks).unwrap();
+        assert_eq!(
+            checks[&plan.items[0].candidate.id].activity.code,
+            if activity == "unknown" {
+                "noOpenHandles"
+            } else {
+                activity
+            }
+        );
+        checks.get_mut(&plan.items[0].candidate.id).unwrap().code = "whitelist".into();
+        assert!(guard.apply(&plan, &mut checks).is_err());
+        checks = current_rules(&plan, "unknown");
+        checks
+            .get_mut(&plan.items[0].candidate.id)
+            .unwrap()
+            .module
+            .code = "unsupported".into();
+        assert!(guard.apply(&plan, &mut checks).is_err());
+        let mut other = plan.clone();
+        other.items.reverse();
+        assert!(guard
+            .apply(&other, &mut current_rules(&other, "unknown"))
+            .is_err());
+        guard.checked_ms = monotonic_ms().unwrap() - FRESH_MS;
+        assert!(guard.validate().is_err());
+        // Timestamp is not renewed by converting to rules or by later checks.
+        assert!(guard
+            .apply(&plan, &mut current_rules(&plan, "unknown"))
+            .is_err());
+    }
+}
+
+#[test]
+fn later_item_guard_does_not_follow_or_revalidate_a_previously_processed_path() {
+    let (_temp, home, plan) = setup(&["first.log", "second.log"]);
+    let job = Arc::new(Job::new(crate::engine::TaskKind::LogTrash));
+    let mut guards = fixture_evidence(&plan, &home, job.clone())
+        .unwrap()
+        .into_guards(&plan, &home, crate::db::now())
+        .unwrap();
+    let first = guards.remove(&plan.items[0].candidate.id).unwrap();
+    let second = guards.remove(&plan.items[1].candidate.id).unwrap();
+    assert!(!guards.contains_key(&plan.items[0].candidate.id));
+    // Owned temp-file rename only, not Trash or a simulated release success.
+    fs::rename(
+        &plan.items[0].candidate.path,
+        home.join("retained-first.log"),
+    )
+    .unwrap();
+    assert!(first.validate().is_err());
+    second
+        .apply(&plan, &mut current_rules(&plan, "unknown"))
+        .unwrap();
+    job.cancel();
+    assert!(second.validate().is_err());
+}
+
+#[test]
+fn non_idle_native_observations_cannot_pass_the_final_operation_gate() {
+    let (_temp, home, plan) = setup(&["ordinary.log"]);
+    for code in [
+        Code::Busy,
+        Code::Unknown,
+        Code::BudgetExhausted,
+        Code::Changed,
+    ] {
+        let job = Arc::new(Job::new(crate::engine::TaskKind::LogTrash));
+        let mut evidence = fixture_evidence(&plan, &home, job).unwrap();
+        evidence.report.items[0].code = code;
+        let guard = evidence
+            .into_guards(&plan, &home, crate::db::now())
+            .unwrap()
+            .remove(&plan.items[0].candidate.id)
+            .unwrap();
+        let mut checks = current_rules(&plan, "noOpenHandles");
+        guard.apply(&plan, &mut checks).unwrap();
+        assert_ne!(
+            checks[&plan.items[0].candidate.id].activity.code,
+            "noOpenHandles"
+        );
+        assert!(
+            guard.validate().is_err(),
+            "the final gate requires positive native evidence independently of a rule map"
+        );
+    }
+}
+
+#[test]
+fn explicit_system_cancel_marks_only_the_bound_job_and_requires_complete_framing() {
+    let (_temp, home, plan) = setup(&["ordinary.log"]);
+    for (body, cancelled) in [
+        (format!("error\n-128\nfixture cancel\n{END}\n"), true),
+        (format!("error\n1\nfixture failure\n{END}\n"), false),
+        ("error\n-128\ntruncated".into(), false),
+    ] {
+        let job = Arc::new(Job::new(crate::engine::TaskKind::LogTrash));
+        let unrelated = Job::new(crate::engine::TaskKind::LogTrash);
+        let request = Request::new(&plan, &home, crate::db::now(), job.clone()).unwrap();
+        assert!(request
+            .finish(&plan, &home, body.as_bytes(), crate::db::now())
+            .is_err());
+        assert_eq!(job.cancelled.load(Ordering::SeqCst), cancelled);
+        assert!(!unrelated.cancelled.load(Ordering::SeqCst));
+    }
+}

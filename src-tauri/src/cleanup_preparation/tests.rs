@@ -64,6 +64,65 @@ fn checked(plan: &review::Plan, now: i64) -> review::PlanView {
 }
 
 #[test]
+fn only_current_unknown_occupancy_can_offer_conditional_authorization() {
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let plan = plan(&home, 1);
+    let now = crate::db::now();
+    for mode in [
+        "unknown",
+        "busy",
+        "budgetExhausted",
+        "checkFailed",
+        "protected",
+        "module",
+        "cancel",
+    ] {
+        let mut view = checked(&plan, now);
+        view.items[0].mole_rule.as_mut().unwrap().activity =
+            rules::ActivityCheck::from_code(if matches!(mode, "protected" | "module" | "cancel") {
+                "unknown"
+            } else {
+                mode
+            })
+            .unwrap();
+        let checks = [(
+            view.items[0].id.clone(),
+            view.items[0].mole_rule.clone().unwrap(),
+        )]
+        .into_iter()
+        .collect();
+        view = review::apply_rule_checks(review::check(&plan, &[], now), &checks, now);
+        if mode == "protected" {
+            view.items[0].state = "protected".into();
+        }
+        if mode == "module" {
+            view.items[0].mole_rule.as_mut().unwrap().module.code = "unsupported".into();
+        }
+        let mut report = observe(&plan, &view, &home, now, || mode == "cancel");
+        assert_eq!(
+            report.observed_count, 0,
+            "unknown is never an observed pass"
+        );
+        assert_eq!(
+            report.authorization_count,
+            usize::from(mode == "unknown"),
+            "{mode}"
+        );
+        if mode == "unknown" {
+            assert_eq!(report.items[0].code, "authorizationRequired");
+            let mut store = crate::log_cleanup::Confirmations::default();
+            let offer = store.issue(&plan, &report, now).unwrap().unwrap();
+            assert!(offer.requires_authorization);
+            report.withdraw("fixture withdrawal");
+            assert_eq!(report.authorization_count, 0);
+            assert!(store.issue(&plan, &report, now).unwrap().is_none());
+            assert!(store.take(&offer.id, now).is_err());
+        }
+    }
+}
+
+#[test]
 fn preparation_joins_rules_and_native_identity_without_modifying_logs_or_plan() {
     let temp = tempfile::tempdir().unwrap();
     let home = temp.path().canonicalize().unwrap();
@@ -252,13 +311,19 @@ SYSTEM_CLEAN=false; moomole_write_clean_report "$2"
     let report = observe(&plan, &view, &home, now, || false);
     let rule = &checks[&item.candidate.id];
     eprintln!(
-        "Real log review: path={}, module={}, activity={}, preparation={}",
-        rule.code, rule.module.code, rule.activity.code, report.items[0].code
+        "Real log review: path={}, module={}, activity={}, preparation={}, observed={}, authorizationRequired={}",
+        rule.code, rule.module.code, rule.activity.code, report.items[0].code, report.observed_count, report.authorization_count
     );
     assert_eq!(rule.module.binding, "userLogs");
     assert_eq!(
         report.observed_count == 1,
         view.items[0].state == "unchanged"
+            && view.items[0].permissions.code == permissions::Code::NoRestrictionObserved
+    );
+    assert_eq!(
+        report.authorization_count == 1,
+        view.items[0].state == "activityUnknown"
+            && rule.activity.code == "unknown"
             && view.items[0].permissions.code == permissions::Code::NoRestrictionObserved
     );
     assert_eq!(
@@ -283,9 +348,7 @@ SYSTEM_CLEAN=false; moomole_write_clean_report "$2"
     assert_eq!(checks[&item.candidate.id].code, "whitelist");
     let now = crate::db::now();
     let view = review::apply_rule_checks(review::check(&plan, &[], now), &checks, now);
-    assert_eq!(
-        observe(&plan, &view, &home, now, || false).observed_count,
-        0
-    );
+    let report = observe(&plan, &view, &home, now, || false);
+    assert_eq!(report.observed_count + report.authorization_count, 0);
     assert!(log.is_file());
 }

@@ -16,6 +16,15 @@ export function mount(mode = 'normal') {
   plan.cleanupConfirmation!.createdAt = now
   plan.cleanupConfirmation!.expiresAt = now + 30000
   if (mode === 'invalid') plan.cleanupConfirmation!.items[0].path = '/wrong'
+  if (mode === 'authorization' || mode === 'authorization-cancel') {
+    plan.cleanupPreparation!.observedCount = 0
+    plan.cleanupPreparation!.authorizationCount = 1
+    plan.cleanupPreparation!.items[0].code = 'authorizationRequired'
+    plan.cleanupPreparation!.items[0].reason = '占用尚未确认，需当次系统授权检查。'
+    plan.items[0].state = 'activityUnknown'
+    plan.items[0].moleRule!.activity!.code = 'unknown'
+    plan.cleanupConfirmation!.requiresAuthorization = true
+  }
   function Fixture() {
     const [calls, setCalls] = useState(0)
     const [discards, setDiscards] = useState(0)
@@ -41,7 +50,7 @@ export function mount(mode = 'normal') {
               if (id !== plan.cleanupConfirmation!.id) throw new Error('unexpected ID')
               setCalls((n) => n + 1)
               if (mode === 'error') throw new Error('fixture 写入失败')
-              if (mode === 'cancel')
+              if (mode === 'cancel' || mode === 'authorization-cancel')
                 await new Promise<void>((resolve) =>
                   signal.addEventListener('abort', () => resolve(), { once: true }),
                 )

@@ -5,9 +5,13 @@ export function cleanupConfirmation(plan: ReviewPlan, now: number) {
   const offer = plan.cleanupConfirmation
   const report = plan.cleanupPreparation
   if (!offer || !report || !cleanupPreparation(plan, now)?.valid) return null
-  const ids = report.items.filter((item) => item.code === 'observed').map((item) => item.id)
+  const ids = report.items
+    .filter((item) => ['observed', 'authorizationRequired'].includes(item.code))
+    .map((item) => item.id)
   if (
-    offer.version !== 1 ||
+    offer.version !== 2 ||
+    typeof offer.requiresAuthorization !== 'boolean' ||
+    offer.requiresAuthorization !== report.authorizationCount > 0 ||
     offer.method !== 'trash' ||
     offer.planId !== plan.id ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(offer.id) ||

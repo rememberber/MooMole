@@ -90,7 +90,7 @@ export function LogCleanupDialog({
             </p>
           )}
           <p className="muted">
-            移入废纸篓不等于释放空间；当前没有应用内恢复。完整记录已保存在历史中。
+            移入废纸篓不等于释放空间；当前没有应用内恢复。完整记录已保存在历史中，再次处理需重新扫描并生成计划。
           </p>
           <div className="plan-items">
             {result.items.map((item) => (
@@ -131,6 +131,12 @@ export function LogCleanupDialog({
           <p className="notice warning">
             移入废纸篓不会立即释放空间，当前没有应用内恢复。处理期间若外部应用移动或改写文件，结果可能需要核实；不会自动重试。
           </p>
+          {confirmation.requiresAuthorization && (
+            <p className="notice">
+              确认后将请求系统授权，只读检查所列文件的占用。随后重新核对 Mole
+              规则，符合条件的文件由当前账户移入废纸篓；未知、变化或检查过期的文件保留。
+            </p>
+          )}
           <div className="plan-items">
             {confirmation.items.map((item) => (
               <article className="plan-item" key={item.id}>
@@ -145,8 +151,15 @@ export function LogCleanupDialog({
               <p role="status">
                 {cancelling
                   ? '正在停止后续项目，等待当前项的实际结果。'
-                  : '正在逐项重新检查并处理，请等待实际结果。'}
+                  : confirmation.requiresAuthorization
+                    ? '正在授权检查并逐项复核处理；系统确认窗口需要你本人操作。'
+                    : '正在逐项重新检查并处理，请等待实际结果。'}
               </p>
+              {confirmation.requiresAuthorization && (
+                <p className="muted">
+                  停止后续项目不保证系统授权窗口同步关闭；若窗口仍在，请亲自取消。
+                </p>
+              )}
               <button
                 className="button secondary"
                 disabled={cancelling}
@@ -185,7 +198,7 @@ export function LogCleanupDialog({
                   disabled={!acknowledged || expired || consumed}
                   onClick={() => void execute()}
                 >
-                  移入废纸篓
+                  {confirmation.requiresAuthorization ? '授权检查并移入废纸篓' : '移入废纸篓'}
                 </button>
               </div>
             </>

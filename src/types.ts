@@ -458,6 +458,7 @@ export interface CleanupPreparation {
   checkedAt: number
   expiresAt: number
   observedCount: number
+  authorizationCount: number
   items: { id: string; code: string; reason: string }[]
 }
 export interface CleanupConfirmation {
@@ -469,6 +470,7 @@ export interface CleanupConfirmation {
   createdAt: number
   expiresAt: number
   retainedCount: number
+  requiresAuthorization: boolean
   items: { id: string; path: string; sizeBytes: number }[]
 }
 export interface PermissionObservation {

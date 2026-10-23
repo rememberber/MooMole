@@ -1,6 +1,6 @@
 # 日志处理前检查接入审阅流程
 
-2026-10-20。实现：`cleanup_preparation.rs`、原 `check_review_rules` 命令、`ReviewPlanDialog`。
+更新于 2026-10-23。实现：`cleanup_preparation.rs`、原 `check_review_rules` 命令、`ReviewPlanDialog`。
 
 当前点击审阅计划中的“复查 Mole 规则”，会在原有检查结束后自动补充单文件日志准备结果；不增加页面或新按钮。摘要直接说明多少日志完成本轮准备、多少项目保留，行内说明原因，筛选“只看需要确认的项目”包含保留和未检查项。**这份只读结果不代表用户确认或清理许可。** 后续独立的短期确认与受限执行已接入，见 [日志执行](log-cleanup-execution.md)。
 
@@ -15,6 +15,8 @@
 - Mole 路径检查为 passed，模块 v2 的 binding/scope 为 userLogs 且 checked，占用 v1 为 noOpenHandles。缺失、未知、保留、预算不足或不支持不折算为通过。
 - 本机权限观察为当前版本且未发现限制，再通过 [原生对象准备](cleanup-concurrency.md) 核对本账户、单硬链接、本地已落地和完整原计划身份。引用准备结束后释放，不跨 IPC 传递原生句柄。
 
+v2 补充一个明确分开的条件范围：占用恰为 unknown、状态为 activityUnknown，而上述其他条件全部成立时，也核对原生对象，但返回 `authorizationRequired`，增加 `authorizationCount`，绝不增加 `observedCount`。busy、检查失败、预算不足、不支持、保护或权限未知不会获得此条件资格。确认只固定待检查的范围，用户明确提交后才发起受限系统检查；未取得当次空闲正面观察仍不处理。见 [授权与普通用户执行交接](cleanup-authorization-probe.md)。
+
 每轮最多尝试 20 个文件、共享 500ms 检查点预算。前面独立完成的观察与后面未检查项分别说明；慢调用超过预算不发布该项通过结论。准备期间取消撤下全部观察；返回前再读保护设置，保护改变或有效期变化则撤下准备结果并刷新本地状态。设置读取失败返回错误，不使用空保护列表代替。
 
 ## 报告和失效
@@ -23,14 +25,16 @@
 
 | 字段 | 含义 |
 | --- | --- |
-| version=1、planId | 报告协议及对应计划 |
+| version=2、planId | 报告协议及对应计划 |
 | scope=userLogFiles、method=trash、readOnly=true | 当前准备范围及拟采用方式；没有执行权 |
 | checkedAt、expiresAt | 最长 30 秒，且不超过计划到期及本轮规则证据 30 秒边界；准备不能延长旧规则的有效期 |
-| observedCount、items | 逐项 ID、observed/retained/notChecked 和原因，保持计划顺序 |
+| observedCount、authorizationCount、items | 分开计数已观察准备与需要授权检查；逐项 ID、observed/authorizationRequired/retained/notChecked 和原因，保持计划顺序 |
 
 报告不写 SQLite、不成为执行记录或确认票据。重新读取计划只返回本地复核，报告为空；新的规则响应也清除旧报告。未来执行必须重新读取计划、确认选择、保护、规则、权限与原生身份，不能根据这份报告直接调用文件修改。
 
 前端独立核对版本、计划、完整有序 ID/数量、计数、只读/方式/范围、时间边界，以及 observed 项对应的本地状态/权限和 Mole 模块/占用证据。未知协议、缺项、重复、矛盾或过期都撤下逐项正面标签。重新复核、新规则检查、取消和失败同步清空旧准备。时钟回退不作为有效结果；界面用实际渲染时刻比较新响应，避免把上一个定时 tick 误判为时间回退。
+
+authorizationRequired 另核对 activityUnknown/unknown 与完整其他条件，确认协议同为 v2 且必须显式匹配 `requiresAuthorization=true`；缺少或矛盾的标志不能显示处理确认。条件资格和真正无占用分别展示，不把未知项目标成已准备通过。
 
 拟采用移入废纸篓，不等于释放磁盘空间；当前没有应用内恢复。方法和有效期说明放在已有“计划信息与检查范围”内，逐项用途与影响仍在原位置，不另堆确认标题、装饰卡片或重复路径导航。
 

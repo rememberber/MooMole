@@ -1,6 +1,7 @@
 //! Narrow single-log execution. No IPC accepts file paths or frontend eligibility.
 //! Short-lived confirmations bind a server-owned subset and the entire saved
 //! source plan. Every item re-runs REAL rules before recording intent and acting.
+use crate::activity_authorization::selected_logs;
 use crate::{cleanup_preparation, db, engine::Job, execution, provenance, review, rules};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -29,6 +30,7 @@ pub struct Confirmation {
     pub created_at: i64,
     pub expires_at: i64,
     pub retained_count: usize,
+    pub requires_authorization: bool,
     pub items: Vec<ConfirmationItem>,
 }
 pub struct Authorized {
@@ -62,10 +64,10 @@ impl Confirmations {
         self.revoke_plan(&plan.id);
         self.entries
             .retain(|_, e| now >= e.confirmation.created_at && now < e.confirmation.expires_at);
-        if report.observed_count == 0 {
+        if report.observed_count == 0 && report.authorization_count == 0 {
             return Ok(None);
         }
-        if report.version != 1
+        if report.version != cleanup_preparation::VERSION
             || report.plan_id != plan.id
             || !report.read_only
             || report.method != "trash"
@@ -75,7 +77,10 @@ impl Confirmations {
             || report.expires_at > plan.expires_at
             || report.expires_at > report.checked_at.saturating_add(30_000)
             || report.items.len() != plan.items.len()
-            || report.observed_count > 20
+            || report
+                .observed_count
+                .saturating_add(report.authorization_count)
+                > 20
             || report
                 .items
                 .iter()
@@ -87,10 +92,18 @@ impl Confirmations {
         let ids: HashSet<_> = report
             .items
             .iter()
-            .filter(|i| i.code == "observed")
+            .filter(|i| matches!(i.code, "observed" | "authorizationRequired"))
             .map(|i| &i.id)
             .collect();
-        if ids.len() != report.observed_count {
+        if ids.len() != report.observed_count + report.authorization_count
+            || report.items.iter().filter(|i| i.code == "observed").count() != report.observed_count
+            || report
+                .items
+                .iter()
+                .filter(|i| i.code == "authorizationRequired")
+                .count()
+                != report.authorization_count
+        {
             return Err("日志确认项目重复或计数不匹配。".into());
         }
         let mut subset = plan.clone();
@@ -118,7 +131,7 @@ impl Confirmations {
             return Err("确认窗口已达到上限，请关闭旧窗口后重试。".into());
         }
         let confirmation = Confirmation {
-            version: 1,
+            version: 2,
             id: uuid::Uuid::new_v4().to_string(),
             plan_id: plan.id.clone(),
             snapshot_sha256: digest(&subset)?,
@@ -126,6 +139,7 @@ impl Confirmations {
             created_at: now,
             expires_at: report.expires_at,
             retained_count: plan.items.len() - items.len(),
+            requires_authorization: report.authorization_count > 0,
             items,
         };
         self.entries.insert(
@@ -235,13 +249,59 @@ async fn run_observed<F, Fut>(
     home: PathBuf,
     authorized: Authorized,
     job: Arc<Job>,
-    mut check: F,
+    check: F,
     #[cfg(test)] checkpoint: Option<Checkpoint>,
 ) -> Result<execution::Detail, String>
 where
     F: FnMut(Vec<(String, String, String)>, Arc<Job>) -> Fut,
     Fut: std::future::Future<Output = Result<HashMap<String, rules::RuleCheck>, String>>,
 {
+    run_authorized(
+        database,
+        home,
+        authorized,
+        job,
+        check,
+        request_observation,
+        #[cfg(test)]
+        checkpoint,
+    )
+    .await
+}
+
+async fn request_observation(
+    plan: review::Plan,
+    home: PathBuf,
+    job: Arc<Job>,
+) -> Result<selected_logs::Evidence, String> {
+    #[cfg(not(test))]
+    {
+        selected_logs::observe(&plan, &home, job).await
+    }
+    #[cfg(test)]
+    {
+        let _ = (plan, home, job);
+        Err("自动回归不发起系统授权，文件保留。".into())
+    }
+}
+
+async fn run_authorized<F, Fut, A, AFut>(
+    database: Arc<Mutex<db::Database>>,
+    home: PathBuf,
+    authorized: Authorized,
+    job: Arc<Job>,
+    mut check: F,
+    observe: A,
+    #[cfg(test)] checkpoint: Option<Checkpoint>,
+) -> Result<execution::Detail, String>
+where
+    F: FnMut(Vec<(String, String, String)>, Arc<Job>) -> Fut,
+    Fut: std::future::Future<Output = Result<HashMap<String, rules::RuleCheck>, String>>,
+    A: FnOnce(review::Plan, PathBuf, Arc<Job>) -> AFut,
+    AFut: std::future::Future<Output = Result<selected_logs::Evidence, String>>,
+{
+    let requires_authorization = authorized.confirmation.requires_authorization;
+    let source_digest = authorized.source_digest.clone();
     let plan = authorized.plan;
     let run = {
         let mut db = database.lock().map_err(|e| e.to_string())?;
@@ -263,6 +323,36 @@ where
         if let Some(hook) = &checkpoint {
             hook(Phase::Begun, &run, None);
         }
+        let mut guards = HashMap::new();
+        if requires_authorization {
+            let observation = observe(plan.clone(), home.clone(), job.clone())
+                .await
+                .and_then(|evidence| evidence.into_guards(&plan, &home, db::now()));
+            match observation {
+                Ok(observed) => guards = observed,
+                Err(reason) => {
+                    let mut db = database.lock().map_err(|e| e.to_string())?;
+                    if !job.cancelled.load(Ordering::SeqCst) {
+                        for item in &plan.items {
+                            execution::skip(
+                                &mut db,
+                                &run,
+                                &item.candidate.id,
+                                &bounded(&format!("当次授权占用检查未完成，保留：{reason}")),
+                                db::now(),
+                            )?;
+                        }
+                    }
+                    execution::finish(
+                        &mut db,
+                        &run,
+                        job.cancelled.load(Ordering::SeqCst),
+                        db::now(),
+                    )?;
+                    return Ok(());
+                }
+            }
+        }
         for item in &plan.items {
             if job.cancelled.load(Ordering::SeqCst) {
                 execution::finish(
@@ -282,7 +372,7 @@ where
                 provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path)
                     .into(),
             )];
-            let checks = match check(requested, job.clone()).await {
+            let mut checks = match check(requested, job.clone()).await {
                 Ok(checks) => checks,
                 Err(_) if job.cancelled.load(Ordering::SeqCst) => {
                     execution::finish(
@@ -304,10 +394,31 @@ where
                     continue;
                 }
             };
+            let guard = if requires_authorization {
+                let observed = guards.remove(&item.candidate.id);
+                let applied = observed
+                    .as_ref()
+                    .ok_or("缺少当次对象占用检查。".to_string())
+                    .and_then(|g| g.apply(&plan, &mut checks));
+                if let Err(reason) = applied {
+                    execution::skip(
+                        &mut *database.lock().map_err(|e| e.to_string())?,
+                        &run,
+                        &item.candidate.id,
+                        &bounded(&reason),
+                        db::now(),
+                    )?;
+                    continue;
+                }
+                observed
+            } else {
+                None
+            };
             let db = database.clone();
             let home = home.clone();
             let job = job.clone();
             let run = run.clone();
+            let source_digest = source_digest.clone();
             let one = review::Plan {
                 items: vec![item.clone()],
                 ..plan.clone()
@@ -357,6 +468,7 @@ where
                     }
                     if latest.protected_paths != settings.protected_paths
                         || !latest.acknowledged
+                        || digest(&db::plan(&db, &one.id)?)? != source_digest
                         || db::now() < one.created_at
                         || db::now() >= one.expires_at
                     {
@@ -372,6 +484,12 @@ where
                     if started.elapsed() > Duration::from_secs(120) {
                         return Err("本批处理超时，停止后续项目。".into());
                     }
+                    if let Some(observed) = &guard {
+                        if let Err(reason) = observed.validate() {
+                            execution::skip(&mut db, &run, id, &bounded(&reason), db::now())?;
+                            return Ok(false);
+                        }
+                    }
                     execution::intent(&mut db, &run, id, db::now())?;
                 }
                 #[cfg(test)]
@@ -380,7 +498,12 @@ where
                 }
                 // Intent marks this item in flight. Always collect its outcome,
                 // including when a cancellation arrives during the native call.
-                let (outcome, reason) = match target.move_to_trash() {
+                let attempt = if let Some(observed) = &guard {
+                    target.move_to_trash_checked(|| observed.validate())
+                } else {
+                    target.move_to_trash()
+                };
+                let (outcome, reason) = match attempt {
                     Ok(attempt) => (attempt.outcome, attempt.reason),
                     Err(reason) => (
                         execution::Outcome::Failed,

@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const VERSION: u64 = 1;
+pub const VERSION: u64 = 2;
 pub const LIFETIME_MS: i64 = 30_000;
 const MAX_NATIVE: usize = 20;
 
@@ -31,11 +31,13 @@ pub struct Report {
     pub checked_at: i64,
     pub expires_at: i64,
     pub observed_count: usize,
+    pub authorization_count: usize,
     pub items: Vec<Item>,
 }
 impl Report {
     pub fn withdraw(&mut self, reason: &str) {
         self.observed_count = 0;
+        self.authorization_count = 0;
         for item in &mut self.items {
             item.code = "notChecked";
             item.reason = reason.into();
@@ -133,6 +135,7 @@ fn observe_with(
                 .saturating_add(LIFETIME_MS),
         ),
         observed_count: 0,
+        authorization_count: 0,
         items: vec![],
     };
     for (index, item) in plan.items.iter().enumerate() {
@@ -144,7 +147,10 @@ fn observe_with(
             ))
         } else if cancelled() {
             Some(("notChecked", "准备已取消，之前的准备结果不再适用。".into()))
-        } else if current.unwrap().state != "unchanged" {
+        } else if !matches!(
+            current.unwrap().state.as_str(),
+            "unchanged" | "activityUnknown"
+        ) {
             Some(("retained", current.unwrap().reason.clone()))
         } else if provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path)
             != "userLogs"
@@ -171,7 +177,10 @@ fn observe_with(
                 && rule.module.scope == "userLogs"
                 && rule.module.code == "checked"
                 && rule.activity.version == rules::ACTIVITY_VERSION
-                && rule.activity.code == "noOpenHandles"
+                && ((rule.activity.code == "noOpenHandles"
+                    && current.unwrap().state == "unchanged")
+                    || (rule.activity.code == "unknown"
+                        && current.unwrap().state == "activityUnknown"))
         }) {
             Some((
                 "retained",
@@ -194,6 +203,14 @@ fn observe_with(
             }
         };
         let (code, reason) = refusal.unwrap_or_else(|| {
+            if current.unwrap().mole_rule.as_ref().unwrap().activity.code == "unknown" {
+                report.authorization_count += 1;
+                return (
+                    "authorizationRequired",
+                    "占用尚未确认。可先核对固定范围，再由本人授权当次只读检查；未确认空闲则保留。"
+                        .into(),
+                );
+            }
             report.observed_count += 1;
             (
                 "observed",
