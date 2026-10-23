@@ -190,9 +190,9 @@ export async function executeLogCleanup(
     signal.removeEventListener('abort', cancel)
   }
 }
-export const chooseDirectory = async (): Promise<string | null> => {
+export const chooseDirectory = async (title = '选择要检查的文件夹'): Promise<string | null> => {
   if (!desktop) return null
-  const selected = await open({ directory: true, multiple: false, title: '选择要检查的文件夹' })
+  const selected = await open({ directory: true, multiple: false, title })
   return typeof selected === 'string' ? selected : null
 }
 

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Check, Info, Plus, Settings2, ShieldCheck, Trash2 } from 'lucide-react'
 import type { Settings } from '../types'
 import { chooseDirectory, official } from '../lib/api'
 import { Modal } from './Modal'
 import { appVersion } from '../lib/app-version'
 import { UpdateCheck } from './UpdateCheck'
+import { restoreFocus } from '../lib/focus-return'
 
 export function SettingsModal({
   settings,
@@ -24,33 +25,86 @@ export function SettingsModal({
   initialTab?: 'general' | 'protected' | 'about'
 }) {
   const [tab, setTab] = useState(initialTab)
-  const [pending, setPending] = useState(false)
+  const [pending, setPending] = useState<'choosing' | 'saving' | null>(null)
   const [error, setError] = useState('')
-  async function save(next: Settings) {
-    setPending(true)
+  const [notice, setNotice] = useState('')
+  const active = useRef(false)
+  const operation = useRef<object | null>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
+  const returnToAdd = useRef(false)
+  const latest = useRef(settings)
+  latest.current = settings
+  useLayoutEffect(() => {
+    active.current = true
+    return () => {
+      active.current = false
+      operation.current = null
+      returnToAdd.current = false
+    }
+  }, [])
+  useLayoutEffect(() => {
+    if (pending || !returnToAdd.current) return
+    returnToAdd.current = false
+    restoreFocus(addButton.current)
+  }, [pending])
+  function begin(state: 'choosing' | 'saving') {
+    if (!active.current || operation.current) return null
+    const token = {}
+    operation.current = token
+    setPending(state)
     setError('')
+    setNotice('')
+    return token
+  }
+  function current(token: object) {
+    return active.current && operation.current === token
+  }
+  function finish(token: object) {
+    if (!current(token)) return
+    operation.current = null
+    setPending(null)
+  }
+  async function save(next: Settings) {
+    const token = begin('saving')
+    if (!token) return
     try {
       await onSave(next)
     } catch (error) {
-      setError(String(error))
+      if (current(token)) setError(String(error))
     } finally {
-      setPending(false)
+      finish(token)
     }
   }
   async function addPath() {
+    const token = begin('choosing')
+    if (!token) return
     try {
-      const path = await chooseDirectory()
-      if (path)
-        await save({
-          ...settings,
-          protectedPaths: [...new Set([...settings.protectedPaths, path])],
-        })
+      const path = await chooseDirectory('选择要保护的文件夹')
+      // The native picker cannot be aborted from this component. A result
+      // belongs only to the settings session that opened it.
+      if (!current(token) || !path) return
+      const saved = latest.current
+      if (saved.protectedPaths.includes(path)) {
+        setNotice('此目录已在保护列表中。')
+        return
+      }
+      setPending('saving')
+      await onSave({ ...saved, protectedPaths: [...saved.protectedPaths, path] })
     } catch (error) {
-      setError(String(error))
+      if (current(token)) setError(String(error))
+    } finally {
+      if (current(token)) returnToAdd.current = true
+      finish(token)
     }
   }
+  function close() {
+    // Invalidate synchronously, before React unmounts the dialog.
+    active.current = false
+    operation.current = null
+    onClose()
+  }
   return (
-    <Modal title="设置" onClose={onClose} returnFocus={returnFocus} className="settings-modal">
+    <Modal title="设置" onClose={close} returnFocus={returnFocus} className="settings-modal">
       <nav className="settings-nav" aria-label="设置分类">
         <span className="settings-label">设置</span>
         {(
@@ -78,7 +132,7 @@ export function SettingsModal({
                 </span>
                 <select
                   aria-label="主题"
-                  disabled={pending}
+                  disabled={!!pending}
                   value={settings.theme}
                   onChange={(event) =>
                     void save({ ...settings, theme: event.target.value as Settings['theme'] })
@@ -98,7 +152,7 @@ export function SettingsModal({
                 </span>
                 <select
                   aria-label="历史记录保留时间"
-                  disabled={pending}
+                  disabled={!!pending}
                   value={settings.retentionDays}
                   onChange={(event) =>
                     void save({ ...settings, retentionDays: Number(event.target.value) })
@@ -149,7 +203,7 @@ export function SettingsModal({
                     <button
                       className="icon-button"
                       aria-label={`移除保护 ${path}`}
-                      disabled={pending}
+                      disabled={!!pending}
                       onClick={() =>
                         void save({
                           ...settings,
@@ -165,7 +219,12 @@ export function SettingsModal({
                 <div className="empty-inline">还没有添加保护目录</div>
               )}
             </div>
-            <button className="button secondary" disabled={pending} onClick={() => void addPath()}>
+            <button
+              ref={addButton}
+              className="button secondary"
+              disabled={!!pending}
+              onClick={() => void addPath()}
+            >
               <Plus size={15} />
               添加目录
             </button>
@@ -182,7 +241,7 @@ export function SettingsModal({
                 <p className="muted">{appVersion} · 学习研究版</p>
               </div>
             </div>
-            <UpdateCheck saving={pending} />
+            <UpdateCheck saving={!!pending} />
             <div className="setting-group about-copy">
               <p>
                 本项目仅供学习和研究使用，是独立的非官方项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。
@@ -208,9 +267,10 @@ export function SettingsModal({
         )}
         {pending && (
           <p className="muted" role="status">
-            正在保存…
+            {pending === 'choosing' ? '请在系统窗口中选择目录…' : '正在保存…'}
           </p>
         )}
+        {notice && <p role="status">{notice}</p>}
         {error && (
           <p className="error-text" role="alert">
             {error}
