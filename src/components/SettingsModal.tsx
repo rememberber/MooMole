@@ -12,6 +12,7 @@ export function SettingsModal({
   version,
   onSave,
   onClose,
+  returnFocus,
   initialTab = 'general',
 }: {
   settings: Settings
@@ -19,6 +20,7 @@ export function SettingsModal({
   version: string | null
   onSave: (settings: Settings) => Promise<void>
   onClose: () => void
+  returnFocus?: () => HTMLElement | null
   initialTab?: 'general' | 'protected' | 'about'
 }) {
   const [tab, setTab] = useState(initialTab)
@@ -48,7 +50,7 @@ export function SettingsModal({
     }
   }
   return (
-    <Modal title="设置" onClose={onClose} className="settings-modal">
+    <Modal title="设置" onClose={onClose} returnFocus={returnFocus} className="settings-modal">
       <nav className="settings-nav" aria-label="设置分类">
         <span className="settings-label">设置</span>
         {(

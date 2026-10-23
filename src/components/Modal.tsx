@@ -1,22 +1,35 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { restoreFocus } from '../lib/focus-return'
 
 export function Modal({
   title,
   children,
   onClose,
+  returnFocus,
   className = '',
 }: {
   title: string
   children: ReactNode
   onClose?: () => void
+  returnFocus?: () => HTMLElement | null
   className?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
+  const returnTarget = useRef(returnFocus)
+  returnTarget.current = returnFocus
+  useLayoutEffect(() => {
     const dialog = ref.current!
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     dialog.showModal()
-    return () => dialog.close()
+    return () => {
+      const ownedFocus =
+        dialog.contains(document.activeElement) || document.activeElement === document.body
+      // Close before React removes the native dialog. Passive cleanup runs too
+      // late for reliable browser focus restoration on an unmounted dialog.
+      dialog.close()
+      if (ownedFocus) restoreFocus(returnTarget.current ? returnTarget.current() : previous)
+    }
   }, [])
   return (
     <dialog
@@ -25,6 +38,7 @@ export function Modal({
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault()
+        event.stopPropagation()
         onClose?.()
       }}
       onClick={(event) => {

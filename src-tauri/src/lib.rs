@@ -45,6 +45,7 @@ mod update_install;
 mod update_preferences;
 mod update_quarantine;
 mod updates;
+mod window_placement;
 
 use db::{Settings, TaskRecord};
 use engine::{Job, TaskKind};
@@ -76,6 +77,7 @@ struct AppState {
     home: PathBuf,
     shutdown: Arc<shutdown::Controller>,
     updates: Arc<updates::Checker>,
+    window_placement: Arc<window_placement::Tracker>,
 }
 
 // A startup issue has no database or task handles. Its message also backs the
@@ -1527,6 +1529,21 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .on_window_event(|window, event| {
+            if window.label() == "main"
+                && matches!(
+                    event,
+                    tauri::WindowEvent::Moved(_)
+                        | tauri::WindowEvent::Resized(_)
+                        | tauri::WindowEvent::ScaleFactorChanged { .. }
+                        | tauri::WindowEvent::CloseRequested { .. }
+                )
+            {
+                if let Some(state) = window.try_state::<AppState>() {
+                    if !state.shutdown.closing() {
+                        state.window_placement.capture(window);
+                    }
+                }
+            }
             if matches!(event, tauri::WindowEvent::Destroyed)
                 || (matches!(event, tauri::WindowEvent::Resized(_))
                     && window.is_minimized().unwrap_or(false))
@@ -1590,6 +1607,11 @@ pub fn run() {
             };
             let updates = Arc::new(updates::Checker::default());
             updates.set_preference(update_preferences::load(&connection))?;
+            let placement = window_placement::load(&connection).unwrap_or_else(|error| {
+                eprintln!("窗口偏好无法读取，使用默认窗口：{error}");
+                None
+            });
+            let window_placement = Arc::new(window_placement::Tracker::default());
             if let Ok(cache) = app.path().app_cache_dir() {
                 updates.schedule_maintenance(cache.join("pending-updates"));
             }
@@ -1609,7 +1631,15 @@ pub fn run() {
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(shutdown::Controller::default()),
                 updates,
+                window_placement: window_placement.clone(),
             });
+            // Restore only after database ownership, without holding a mutex
+            // during native size/move calls or overwriting settings/history.
+            if let Some(window) = app.get_webview_window("main") {
+                window_placement.restore(&window.as_ref().window(), placement);
+                window.show()?;
+                window_placement.capture(&window.as_ref().window());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1664,7 +1694,16 @@ pub fn run() {
     app.run(|app, event| {
         if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
             if let Some(state) = app.try_state::<AppState>() {
-                match state.shutdown.request(&state.jobs, &state.updates) {
+                if !state.shutdown.closing() {
+                    if let Some(window) = app.get_webview_window("main") {
+                        state.window_placement.capture(&window.as_ref().window());
+                    }
+                }
+                let request = state.shutdown.request(&state.jobs, &state.updates);
+                if let Ok(_operation) = state.updates.installation.enter() {
+                    state.window_placement.flush(&state.db);
+                }
+                match request {
                     shutdown::Request::Exit => {}
                     shutdown::Request::Waiting => api.prevent_exit(),
                     shutdown::Request::Drain => {
@@ -1692,6 +1731,9 @@ pub fn run() {
                 while state.shutdown.poll(&state.jobs, &state.updates) == shutdown::Outcome::Waiting
                 {
                     std::thread::sleep(Duration::from_millis(50));
+                }
+                if let Ok(_operation) = state.updates.installation.enter() {
+                    state.window_placement.flush(&state.db);
                 }
             }
         }

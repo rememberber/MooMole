@@ -37,6 +37,7 @@ import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { deferredView } from './components/DeferredView'
 import { Modal } from './components/Modal'
+import { focusReturnTarget, restoreFocus } from './lib/focus-return'
 import { EngineSummary } from './components/EngineSummary'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
@@ -231,6 +232,9 @@ export default function App() {
   const observation = useRef(new AbortController())
   const historyRequest = useRef(0)
   const [settingsTab, setSettingsTab] = useState<'general' | 'protected' | 'about' | null>(null)
+  const settingsButton = useRef<HTMLButtonElement>(null)
+  const settingsOpener = useRef<HTMLElement | null>(null)
+  const settingsOpen = useRef(false)
   const [error, setError] = useState('')
   const [accepted, setAccepted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -243,6 +247,23 @@ export default function App() {
   const [executionTrackingError, setExecutionTrackingError] = useState('')
   const executionActive =
     api.desktop && (executionPending || !!data?.executions.some((item) => item.state === 'running'))
+  function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
+    if (!settingsOpen.current) {
+      settingsOpener.current =
+        opener ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+      settingsOpen.current = true
+    }
+    setSettingsTab(tab)
+  }
+  function closeSettings() {
+    settingsOpen.current = false
+    setSettingsTab(null)
+    // Also covers closing a pending or failed lazy view before Modal mounts.
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body)
+        restoreFocus(settingsOpener.current, settingsButton.current)
+    })
+  }
   useEffect(() => {
     if (!executionActive) return
     const controller = new AbortController()
@@ -319,7 +340,7 @@ export default function App() {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey && event.key === ',' && data?.settings.acknowledged) {
         event.preventDefault()
-        setSettingsTab('general')
+        openSettings('general')
       }
     }
     window.addEventListener('keydown', handler)
@@ -664,7 +685,11 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="sidebar-settings" onClick={() => setSettingsTab('general')}>
+          <button
+            ref={settingsButton}
+            className="sidebar-settings"
+            onClick={(event) => openSettings('general', event.currentTarget)}
+          >
             <Settings2 size={17} />
             设置
           </button>
@@ -1351,7 +1376,7 @@ export default function App() {
               )}
               <button
                 className="button text protected-link"
-                onClick={() => setSettingsTab('protected')}
+                onClick={(event) => openSettings('protected', event.currentTarget)}
               >
                 <ShieldCheck size={14} />
                 管理保护列表
@@ -1684,7 +1709,8 @@ export default function App() {
           revision={data.engine.revision}
           version={data.engine.version}
           onSave={updateSettings}
-          onClose={() => setSettingsTab(null)}
+          onClose={closeSettings}
+          returnFocus={() => focusReturnTarget(settingsOpener.current, settingsButton.current)}
         />
       )}
       {!data.settings.acknowledged && (

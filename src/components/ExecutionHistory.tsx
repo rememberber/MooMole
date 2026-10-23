@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, RefreshCw } from 'lucide-react'
 import type { ExecutionDetail, ExecutionSummary } from '../types'
 import { dateTime } from '../lib/format'
 import { Modal } from './Modal'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
 import { watchExecution } from '../lib/execution-watcher'
+import { focusReturnTarget } from '../lib/focus-return'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -52,6 +53,16 @@ export function ExecutionHistory({
   const [cancelRequested, setCancelRequested] = useState(false)
   const refreshRequest = useRef(0)
   const detailRequest = useRef(0)
+  const opener = useRef<HTMLButtonElement | null>(null)
+  const refreshButton = useRef<HTMLButtonElement>(null)
+  const recordArea = useRef<HTMLElement | null>(null)
+  const setRecordArea = useCallback(
+    (section: HTMLElement | null) => {
+      recordArea.current = section
+      onReady?.(section)
+    },
+    [onReady],
+  )
   useEffect(() => setRecords(initialRecords), [initialRecords])
   useEffect(
     () => () => {
@@ -138,7 +149,7 @@ export function ExecutionHistory({
   return (
     <>
       <section
-        ref={onReady}
+        ref={setRecordArea}
         id="execution-records"
         tabIndex={-1}
         className="card saved-plans execution-history"
@@ -147,6 +158,7 @@ export function ExecutionHistory({
         <div className="list-toolbar">
           <h2>执行记录</h2>
           <button
+            ref={refreshButton}
             className="button secondary compact"
             disabled={refreshing}
             onClick={() => void refresh()}
@@ -169,7 +181,10 @@ export function ExecutionHistory({
               <button
                 className="saved-plan-row"
                 key={record.id}
-                onClick={() => void open(record.id)}
+                onClick={(event) => {
+                  opener.current = event.currentTarget
+                  void open(record.id)
+                }}
               >
                 <span>
                   <strong>
@@ -192,7 +207,14 @@ export function ExecutionHistory({
         )}
       </section>
       {selected && (
-        <Modal title="逐项执行结果" onClose={close} className="review-plan-modal execution-modal">
+        <Modal
+          title="逐项执行结果"
+          onClose={close}
+          returnFocus={() =>
+            focusReturnTarget(opener.current, refreshButton.current, recordArea.current)
+          }
+          className="review-plan-modal execution-modal"
+        >
           <h2>逐项执行结果</h2>
           {detailError && (
             <div className="notice warning" role="alert">
