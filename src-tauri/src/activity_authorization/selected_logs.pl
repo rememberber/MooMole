@@ -116,7 +116,7 @@ sub same_identity {
         && "$stat[9]" eq $item->{mtime} && "$stat[10]" eq $item->{ctime};
 }
 my ($status, $records) = query('visibility', '');
-my $fields_known = $records =~ /\Ap1\nu0\n(?:f(?:[0-9]{1,10}|cwd|rtd|txt|mem|mmap|pd)\n)*\z/;
+my $fields_known = $records =~ /\Ap1\nu0\n(?:f(?:[0-9]{1,10}|cwd|rtd|txt|mem|mmap|pd|fp\.)\n)*\z/;
 $fields_known = 0 if grep { /\Af([0-9]+)\z/ && $1 > 4294967295 } split("\n", $records);
 my $visible = $status == 0 && $fields_known;
 my $diagnostic = { status => 0 + $status, bytes => length($records),

@@ -220,7 +220,9 @@ fn file_descriptor(field: &str) -> bool {
     let Some(value) = field.strip_prefix('f') else {
         return false;
     };
-    matches!(value, "cwd" | "rtd" | "txt" | "mem" | "mmap" | "pd")
+    // Apple's libproc lsof emits "fp." for a Darwin Fileport, including in
+    // mandatory -F descriptor fields. It is not an error/unknown descriptor.
+    matches!(value, "cwd" | "rtd" | "txt" | "mem" | "mmap" | "pd" | "fp.")
         || (!value.is_empty()
             && value.len() <= 10
             && value.bytes().all(|c| c.is_ascii_digit())
@@ -607,6 +609,7 @@ mod tests {
             "p1\nu0\nfcwd\nfrtd\nftxt\nftxt\nf0\nf1\nf25\n",
             "p1\nu0\n",
             "p1\nu0\nf0",
+            "p1\nu0\nffp.\nf0\n",
         ] {
             assert_eq!(
                 probe.observe(frame(records).as_bytes(), true, true),
@@ -623,6 +626,8 @@ mod tests {
             "p1\nfcwd\nu0\n",
             "p1\nu0\nf0\np2\nu0\n",
             "p1\nu0\nf0\n\n",
+            "p1\nu0\nffp.x\n",
+            "p1\nu0\nffp.1\n",
         ] {
             assert_eq!(
                 probe.observe(frame(records).as_bytes(), true, true),
@@ -644,5 +649,39 @@ mod tests {
             fields.iter().all(|line| file_descriptor(line)),
             "{fields:?}"
         );
+    }
+
+    #[test]
+    fn actual_owned_darwin_fileport_is_a_valid_descriptor_without_root_or_authorization() {
+        use std::os::fd::AsRawFd;
+        unsafe extern "C" {
+            fn fileport_makeport(fd: i32, port: *mut u32) -> i32;
+            fn mach_port_deallocate(task: u32, port: u32) -> i32;
+            fn mach_task_self() -> u32;
+        }
+        struct OwnedPort(u32);
+        impl Drop for OwnedPort {
+            fn drop(&mut self) {
+                unsafe { mach_port_deallocate(mach_task_self(), self.0) };
+            }
+        }
+        let file = tempfile::tempfile().unwrap();
+        let mut port = 0;
+        assert_eq!(unsafe { fileport_makeport(file.as_raw_fd(), &mut port) }, 0);
+        let _port = OwnedPort(port);
+        let output = Command::new("/usr/sbin/lsof")
+            .args(["-F", "pu", "-p", &std::process::id().to_string()])
+            .env_clear()
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        let fields: Vec<_> = text.lines().skip(2).collect();
+        assert!(
+            fields.contains(&"ffp."),
+            "the owned fileport must be observed"
+        );
+        assert!(fields.iter().all(|f| file_descriptor(f)), "{fields:?}");
     }
 }

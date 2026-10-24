@@ -729,3 +729,30 @@ fn diagnostics_are_bounded_and_unknown_observations_cannot_become_permission() {
         );
     }
 }
+
+#[test]
+fn darwin_fileport_fields_are_valid_but_similar_or_error_fields_still_withdraw_visibility() {
+    let (_temp, home, plan) = setup(&["ordinary.log"]);
+    for field in [
+        "ffp.", "ffp.x", "ffp.1", "fFP.", "ferr", "fNOFD", "funknown",
+    ] {
+        let request = new_request(&plan, &home, crate::db::now()).unwrap();
+        let source = fixture_source(
+            Some(&format!("print qq(p1\nu0\n{field}\n); exit 0;")),
+            Some(IDLE),
+        );
+        let output = direct(&source, &request.payload);
+        assert!(output.status.success());
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let known = field == "ffp.";
+        assert_eq!(
+            value["visibility"],
+            if known { "observed" } else { "unknown" }
+        );
+        assert_eq!(value["diagnostic"]["fields_known"], known);
+        assert_eq!(
+            value["items"][0]["code"],
+            if known { "noOpenHandles" } else { "unknown" }
+        );
+    }
+}
