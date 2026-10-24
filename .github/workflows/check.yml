@@ -47,6 +47,7 @@ jobs:
       - run: npm run test:projects
       - run: npm run test:installers
       - run: npm run test:app-artifact
+      - run: npm run test:source
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -97,6 +98,7 @@ jobs:
         run: npm run engine:prepare
       - run: npm run test:engine
       - run: npm run test:app-artifact
+      - run: npm run test:source
       - run: npm run test:adapter
       - name: Rust tests with locked dependencies
         run: npm run check:rust -- --locked

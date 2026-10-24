@@ -84,6 +84,9 @@ npm run build:local-app
 
 # 同时生成并挂载验收本地 DMG（已有完整依赖缓存可追加 -- --offline）
 npm run build:local-dmg
+
+# 从固定提交导出客户端及对应 Mole 源码（新目录，不上传）
+npm run source:bundle -- --revision HEAD --output local-artifacts/source-review
 ```
 
 浏览器预览与桌面端有清楚标记；真实扫描、Finder 和目录选择仅在桌面端可用。若引擎未准备，界面会显示具体原因。
@@ -98,6 +101,7 @@ npm run build:local-dmg
 npm run version:check
 npm run test:version
 npm run test:app-artifact
+npm run test:source
 npm test
 npm run build
 npm run check:rust
@@ -134,6 +138,6 @@ docs/                 需求、评估、开发记录与界面参考
 
 ## 来源与许可证
 
-Mole CLI 基线：[`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)。上游引擎源码未修改，可通过准备脚本在 `.cache/mole-source/` 取得对应源码和依赖记录。应用自己的适配层与界面源码位于本仓库。
+Mole CLI 基线：[`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)。上游引擎源码未修改，可通过准备脚本在 `.cache/mole-source/` 取得对应源码和依赖记录。应用自己的适配层与界面源码位于本仓库；固定提交的归档、摘要与 App 对应核对见 [源码包](docs/source-bundle.md)，完整依赖发行材料仍待完成。
 
 本项目按 [GPL-3.0](LICENSE) 提供。上游许可证见 [Mole-LICENSE](third-party/Mole-LICENSE)，来源和构建说明见 [第三方说明](third-party/NOTICE.md)。Mole 名称及品牌资产属于原项目，本项目不代表官方或获得官方背书；公开名称仍需按上游品牌政策确认。

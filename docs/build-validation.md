@@ -36,6 +36,8 @@ git diff
 
 本地 DMG 资产名称已使用该版本来源；未来更新清单、源码包和正式标签仍需接入相同来源。预发布在 Apple 包元数据及升级比较中的完整行为也仍需发行验收。
 
+2026-10-24：新增 [固定提交源码包](source-bundle.md)，版本读取并核对导出提交的相同镜像，不读取未提交版本。CI 已加入跨平台源码归档 fixture；真实远端运行、依赖汇总及最终 App/源码/标签配对仍待完成。
+
 ## GitHub Actions
 
 工作流：`.github/workflows/check.yml`。PR、main/master/dev 的 push、`v*` 标签及手动运行会检查；相同 ref 的新运行会取消旧运行。使用 `pull_request`，没有 `pull_request_target`、密钥读取或发布写入；仓库权限为 `contents: read`，checkout 不保留 Git 凭据。
