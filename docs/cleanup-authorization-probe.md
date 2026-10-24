@@ -1,6 +1,6 @@
 # 清理占用检查：按次授权候选探针
 
-固定只读诊断已接入实际 ad-hoc App，并由用户操作取得 root/PID 1 字段；客户端误拒绝合法输出的问题已修正，修正版完整原生正面验收留待用户方便时继续。阶段 123 又将所选日志的受限检查接入现有确认和普通用户执行器；**实际打包 App 的授权 → 规则复核 → 真实废纸篓收据仍待验收，不能据代码接入宣布首发完成**。首发要求见 [三项真实执行验收](first-release-execution.md)。
+固定只读诊断与按计划日志观察均已接入实际 ad-hoc App；修正 Darwin Fileport 字段兼容性后，由用户亲自提交的两份自建日志已完成 **当次授权 → 真实规则复核 → 普通账户移入 → 持久收据 → Finder 取回核对**。完整取消/拒绝/退出/中断、支持环境及安装升级仍待验收，不能仅据正常流程宣布首发完成。独立 PID 1 诊断入口的其余矩阵也保留；首发要求见 [三项真实执行验收](first-release-execution.md)。
 
 ## 机制取舍及证据
 
@@ -78,3 +78,11 @@
 Apple 的 [固定 lsof 源码](https://github.com/apple-oss-distributions/lsof/blob/7a8a1b2a3c0f35c30a5fcd0927f31d441c3e5255/lsof/dialects/darwin/libproc/dproc.c#L741) 使用 `fp.` 表示 Darwin Fileport，因此 -F 的描述符字段可为 `ffp.`。本机 lsof 4.91 的 man 页未列此项；以普通账户为自己的临时文件调用 fileport_makeport 后，真实系统 lsof 确实返回 `ffp.`，正常零退出、无 stderr，原 Rust 解析回归因此失败。没有读取 PID 1 的原始输出或请求额外系统权限，也不把自己的进程输出冒充 root 证明。
 
 固定诊断 Rust 解析和所选日志 Perl 解析均仅补齐精确字面 `ffp.`；`ffp.x`、`ffp.1`、ferr/NOFD、警告、额外 PID/UID 及未知字段继续拒绝。增加真实自有 Fileport 测试并由 RAII 释放 Mach 端口，以及 Perl 正面/相似非法字段测试。原 root/完整视图、精确查询和最终对象门槛保持，实际修正后的所选日志成功仍待本人再次确认；不能仅凭复现合法字段就把前两批保留记录改成成功。
+
+### 实际修复版真实移入与 Finder 取回
+
+干净提交 `8758bba` 的 arm64 ad-hoc App `avNXNW` 已校验并实际启动。再次真实扫描、建立新计划 `c13c09ef` 后，用户亲自勾选提交并完成系统确认；批次 `8326d322-6691-48a7-9b0f-94fb3e4078a4` 为 completed，两项均 moved。每项依次保存 FULL intent → moved 及实际系统收据，App 显示“已移入 2 项 · 其余 0 项未确认移入”。这次使用正式授权/规则/执行器，不是 fixture、PID 1 诊断结果复用或只读模拟。
+
+只读核对原路径缺失、实际收据为原设备/inode，各 9,344 字节；当前命令行身份不能读取废纸篓正文，未增加隐私权限或绕过限制。通过 App 收据 ID 重新核对并请求 Finder 显示确切对象：第一份系统提供“放回原处”并成功取回；第二份没有该项，按原路径为空的前提，Finder 拷贝确切收据 → 前往原 Logs 目录 → ⌥⌘V“移动项目到这里”取回，无覆盖。
+
+取回后两份原设备/inode、正文 SHA-256 与原始副本一致，旧收据位置均消失。再次点击旧收据定位，App 明确显示位置不存在/无法访问，原 moved 结果和事件不改写。前两批 noChanges 也保持。证据在同一私有验收目录的 fileport-fix-actual-result.json、actual-receipts-verified.json、actual-finder-recovery.json。此项证明声明日志范围内的正常真实链路和上述恢复边界，不代表完整 clean、其他缓存/目录、取消/强杀/冲突或正式发布验收。

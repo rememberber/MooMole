@@ -4,6 +4,7 @@ import { Modal } from './Modal'
 import { bytes } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
+import { ExecutionReason } from './ExecutionReason'
 
 const states: Record<string, string> = {
   moved: '已移入废纸篓',
@@ -97,7 +98,7 @@ export function LogCleanupDialog({
               <article className="plan-item" key={item.id}>
                 <strong>{states[item.state] ?? '状态待核实'}</strong>
                 <p className="mono full-path">{item.path}</p>
-                <p>{item.reason}</p>
+                <ExecutionReason reason={item.reason} />
                 {item.receipt && (
                   <details>
                     <summary>实际移入位置</summary>

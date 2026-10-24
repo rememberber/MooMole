@@ -49,7 +49,14 @@ test('reload follows existing execution and cancellation waits for durable resul
   )
   expect(
     calls.every((c: { command: string }) =>
-      ['bootstrap', 'list_executions', 'get_execution', 'cancel_log_cleanup'].includes(c.command),
+      [
+        'bootstrap',
+        'list_executions',
+        'get_execution',
+        'cancel_log_cleanup',
+        'list_application_uninstalls',
+        'list_quicklook_refreshes',
+      ].includes(c.command),
     ),
   ).toBe(true)
 })

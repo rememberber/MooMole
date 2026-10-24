@@ -45,7 +45,15 @@ export async function installLiveExecutionMock(page: Page) {
               sessionStorage.setItem('live-cancelled', 'yes')
               return
             }
-            if (command === 'get_history' || command === 'list_review_plans') return []
+            if (
+              [
+                'get_history',
+                'list_review_plans',
+                'list_application_uninstalls',
+                'list_quicklook_refreshes',
+              ].includes(command)
+            )
+              return []
             throw new Error(`Unexpected fixture command: ${command}`)
           },
         },

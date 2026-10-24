@@ -3050,6 +3050,20 @@ input[type='checkbox'] {
   margin: 14px 0 0;
   line-height: 1.7;
 }
+.execution-diagnostic {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.execution-diagnostic > summary {
+  display: list-item;
+  cursor: pointer;
+}
+.execution-diagnostic > p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .execution-receipt {
   padding: 12px;
   border-radius: 8px;

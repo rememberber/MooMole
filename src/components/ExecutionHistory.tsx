@@ -6,6 +6,7 @@ import { Modal } from './Modal'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
 import { watchExecution } from '../lib/execution-watcher'
 import { focusReturnTarget } from '../lib/focus-return'
+import { ExecutionReason } from './ExecutionReason'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -360,7 +361,7 @@ function ExecutionResults({
                 {stateName(item.state)}
               </span>
             </summary>
-            <p>{item.reason}</p>
+            <ExecutionReason reason={item.reason} />
             {item.receipt && (
               <div className="execution-receipt">
                 <strong>记录的实际目标</strong>
@@ -381,7 +382,7 @@ function ExecutionResults({
               {(events.get(item.id) ?? []).map((event, index) => (
                 <li key={index}>
                   <time>{dateTime(event.createdAt)}</time> · {stateName(event.state)}
-                  <p>{event.reason}</p>
+                  <ExecutionReason reason={event.reason} />
                 </li>
               ))}
             </ol>
