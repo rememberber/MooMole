@@ -116,21 +116,28 @@ sub same_identity {
         && "$stat[9]" eq $item->{mtime} && "$stat[10]" eq $item->{ctime};
 }
 my ($status, $records) = query('visibility', '');
-my $visible = $status == 0 && $records =~ /\Ap1\nu0\n(?:f(?:[0-9]{1,10}|cwd|rtd|txt|mem|mmap|pd)\n)*\z/;
-$visible = 0 if grep { /\Af([0-9]+)\z/ && $1 > 4294967295 } split("\n", $records);
+my $fields_known = $records =~ /\Ap1\nu0\n(?:f(?:[0-9]{1,10}|cwd|rtd|txt|mem|mmap|pd)\n)*\z/;
+$fields_known = 0 if grep { /\Af([0-9]+)\z/ && $1 > 4294967295 } split("\n", $records);
+my $visible = $status == 0 && $fields_known;
+my $diagnostic = { status => 0 + $status, bytes => length($records),
+    root_pair => ($records =~ /\Ap1\nu0\n/ ? JSON::PP::true : JSON::PP::false),
+    fields_known => ($fields_known ? JSON::PP::true : JSON::PP::false) };
 my @results;
 for my $item (@{$request->{items}}) {
     my $at = mono();
     my $code = 'unknown';
+    my $query;
     if ($at >= $deadline) { $code = 'budgetExhausted'; }
     elsif (!same_identity($item)) { $code = 'changed'; }
     elsif ($visible) {
         my ($exit, $output) = query('exact', $item->{path});
+        $query = { status => 0 + $exit, bytes => length($output) };
         $code = $exit == 0 ? 'busy' : ($exit == 1 && $output eq '' ? 'noOpenHandles' : 'unknown');
         $code = 'budgetExhausted' if $exit == 124;
         $code = 'changed' if !same_identity($item);
     }
-    push @results, { id => $item->{id}, code => $code, checked_ms => $at };
+    push @results, { id => $item->{id}, code => $code, checked_ms => $at, query => $query };
 }
 print JSON::PP->new->canonical->utf8->encode({ version => 1, nonce => $nonce, digest => $digest,
-    uid => 0 + $>, visibility => $visible ? 'observed' : 'unknown', items => \@results, complete => 'MooMole.logs.complete.v1' });
+    uid => 0 + $>, visibility => $visible ? 'observed' : 'unknown', diagnostic => $diagnostic,
+    items => \@results, complete => 'MooMole.logs.complete.v1' });

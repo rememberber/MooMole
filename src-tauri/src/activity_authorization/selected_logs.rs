@@ -64,6 +64,9 @@ pub(crate) struct Guard {
     expires_ms: u64,
     job: Arc<Job>,
     code: Code,
+    visible: bool,
+    diagnostic: Option<VisibilityDiagnostic>,
+    query: Option<QueryDiagnostic>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -82,6 +85,24 @@ struct Item {
     id: String,
     code: Code,
     checked_ms: u64,
+    query: Option<QueryDiagnostic>,
+}
+
+// Bounded protocol metadata only: no lsof output, process names, descriptors,
+// passwords or file contents leave the privileged observer.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QueryDiagnostic {
+    status: u16,
+    bytes: u16,
+}
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VisibilityDiagnostic {
+    status: u16,
+    bytes: u16,
+    root_pair: bool,
+    fields_known: bool,
 }
 
 #[derive(Deserialize)]
@@ -92,6 +113,7 @@ struct Report {
     digest: String,
     uid: u32,
     visibility: String,
+    diagnostic: Option<VisibilityDiagnostic>,
     items: Vec<Item>,
     complete: String,
 }
@@ -281,9 +303,18 @@ impl Evidence {
             || r.digest != p.digest
             || r.complete != "MooMole.logs.complete.v1"
             || !matches!(r.visibility.as_str(), "observed" | "unknown")
+            || r.diagnostic.as_ref().is_some_and(|d| {
+                d.status > 255
+                    || d.bytes > 4096
+                    || (d.fields_known && !d.root_pair)
+                    || (r.visibility == "observed") != (d.status == 0 && d.fields_known)
+            })
             || r.items.len() != p.items.len()
             || r.items.iter().zip(&p.items).any(|(a, b)| {
                 a.id != b.id
+                    || a.query
+                        .as_ref()
+                        .is_some_and(|d| d.status > 255 || d.bytes > 4096)
                     || a.checked_ms < self.request.issued_ms
                     || a.checked_ms > mono
                     || mono.saturating_sub(a.checked_ms) >= FRESH_MS
@@ -337,6 +368,8 @@ impl Evidence {
     ) -> Result<HashMap<String, Guard>, String> {
         self.validate(plan, home, now)?;
         let p = self.request.payload;
+        let visible = self.report.visibility == "observed";
+        let diagnostic = self.report.diagnostic;
         Ok(self
             .report
             .items
@@ -356,6 +389,9 @@ impl Evidence {
                         expires_ms: p.expires_ms,
                         job: self.request.job.clone(),
                         code: result.code,
+                        visible,
+                        diagnostic: diagnostic.clone(),
+                        query: result.query,
                     },
                 )
             })
@@ -384,7 +420,7 @@ impl Guard {
 
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.code != Code::NoOpenHandles {
-            return Err("缺少当前对象的空闲正面观察，保留文件。".into());
+            return Err(self.unconfirmed_reason());
         }
         self.identity()
     }
@@ -423,11 +459,41 @@ impl Guard {
         };
         let mut activity = rules::ActivityCheck::from_code(code)?;
         activity.source = "客户端当次授权观察 · Mole 占用检查语义".into();
-        if code == "noOpenHandles" {
-            activity.reason = "本次完整视图证明及精确文件查询未发现打开句柄；只适用于当前对象与短期观察，执行前仍会核对，不保证持续空闲。".into();
-        }
+        activity.reason = if self.code == Code::NoOpenHandles {
+            "本次完整视图证明及精确文件查询未发现打开句柄；只适用于当前对象与短期观察，执行前仍会核对，不保证持续空闲。".into()
+        } else {
+            self.unconfirmed_reason()
+        };
         rule.activity = activity;
-        Ok(())
+        if self.code == Code::NoOpenHandles {
+            Ok(())
+        } else {
+            Err(self.unconfirmed_reason())
+        }
+    }
+
+    fn unconfirmed_reason(&self) -> String {
+        let reason = match self.code {
+            Code::Unknown if !self.visible => "当次授权检查仍未能证明完整进程视图，文件保留。",
+            Code::Unknown => "进程视图已核对，但精确文件查询未能确认空闲，文件保留。",
+            Code::Busy => "当次授权检查发现文件被占用，文件保留；请自行退出相关应用后重新扫描。",
+            Code::BudgetExhausted => {
+                "当次占用检查的 5 秒预算已用完，文件保留；请缩小选择后重新扫描。"
+            }
+            Code::Changed => "授权检查期间文件或祖先身份发生变化，文件保留；请重新扫描。",
+            Code::NoOpenHandles => "仍需核对当次规则、身份和有效期，不能仅据占用观察处理。",
+        };
+        let mut detail = String::from(reason);
+        if let Some(d) = &self.diagnostic {
+            detail.push_str(&format!(
+                " 诊断：视图状态 {}，{} 字节，root 字段 {}，字段格式 {}。",
+                d.status, d.bytes, d.root_pair, d.fields_known
+            ));
+        }
+        if let Some(d) = &self.query {
+            detail.push_str(&format!(" 文件查询状态 {}，{} 字节。", d.status, d.bytes));
+        }
+        detail
     }
 }
 

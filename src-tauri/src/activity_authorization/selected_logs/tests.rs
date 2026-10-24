@@ -590,7 +590,7 @@ fn non_idle_native_observations_cannot_pass_the_final_operation_gate() {
             .remove(&plan.items[0].candidate.id)
             .unwrap();
         let mut checks = current_rules(&plan, "noOpenHandles");
-        guard.apply(&plan, &mut checks).unwrap();
+        assert!(guard.apply(&plan, &mut checks).is_err());
         assert_ne!(
             checks[&plan.items[0].candidate.id].activity.code,
             "noOpenHandles"
@@ -618,5 +618,114 @@ fn explicit_system_cancel_marks_only_the_bound_job_and_requires_complete_framing
             .is_err());
         assert_eq!(job.cancelled.load(Ordering::SeqCst), cancelled);
         assert!(!unrelated.cancelled.load(Ordering::SeqCst));
+    }
+}
+
+#[test]
+fn native_diagnostics_distinguish_view_and_exact_queries_without_raw_output() {
+    let (_temp, home, plan) = setup(&["ordinary.log"]);
+    for (visibility, exact, visible, queried, bytes) in [
+        (VISIBLE, IDLE, true, true, 0),
+        (
+            "print qq(p1\nu0\nprivate-warning-view\n); exit 0;",
+            IDLE,
+            false,
+            false,
+            0,
+        ),
+        (
+            VISIBLE,
+            "print qq(private-warning-query\n); exit 1;",
+            true,
+            true,
+            22,
+        ),
+    ] {
+        let request = new_request(&plan, &home, crate::db::now()).unwrap();
+        let output = direct(
+            &fixture_source(Some(visibility), Some(exact)),
+            &request.payload,
+        );
+        assert!(output.status.success());
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(value["diagnostic"]["root_pair"], true);
+        assert_eq!(value["diagnostic"]["fields_known"], visible);
+        assert_eq!(value["diagnostic"]["status"], 0);
+        assert!(value["diagnostic"]["bytes"].as_u64().unwrap() > 0);
+        assert_eq!(!value["items"][0]["query"].is_null(), queried);
+        if queried {
+            assert_eq!(value["items"][0]["query"]["status"], 1);
+            assert_eq!(value["items"][0]["query"]["bytes"], bytes);
+        }
+        assert_eq!(
+            value["items"][0]["code"],
+            if visible && bytes == 0 {
+                "noOpenHandles"
+            } else {
+                "unknown"
+            }
+        );
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("private-warning"));
+    }
+}
+
+#[test]
+fn diagnostics_are_bounded_and_unknown_observations_cannot_become_permission() {
+    let (_temp, home, plan) = setup(&["ordinary.log"]);
+    for visible in [false, true] {
+        let request = new_request(&plan, &home, crate::db::now()).unwrap();
+        let mut value = report(&request);
+        value["visibility"] = if visible { "observed" } else { "unknown" }.into();
+        value["diagnostic"] = serde_json::json!({"status":if visible { 0 } else { 125 },
+            "bytes":123,"root_pair":true,"fields_known":visible});
+        value["items"][0]["code"] = "unknown".into();
+        value["items"][0]["query"] = if visible {
+            serde_json::json!({"status":1,"bytes":20})
+        } else {
+            serde_json::Value::Null
+        };
+        let guard = request
+            .finish(&plan, &home, &frame(&value), crate::db::now())
+            .unwrap()
+            .into_guards(&plan, &home, crate::db::now())
+            .unwrap()
+            .remove(&plan.items[0].candidate.id)
+            .unwrap();
+        let mut checks = current_rules(&plan, "noOpenHandles");
+        let reason = guard.apply(&plan, &mut checks).unwrap_err();
+        assert!(reason.contains(if visible {
+            "精确文件查询"
+        } else {
+            "完整进程视图"
+        }));
+        assert!(reason.contains("诊断"));
+        assert_eq!(checks[&plan.items[0].candidate.id].activity.code, "unknown");
+        assert!(guard.validate().is_err());
+    }
+    for invalid in [
+        "view-status",
+        "view-bytes",
+        "view-fields",
+        "query-status",
+        "query-bytes",
+    ] {
+        let request = new_request(&plan, &home, crate::db::now()).unwrap();
+        let mut value = report(&request);
+        value["diagnostic"] =
+            serde_json::json!({"status":0,"bytes":14,"root_pair":true,"fields_known":true});
+        value["items"][0]["query"] = serde_json::json!({"status":1,"bytes":0});
+        match invalid {
+            "view-status" => value["diagnostic"]["status"] = 256.into(),
+            "view-bytes" => value["diagnostic"]["bytes"] = 4097.into(),
+            "view-fields" => value["diagnostic"]["root_pair"] = false.into(),
+            "query-status" => value["items"][0]["query"]["status"] = 256.into(),
+            _ => value["items"][0]["query"]["bytes"] = 4097.into(),
+        }
+        assert!(
+            request
+                .finish(&plan, &home, &frame(&value), crate::db::now())
+                .is_err(),
+            "{invalid}"
+        );
     }
 }
