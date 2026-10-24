@@ -403,7 +403,7 @@ fn event_order_corruption_cannot_turn_overlapping_steps_into_success() {
 #[test]
 fn v4_schema_conflict_rolls_back_new_tables_and_preserves_backup() {
     let f = Fixture::new();
-    f.db.execute_batch("DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; CREATE TABLE maintenance_steps(sentinel TEXT); INSERT INTO maintenance_steps VALUES ('keep'); PRAGMA user_version=4;").unwrap();
+    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; CREATE TABLE maintenance_steps(sentinel TEXT); INSERT INTO maintenance_steps VALUES ('keep'); PRAGMA user_version=4;").unwrap();
     assert!(db::open_fixture(&f._root.path().join("db.sqlite")).is_err());
     assert_eq!(
         f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
@@ -423,7 +423,7 @@ fn v4_schema_conflict_rolls_back_new_tables_and_preserves_backup() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v5-")
+                .starts_with("moomole-before-v6-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -471,6 +471,101 @@ fn corrupt_terminal_history_blocks_retention_without_losing_other_records_or_set
         "cancelled"
     );
     assert!(detail(&f.db, corrupt.id()).is_err());
+}
+
+#[test]
+fn explicit_review_releases_admission_but_never_rewrites_or_replays_unknown_results() {
+    let mut f = Fixture::new();
+    let s = f.begin();
+    intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
+    let d = detail(&f.db, s.id()).unwrap();
+    assert!(acknowledge(&mut f.db, s.id(), &d.snapshot_sha256, f.at + 2).is_err());
+    stop_worker(&mut f.db, &s, f.at + 3).unwrap();
+    let before = detail(&f.db, s.id()).unwrap();
+    assert!(acknowledge(&mut f.db, s.id(), &"b".repeat(64), f.at + 4).is_err());
+    let reviewed = acknowledge(&mut f.db, s.id(), &before.snapshot_sha256, f.at + 4).unwrap();
+    assert_eq!(reviewed.items, before.items);
+    assert_eq!(reviewed.events.len(), before.events.len());
+    assert_eq!(reviewed.summary.reviewed_at, Some(f.at + 4));
+    assert!(!reviewed.summary.retained_for_review);
+    let again = acknowledge(&mut f.db, s.id(), &before.snapshot_sha256, f.at + 5).unwrap();
+    assert_eq!(again.summary.reviewed_at, Some(f.at + 4));
+    assert!(intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 5).is_err());
+    let next = f.selection(vec![Step::Generators]);
+    let run = begin(
+        &mut f.db,
+        &next,
+        &uuid::Uuid::new_v4().to_string(),
+        f.at + 6,
+    )
+    .unwrap();
+    finish(&mut f.db, &run, true, f.at + 7).unwrap();
+    let t = f.db.transaction().unwrap();
+    prune(&t, f.at + TTL).unwrap();
+    t.commit().unwrap();
+    assert!(detail(&f.db, s.id()).is_err());
+}
+
+#[test]
+fn corrupted_review_cannot_release_modification_admission() {
+    let mut f = Fixture::new();
+    let s = f.begin();
+    intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
+    stop_worker(&mut f.db, &s, f.at + 2).unwrap();
+    f.db.execute(
+        "INSERT INTO maintenance_reviews VALUES (?1,?2,?3)",
+        params![s.id(), "b".repeat(64), f.at + 3],
+    )
+    .unwrap();
+    assert!(detail(&f.db, s.id()).is_err());
+    let t = f.db.transaction().unwrap();
+    assert!(crate::execution_admission::reserve(&t, 1).is_err());
+}
+
+#[test]
+fn v5_wal_backup_precedes_review_upgrade_and_intent_reconciliation() {
+    let mut f = Fixture::new();
+    let s = f.begin();
+    intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
+    f.db.execute_batch("DROP TABLE maintenance_reviews; PRAGMA user_version=5;")
+        .unwrap();
+    let upgraded = db::open_fixture(&f._root.path().join("db.sqlite")).unwrap();
+    assert_eq!(
+        upgraded
+            .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        6
+    );
+    assert_eq!(
+        detail(&upgraded, s.id()).unwrap().items[0].state,
+        "uncertain"
+    );
+    let backup = std::fs::read_dir(f._root.path())
+        .unwrap()
+        .map(|p| p.unwrap().path())
+        .find(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("moomole-before-v6-")
+        })
+        .unwrap();
+    let old = Connection::open(backup).unwrap();
+    assert_eq!(
+        old.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        5
+    );
+    assert_eq!(
+        old.query_row::<String, _, _>(
+            "SELECT state FROM maintenance_steps WHERE run_id=?1 AND position=0",
+            [s.id()],
+            |r| r.get(0)
+        )
+        .unwrap(),
+        "intent"
+    );
+    assert!(old.prepare("SELECT * FROM maintenance_reviews").is_err());
 }
 
 #[test]

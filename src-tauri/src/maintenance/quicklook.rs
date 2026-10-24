@@ -97,6 +97,17 @@ pub(crate) struct Prepared {
     uid: u32,
 }
 impl Prepared {
+    pub(super) fn binding(&self) -> Result<String, String> {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&(
+            &self.executable,
+            &self.tool.witness,
+            &self.home_handle.witness,
+            self.uid,
+        ))
+        .map_err(|_| "无法固定系统工具身份。")?;
+        Ok(format!("{:x}", Sha256::digest(bytes)))
+    }
     pub(crate) fn prepare(home: &Path) -> Result<Self, String> {
         let uid = unsafe { libc::geteuid() };
         if uid == 0 || uid != unsafe { libc::getuid() } {

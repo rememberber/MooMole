@@ -580,7 +580,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
     let run = execution::begin(&mut f.db, &c, db::now()).unwrap();
     execution::intent(&mut f.db, &run, &c.items[0].candidate.id, db::now()).unwrap();
     f.db.execute_batch(
-        "DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; PRAGMA user_version=3;",
+        "DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; PRAGMA user_version=3;",
     )
     .unwrap();
     let upgraded = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
@@ -588,7 +588,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        5
+        6
     );
     assert_eq!(
         execution::detail(&upgraded, &run).unwrap().items[0].state,
@@ -603,7 +603,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .to_str()
                 .unwrap()
-                .starts_with("moomole-before-v5-")
+                .starts_with("moomole-before-v6-")
         })
         .unwrap();
     let before = Connection::open(&backup).unwrap();
@@ -629,7 +629,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v5-"))
+                .starts_with("moomole-before-v6-"))
             .count(),
         1
     );
@@ -638,7 +638,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
 #[test]
 fn v3_schema_conflict_rolls_back_entire_upgrade_and_preserves_old_version() {
     let f = Fixture::new();
-    f.db.execute_batch("DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; CREATE TABLE uninstall_events(sentinel TEXT); INSERT INTO uninstall_events VALUES ('keep'); PRAGMA user_version=3;").unwrap();
+    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; CREATE TABLE uninstall_events(sentinel TEXT); INSERT INTO uninstall_events VALUES ('keep'); PRAGMA user_version=3;").unwrap();
     assert!(db::open_fixture(&f.home.join("app.sqlite")).is_err());
     assert_eq!(
         f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
@@ -666,13 +666,13 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
         ..db::Settings::default()
     };
     db::save_settings(&f.db, &settings).unwrap();
-    f.db.execute_batch("DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; PRAGMA user_version=4;").unwrap();
+    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; PRAGMA user_version=4;").unwrap();
     let upgraded = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
     assert_eq!(
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        5
+        6
     );
     assert_eq!(
         detail(&upgraded, run.id()).unwrap().summary.item_state,
@@ -692,7 +692,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v5-")
+                .starts_with("moomole-before-v6-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -718,7 +718,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v5-"))
+                .starts_with("moomole-before-v6-"))
             .count(),
         1
     );

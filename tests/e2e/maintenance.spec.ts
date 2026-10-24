@@ -26,7 +26,8 @@ test('maintenance browsing and keyboard expansion never dispatch checks, authori
   await page.getByRole('button', { name: '系统维护', exact: true }).click()
   const region = page.getByRole('region', { name: '维护项目说明' })
   await expect(region).toContainText('19 / 19 项')
-  await expect(region).toContainText('可检查 2 项本机设置，其余仅提供说明。执行暂未开放')
+  await expect(region).toContainText('可检查 2 项本机设置，其余仅提供说明。')
+  await expect(region).toContainText('其余维护执行暂未开放')
   await page.evaluate(() => sessionStorage.setItem('catalog-commands', '[]'))
   const search = page.getByRole('textbox', { name: '搜索维护项目' })
   await search.fill('DNS')
@@ -109,6 +110,8 @@ test('explicit setting inspection exposes protection, preserves prior results on
           'bootstrap',
           'get_task_snapshot',
           'get_history',
+          'list_application_uninstalls',
+          'list_quicklook_refreshes',
           'plugin:event|listen',
           'plugin:event|unlisten',
         ].includes(command) &&

@@ -3515,3 +3515,41 @@ input[type='checkbox'] {
   border-top: 1px solid var(--border);
   padding-top: 8px;
 }
+.maintenance-refresh-modal {
+  width: min(600px, calc(100vw - 48px));
+  padding: 24px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+.maintenance-refresh-modal h2 {
+  padding-right: 32px;
+  margin-bottom: 12px;
+}
+.maintenance-refresh-modal > p {
+  line-height: 1.7;
+  margin: 12px 0;
+}
+.maintenance-refresh-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.refresh-step-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 16px 0;
+}
+.refresh-result-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.refresh-result-row > .tag {
+  margin-left: 12px;
+}
+.refresh-result-row p {
+  overflow-wrap: anywhere;
+  margin: 6px 0 0;
+}

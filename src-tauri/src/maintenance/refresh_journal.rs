@@ -10,6 +10,10 @@ use sha2::{Digest, Sha256};
 const MAX_ARCHIVE: usize = 16 * 1024;
 const RESERVE: usize = 16 * 1024;
 const TTL: i64 = 30_000;
+pub(crate) const REVIEW_SCHEMA: &str = "CREATE TABLE maintenance_reviews (
+    run_id TEXT PRIMARY KEY REFERENCES maintenance_runs(id) ON DELETE CASCADE,
+    snapshot_sha256 TEXT NOT NULL, reviewed_at INTEGER NOT NULL CHECK(reviewed_at>=0)
+); PRAGMA user_version=6;";
 pub(crate) const SCHEMA: &str = "
 CREATE TABLE maintenance_runs (
     id TEXT PRIMARY KEY, plan_id TEXT NOT NULL UNIQUE,
@@ -38,7 +42,7 @@ CREATE INDEX maintenance_events_run ON maintenance_events(run_id,seq);
 PRAGMA user_version=5;
 ";
 
-// Constructed by the future sealed executor AFTER consuming its confirmation.
+// Constructed by the sealed executor AFTER consuming its confirmation.
 // Its existence is not permission to call a command; every spawn needs a fresh
 // gate. Neither this type nor Session implements Deserialize.
 pub(crate) struct Selection(Archive);
@@ -134,6 +138,7 @@ pub(crate) struct Summary {
     pub uncertain_count: usize,
     pub not_started_count: usize,
     pub retained_for_review: bool,
+    pub reviewed_at: Option<i64>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -175,6 +180,7 @@ struct Stored {
     digest: String,
     items: Vec<Item>,
     events: Vec<Event>,
+    reviewed_at: Option<i64>,
 }
 impl Stored {
     fn summary(&self) -> Summary {
@@ -197,10 +203,12 @@ impl Stored {
                 .iter()
                 .filter(|i| matches!(i.state.as_str(), "notStarted" | "cancelled"))
                 .count(),
-            retained_for_review: matches!(
-                self.state.as_str(),
-                "running" | "interrupted" | "needsReview"
-            ) || self.items.iter().any(|i| i.state == "uncertain"),
+            retained_for_review: self.reviewed_at.is_none()
+                && (matches!(
+                    self.state.as_str(),
+                    "running" | "interrupted" | "needsReview"
+                ) || self.items.iter().any(|i| i.state == "uncertain")),
+            reviewed_at: self.reviewed_at,
         }
     }
 }
@@ -249,6 +257,9 @@ fn stop_text(value: Option<Stop>) -> Option<&'static str> {
     })
 }
 fn result_valid(state: &str, code: Option<i32>, stopped: Option<Stop>) -> bool {
+    if code.is_some_and(|code| !(0..=255).contains(&code)) {
+        return false;
+    }
     match state {
         "commandSucceeded" => code == Some(0) && stopped.is_none(),
         "pending" | "intent" | "notStarted" => code.is_none() && stopped.is_none(),
@@ -425,6 +436,19 @@ fn load(db: &Connection, id: &str) -> Result<Stored, String> {
     {
         return Err("维护批次与逐步结果不一致。".into());
     }
+    let reviewed: Option<(String, i64)> = db
+        .query_row(
+            "SELECT snapshot_sha256,reviewed_at FROM maintenance_reviews WHERE run_id=?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(sql)?;
+    if reviewed.as_ref().is_some_and(|(hash, at)| {
+        hash != &digest || *at < 0 || !matches!(state.as_str(), "needsReview" | "interrupted")
+    }) {
+        return Err("维护核查记录与原结果不一致。".into());
+    }
     Ok(Stored {
         id: id.into(),
         state,
@@ -434,6 +458,7 @@ fn load(db: &Connection, id: &str) -> Result<Stored, String> {
         digest,
         items,
         events,
+        reviewed_at: reviewed.map(|(_, at)| at),
     })
 }
 fn active(db: &Connection, session: &Session) -> Result<Stored, String> {
@@ -560,6 +585,15 @@ pub(crate) fn record_attempt(
     attempt: &Attempt,
     at: i64,
 ) -> Result<(), String> {
+    record_attempt_explained(db, session, attempt, attempt.reason, at)
+}
+pub(crate) fn record_attempt_explained(
+    db: &mut Connection,
+    session: &Session,
+    attempt: &Attempt,
+    why: &str,
+    at: i64,
+) -> Result<(), String> {
     let t = tx(db)?;
     let stored = active(&t, session)?;
     let mut item = stored
@@ -585,7 +619,7 @@ pub(crate) fn record_attempt(
     }
     item.exit_code = attempt.exit_code;
     item.stop = attempt.stop;
-    item.reason = attempt.reason.into();
+    item.reason = why.into();
     item.finished_at = Some(at);
     // Results are collected even AFTER expiry or a wall-clock rollback. Seq,
     // not wall time, orders facts. Fresh authority is required only to start.
@@ -709,7 +743,7 @@ pub(crate) fn prune(db: &Transaction<'_>, before: i64) -> Result<(), String> {
     // supplies the surrounding transaction, so corruption or a later failure
     // cannot partially prune evidence or persist only part of new settings.
     let ids = {
-        let mut q = db.prepare("SELECT id FROM maintenance_runs WHERE state IN ('completed','partial','noChanges','cancelled') AND finished_at<?1 AND NOT EXISTS(SELECT 1 FROM maintenance_steps i WHERE i.run_id=maintenance_runs.id AND i.state IN ('intent','uncertain')) LIMIT 65").map_err(sql)?;
+        let mut q = db.prepare("SELECT id FROM maintenance_runs r WHERE finished_at<?1 AND (state IN ('completed','partial','noChanges','cancelled') OR (state IN ('interrupted','needsReview') AND EXISTS(SELECT 1 FROM maintenance_reviews v WHERE v.run_id=r.id AND v.snapshot_sha256=r.snapshot_sha256))) AND NOT EXISTS(SELECT 1 FROM maintenance_steps i WHERE i.run_id=r.id AND (i.state='intent' OR (i.state='uncertain' AND NOT EXISTS(SELECT 1 FROM maintenance_reviews v WHERE v.run_id=r.id AND v.snapshot_sha256=r.snapshot_sha256)))) LIMIT 65").map_err(sql)?;
         let rows = q
             .query_map([before], |r| r.get::<_, String>(0))
             .map_err(sql)?;
@@ -718,11 +752,41 @@ pub(crate) fn prune(db: &Transaction<'_>, before: i64) -> Result<(), String> {
     if ids.len() > 64 {
         return Err("维护保留记录超过上限，不能自动丢弃证据。".into());
     }
-    for id in ids {
-        load(db, &id)?;
+    for id in &ids {
+        load(db, id)?;
     }
-    db.execute("DELETE FROM maintenance_runs WHERE state IN ('completed','partial','noChanges','cancelled') AND finished_at<?1 AND NOT EXISTS(SELECT 1 FROM maintenance_steps i WHERE i.run_id=maintenance_runs.id AND i.state IN ('intent','uncertain'))",[before]).map_err(sql)?;
+    for id in ids {
+        db.execute("DELETE FROM maintenance_runs WHERE id=?1", [id])
+            .map_err(sql)?;
+    }
     Ok(())
+}
+
+// Explicit human review releases admission; original outcomes stay unchanged.
+// The command layer also requires no live worker, a user checkbox and the exact
+// digest shown in history. This cannot produce a Session or repeat a command.
+pub(crate) fn acknowledge(
+    db: &mut Connection,
+    id: &str,
+    expected: &str,
+    at: i64,
+) -> Result<Detail, String> {
+    let t = tx(db)?;
+    let stored = load(&t, id)?;
+    if stored.state == "running"
+        || stored.digest != expected
+        || at < 0
+        || !matches!(stored.state.as_str(), "interrupted" | "needsReview")
+    {
+        return Err("请先核对当前已结束维护记录，再明确确认。".into());
+    }
+    t.execute(
+        "INSERT INTO maintenance_reviews VALUES (?1,?2,?3) ON CONFLICT(run_id) DO NOTHING",
+        params![id, expected, at],
+    )
+    .map_err(sql)?;
+    t.commit().map_err(sql)?;
+    detail(db, id)
 }
 
 #[cfg(test)]

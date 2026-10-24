@@ -77,13 +77,13 @@ fn cancelled(job: &Job) -> bool {
     job.cancelled.load(Ordering::SeqCst)
 }
 
-pub(crate) fn dispatch(
+pub(crate) fn dispatch<T: Send + 'static>(
     request_id: String,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     job: Arc<Job>,
     operation: crate::update_install::Operation,
-    work: impl std::future::Future<Output = Result<journal::Detail, String>> + Send + 'static,
-) -> tokio::sync::oneshot::Receiver<Result<journal::Detail, String>> {
+    work: impl std::future::Future<Output = Result<T, String>> + Send + 'static,
+) -> tokio::sync::oneshot::Receiver<Result<T, String>> {
     let (send, receive) = tokio::sync::oneshot::channel();
     tauri::async_runtime::spawn(async move {
         let result = work.await;

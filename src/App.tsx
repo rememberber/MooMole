@@ -97,6 +97,9 @@ const ApplicationUninstallCenter = deferredView(async () => ({
 const MaintenanceCatalog = deferredView(async () => ({
   default: (await import('./components/MaintenanceCatalog')).MaintenanceCatalog,
 }))
+const QuickLookRefreshCenter = deferredView(async () => ({
+  default: (await import('./components/QuickLookRefreshCenter')).QuickLookRefreshCenter,
+}))
 const Installers = deferredView(async () => ({
   default: (await import('./components/Installers')).Installers,
 }))
@@ -230,6 +233,8 @@ export default function App() {
   const [appsTaskId, setAppsTaskId] = useState<string | null>(null)
   const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | null>(null)
   const [uninstallActive, setUninstallActive] = useState(false)
+  const [refreshActive, setRefreshActive] = useState(false)
+  const [refreshOpenSignal, setRefreshOpenSignal] = useState(0)
   const [appsStale, setAppsStale] = useState(false)
   const [moleHistory, setMoleHistory] = useState<MoleHistory | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
@@ -667,6 +672,7 @@ export default function App() {
     data.engine.available &&
     !busy &&
     !uninstallActive &&
+    !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
   const diskPercent = disk?.percent ?? null
@@ -1048,6 +1054,13 @@ export default function App() {
                 )}
                 {page === 'maintenance' && (
                   <>
+                    <button
+                      className="button primary compact"
+                      disabled={!canRun}
+                      onClick={() => setRefreshOpenSignal((n) => n + 1)}
+                    >
+                      刷新预览…
+                    </button>
                     <label className="search-field maintenance-search">
                       <Search size={15} />
                       <input
@@ -1091,10 +1104,20 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            {page === 'cleanup' || page === 'apps' ? '逐项确认' : '只读检查'}
+            {page === 'cleanup' || page === 'apps' || page === 'maintenance'
+              ? '逐项确认'
+              : '只读检查'}
           </span>
         </header>
         <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
+          <QuickLookRefreshCenter
+            openSignal={refreshOpenSignal}
+            enabled={api.desktop}
+            historyVisible={page === 'history'}
+            transport={api.refreshTransport}
+            onActiveChange={setRefreshActive}
+            initialRecords={data.maintenanceRefreshes}
+          />
           <ApplicationUninstallCenter
             target={uninstallTarget}
             enabled={api.desktop}

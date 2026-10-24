@@ -37,7 +37,7 @@ export function MaintenanceCatalog({
       <p className="muted" role="status">
         {items.length} / {maintenanceCatalog.items.length} 项 ·
         {snapshot ? '2 项已有设置观察，其余尚未检查。' : '可检查 2 项本机设置，其余仅提供说明。'}
-        执行暂未开放。
+        桌面版可从工具栏刷新 Quick Look 预览，其余维护执行暂未开放。
       </p>
       {reading && (
         <p className="muted" role="status">
@@ -199,9 +199,11 @@ export function MaintenanceCatalog({
                     </div>
                   </dl>
                   <p className="muted maintenance-pending">
-                    {observed
-                      ? '这里只提供有限设置、保护与文件访问观察；实际写入、原值恢复及其他执行条件尚未验证，不能据此执行维护。'
-                      : '本机适用性、有效保护规则与权限尚未检查，不能判断为可执行或无须维护。'}
+                    {item.id === 'cache_refresh'
+                      ? '完整缓存处理仍未开放；工具栏“刷新预览…”仅提交 Quick Look 两步服务刷新，单独检查并逐项确认。'
+                      : observed
+                        ? '这里只提供有限设置、保护与文件访问观察；实际写入、原值恢复及其他执行条件尚未验证，不能据此执行维护。'
+                        : '本机适用性、有效保护规则与权限尚未检查，不能判断为可执行或无须维护。'}
                   </p>
                   <details className="origin-details">
                     <summary>技术来源</summary>

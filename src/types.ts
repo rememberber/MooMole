@@ -26,6 +26,7 @@ export interface TaskRecord {
   message: string | null
 }
 export interface Bootstrap {
+  maintenanceRefreshes?: RefreshSummary[]
   settings: Settings
   history: TaskRecord[]
   engine: { available: boolean; version: string | null; revision: string; reason: string | null }
@@ -657,3 +658,4 @@ export interface UpdateSnapshot {
     error: string | null
   }
 }
+import type { RefreshSummary } from './lib/quicklook-refresh'

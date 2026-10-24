@@ -20,6 +20,7 @@ import { observeTask, type TaskTransport } from './task-watcher'
 import { taskResult } from './task-result'
 import type { StatusTransport } from './status-watch'
 import type { UninstallTransport } from './app-uninstall'
+import type { RefreshTransport } from './quicklook-refresh'
 
 export const statusTransport: StatusTransport = {
   start: (sessionId, intervalSeconds) =>
@@ -29,6 +30,26 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const refreshTransport: RefreshTransport = {
+  prepare: (selected) => invoke('prepare_quicklook_refresh', { selected }),
+  discard: (confirmationId) => invoke('discard_quicklook_refresh', { confirmationId }),
+  execute: (draft, requestId) =>
+    invoke('execute_quicklook_refresh', {
+      planId: draft.planId,
+      confirmationId: draft.id,
+      requestId,
+      rebuildConfirmed: true,
+    }),
+  read: (requestId) => invoke('get_quicklook_refresh', { requestId }),
+  list: () => (desktop ? invoke('list_quicklook_refreshes') : Promise.resolve([])),
+  cancel: (requestId) => invoke('cancel_quicklook_refresh', { requestId }),
+  acknowledge: (record) =>
+    invoke('acknowledge_quicklook_refresh', {
+      requestId: record.id,
+      snapshotSha256: record.snapshotSha256,
+      reviewed: true,
+    }),
+}
 export const uninstallTransport: UninstallTransport = {
   prepare: (taskId, index) => invoke('prepare_application_uninstall_plan', { taskId, index }),
   review: (planId) => invoke('prepare_application_uninstall_confirmation', { planId }),

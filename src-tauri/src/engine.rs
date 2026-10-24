@@ -25,6 +25,7 @@ pub enum TaskKind {
     History,
     LogTrash,
     AppTrash,
+    MaintenanceRefresh,
     StatusWatch,
     VisibilityProbe,
 }
@@ -41,6 +42,7 @@ impl TaskKind {
             Self::History => "history",
             Self::LogTrash => "logtrash",
             Self::AppTrash => "apptrash",
+            Self::MaintenanceRefresh => "maintenancerefresh",
             Self::StatusWatch => "statuswatch",
             Self::VisibilityProbe => "visibilityprobe",
         }
@@ -48,7 +50,7 @@ impl TaskKind {
     pub(crate) fn exclusive_operation(self) -> bool {
         matches!(
             self,
-            Self::LogTrash | Self::AppTrash | Self::VisibilityProbe
+            Self::LogTrash | Self::AppTrash | Self::MaintenanceRefresh | Self::VisibilityProbe
         )
     }
 }
@@ -77,7 +79,10 @@ impl Job {
         self.cancelled.store(true, Ordering::SeqCst);
     }
     pub(crate) fn bind_execution(&self, run: &str) -> Result<(), String> {
-        if !matches!(self.kind, TaskKind::LogTrash | TaskKind::AppTrash) {
+        if !matches!(
+            self.kind,
+            TaskKind::LogTrash | TaskKind::AppTrash | TaskKind::MaintenanceRefresh
+        ) {
             return Err("此任务不能绑定修改执行批次。".into());
         }
         self.execution_run
@@ -336,6 +341,7 @@ pub async fn run(
         | TaskKind::History
         | TaskKind::LogTrash
         | TaskKind::AppTrash
+        | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
         | TaskKind::VisibilityProbe => return Err("请使用对应的专用任务入口。".into()),
     };
@@ -393,6 +399,7 @@ pub async fn run(
         TaskKind::History => false,
         TaskKind::LogTrash
         | TaskKind::AppTrash
+        | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
         | TaskKind::VisibilityProbe => false,
     };

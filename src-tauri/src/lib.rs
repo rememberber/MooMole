@@ -81,6 +81,7 @@ struct AppState {
     project_slots: Arc<tokio::sync::Semaphore>,
     installer_slots: Arc<tokio::sync::Semaphore>,
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
+    refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
     uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
@@ -109,6 +110,7 @@ struct Bootstrap {
     latest_clean_preview: Option<Value>,
     review_plans: Vec<review::PlanSummary>,
     executions: Vec<execution::Summary>,
+    maintenance_refreshes: Vec<maintenance::refresh_journal::Summary>,
 }
 
 #[tauri::command]
@@ -128,6 +130,7 @@ fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
         latest_clean_preview: db::latest_scan(&db)?,
         review_plans: db::plans(&db)?,
         executions: execution::list(&db)?,
+        maintenance_refreshes: maintenance::refresh_journal::list(&db)?,
     })
 }
 
@@ -792,6 +795,7 @@ fn start_task(
         TaskKind::Review
             | TaskKind::LogTrash
             | TaskKind::AppTrash
+            | TaskKind::MaintenanceRefresh
             | TaskKind::StatusWatch
             | TaskKind::VisibilityProbe
     ) {
@@ -2185,6 +2189,7 @@ pub fn run() {
                 project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
+                refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
                 uninstall_confirmations: Arc::new(Mutex::new(
@@ -2232,6 +2237,13 @@ pub fn run() {
             list_application_uninstalls,
             cancel_application_uninstall,
             inspect_maintenance,
+            maintenance::refresh_commands::prepare_quicklook_refresh,
+            maintenance::refresh_commands::discard_quicklook_refresh,
+            maintenance::refresh_commands::execute_quicklook_refresh,
+            maintenance::refresh_commands::get_quicklook_refresh,
+            maintenance::refresh_commands::list_quicklook_refreshes,
+            maintenance::refresh_commands::cancel_quicklook_refresh,
+            maintenance::refresh_commands::acknowledge_quicklook_refresh,
             inspect_project_artifacts,
             read_project_roots,
             inspect_installers,
