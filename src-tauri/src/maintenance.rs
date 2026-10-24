@@ -302,6 +302,7 @@ mod originals;
 mod paths;
 #[cfg(test)]
 mod preference_sandbox;
+pub(crate) mod quicklook;
 pub(crate) mod review;
 #[cfg(test)]
 mod tests;
