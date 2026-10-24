@@ -2,8 +2,12 @@ import { spawn } from 'node:child_process'
 import { toolchainEnv } from './env.mjs'
 import { checkVersion } from './version.mjs'
 import { fileURLToPath } from 'node:url'
+import { prepareNotices } from './dependency-notices.mjs'
 
-checkVersion(fileURLToPath(new URL('../', import.meta.url)))
+const root = fileURLToPath(new URL('../', import.meta.url))
+checkVersion(root)
+if (['build', 'dev'].includes(process.argv[2]))
+  prepareNotices(root, process.argv.includes('--offline'))
 
 const child = spawn('node_modules/.bin/tauri', process.argv.slice(2), {
   stdio: 'inherit',

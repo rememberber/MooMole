@@ -12,6 +12,7 @@ import {
 } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { checkMachO, verifyPrepared, writeManifest } from './engine-manifest.mjs'
+import { verifyNotices } from './dependency-notices.mjs'
 
 export function command(program, args) {
   const result = spawnSync(program, args, {
@@ -111,7 +112,14 @@ export function inspectApp(app, expected) {
   for (const path of codePaths) checkMachO(join(app, path), expected.arch)
   const engine = verifyPrepared(join(app, 'Contents/Resources/mole'))
   if (engine.arch !== expected.arch) throw new Error('App and engine manifest architectures differ')
-  return { bytes, engine }
+  const materials = verifyNotices(join(app, 'Contents/Resources/legal'), {
+    version: expected.version,
+    revision: engine.revision,
+    arch: expected.arch,
+  })
+  if (materials.engineVersion !== engine.version)
+    throw new Error('Dependency material engine version differs')
+  return { bytes, engine, materials }
 }
 
 function identifiers(identifier) {
@@ -151,6 +159,13 @@ export function verifySignedApp(app, expected) {
     notarized: false,
     engineVersion: inspected.engine.version,
     engineRevision: inspected.engine.revision,
+    dependencyMaterials: {
+      packages: inspected.materials.packages.length,
+      materials: inspected.materials.materialCount,
+      reviewStatus: inspected.materials.reviewStatus,
+      reviewRequired: inspected.materials.reviewRequired.length,
+      noticesSha256: inspected.materials.notices.sha256,
+    },
     signatures,
   }
 }

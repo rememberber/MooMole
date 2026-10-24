@@ -102,8 +102,10 @@ npm run version:check
 npm run test:version
 npm run test:app-artifact
 npm run test:source
+npm run test:notices
 npm test
 npm run build
+npm run notices:prepare # 原生构建前生成许可材料；Tauri build/dev 会自动调用
 npm run check:rust
 npm run test:engine # 清单、失败保护及 macOS 原子发布 fixture
 npm run test:adapter # 先运行 engine:prepare，使用隔离 fixture 验证 Shell 适配
@@ -138,6 +140,6 @@ docs/                 需求、评估、开发记录与界面参考
 
 ## 来源与许可证
 
-Mole CLI 基线：[`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)。上游引擎源码未修改，可通过准备脚本在 `.cache/mole-source/` 取得对应源码和依赖记录。应用自己的适配层与界面源码位于本仓库；固定提交的归档、摘要与 App 对应核对见 [源码包](docs/source-bundle.md)，完整依赖发行材料仍待完成。
+Mole CLI 基线：[`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)。上游引擎源码未修改，可通过准备脚本在 `.cache/mole-source/` 取得对应源码和依赖记录。应用自己的适配层与界面源码位于本仓库；固定提交的归档、摘要与 App 对应核对见 [源码包](docs/source-bundle.md)。App 随包保留 [依赖许可材料](docs/dependency-materials.md)，完整源码/署名和发行审阅仍待完成。
 
 本项目按 [GPL-3.0](LICENSE) 提供。上游许可证见 [Mole-LICENSE](third-party/Mole-LICENSE)，来源和构建说明见 [第三方说明](third-party/NOTICE.md)。Mole 名称及品牌资产属于原项目，本项目不代表官方或获得官方背书；公开名称仍需按上游品牌政策确认。

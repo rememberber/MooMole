@@ -2781,3 +2781,12 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 - 使用独立 node_modules/target，复用本机既有工具链与 npm/Cargo/Go 缓存、确切上游 Git 对象，npm ci --offline 和 build:local-app --offline 成功。没有复制原 checkout 源码、依赖安装目录、target 或已生成引擎；原生 release 编译 48.19 秒，生成约 32.59 MiB 的 arm64 ad-hoc App，嵌套程序和 ZIP 解压校验通过，报告为正确本地提交且 dirty=false。这个步骤证明客户端源码树在既有工具链/缓存条件下能重建，不是完整离线依赖包、网络监测、位级可重复编译或干净机器安装证明。
 - 证据在 `local-artifacts/source-rebuild-135-F3agJ3/`：输入摘要核对、重建 Git 树/来源报告、完整日志、验证脚本与最终 `MooMole-0.1.0-mac-arm64-vCuAqZ`。成功后只清理本次自建 node_modules 和 target，保留最终 App/ZIP，再次校验包内签名/资源通过；其他项目、用户数据和原工作区构建输出未清理。Git 忽略和文档链接检查通过，没有源码逻辑变化，不重复业务自动化测试。
 - 来源/归档重建证据已补；依赖源码/署名、三模块执行中取消/中断/恢复、清理授权正面链、真实安装升级和最终发布仍未完成。没有启动新 App、变更用户库/系统设置或安全属性，没有上传、公开 Release 或 push。
+
+## 阶段 136：依赖许可材料收集与 App 封装（2026-10-24）
+
+- 在等待本人解锁及清理授权时继续首发材料，新增 notices:prepare/test:notices；Tauri build/dev 自动准备当前目标的材料，CI 在引擎准备后同步执行。收集 production npm 锁图及实际包、Rust release 解析图（保守含 build、排除纯 dev 边）、两个真实 Go 引擎 JSON BuildInfo 的模块与匹配标准库，原文按内容摘要去重，不把 SPDX 声明自动解释为完整材料或兼容性通过。详见 [依赖材料](dependency-materials.md)。
+- 实际发现 16 个 Rust crate 缺根目录许可文本、两个 Tauri npm 包仅含 SPDX 元数据；按 crate 内固定 VCS 和 npm integrity 建立 18 项补充，11 份原文/引用均记录来源及 SHA-256。保留 14 项政策/参考需核查状态，不编造版权人或年份。首次 objc2/LICENSE.txt 和部分上游根文件定位未命中后，按固定 Git 树与实际发布 crate 查到 LICENSE.md、不同连字符/下划线命名；一次 Tauri Git 获取失败，改用已下载、同 VCS 的公开 crate 材料与原始来源交叉核对，没有切换到浮动分支正文。
+- 读取与输出均有预算/UTF-8/物理文件/前后变化检查，已有未知文件或损坏输出拒绝覆盖；阶段目录完整准备后再替换。生成 JSON/文本的逐份偏移、原始字节摘要和依赖覆盖；App 验收同时核对每份及整本，不能只更新总摘要掩盖内部变化。Rust 初轮因整套编译器 COPYRIGHT.html 超出预算失败，已限定为实际标准库 COPYRIGHT-library 与附带文本，没有为不相关编译器材料放宽预算。产物保持 pending，不作为法律审阅完成证明。
+- 新增 **6 组 Node 测试全部通过**（约 104 毫秒），覆盖范围/去重/原文、本机路径省略，缺失/链接及仅 SPDX 不算正文、补充绑定/摘要/政策标记，npm 漂移、Go 替换/校验/标准库不符，内部材料与未知输出保护。最终 App/DMG **7 组通过（35.30 秒）**，源码归档 **4 组通过（5.47 秒）**；Prettier、版本和 diff 检查通过。没有前端/原生业务逻辑变化，不重复无变化的执行回归。
+- 最终离线 release arm64 ad-hoc App、嵌套及 ZIP 解压通过，产物 `local-artifacts/MooMole-0.1.0-mac-arm64-kj8QLX/`，约 35.26 MiB（22.92 秒编译）。随包 legal 资源含 328 条（应用/引擎 2、npm 8、Rust 294、Go 22、标准库 2）、244 份去重材料、2,500,674 字节文本；报告记录 14 项核查标记及整本 SHA-256。来源为 `feedfad` 加本阶段未提交工作区、dirty=true，不冒称冻结发行物。生成目录及副本均被 Git 忽略，源码只提交固定补充、脚本、测试和说明。
+- 本轮没有启动新 App、处理个人文件、请求管理员权限、更改用户库或安全属性，没有新增公开 DMG、Release、上传或 push。完整依赖源码供应、文件级例外/署名与许可证组合审阅继续保留，清理/卸载/维护完整实机执行矩阵和安装升级首发关口均未据此完成。

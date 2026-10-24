@@ -48,6 +48,7 @@ jobs:
       - run: npm run test:installers
       - run: npm run test:app-artifact
       - run: npm run test:source
+      - run: npm run test:notices
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -96,6 +97,8 @@ jobs:
       - run: node scripts/cargo.mjs fmt --check
       - name: Prepare pinned Mole engine from source
         run: npm run engine:prepare
+      - name: Prepare local license materials for selected release dependencies
+        run: npm run notices:prepare
       - run: npm run test:engine
       - run: npm run test:app-artifact
       - run: npm run test:source

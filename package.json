@@ -26,6 +26,8 @@
     "test:app-artifact": "node --test scripts/app-artifact.test.mjs",
     "source:bundle": "node scripts/source-bundle.mjs",
     "test:source": "node --test scripts/source-bundle.test.mjs",
+    "notices:prepare": "node scripts/dependency-notices.mjs",
+    "test:notices": "node --test scripts/dependency-notices.test.mjs",
     "test:projects": "node --test scripts/project-artifacts-catalog.test.mjs",
     "test:installers": "node --test scripts/installers-catalog.test.mjs"
   },

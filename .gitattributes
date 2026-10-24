@@ -1,0 +1,2 @@
+# Preserve hash-pinned upstream license bytes, including their original spacing.
+third-party/license-supplements/*.txt -text -whitespace

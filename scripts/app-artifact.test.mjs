@@ -21,7 +21,7 @@ import {
   signAppCopy,
   verifySignedApp,
 } from './app-artifact.mjs'
-import { requiredFiles, verifyPrepared, writeManifest } from './engine-manifest.mjs'
+import { requiredFiles, revision, verifyPrepared, writeManifest } from './engine-manifest.mjs'
 import { buildDmg, mountedDevice, ownedImages, verifyDmg, withMountedDmg } from './dmg-artifact.mjs'
 
 const native = { skip: process.platform !== 'darwin' }
@@ -55,6 +55,39 @@ function fixture(t) {
     else writeFileSync(path, name === 'mole' ? 'VERSION="1.59.1"\n' : 'isolated fixture\n')
   }
   writeManifest(engine, `go version go1.26.0 darwin/${process.arch}`)
+  const legal = join(source, 'Contents/Resources/legal'),
+    text = Buffer.from('isolated fixture material\n'),
+    sha256 = createHash('sha256').update(text).digest('hex')
+  mkdirSync(legal)
+  writeFileSync(join(legal, 'THIRD_PARTY_NOTICES.txt'), text)
+  writeFileSync(
+    join(legal, 'THIRD_PARTY_NOTICES.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      purpose: 'moomole-dependency-materials',
+      appVersion: '0.1.0',
+      engineVersion: '1.59.1',
+      engineRevision: revision,
+      arch: process.arch,
+      rustVersion: 'fixture',
+      goVersion: 'fixture',
+      reviewStatus: 'pending',
+      reviewRequired: [],
+      materialCount: 1,
+      materials: [{ sha256, offset: 0, size: text.length }],
+      packages: [
+        'app:moomole@0.1.0',
+        'engine:mole@1.59.1',
+        'stdlib:go@fixture',
+        'stdlib:rust@fixture',
+      ].map((id) => ({
+        id,
+        reviewRequired: false,
+        materials: [{ sha256, size: text.length, role: 'license' }],
+      })),
+      notices: { file: 'THIRD_PARTY_NOTICES.txt', size: text.length, sha256 },
+    }),
+  )
   return { root, source, engine, signed: join(root, 'signed.app') }
 }
 

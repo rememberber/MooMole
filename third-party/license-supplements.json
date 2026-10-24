@@ -1,0 +1,395 @@
+{
+  "version": 1,
+  "note": "Pinned missing-file supplements and reference texts; policy/reference entries require review. Original attribution is retained; no invented copyright years or holders.",
+  "entries": [
+    {
+      "id": "cargo:alloc-stdlib@0.3.0",
+      "declaredLicense": "BSD-3-Clause",
+      "vcs": "0a81fd6928ea3b33c8cd484aa4575d50ffb98012",
+      "reviewRequired": false,
+      "files": [
+        {
+          "file": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae.txt",
+          "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+          "size": 1483,
+          "source": "https://github.com/dropbox/rust-alloc-no-stdlib/blob/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+          "role": "license"
+        }
+      ]
+    },
+    {
+      "id": "cargo:block2@0.6.2",
+      "declaredLicense": "MIT",
+      "vcs": "b4167b582b2f75f9a1be75495c41b765344fd03c",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:defmt-parser@1.0.0",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "vcs": "4a8cdb44891ed57b8ff5a023b6bec7137c48708f",
+      "reviewRequired": false,
+      "files": [
+        {
+          "file": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90.txt",
+          "sha256": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90",
+          "size": 10850,
+          "source": "https://github.com/knurling-rs/defmt/blob/4a8cdb44891ed57b8ff5a023b6bec7137c48708f/LICENSE-APACHE",
+          "role": "license"
+        },
+        {
+          "file": "2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50.txt",
+          "sha256": "2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50",
+          "size": 1053,
+          "source": "https://github.com/knurling-rs/defmt/blob/4a8cdb44891ed57b8ff5a023b6bec7137c48708f/LICENSE-MIT",
+          "role": "license"
+        }
+      ]
+    },
+    {
+      "id": "cargo:dispatch2@0.3.1",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "8852b424193ca41602281b3d7540d7c8ed51e49a",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2@0.6.5",
+      "declaredLicense": "MIT",
+      "vcs": "d7d2fa23ceaa5e6096c923b081040e5d81b3b9df",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-app-kit@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-core-foundation@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-core-graphics@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-encode@4.1.0",
+      "declaredLicense": "MIT",
+      "vcs": "8d214f5477365ffcbcbb7de058c86ed9a518efb7",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-exception-helper@0.1.1",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "8d214f5477365ffcbcbb7de058c86ed9a518efb7",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-foundation@0.3.2",
+      "declaredLicense": "MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-io-surface@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-quartz-core@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:objc2-web-kit@0.3.2",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+          "size": 1339,
+          "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+          "role": "policy"
+        },
+        {
+          "file": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4.txt",
+          "sha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+          "size": 1077,
+          "source": "https://spdx.org/licenses/MIT.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:selectors@0.38.0",
+      "declaredLicense": "MPL-2.0",
+      "vcs": "572ecba2d1600e7c3d490586692a209faf703baa",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "5ad24dc31896f9c9109b18d510cc85dbff09ef8bd52a1ecf5098c7ec8d87befd.txt",
+          "sha256": "5ad24dc31896f9c9109b18d510cc85dbff09ef8bd52a1ecf5098c7ec8d87befd",
+          "size": 297,
+          "source": "https://github.com/servo/stylo/blob/572ecba2d1600e7c3d490586692a209faf703baa/selectors/lib.rs",
+          "role": "notice"
+        },
+        {
+          "file": "66c10535a495f4cd8115607e890f8116d657064b98557f660c51e123b3f3fee6.txt",
+          "sha256": "66c10535a495f4cd8115607e890f8116d657064b98557f660c51e123b3f3fee6",
+          "size": 15190,
+          "source": "https://spdx.org/licenses/MPL-2.0.txt",
+          "role": "reference"
+        }
+      ]
+    },
+    {
+      "id": "cargo:tauri-plugin@2.7.2",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "vcs": "59b63ab500da9859f12d8888c3298bc29bba0b92",
+      "reviewRequired": false,
+      "files": [
+        {
+          "file": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174,
+          "source": "https://crates.io/crates/tauri/2.12.4#LICENSE-APACHE-2.0",
+          "role": "license"
+        },
+        {
+          "file": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d.txt",
+          "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+          "size": 1090,
+          "source": "https://crates.io/crates/tauri/2.12.4#LICENSE-MIT",
+          "role": "license"
+        }
+      ]
+    },
+    {
+      "id": "npm:@tauri-apps/api@2.12.4",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "integrity": "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg==",
+      "reviewRequired": true,
+      "files": [
+        {
+          "file": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174,
+          "source": "https://crates.io/crates/tauri/2.12.4#LICENSE-APACHE-2.0",
+          "role": "license"
+        },
+        {
+          "file": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d.txt",
+          "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+          "size": 1090,
+          "source": "https://crates.io/crates/tauri/2.12.4#LICENSE-MIT",
+          "role": "license"
+        }
+      ]
+    },
+    {
+      "id": "npm:@tauri-apps/plugin-dialog@2.8.3",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "integrity": "sha512-Hd/yBfk2R5v2MFrz/0VArSXeh8xKLLXGunqSiTtcHKn1zNZwaKujuA0VSwUvNfwC4hDoF1PveS+gBDNe3nHspw==",
+      "reviewRequired": false,
+      "files": [
+        {
+          "file": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9.txt",
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9",
+          "size": 10173,
+          "source": "https://crates.io/crates/tauri-plugin-dialog/2.8.3#LICENSE_APACHE-2.0",
+          "role": "license"
+        },
+        {
+          "file": "89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607.txt",
+          "sha256": "89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607",
+          "size": 1089,
+          "source": "https://crates.io/crates/tauri-plugin-dialog/2.8.3#LICENSE_MIT",
+          "role": "license"
+        }
+      ]
+    }
+  ]
+}

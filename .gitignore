@@ -4,6 +4,8 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 src-tauri/resources/mole/
+src-tauri/resources/legal/
+src-tauri/resources/.legal-*/
 src-tauri/resources/.mole-*/
 .cache/
 playwright-report/
