@@ -87,6 +87,9 @@ npm run build:local-dmg
 
 # 从固定提交导出客户端及对应 Mole 源码（新目录，不上传）
 npm run source:bundle -- --revision HEAD --output local-artifacts/source-review
+
+# 收集锁定依赖分发物与匹配标准库源码，校验后生成独立归档
+npm run source:dependencies -- --output local-artifacts/dependency-review
 ```
 
 浏览器预览与桌面端有清楚标记；真实扫描、Finder 和目录选择仅在桌面端可用。若引擎未准备，界面会显示具体原因。
@@ -103,6 +106,7 @@ npm run test:version
 npm run test:app-artifact
 npm run test:source
 npm run test:notices
+npm run test:dependency-sources
 npm test
 npm run build
 npm run notices:prepare # 原生构建前生成许可材料；Tauri build/dev 会自动调用

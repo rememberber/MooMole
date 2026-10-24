@@ -164,7 +164,7 @@ test('supplements bind exact source and hashes; policy/reference material remain
   assert.throws(f.collect, /contents changed/)
 })
 test('npm version/license drift, Go replacements/checksum conflicts and the wrong runtime are refused', (t) => {
-  for (const kind of ['npm', 'replacement', 'checksum', 'runtime']) {
+  for (const kind of ['npm', 'replacement', 'checksum', 'runtime', 'privateRegistry']) {
     const f = fixture(t)
     if (kind === 'npm')
       f.put(
@@ -175,6 +175,8 @@ test('npm version/license drift, Go replacements/checksum conflicts and the wron
     if (kind === 'checksum')
       f.input.goModules.get('example.invalid/module@v1.0.0').Sum = 'different'
     if (kind === 'runtime') f.put('go/VERSION', 'go1.27.0\n')
+    if (kind === 'privateRegistry')
+      f.input.cargo.packages[1].source = 'registry+https://example.invalid/private'
     assert.throws(f.collect)
   }
 })

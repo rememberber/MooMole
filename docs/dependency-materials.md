@@ -46,3 +46,5 @@ Tauri 的 build/dev 包装入口会先准备材料；直接调用 Cargo 前应�
 真实最终 arm64 构建 `local-artifacts/MooMole-0.1.0-mac-arm64-kj8QLX/` 通过 ad-hoc、嵌套及 ZIP 解压核对：328 条记录、244 份去重材料、文本 2,500,674 字节、14 项政策/参考核查标记；App 约 35.26 MiB。构建来源为 `feedfad` 加本阶段工作区，dirty=true，不冒称冻结发行提交；没有启动 App 或改变用户数据库。
 
 完整 npm/Rust/Go 及相关嵌入代码的源码供应、未捕获的文件级声明/例外、许可证组合、品牌和发布材料仍须审阅；本工具不自动选择 OR 分支或给出法律结论。三条真实执行、安装升级、干净机器与最终发布验收也保持原门槛，见 [发布路线图](release-roadmap.md)。
+
+已增加独立的 [依赖归档](dependency-sources.md)，按 Cargo/npm/Go 原校验和取得分发物及匹配标准库源码；这补充材料供应，不将当前 pending 审阅改为完成。

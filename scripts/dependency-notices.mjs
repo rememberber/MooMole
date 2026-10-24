@@ -70,7 +70,7 @@ function candidates(base, licenseFile) {
   if (licenseFile) files.push(isAbsolute(licenseFile) ? relative(base, licenseFile) : licenseFile)
   return [...new Set(files)].sort(order)
 }
-function releasePackages(metadata) {
+export function releasePackages(metadata) {
   const nodes = new Map(metadata.resolve.nodes.map((n) => [n.id, n])),
     found = new Set()
   function walk(id) {
@@ -201,8 +201,8 @@ export function collectNotices({
     )
   }
   for (const p of releasePackages(cargo)) {
-    if (!p.source?.startsWith('registry+https://'))
-      throw Error('Non-registry Rust dependency requires review')
+    if (p.source !== 'registry+https://github.com/rust-lang/crates.io-index')
+      throw Error('Only crates.io Rust sources are supported; other providers require review')
     const base = dirname(p.manifest_path),
       supplement = supplementMap.get(`cargo:${p.name}@${p.version}`)
     const vcs = supplement ? JSON.parse(read(base, '.cargo_vcs_info.json').text).git.sha1 : null

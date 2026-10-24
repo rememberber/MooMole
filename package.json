@@ -28,6 +28,8 @@
     "test:source": "node --test scripts/source-bundle.test.mjs",
     "notices:prepare": "node scripts/dependency-notices.mjs",
     "test:notices": "node --test scripts/dependency-notices.test.mjs",
+    "source:dependencies": "node scripts/dependency-sources.mjs",
+    "test:dependency-sources": "node --test scripts/dependency-sources.test.mjs",
     "test:projects": "node --test scripts/project-artifacts-catalog.test.mjs",
     "test:installers": "node --test scripts/installers-catalog.test.mjs"
   },

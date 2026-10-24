@@ -49,6 +49,7 @@ jobs:
       - run: npm run test:app-artifact
       - run: npm run test:source
       - run: npm run test:notices
+      - run: npm run test:dependency-sources
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -99,6 +100,7 @@ jobs:
         run: npm run engine:prepare
       - name: Prepare local license materials for selected release dependencies
         run: npm run notices:prepare
+      - run: npm run test:dependency-sources
       - run: npm run test:engine
       - run: npm run test:app-artifact
       - run: npm run test:source
