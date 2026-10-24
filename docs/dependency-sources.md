@@ -9,6 +9,8 @@ npm run source:dependencies -- --output local-artifacts/dependency-review
 # 第一次准备标准库源码缓存后可离线复验
 npm run source:dependencies -- --offline --output local-artifacts/dependency-offline
 npm run test:dependency-sources
+# 可选发布审计工具，需要 Python 3.9+；运行 App 和正常构建不需要 Python
+npm run test:rust-source
 ```
 
 需要已准备的匹配架构引擎、Node/npm/Rust/Go 和当前锁定依赖缓存；输出目录必须不存在。首次允许从固定官方来源取得匹配 Go/Rust 源码，成功校验后放入项目专属缓存；离线缺失则明确停止，不临时使用其他版本。npm pack 始终使用 offline 和 ignore-scripts，不执行包中的生命周期脚本。
@@ -39,3 +41,24 @@ Go h1 校验只读取 ZIP，不解包或执行。链接/特殊类型、越界/�
 本机实际复验产物 `local-artifacts/MooMole-dependencies-137-final/`：326 项（Cargo 294、npm 8、Go 22、标准库源码 2），归档 78,378,054 字节，外层及全部内层核对通过。首次获取官方源码后，最终调用使用 --offline。来源为 `7a9b774` 加本阶段工作区、dirty=true；资料被 Git 忽略，未公开发布，没有运行 App 或处理个人文件。
 
 后续仍须补齐/审阅 npm 及生成代码的首选修改源码、标准库的外部依赖闭包、文件级许可/例外和完整对应关系。清单的 preferredSourceReview、standardLibraryDependencyClosure、licenseReview 与 releaseAcceptance 均保持 pending。该归档不能代替三模块实机执行、干净机器安装升级或正式发布验收。
+
+## Rust 标准库内置依赖核对
+
+新增独立只读审计，不改变归档内容，也不安装 rust-src 组件。输入必须使用已由官方版本描述核实的归档与 SHA-256；传入一个自行计算的摘要本身不能证明官方来源。先核对完整压缩字节，再以流方式读取 tar/xz；不把成员解包到磁盘，不运行源码、构建脚本或 Cargo。
+
+```sh
+# 输出父目录需已存在，报告文件必须不存在
+npm run source:rust-audit -- \
+  --archive .cache/source-distribution/3f1f9b7ed48f4596fc87889b7b3c61747336a55c9c22db1ab0c697e0aadb77aa.archive \
+  --version 1.99.0 \
+  --sha256 3f1f9b7ed48f4596fc87889b7b3c61747336a55c9c22db1ab0c697e0aadb77aa \
+  --output local-artifacts/rust-source-audit-138/validation.json
+```
+
+以归档内 library/Cargo.lock 的全部 registry 包为核对范围（含其他目标及测试的超集），检查 vendor 包集合完全相同、每包 `.cargo-checksum.json` 的 package 值与锁文件一致、文件集合无多无少，并核对每个文件的 SHA-256。拒绝链接/特殊类型、重复/越界路径、不支持的锁来源、重复 JSON 键和读取中替换；限制压缩大小、成员数、单文件与总展开大小。校验清单不是独立信任根，包内源码与清单由此前的完整官方归档摘要一起约束。
+
+本机 Rust 1.99.0 官方归档实测通过：30 个 registry 包、1,215 个文件、16,022,018 字节，报告位于上例忽略目录。7 组测试覆盖正常核对、归档/版本错配、文件变更/遗漏/多出、包校验值错配、重复成员/路径/链接/特殊权限、歧义元数据/来源、预算/输入类型、旧报告保留及审计失败不写报告。测试已加入仓库 CI；没有据本机结果声称远端 CI 已运行。
+
+该结果是 Rust 库 workspace 锁定 registry 包的源文件覆盖证据，不是当前 macOS 标准库的精确目标构建图：路径依赖、生成/本地代码、原生依赖与文件级许可仍须核对，Go 标准库的闭包也未据此完成。报告的 targetBuildClosure、licenseReview 和依赖总清单原有待审状态保持 pending。该独立报告尚未自动绑定最终 App 或并入依赖资产。
+
+同期按固定 npm 版本查询 registry 元数据，并逐项核对 dist.integrity 与 package-lock：plugin-dialog、csstype、react、react-dom、scheduler 有完整 gitHead；api、@types/react、lucide-react 未提供。React/React DOM 与 scheduler 的发布提交不同，不能仅凭同一仓库合并成一个提交。未把版本标签、Cargo 同仓库提交或这次查询当作已完成的首选修改源码；完整仓库快照与分发内容对应仍待补齐。

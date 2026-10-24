@@ -2798,3 +2798,10 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 - 新增 **5 组测试全部通过（2.34 秒）**，包括 4 组 Node 隔离校验和一组调用真实 Go 工具链的 2 项测试；后者验证排序/UTF-8/固定 hash 与重复/越界拒绝。Node 覆盖锁格式与公开来源、逐字节复制、篡改/遗漏/错标/路径、原目录保留和 Go 证明匹配。原许可材料 **6 组通过（93 毫秒）**；另将许可收集 Rust 来源限定 crates.io，私有/自定义来源不能未经审阅进入当前公开材料流程。前端/原生业务逻辑未变化，没有重复实际 App 或执行回归。
 - 实际完整在线首轮后，最终 source:dependencies --offline 复验成功，`local-artifacts/MooMole-dependencies-137-final/` 含 326 项（Cargo 294、npm 8、Go 22、标准库源码 2），外层 78,378,054 字节、SHA-512 与内层清单/逐份摘要均核对；没有本机缓存路径。原标准库下载与归档留在被忽略的私有构建目录，包内仅明确挑选的公开分发物及匹配源码；没有把验证器可执行文件或其他缓存内容打进去。源码工作区来源为 `7a9b774` 加本阶段改动、dirty=true，不冒称冻结版本或 App 已绑定。
 - 源码提供仍区分发布分发包与首选修改源码；npm/生成代码的原始修改形式、标准库外部依赖闭包、完整许可和最终对应关系继续 pending。客户端/Mole 自身仍使用独立源码归档，最终 App/依赖/源码/标签需在冻结提交核对。本轮无实际 App 启动、用户库/系统设置变化、管理员授权、公开发布或 push，三条执行与安装升级关口未据此完成。
+
+## 阶段 138：Rust 标准库内置依赖源码核对（2026-10-24）
+
+- 从干净 `d20c0e4` 继续，补核对发行源码缺口。固定版本 npm registry 元数据的 dist.integrity 均匹配 production lock 八项；五项提供 gitHead，api、@types/react、lucide-react 缺失，且 scheduler 与 React 发布提交不同。不据版本、同仓库 Cargo VCS 或 registry 查询自行认定首选修改源码完整；原始仓库快照及分发对应继续待完成。
+- 发现认证的 Rust 1.99.0 rust-src 已含 vendor，新增独立只读 Python 3.9+ 审计工具，不增加 App/正常构建运行依赖。完整归档 SHA-256 与既有官方描述相符后，流式读取并核对 library/Cargo.lock 全部 registry 包、包 checksum、文件集合及逐文件 SHA-256；不解包到磁盘或执行脚本，拒绝链接/特殊类型、重复/越界、读取替换与超预算。包内 checksum 清单不当作独立信任根。详见 [依赖归档](dependency-sources.md)。
+- 实际归档通过：30 包、1,215 文件、16,022,018 字节，原 lock 与清单摘要记录于 `local-artifacts/rust-source-audit-138/validation.json`（Git 忽略）。范围包含其他目标和测试的超集，不冒称当前 macOS 精确构建闭包；路径/生成/原生代码、Go 闭包、文件级许可及最终 App/资产绑定继续 pending。
+- 新增 7 组测试通过，包含实际 CLI 旧报告保留与审计失败不生成报告；加入前端仓库 CI。既有依赖源码 5 组（含真实 Go 校验器）通过，Prettier、版本和 diff 检查通过。没有前端/原生业务逻辑变化，不重复构建或刷新用户缓存；没有修改用户数据库、发起管理员授权、push 或公开发布，三模块实机与安装升级关口继续保留。
