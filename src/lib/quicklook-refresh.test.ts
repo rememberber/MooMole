@@ -79,4 +79,18 @@ describe('fixed Quick Look protocol', () => {
     }
     expect(() => readRefreshDetail(reversed)).toThrow()
   })
+  it('keeps a supervision failure unknown even if the owned child exited zero', () => {
+    const raw = refreshDetailRaw(refreshRequest, 'interrupted')
+    for (const entry of [raw.items[0], raw.events[3]]) {
+      entry.exitCode = 0
+      entry.stop = 'supervisionFailed'
+      entry.reason = 'childRegistrationFailed'
+    }
+    const detail = readRefreshDetail(raw)
+    expect(detail.items[0].state).toBe('uncertain')
+    expect(detail.items[0].exitCode).toBe(0)
+    expect(detail.succeededCount).toBe(0)
+    for (const entry of [raw.items[0], raw.events[3]]) entry.stop = null
+    expect(() => readRefreshDetail(raw)).toThrow()
+  })
 })

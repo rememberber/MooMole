@@ -43,7 +43,7 @@ impl Backend for Native {
         job: &Job,
         gate: impl FnOnce() -> Result<(), String>,
     ) -> Attempt {
-        target.run(step, &job.cancelled, gate)
+        target.run(step, job, gate)
     }
 }
 pub(crate) async fn run(

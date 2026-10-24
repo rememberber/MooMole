@@ -27,7 +27,7 @@ export type RefreshSummary = {
 type Result = {
   state: string
   exitCode: number | null
-  stop: 'cancelled' | 'timedOut' | null
+  stop: 'cancelled' | 'timedOut' | 'supervisionFailed' | null
   reason: string
 }
 export type RefreshItem = Result & {
@@ -180,7 +180,10 @@ function result(v: unknown): Result {
     !['pending', 'intent', 'commandSucceeded', 'notStarted', 'cancelled', 'uncertain'].includes(
       state,
     ) ||
-    (stop !== null && stop !== 'cancelled' && stop !== 'timedOut') ||
+    (stop !== null &&
+      stop !== 'cancelled' &&
+      stop !== 'timedOut' &&
+      stop !== 'supervisionFailed') ||
     (code !== null && code > 255)
   )
     return fail()
@@ -347,5 +350,6 @@ export const refreshReason = (reason: string) =>
     stoppedAfterStart: '命令启动后停止，实际刷新结果待核实。',
     commandFailedAfterStart: '命令启动后未正常完成，实际刷新结果待核实。',
     childOwnershipUnknown: '系统命令状态无法确认，请核查结果。',
+    childRegistrationFailed: '刷新任务未能正常登记，请核查实际结果。',
     collectionFailed: '命令结果未能完整收集，请核查。',
   })[reason] ?? reason

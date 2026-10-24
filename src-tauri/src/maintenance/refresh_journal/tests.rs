@@ -126,6 +126,38 @@ fn started_unknown_results_block_the_next_step_and_new_modifications() {
 }
 
 #[test]
+fn supervision_failure_retains_even_zero_exit_as_unknown_and_stops_later_steps() {
+    let mut f = Fixture::new();
+    let s = f.begin();
+    intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
+    record_attempt(
+        &mut f.db,
+        &s,
+        &Attempt {
+            step: Step::ThumbnailCache,
+            outcome: Outcome::Uncertain,
+            exit_code: Some(0),
+            stop: Some(Stop::SupervisionFailed),
+            reason: "childRegistrationFailed",
+        },
+        f.at + 2,
+    )
+    .unwrap();
+    assert!(intent(&mut f.db, &s, Step::Generators, f.at + 3).is_err());
+    finish(&mut f.db, &s, false, f.at + 4).unwrap();
+    let d = detail(&f.db, s.id()).unwrap();
+    assert_eq!(d.summary.state, "needsReview");
+    assert_eq!(d.summary.succeeded_count, 0);
+    assert_eq!(d.items[0].exit_code, Some(0));
+    assert_eq!(d.items[0].stop, Some(Stop::SupervisionFailed));
+    assert_eq!(d.events[3].stop, Some(Stop::SupervisionFailed));
+    assert_eq!(d.items[1].state, "notStarted");
+    assert!(crate::update_install::prepare_data(&f.db).is_ok());
+    let t = f.db.transaction().unwrap();
+    assert!(crate::execution_admission::reserve(&t, 1).is_err());
+}
+
+#[test]
 fn a_single_step_can_be_selected_and_refusal_before_intent_is_not_started() {
     let mut f = Fixture::new();
     let selection = f.selection(vec![Step::Generators]);

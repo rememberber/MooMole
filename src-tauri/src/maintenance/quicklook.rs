@@ -2,7 +2,7 @@
 //! This is a native building block, NOT selection/confirmation or IPC authority.
 //! The caller must commit durable intent and recheck policy before each spawn.
 #![allow(dead_code)]
-use crate::observation::AnchoredPath;
+use crate::{engine::Job, observation::AnchoredPath};
 use serde::{Deserialize, Serialize};
 use std::{
     mem::MaybeUninit,
@@ -12,7 +12,7 @@ use std::{
     },
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Stdio},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
 
@@ -67,6 +67,7 @@ pub(crate) enum Outcome {
 pub(crate) enum Stop {
     Cancelled,
     TimedOut,
+    SupervisionFailed,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -171,10 +172,10 @@ impl Prepared {
     pub(crate) fn run(
         &self,
         step: Step,
-        cancelled: &AtomicBool,
+        job: &Job,
         gate: impl FnOnce() -> Result<(), String>,
     ) -> Attempt {
-        if cancelled.load(Ordering::SeqCst) {
+        if job.cancelled.load(Ordering::SeqCst) {
             return Attempt::not_started(step, "cancelledBeforeStart", Some(Stop::Cancelled));
         }
         if self.validate().is_err() {
@@ -194,16 +195,18 @@ impl Prepared {
             .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
             .env("LANG", "C")
             .current_dir(&self.home);
-        supervise(step, command, cancelled, TIMEOUT, GRACE, |_| {})
+        supervise(step, command, job, TIMEOUT, GRACE, |_| {})
     }
 }
 
-struct OwnedChild {
+struct OwnedChild<'a> {
     child: Child,
     pid: u32,
     owned: bool,
+    job: &'a Job,
+    lease: Option<Arc<()>>,
 }
-impl OwnedChild {
+impl OwnedChild<'_> {
     // WNOWAIT pins our unreaped PID/PGID through the last signal. try_wait()
     // would reap early and permit signalling a reused process-group number.
     fn exited(&self) -> std::io::Result<bool> {
@@ -229,11 +232,31 @@ impl OwnedChild {
     }
     fn signal(&self, signal: i32) {
         if self.owned {
-            unsafe { libc::kill(-(self.pid as i32), signal) };
+            if let Some(lease) = &self.lease {
+                self.job.signal(self.pid, lease, signal);
+            } else {
+                // Only the just-spawned, still-unregistered child can use this
+                // path. Registration failure must not signal the other child
+                // already registered to this Job.
+                unsafe { libc::kill(-(self.pid as i32), signal) };
+            }
         }
     }
+    fn lose_ownership(&mut self) {
+        if let Some(lease) = self.lease.take() {
+            self.job.release(self.pid, &lease, None);
+        }
+        self.owned = false;
+    }
     fn collect(&mut self) -> std::io::Result<ExitStatus> {
-        self.signal(libc::SIGKILL);
+        if let Some(lease) = self.lease.take() {
+            // Shutdown and the supervisor use the same ownership mutex. The
+            // last signal and unregister happen before wait() can reap/reuse
+            // this PID; a timed-out shutdown may already have taken the lease.
+            self.job.release(self.pid, &lease, Some(libc::SIGKILL));
+        } else {
+            self.signal(libc::SIGKILL);
+        }
         // Deliberately keep the blocking worker/its operation lease until the
         // child is reaped. A kernel-stalled reap has no promised hard deadline.
         let status = self.child.wait();
@@ -241,13 +264,15 @@ impl OwnedChild {
         status
     }
 }
-impl Drop for OwnedChild {
+impl Drop for OwnedChild<'_> {
     fn drop(&mut self) {
         if self.owned {
             // Unwinding must not leave this operation running after its caller
             // releases the lease. First verify we still own the unreaped PID.
             if self.exited().is_ok() {
                 let _ = self.collect();
+            } else {
+                self.lose_ownership();
             }
         }
     }
@@ -256,12 +281,12 @@ impl Drop for OwnedChild {
 fn supervise(
     step: Step,
     mut command: Command,
-    cancelled: &AtomicBool,
+    job: &Job,
     timeout: Duration,
     grace: Duration,
     after_spawn: impl FnOnce(u32),
 ) -> Attempt {
-    if cancelled.load(Ordering::SeqCst) {
+    if job.cancelled.load(Ordering::SeqCst) {
         return Attempt::not_started(step, "cancelledBeforeStart", Some(Stop::Cancelled));
     }
     // No terminal prose is collected or interpreted. Discarded output cannot
@@ -279,7 +304,24 @@ fn supervise(
         pid: child.id(),
         child,
         owned: true,
+        job,
+        lease: None,
     };
+    match job.register(owned.pid) {
+        Ok(lease) => owned.lease = Some(lease),
+        Err(_) => {
+            // The command has already started: preserve uncertainty even if
+            // our own new child can now be stopped and collected.
+            let status = owned.collect();
+            return Attempt {
+                step,
+                outcome: Outcome::Uncertain,
+                exit_code: status.ok().and_then(|s| s.code()),
+                stop: Some(Stop::SupervisionFailed),
+                reason: "childRegistrationFailed",
+            };
+        }
+    }
     after_spawn(owned.pid);
     let started = Instant::now();
     let mut stop = None;
@@ -290,7 +332,7 @@ fn supervise(
             Ok(false) => (),
             Err(_) => {
                 // Ownership was lost; never signal this PID/PGID again.
-                owned.owned = false;
+                owned.lose_ownership();
                 return Attempt {
                     step,
                     outcome: Outcome::Uncertain,
@@ -301,7 +343,7 @@ fn supervise(
             }
         }
         if stop.is_none() {
-            stop = if cancelled.load(Ordering::SeqCst) {
+            stop = if job.cancelled.load(Ordering::SeqCst) {
                 Some(Stop::Cancelled)
             } else if started.elapsed() >= timeout {
                 Some(Stop::TimedOut)

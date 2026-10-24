@@ -247,6 +247,7 @@ fn stop(raw: Option<String>) -> Result<Option<Stop>, String> {
         None => Ok(None),
         Some("cancelled") => Ok(Some(Stop::Cancelled)),
         Some("timedOut") => Ok(Some(Stop::TimedOut)),
+        Some("supervisionFailed") => Ok(Some(Stop::SupervisionFailed)),
         _ => Err("维护停止原因无法识别。".into()),
     }
 }
@@ -254,6 +255,7 @@ fn stop_text(value: Option<Stop>) -> Option<&'static str> {
     value.map(|s| match s {
         Stop::Cancelled => "cancelled",
         Stop::TimedOut => "timedOut",
+        Stop::SupervisionFailed => "supervisionFailed",
     })
 }
 fn result_valid(state: &str, code: Option<i32>, stopped: Option<Stop>) -> bool {
