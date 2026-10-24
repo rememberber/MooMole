@@ -47,4 +47,8 @@ App 产物脚本记录 Git 提交，解包的客户端目录需先初始化独�
 
 工具提交后，从干净 `c50b6725dfeb717b6ea0c457b8c2b84fd70a4ec4` 离线构建 arm64 App，ad-hoc、嵌套程序与 ZIP 解压校验通过（`MooMole-0.1.0-mac-arm64-S5Ig3e`）。随后实际带报告导出成功：客户端 460 项、2,812,621 字节；固定上游归档不变。清单绑定该完整提交、报告摘要和实际 ZIP 的 13,236,589 字节及 SHA-512，`dirty=false`。配对材料位于 `local-artifacts/MooMole-source-134-c50b672-bound/`，没有上传。
 
-这证明本机干净 App 报告/实际归档与源码材料的对应核对；尚未证明源码归档重建、完整依赖材料、最终发行物配对或实际下载/安装。没有启动该新包改动用户库，没有公开发布。
+随后在全新的 `local-artifacts/source-rebuild-135-F3agJ3/` 解包，460 项原始字节/模式核对后建立独立本地 Git 提交。重建树 `3cc4a0a456f15729b1aa73071e91e36005d83a9e` 与原提交完全一致；本地提交为 `962cc3f0fe0178574cb7a0cc9ad2151124655ac6`，构建报告如实记录它，没有冒用原提交身份。
+
+以独立 node_modules/target、复用现有工具链、npm/Cargo/Go 缓存及确切 Mole Git 对象运行 npm ci --offline 和 build:local-app --offline，release 编译 48.19 秒后成功生成 arm64 ad-hoc App，嵌套/解压校验通过，来源 dirty=false。没有复制原 checkout 的源码、node_modules、target 或已生成引擎；上游仍按现有配方从确切 Git 对象导出。清理本次自有 node_modules/target 后，保留的最终 App 再次校验通过，证明没有依赖该构建输出目录完成包内验证。日志、来源/重建报告与最终包均在上述忽略目录。
+
+这补齐本机客户端源码归档重建和干净 App/源包对应证据；不是无缓存、断网监测或无工具链的干净机器验收，也不是位级可重复编译证明。完整依赖材料、最终发行物配对和实际下载/安装仍待完成。没有启动新包改动用户库，没有公开发布。
