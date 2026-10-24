@@ -1,6 +1,6 @@
 # 普通 App 的独立卸载计划基础
 
-2026-10-23：已实现后端只读计划、完整 App 包身份快照与重新核对；尚无前端入口、执行确认或实际卸载器。返回值固定为 `readOnly=true`、`canExecute=false`、`state=requiresExecutionReview`。这不是首发卸载功能的交付，验收门槛见 [首发执行验收](first-release-execution.md)。
+2026-10-24：已实现后端只读计划、完整 App 包身份快照与重新核对；后续 [运行检查与短期确认](app-uninstall-runtime.md) 和 [封闭执行 IPC](app-uninstall-execution.md) 已接，[选择/确认/结果界面](app-uninstall-interface.md) 已接，完整发布验收仍未完成。计划本身返回值固定为 `readOnly=true`、`canExecute=false`、`state=requiresExecutionReview`，不能直接提交它执行。这不是首发卸载功能的完整交付，验收门槛见 [首发执行验收](first-release-execution.md)。
 
 ## 来源与首批范围
 
@@ -31,4 +31,4 @@
 
 9 项新增普通 Rust 测试覆盖来源绑定、保护撤回、包内变化、链接/硬链接/特殊文件拒绝、主程序/plist 布局、后台/官方卸载器保留、有效期/数量/重启和检查代次。另显式运行只读实测：本机 `/Applications/MooTool Next Electron.app`，版本 1.3.5，连续两次快照一致，记录 613 项（0.06 秒）。没有启动或移动该应用、读取包外关联数据，也没有由此判断它未运行或允许卸载。
 
-后续已实现 [完整 App 包原生处理核心](app-uninstall-target.md) 与 [独立持久记录](app-uninstall-journal.md)，自建包的原生处理及临时库的事务/重启测试分别通过；仍未接生产执行调用方。下一步贯通一次确认、实际运行/辅助进程/后台服务、管理方式和权限复核、任务排他与更新/退出协调、实际操作/结果串联及历史界面。已有只读主应用观察和后台标记不能替代这些条件；普通日志文件执行器不能直接处理目录包。最终需在实际打包 App 上完成支持范围内的真实卸载、保护/失败/取消、收据和恢复边界验收，才能勾选发布关口。
+后续已将 [完整 App 包原生处理核心](app-uninstall-target.md)、[独立持久记录](app-uninstall-journal.md)、[运行/短期选择](app-uninstall-runtime.md) 及声明范围内的后台/管理检查接入 [专属执行器](app-uninstall-execution.md)，不借用普通日志文件的资格。后续界面和实际 App 自建包正常路径见 [界面验收](app-uninstall-interface.md)；继续在实际打包 App 上完成支持范围内的真实卸载、保护/失败/取消、退出/重启、收据和恢复边界验收，才能勾选发布关口。

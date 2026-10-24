@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { ApplicationRow } from './ApplicationRow'
 import type { AppEntry } from '../types'
 import { appEstimateLabel, appSizeEstimate, compareApps } from '../lib/application-library'
+import type { UninstallTarget } from '../lib/app-uninstall'
 
 export function ApplicationLibrary({
   apps,
@@ -12,6 +13,8 @@ export function ApplicationLibrary({
   refreshing = false,
   canReveal,
   onReveal,
+  canUninstall = false,
+  onUninstall,
 }: {
   apps: AppEntry[]
   taskId?: string | null
@@ -20,6 +23,8 @@ export function ApplicationLibrary({
   refreshing?: boolean
   canReveal: boolean
   onReveal: (path: string) => void
+  canUninstall?: boolean
+  onUninstall?: (target: UninstallTarget) => void
 }) {
   const [query, setQuery] = useState('')
   const [source, setSource] = useState('all')
@@ -194,6 +199,8 @@ export function ApplicationLibrary({
             onSelect={(checked) => toggle([app.path], checked)}
             canReveal={canReveal}
             onReveal={onReveal}
+            canUninstall={canUninstall && !refreshing}
+            onUninstall={onUninstall}
           />
         ))}
         {!visible.length && (

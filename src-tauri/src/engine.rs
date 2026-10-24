@@ -24,6 +24,7 @@ pub enum TaskKind {
     Review,
     History,
     LogTrash,
+    AppTrash,
     StatusWatch,
     VisibilityProbe,
 }
@@ -39,9 +40,16 @@ impl TaskKind {
             Self::Review => "review",
             Self::History => "history",
             Self::LogTrash => "logtrash",
+            Self::AppTrash => "apptrash",
             Self::StatusWatch => "statuswatch",
             Self::VisibilityProbe => "visibilityprobe",
         }
+    }
+    pub(crate) fn exclusive_operation(self) -> bool {
+        matches!(
+            self,
+            Self::LogTrash | Self::AppTrash | Self::VisibilityProbe
+        )
     }
 }
 
@@ -69,8 +77,8 @@ impl Job {
         self.cancelled.store(true, Ordering::SeqCst);
     }
     pub(crate) fn bind_execution(&self, run: &str) -> Result<(), String> {
-        if self.kind != TaskKind::LogTrash {
-            return Err("此任务不能绑定日志执行批次。".into());
+        if !matches!(self.kind, TaskKind::LogTrash | TaskKind::AppTrash) {
+            return Err("此任务不能绑定修改执行批次。".into());
         }
         self.execution_run
             .set(run.to_string())
@@ -299,7 +307,12 @@ pub async fn run(
         }
         TaskKind::Apps => {
             let mut command = command(Path::new("/bin/bash"));
-            command.arg(root.join("bin/uninstall.sh")).arg("--list");
+            command
+                .arg(root.join("bin/uninstall.sh"))
+                .arg("--list")
+                // Bind Mole's search/cache roots to the same backend account
+                // context used for plan validation, rather than inherited HOME.
+                .env("HOME", home);
             command
         }
         TaskKind::Clean => {
@@ -322,6 +335,7 @@ pub async fn run(
         | TaskKind::Review
         | TaskKind::History
         | TaskKind::LogTrash
+        | TaskKind::AppTrash
         | TaskKind::StatusWatch
         | TaskKind::VisibilityProbe => return Err("请使用对应的专用任务入口。".into()),
     };
@@ -377,7 +391,10 @@ pub async fn run(
         TaskKind::Clean => false,
         TaskKind::Review => false,
         TaskKind::History => false,
-        TaskKind::LogTrash | TaskKind::StatusWatch | TaskKind::VisibilityProbe => false,
+        TaskKind::LogTrash
+        | TaskKind::AppTrash
+        | TaskKind::StatusWatch
+        | TaskKind::VisibilityProbe => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

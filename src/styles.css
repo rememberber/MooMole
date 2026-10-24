@@ -2066,6 +2066,50 @@ h3 {
   background: #14151b55;
   backdrop-filter: blur(3px);
 }
+.modal.uninstall-modal {
+  width: min(620px, calc(100vw - 48px));
+}
+.uninstall-modal > p,
+.uninstall-modal > strong,
+.uninstall-modal details,
+.uninstall-ack {
+  overflow-wrap: anywhere;
+}
+.uninstall-modal > p,
+.uninstall-modal details {
+  margin-block: 14px;
+  line-height: 1.65;
+}
+.uninstall-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.7;
+}
+.uninstall-ack input {
+  margin-top: 5px;
+  flex: none;
+}
+.uninstall-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.uninstall-progress > div {
+  flex: 1;
+  min-width: 180px;
+}
+.uninstall-progress p {
+  margin: 5px 0 0;
+}
+.uninstall-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
 .modal-close {
   position: absolute;
   right: 16px;

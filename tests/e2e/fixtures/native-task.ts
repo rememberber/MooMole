@@ -63,6 +63,7 @@ export async function installTaskMock(
               return
             }
             if (command === 'list_review_plans') return []
+            if (command === 'list_application_uninstalls') return []
             if (command === 'plugin:event|listen')
               throw new Error('Simulated unavailable event channel')
             if (command === 'start_task') {

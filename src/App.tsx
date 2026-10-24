@@ -33,6 +33,7 @@ import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
 import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
+import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { deferredView } from './components/DeferredView'
@@ -89,6 +90,9 @@ const MoleHistoryView = deferredView(async () => ({
 }))
 const ApplicationLibrary = deferredView(async () => ({
   default: (await import('./components/ApplicationLibrary')).ApplicationLibrary,
+}))
+const ApplicationUninstallCenter = deferredView(async () => ({
+  default: (await import('./components/ApplicationUninstallCenter')).ApplicationUninstallCenter,
 }))
 const MaintenanceCatalog = deferredView(async () => ({
   default: (await import('./components/MaintenanceCatalog')).MaintenanceCatalog,
@@ -224,6 +228,9 @@ export default function App() {
   )
   const [apps, setApps] = useState<AppEntry[] | null>(null)
   const [appsTaskId, setAppsTaskId] = useState<string | null>(null)
+  const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | null>(null)
+  const [uninstallActive, setUninstallActive] = useState(false)
+  const [appsStale, setAppsStale] = useState(false)
   const [moleHistory, setMoleHistory] = useState<MoleHistory | null>(null)
   const [busy, setBusy] = useState<{ id: string; kind: TaskKind } | null>(null)
   const [analysisTask, setAnalysisTask] = useState<AnalysisTask | null>(null)
@@ -444,6 +451,7 @@ export default function App() {
       setAnalysisNavigation((current) => recordAnalysisVisit(current, value.path, analysisTarget))
     }
     if (kind === 'apps') {
+      setAppsStale(false)
       setApps([...(result as AppEntry[])])
       setAppsTaskId(taskId ?? null)
     }
@@ -654,7 +662,12 @@ export default function App() {
       </div>
     )
 
-  const canRun = api.desktop && data.engine.available && !busy && analysisTask?.state !== 'starting'
+  const canRun =
+    api.desktop &&
+    data.engine.available &&
+    !busy &&
+    !uninstallActive &&
+    analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
   const diskPercent = disk?.percent ?? null
   const pageName = navigation.find(([id]) => id === page)![2]
@@ -1078,10 +1091,19 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            {page === 'cleanup' ? '逐项确认' : '只读检查'}
+            {page === 'cleanup' || page === 'apps' ? '逐项确认' : '只读检查'}
           </span>
         </header>
-        <main className="main-content" aria-label={`${pageName}内容`}>
+        <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
+          <ApplicationUninstallCenter
+            target={uninstallTarget}
+            enabled={api.desktop}
+            historyVisible={page === 'history'}
+            transport={api.uninstallTransport}
+            onTargetClose={() => setUninstallTarget(null)}
+            onActiveChange={setUninstallActive}
+            onOutcome={() => setAppsStale(true)}
+          />
           {(executionActive || executionTrackingError) && (
             <section className="notice execution-recovery" aria-label="日志处理状态">
               <div>
@@ -1417,8 +1439,13 @@ export default function App() {
             <>
               <div className="inline-note">
                 <Info size={14} />
-                列表来自 Mole CLI；仅供查看和对比，不会卸载。首次读取可能需要较长时间。
+                列表来自 Mole CLI。卸载需单独检查范围并明确确认；勾选仅用于对比。
               </div>
+              {appsStale && (
+                <p className="notice warning" role="status">
+                  卸载后清单可能已过期，请刷新应用清单后再检查；不会自动重复处理。
+                </p>
+              )}
               {apps ? (
                 <ApplicationLibrary
                   apps={apps}
@@ -1428,6 +1455,10 @@ export default function App() {
                   refreshing={busy?.kind === 'apps'}
                   canReveal={api.desktop}
                   onReveal={reveal}
+                  canUninstall={
+                    canRun && !executionActive && !appsStale && data.settings.acknowledged
+                  }
+                  onUninstall={setUninstallTarget}
                 />
               ) : (
                 <section className="card">

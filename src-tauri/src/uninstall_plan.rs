@@ -197,7 +197,7 @@ impl Plan {
     }
 
     // Native target preparation remains independent of execution permission.
-    // Only a future sealed executor may supply confirmation/runtime gates.
+    // Only the sealed executor may supply confirmation/runtime gates.
     pub(crate) fn bundle_binding(&self) -> (&str, &identity::Snapshot, i64, i64) {
         (
             &self.source.path,
@@ -237,7 +237,7 @@ impl Plan {
             name:self.source.name.clone(),path:self.source.path.clone(),bundle_id:self.snapshot.bundle_id.clone(),
             app_version:self.snapshot.app_version.clone(),build:self.snapshot.build.clone(),snapshot_sha256:self.digest.clone(),
             read_only:true,can_execute:false,scope:"appBundleOnly",related_data:"retainAll",state:"requiresExecutionReview",
-            next:"已固定此 App 包；关联数据保留。运行/后台、管理方式、权限、执行确认与持久收据尚未接入，当前不能卸载。" }
+            next:"已固定此 App 包，包外关联数据保留。运行、后台服务、管理方式和最终执行条件尚未全部确认，当前不能卸载。" }
     }
 }
 

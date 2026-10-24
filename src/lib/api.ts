@@ -19,6 +19,7 @@ import { demoBootstrap } from './demo'
 import { observeTask, type TaskTransport } from './task-watcher'
 import { taskResult } from './task-result'
 import type { StatusTransport } from './status-watch'
+import type { UninstallTransport } from './app-uninstall'
 
 export const statusTransport: StatusTransport = {
   start: (sessionId, intervalSeconds) =>
@@ -28,6 +29,22 @@ export const statusTransport: StatusTransport = {
 }
 
 export const desktop = isTauri()
+export const uninstallTransport: UninstallTransport = {
+  prepare: (taskId, index) => invoke('prepare_application_uninstall_plan', { taskId, index }),
+  review: (planId) => invoke('prepare_application_uninstall_confirmation', { planId }),
+  discardPlan: (planId) => invoke('discard_application_uninstall_plan', { planId }),
+  discardConfirmation: (id) => invoke('discard_application_uninstall_confirmation', { id }),
+  execute: (planId, confirmationId, requestId) =>
+    invoke('execute_application_uninstall', {
+      planId,
+      confirmationId,
+      requestId,
+      ordinaryAppConfirmed: true,
+    }),
+  read: (requestId) => invoke('get_application_uninstall', { requestId }),
+  list: () => (desktop ? invoke('list_application_uninstalls') : Promise.resolve([])),
+  cancel: (requestId) => invoke('cancel_application_uninstall', { requestId }),
+}
 export const getCleanupVisibility = (): Promise<unknown> => invoke('get_cleanup_visibility')
 export const startCleanupVisibility = (): Promise<unknown> => invoke('start_cleanup_visibility')
 export const cancelCleanupVisibility = (requestId: string): Promise<unknown> =>

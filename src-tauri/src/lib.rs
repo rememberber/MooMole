@@ -43,8 +43,12 @@ mod shutdown;
 mod status_watch;
 mod tasks;
 mod tree;
+mod uninstall_confirmation;
+mod uninstall_execution;
 mod uninstall_journal;
 mod uninstall_plan;
+mod uninstall_runtime;
+mod uninstall_support;
 mod uninstall_target;
 mod update_download;
 mod update_install;
@@ -79,6 +83,7 @@ struct AppState {
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
+    uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
     cleanup_visibility: Arc<Mutex<activity_authorization::Store>>,
     engine_root: PathBuf,
@@ -784,7 +789,11 @@ fn start_task(
     let operation = state.updates.installation.enter()?;
     if matches!(
         kind,
-        TaskKind::Review | TaskKind::LogTrash | TaskKind::StatusWatch | TaskKind::VisibilityProbe
+        TaskKind::Review
+            | TaskKind::LogTrash
+            | TaskKind::AppTrash
+            | TaskKind::StatusWatch
+            | TaskKind::VisibilityProbe
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -1004,6 +1013,11 @@ async fn observe_uninstall_plan(
         .lock()
         .map_err(|_| "无法准备卸载计划。")?
         .begin(&path, existing.as_ref().map(uninstall_plan::Plan::id))?;
+    state
+        .uninstall_confirmations
+        .lock()
+        .map_err(|_| "无法撤下旧卸载确认。")?
+        .revoke_path(&path);
     // The worker retains admission/ownership if the WebView observer disappears
     // or the IPC timeout fires. No native handles cross this thread boundary.
     let worker = tauri::async_runtime::spawn(async move {
@@ -1103,6 +1117,321 @@ fn discard_application_uninstall_plan(
         .lock()
         .map_err(|_| "无法撤下卸载计划。")?
         .discard(&plan_id);
+    state
+        .uninstall_confirmations
+        .lock()
+        .map_err(|_| "无法撤下卸载确认。")?
+        .revoke_plan(&plan_id);
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UninstallReview {
+    runtime: uninstall_runtime::Report,
+    support: uninstall_support::Report,
+    confirmation: Option<uninstall_confirmation::Confirmation>,
+}
+
+#[tauri::command]
+async fn prepare_application_uninstall_confirmation(
+    app: tauri::AppHandle,
+    plan_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<UninstallReview, String> {
+    uuid::Uuid::parse_str(&plan_id).map_err(|_| "卸载计划标识无效。")?;
+    if state.shutdown.closing() {
+        return Err("应用正在退出，不能复查卸载。".into());
+    }
+    let ctx = uninstall_context(&state, &app.config().identifier)?;
+    let plan = state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法读取卸载计划。")?
+        .get(&plan_id, db::now())?;
+    let permit = state
+        .inspection_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "已有应用检查尚未结束，请稍后重试。")?;
+    let operation = state.updates.installation.enter()?;
+    let generation = state
+        .uninstall_confirmations
+        .lock()
+        .map_err(|_| "无法准备卸载复查。")?
+        .begin_review(&plan_id, db::now())?;
+    let state = state.inner().clone();
+    let worker = tauri::async_runtime::spawn(async move {
+        let (_permit, _operation) = (permit, operation);
+        let result = async {
+            let observed_plan = plan.clone();
+            let observed_ctx = ctx.clone();
+            let (support, observation) = tauri::async_runtime::spawn_blocking(move || {
+                let support = uninstall_support::observe(&observed_plan, &observed_ctx)?;
+                // The expensive metadata scope precedes the short-lived
+                // process pass. Both retain their own original deadlines.
+                let runtime = uninstall_runtime::observe(&observed_plan, &observed_ctx)?;
+                Ok::<_, String>((support, runtime))
+            })
+            .await
+            .map_err(|_| "卸载运行检查未完成。".to_string())??;
+            if state.shutdown.closing() {
+                return Err("应用正在退出，本次复查已撤回。".into());
+            }
+            let latest = uninstall_context(&state, &ctx.current_id)?;
+            if latest.protected_paths != ctx.protected_paths
+                || latest.current_app != ctx.current_app
+            {
+                return Err("复查期间保护设置或客户端位置变化，请重新准备计划。".into());
+            }
+            let published = state
+                .uninstall_plans
+                .lock()
+                .map_err(|_| "无法核对当前卸载计划。")?
+                .get(&plan_id, db::now())?;
+            if uninstall_runtime::fingerprint(&published)? != uninstall_runtime::fingerprint(&plan)?
+            {
+                return Err("原卸载计划已变化，本次复查撤回。".into());
+            }
+            let (task_id, index) = plan.source_address();
+            let source = state
+                .results
+                .lock()
+                .map_err(|_| "无法核对原应用清单。")?
+                .uninstall_target(task_id, index)?;
+            if !plan.source_matches(&source) {
+                return Err("原应用清单已变化，请重新读取。".into());
+            }
+            let confirmation = state
+                .uninstall_confirmations
+                .lock()
+                .map_err(|_| "无法保存本次确认范围。")?
+                .publish(
+                    generation,
+                    &plan,
+                    &latest,
+                    &observation,
+                    &support,
+                    db::now(),
+                )?;
+            Ok(UninstallReview {
+                runtime: observation.report().clone(),
+                support: support.report().clone(),
+                confirmation,
+            })
+        }
+        .await;
+        if let Ok(mut store) = state.uninstall_confirmations.lock() {
+            store.finish_review(&plan_id, generation);
+        }
+        result
+    });
+    tokio::time::timeout(Duration::from_secs(12), worker)
+        .await
+        .map_err(|_| "运行检查未及时完成；实际只读 worker 可能仍在结束，请稍后重试。")?
+        .map_err(|_| "卸载复查未完成。".to_string())?
+}
+
+#[tauri::command]
+fn discard_application_uninstall_confirmation(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .uninstall_confirmations
+        .lock()
+        .map_err(|_| "无法撤下卸载确认。")?
+        .discard(&id);
+    Ok(())
+}
+
+// Returns no frontend-supplied path or eligibility. Every final gate reacquires
+// the still-published plan, retained Mole source and current user protections.
+fn live_uninstall_context(
+    state: &AppState,
+    plan: &uninstall_plan::Plan,
+    current_id: &str,
+) -> Result<uninstall_plan::Context, String> {
+    if state.shutdown.closing() {
+        return Err("应用正在退出，本次卸载停止。".into());
+    }
+    let ctx = uninstall_context(state, current_id)?;
+    let published = state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法核对当前卸载计划。")?
+        .get(plan.id(), db::now())?;
+    if uninstall_runtime::fingerprint(&published)? != uninstall_runtime::fingerprint(plan)? {
+        return Err("原卸载计划已变化，请重新准备。".into());
+    }
+    let (task, index) = plan.source_address();
+    let source = state
+        .results
+        .lock()
+        .map_err(|_| "无法核对原应用清单。")?
+        .uninstall_target(task, index)?;
+    if !plan.source_matches(&source) {
+        return Err("原应用清单已变化或过期，请重新读取。".into());
+    }
+    Ok(ctx)
+}
+
+#[tauri::command]
+async fn execute_application_uninstall(
+    plan_id: String,
+    confirmation_id: String,
+    request_id: String,
+    ordinary_app_confirmed: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<uninstall_journal::Detail, String> {
+    uuid::Uuid::parse_str(&request_id).map_err(|_| "卸载请求标识无效。")?;
+    uuid::Uuid::parse_str(&plan_id).map_err(|_| "卸载计划标识无效。")?;
+    if !ordinary_app_confirmed {
+        return Err(
+            "请先确认这是首批支持的普通 App；受管理或带专用服务的应用应使用对应卸载方式。".into(),
+        );
+    }
+    let operation = state.updates.installation.enter()?;
+    let current_id = app.config().identifier.clone();
+    let ctx = uninstall_context(&state, &current_id)?;
+    let plan = state
+        .uninstall_plans
+        .lock()
+        .map_err(|_| "无法读取卸载计划。")?
+        .get(&plan_id, db::now())?;
+    let job = Arc::new(Job::new(TaskKind::AppTrash));
+    {
+        let mut jobs = state.jobs.lock().map_err(|_| "无法登记卸载任务。")?;
+        if state.shutdown.closing()
+            || jobs.len() >= 3
+            || jobs.contains_key(&request_id)
+            || jobs.values().any(|j| j.kind.exclusive_operation())
+        {
+            return Err("已有修改/权限检查任务，或应用正在退出，请稍后重试。".into());
+        }
+        jobs.insert(request_id.clone(), job.clone());
+    }
+    let selection = state
+        .uninstall_confirmations
+        .lock()
+        .map_err(|_| "无法取用卸载确认。".to_string())
+        .and_then(|mut s| s.take(&confirmation_id, &plan, &ctx, db::now()));
+    let selection = match selection {
+        Ok(value) => value,
+        Err(error) => {
+            if let Ok(mut jobs) = state.jobs.lock() {
+                jobs.remove(&request_id);
+            }
+            return Err(error);
+        }
+    };
+    let state = state.inner().clone();
+    let receive = uninstall_execution::dispatch(
+        request_id.clone(),
+        state.jobs.clone(),
+        job.clone(),
+        operation,
+        async move {
+            let gate_state = state.clone();
+            let gate_plan = plan.clone();
+            let result = uninstall_execution::run(
+                state.db.clone(),
+                request_id.clone(),
+                plan,
+                selection,
+                job,
+                move || live_uninstall_context(&gate_state, &gate_plan, &current_id),
+            )
+            .await;
+            result
+        },
+    );
+    receive
+        .await
+        .map_err(|_| "卸载响应中断，请按请求标识读取卸载记录，不要自动重试。".to_string())?
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UninstallSnapshot {
+    version: u32,
+    request_id: String,
+    active: bool,
+    record: Option<uninstall_journal::Detail>,
+}
+#[tauri::command]
+fn get_application_uninstall(
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<UninstallSnapshot, String> {
+    uuid::Uuid::parse_str(&request_id).map_err(|_| "卸载请求标识无效。")?;
+    let active = || {
+        state
+            .jobs
+            .lock()
+            .map(|jobs| {
+                jobs.get(&request_id)
+                    .is_some_and(|j| j.kind == TaskKind::AppTrash)
+            })
+            .map_err(|_| "无法核对卸载任务。".to_string())
+    };
+    let was_active = active()?;
+    let read_record = || {
+        let db = state.db.lock().map_err(|_| "无法读取卸载记录。")?;
+        let exists: bool = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM uninstall_runs WHERE id=?1)",
+                [&request_id],
+                |r| r.get(0),
+            )
+            .map_err(|_| "无法核对卸载记录。")?;
+        if exists {
+            Ok::<_, String>(Some(uninstall_journal::detail(&db, &request_id)?))
+        } else {
+            Ok(None)
+        }
+    };
+    let mut record = read_record()?;
+    let is_active = active()?;
+    if !is_active
+        && (was_active
+            || record
+                .as_ref()
+                .is_some_and(|r| r.summary.state == "running"))
+    {
+        // The worker publishes before removing its handle. If it completed
+        // during this read, fetch its durable terminal result once more.
+        record = read_record()?;
+    }
+    // An absent request is an explicit read result, never permission to retry.
+    // The UI must allow an initial admission race before treating absence as
+    // terminal; the execution call and registry remain independently owned.
+    Ok(UninstallSnapshot {
+        version: 1,
+        request_id,
+        active: is_active,
+        record,
+    })
+}
+#[tauri::command]
+fn list_application_uninstalls(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<uninstall_journal::Summary>, String> {
+    uninstall_journal::list(&*state.db.lock().map_err(|_| "无法读取卸载历史。")?)
+}
+#[tauri::command]
+fn cancel_application_uninstall(
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    uuid::Uuid::parse_str(&request_id).map_err(|_| "卸载请求标识无效。")?;
+    let jobs = state.jobs.lock().map_err(|_| "无法核对卸载任务。")?;
+    let job = jobs
+        .get(&request_id)
+        .filter(|j| j.kind == TaskKind::AppTrash)
+        .ok_or("此卸载任务已结束，请读取实际记录。")?;
+    job.cancel();
     Ok(())
 }
 
@@ -1307,9 +1636,7 @@ async fn execute_log_cleanup(
         if state.shutdown.closing()
             || jobs.len() >= 3
             || jobs.contains_key(&request_id)
-            || jobs
-                .values()
-                .any(|j| matches!(j.kind, TaskKind::LogTrash | TaskKind::VisibilityProbe))
+            || jobs.values().any(|j| j.kind.exclusive_operation())
         {
             return Err("已有日志处理正在进行或应用正在退出，请稍后重试。".into());
         }
@@ -1376,7 +1703,7 @@ fn cancel_log_cleanup(run_id: String, state: tauri::State<'_, AppState>) -> Resu
     // LogTrash job alone: a late click must not cancel a newer batch.
     let jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     for job in jobs.values() {
-        if job.cancel_execution(&run_id) {
+        if job.kind == TaskKind::LogTrash && job.cancel_execution(&run_id) {
             return Ok(());
         }
     }
@@ -1413,9 +1740,7 @@ fn start_cleanup_visibility(
     let mut jobs = state.jobs.lock().map_err(|_| "无法确认当前任务。")?;
     if state.shutdown.closing()
         || jobs.len() >= 3
-        || jobs
-            .values()
-            .any(|j| matches!(j.kind, TaskKind::VisibilityProbe | TaskKind::LogTrash))
+        || jobs.values().any(|j| j.kind.exclusive_operation())
     {
         return Err("当前正在处理文件、检查权限或退出，请稍后重试。".into());
     }
@@ -1862,6 +2187,9 @@ pub fn run() {
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
+                uninstall_confirmations: Arc::new(Mutex::new(
+                    uninstall_confirmation::Confirmations::default(),
+                )),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
                 engine_root,
@@ -1897,6 +2225,12 @@ pub fn run() {
             prepare_application_uninstall_plan,
             recheck_application_uninstall_plan,
             discard_application_uninstall_plan,
+            prepare_application_uninstall_confirmation,
+            discard_application_uninstall_confirmation,
+            execute_application_uninstall,
+            get_application_uninstall,
+            list_application_uninstalls,
+            cancel_application_uninstall,
             inspect_maintenance,
             inspect_project_artifacts,
             read_project_roots,

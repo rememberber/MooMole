@@ -1,10 +1,12 @@
 # 卸载记录、共享准入与重启对账
 
-2026-10-23：已实现 `uninstall_journal.rs`、独立历史快照和 SQLite v4 迁移。当前只有初始化/备份/启动对账/保留规则接入生产；创建卸载会话、提交意图、原生处理和结果串联仍没有生产调用方，没有新增卸载或恢复 IPC/界面。它为 [完整 App 包处理](app-uninstall-target.md) 保存证据，不提供运行条件、确认或处理许可。
+2026-10-24：已实现 `uninstall_journal.rs`、独立历史快照和 SQLite v4 迁移；[专属执行器](app-uninstall-execution.md) 已串联创建会话、提交意图、原生处理和结果，并提供按请求 ID 读取/取消及历史摘要 IPC。[前端卸载/历史](app-uninstall-interface.md) 已接；产品内自动恢复仍未开放，提供手动恢复边界说明。记录层为 [完整 App 包处理](app-uninstall-target.md) 保存证据，本身不提供运行条件、确认或处理许可。
 
 ## 独立的单 App 记录
 
 当前一份 [卸载计划](app-uninstall-plan.md) 对应一个完整 App 包和一个会话，不借用日志普通文件的扫描候选、确认、收据或记录类型。包外关联数据固定保留，多 App 编排尚未接入。
+
+执行请求 UUID 同时作为持久会话 ID，响应丢失后可读取该记录，不能复用 ID 重放操作。意图后只有确定尚未调用原生 API 的取消才允许 intent → cancelled；中断或未知原生结果仍为 uncertain，迟到取消不改写已完成事实。
 
 `uninstall_runs` 保存会话/唯一计划 ID、`appBundleTrash` 类型、状态、时间、不可变历史快照及 SHA-256、原因和 App 收据；`uninstall_events` 在同一事务追加状态变化，以数据库序号排序。它们没有对只读扫描/计划的级联外键，原清单或扫描回收不会删除卸载证据。
 

@@ -1,4 +1,4 @@
-//! Whole-App native building block. No IPC or production execution caller yet.
+//! Whole-App native building block, called by the sealed uninstall executor.
 //! Identity and filesystem access are NOT uninstall authority. A sealed caller
 //! must first commit intent and supply fresh confirmation/runtime/policy gates.
 #![allow(dead_code)]
@@ -60,6 +60,20 @@ struct NativeResult {
 }
 
 impl PreparedBundle {
+    #[cfg(test)]
+    pub(crate) fn move_to_private_checked(
+        &self,
+        destination: &Path,
+        gate: impl FnOnce() -> Result<(), String>,
+    ) -> Result<Attempt, String> {
+        self.trash_with(gate, |_| {
+            let result = std::fs::rename(&self.path, destination);
+            NativeResult {
+                succeeded: result.is_ok(),
+                destination: result.ok().map(|_| destination.to_owned()),
+            }
+        })
+    }
     pub(crate) fn prepare(plan: &Plan, ctx: &Context) -> Result<Self, String> {
         plan.recheck(ctx, crate::db::now())?;
         let (path, snapshot, created_at, expires_at) = plan.bundle_binding();

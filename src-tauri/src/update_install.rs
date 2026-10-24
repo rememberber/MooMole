@@ -72,7 +72,7 @@ impl Drop for Installation {
 
 pub fn prepare_data(db: &rusqlite::Connection) -> Result<(), String> {
     let pending: bool = db.query_row(
-        "SELECT EXISTS(SELECT 1 FROM tasks WHERE state IN ('queued','running')) OR EXISTS(SELECT 1 FROM execution_runs WHERE state='running')",
+        "SELECT EXISTS(SELECT 1 FROM tasks WHERE state IN ('queued','running')) OR EXISTS(SELECT 1 FROM execution_runs WHERE state='running') OR EXISTS(SELECT 1 FROM uninstall_runs WHERE state='running')",
         [], |row| row.get(0),
     ).map_err(|_| "无法确认本机任务记录，请稍后重试。")?;
     if pending || !db.is_autocommit() {
@@ -159,6 +159,10 @@ mod tests {
         assert_eq!(crate::db::settings(&db).unwrap().theme, "system");
         // A persisted modification run is also a blocker, independently of jobs.
         db.execute("INSERT INTO execution_runs VALUES ('fixture','plan','trash','running',1,NULL,'{}','fixture',0)", []).unwrap();
+        assert!(prepare_data(&db).is_err());
+        db.execute("DELETE FROM execution_runs", []).unwrap();
+        prepare_data(&db).unwrap();
+        db.execute("INSERT INTO uninstall_runs VALUES ('fixture','plan','appBundleTrash','running','pending',1,NULL,'{}','fixture',1,'fixture',NULL)",[]).unwrap();
         assert!(prepare_data(&db).is_err());
     }
     #[test]

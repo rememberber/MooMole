@@ -5,6 +5,7 @@ import { ApplicationInspection } from './ApplicationInspection'
 import type { AppEntry } from '../types'
 import { shortPath } from '../lib/format'
 import { appSizeEstimate, appSource } from '../lib/application-library'
+import type { UninstallTarget } from '../lib/app-uninstall'
 
 export function ApplicationRow({
   app,
@@ -16,6 +17,8 @@ export function ApplicationRow({
   onSelect,
   canReveal,
   onReveal,
+  canUninstall = false,
+  onUninstall,
 }: {
   app: AppEntry
   taskId?: string | null
@@ -26,6 +29,8 @@ export function ApplicationRow({
   onSelect: (checked: boolean) => void
   canReveal: boolean
   onReveal: (path: string) => void
+  canUninstall?: boolean
+  onUninstall?: (target: UninstallTarget) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -46,6 +51,25 @@ export function ApplicationRow({
         <span className="app-size">
           {appSizeEstimate(app.size) == null ? '大小未知' : app.size}
         </span>
+        {onUninstall && (
+          <button
+            className="button secondary compact"
+            disabled={!canUninstall || !taskId || app.source !== 'App'}
+            title={app.source !== 'App' ? '请使用对应管理工具卸载' : '先检查卸载范围，不会直接执行'}
+            onClick={() => {
+              if (taskId)
+                onUninstall({
+                  taskId,
+                  index,
+                  name: app.name,
+                  path: app.path,
+                  bundleId: app.bundle_id,
+                })
+            }}
+          >
+            卸载…
+          </button>
+        )}
       </div>
       <details
         className="application-details"

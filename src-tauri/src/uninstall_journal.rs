@@ -1,5 +1,5 @@
-//! Durable single-App accounting, not uninstall authority. No production writer
-//! or mutation IPC yet. Archive decoding NEVER reconstructs a live Plan/Session.
+//! Durable single-App accounting, not uninstall authority. Archive decoding
+//! NEVER reconstructs a live Plan/Session; only the sealed executor writes.
 #![allow(dead_code)]
 use crate::{
     uninstall_plan::{absolute, hash, Archive, Plan},
@@ -263,6 +263,15 @@ fn event(
 }
 
 pub(crate) fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<Session, String> {
+    begin_bound(db, plan, &uuid::Uuid::new_v4().to_string(), at)
+}
+pub(crate) fn begin_bound(
+    db: &mut Connection,
+    plan: &Plan,
+    request_id: &str,
+    at: i64,
+) -> Result<Session, String> {
+    uuid::Uuid::parse_str(request_id).map_err(|_| "卸载请求标识无效。")?;
     let archive = plan.archive();
     archive.live_at(at)?;
     let body = serde_json::to_string(&archive).map_err(|_| "无法固定卸载记录。")?;
@@ -271,7 +280,7 @@ pub(crate) fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<Session
     }
     let transaction = tx(db)?;
     crate::execution_admission::reserve(&transaction, (body.len() + RESERVE) as i64)?;
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = request_id.to_owned();
     let digest = format!("{:x}", Sha256::digest(body.as_bytes()));
     transaction.execute("INSERT INTO uninstall_runs VALUES (?1,?2,'appBundleTrash','running','pending',?3,NULL,?4,?5,?6,'尚未开始',NULL)",params![id,archive.id(),at,body,digest,(body.len()+RESERVE) as i64]).map_err(sql)?;
     event(&transaction, &id, "pending", "尚未开始", None, at)?;
@@ -366,6 +375,22 @@ pub(crate) fn refused_before_call(
 ) -> Result<(), String> {
     settle(db, session, "intent", "failed", why, None, at)
 }
+// Only a proven pre-API cancellation, never an in-flight Foundation call.
+pub(crate) fn cancelled_before_call(
+    db: &mut Connection,
+    session: &Session,
+    at: i64,
+) -> Result<(), String> {
+    settle(
+        db,
+        session,
+        "intent",
+        "cancelled",
+        "最终检查前收到取消，未调用卸载 API",
+        None,
+        at,
+    )
+}
 pub(crate) fn complete(
     db: &mut Connection,
     session: &Session,
@@ -455,7 +480,7 @@ pub(crate) fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
             !matches!(
                 (e[0].state.as_str(), e[1].state.as_str()),
                 ("pending", "intent" | "skipped" | "cancelled" | "notStarted")
-                    | ("intent", "moved" | "failed" | "uncertain")
+                    | ("intent", "moved" | "failed" | "uncertain" | "cancelled")
             )
         })
         || events.last().is_none_or(|e| {
