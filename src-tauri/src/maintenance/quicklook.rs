@@ -3,7 +3,7 @@
 //! The caller must commit durable intent and recheck policy before each spawn.
 #![allow(dead_code)]
 use crate::observation::AnchoredPath;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     mem::MaybeUninit,
     os::{
@@ -33,7 +33,7 @@ fn readonly_system_tool(tool: &AnchoredPath) -> bool {
 }
 
 // No domain, path, executable, shell or user-supplied argv can enter this API.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Step {
     ThumbnailCache,
@@ -41,6 +41,12 @@ pub(crate) enum Step {
 }
 impl Step {
     pub(crate) const ALL: [Self; 2] = [Self::ThumbnailCache, Self::Generators];
+    pub(super) fn id(self) -> &'static str {
+        match self {
+            Self::ThumbnailCache => "thumbnailCache",
+            Self::Generators => "generators",
+        }
+    }
     fn args(self) -> &'static [&'static str] {
         match self {
             Self::ThumbnailCache => &["-r", "cache"],
@@ -56,7 +62,7 @@ pub(crate) enum Outcome {
     CommandSucceeded,
     Uncertain,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Stop {
     Cancelled,

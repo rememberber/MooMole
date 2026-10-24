@@ -72,7 +72,7 @@ impl Drop for Installation {
 
 pub fn prepare_data(db: &rusqlite::Connection) -> Result<(), String> {
     let pending: bool = db.query_row(
-        "SELECT EXISTS(SELECT 1 FROM tasks WHERE state IN ('queued','running')) OR EXISTS(SELECT 1 FROM execution_runs WHERE state='running') OR EXISTS(SELECT 1 FROM uninstall_runs WHERE state='running')",
+        "SELECT EXISTS(SELECT 1 FROM tasks WHERE state IN ('queued','running')) OR EXISTS(SELECT 1 FROM execution_runs WHERE state='running') OR EXISTS(SELECT 1 FROM uninstall_runs WHERE state='running') OR EXISTS(SELECT 1 FROM maintenance_runs WHERE state='running')",
         [], |row| row.get(0),
     ).map_err(|_| "无法确认本机任务记录，请稍后重试。")?;
     if pending || !db.is_autocommit() {

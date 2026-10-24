@@ -67,4 +67,4 @@ node scripts/maintenance-catalog.mjs .cache/mole-source
 
 当前不提供“一键优化”，也不把 `optimize --dry-run` 的文案当作结构化执行计划。上游对目录的自动执行标记不是本机可安全执行的证据。未作任何维护修改、权限请求或性能改善承诺。
 
-2026-10-24：真实执行主线已选择 `cache_refresh` 的两步 Quick Look 刷新，完成固定普通账户执行核心与子进程边界测试；目录删除和偏好写入继续保留。独立计划、持久意图、确认及 App 入口尚未接入，不能据核心测试声明维护已交付。接入要求和恢复/重建边界见 [Quick Look 首批维护](maintenance-quicklook.md)。
+2026-10-24：真实执行主线已选择 `cache_refresh` 的两步 Quick Look 刷新，完成固定普通账户执行核心与 [逐步持久记录](maintenance-refresh-journal.md)；目录删除和偏好写入继续保留。独立计划、一次确认、实际命令、worker 及 App 入口尚未串联，不能据核心/记录测试声明维护已交付。接入要求和恢复/重建边界见 [Quick Look 首批维护](maintenance-quicklook.md)。
