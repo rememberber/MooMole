@@ -21,6 +21,8 @@ export function mount(mode = 'normal') {
   let resolve: ((value: unknown) => void) | null = null
   let lastPlan = planRaw()
   let releasePrepare: ((v: unknown) => void) | null = null
+  const cancelReplies = new Map<string, (e: Error) => void>()
+  let readsBlocked = false
   const call = (command: string, args: unknown = {}) => {
     calls.push({ command, args })
     changed()
@@ -80,6 +82,7 @@ export function mount(mode = 'normal') {
     },
     read: async (request) => {
       call('read', { requestId: request })
+      if (readsBlocked) return new Promise(() => {})
       if (mode === 'readError') throw new Error('读取暂不可用')
       return { version: 1, requestId: request, active: live, record }
     },
@@ -89,6 +92,9 @@ export function mount(mode = 'normal') {
     },
     cancel: async (request) => {
       call('cancel', { requestId: request })
+      if (mode === 'cancelError') throw new Error('取消响应暂不可用')
+      if (mode === 'lateCancel')
+        return new Promise<void>((_, reject) => cancelReplies.set(request, reject))
       finish(mode === 'lost' ? 'moved' : 'cancelled')
     },
   }
@@ -96,6 +102,13 @@ export function mount(mode = 'normal') {
     uninstallFixture: {
       calls,
       finish,
+      holdReads: () => {
+        readsBlocked = true
+      },
+      rejectCancel: (request: string) => {
+        cancelReplies.get(request)?.(new Error('旧取消响应已中断'))
+        cancelReplies.delete(request)
+      },
       releasePrepare: () => {
         releasePrepare?.(lastPlan)
       },

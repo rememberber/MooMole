@@ -54,6 +54,7 @@ export function ApplicationUninstallCenter({
   const [requestId, setRequestId] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [trackingError, setTrackingError] = useState('')
+  const [cancelError, setCancelError] = useState('')
   const [cancelRequested, setCancelRequested] = useState(false)
   const [records, setRecords] = useState<UninstallSummary[]>([])
   const [historyError, setHistoryError] = useState('')
@@ -67,9 +68,10 @@ export function ApplicationUninstallCenter({
     confirmationId: null,
   })
   const currentRequest = useRef<string | null>(null)
+  const knownTerminalRequests = useRef(new Set<string>())
   const busySubmit = useRef(false)
   const executionOwnsPlan = useRef(false)
-  const cancelling = useRef(false)
+  const cancelling = useRef<string | null>(null)
   const listGeneration = useRef(0)
   const outcomeNotified = useRef(new Set<string>())
   const trackChanges = useRef(new Set<string>())
@@ -89,6 +91,10 @@ export function ApplicationUninstallCenter({
     fixed.current = { plan: null, confirmationId: null }
     if (old.confirmationId) void transport.discardConfirmation(old.confirmationId).catch(() => {})
     if (old.plan) void transport.discardPlan(old.plan.id).catch(() => {})
+  }
+  function clearSnapshot() {
+    setSnapshot(null)
+    setCancelError('')
   }
   function adopt(next: UninstallSnapshot) {
     if (!mounted.current || currentRequest.current !== next.requestId) return false
@@ -117,6 +123,9 @@ export function ApplicationUninstallCenter({
       }
     }
     if (next.record && next.record.state !== 'running') {
+      knownTerminalRequests.current.add(next.requestId)
+      setTrackingError('')
+      setCancelError('')
       setRecords((previous) =>
         [next.record!, ...previous.filter((r) => r.id !== next.requestId)].slice(0, 64),
       )
@@ -144,10 +153,10 @@ export function ApplicationUninstallCenter({
     setSubmitted(true)
     currentRequest.current = id
     setRequestId(id)
-    setSnapshot(null)
+    clearSnapshot()
     setTrackingError('')
     setCancelRequested(false)
-    cancelling.current = false
+    cancelling.current = null
     setWatchEpoch((v) => v + 1)
     if (reveal) {
       setOpen(true)
@@ -233,7 +242,7 @@ export function ApplicationUninstallCenter({
     setError('')
     currentRequest.current = null
     setRequestId(null)
-    setSnapshot(null)
+    clearSnapshot()
     setTrackingError('')
     try {
       const next = parseUninstallPlan(
@@ -275,12 +284,13 @@ export function ApplicationUninstallCenter({
     setSubmitted(true)
     setError('')
     setCancelRequested(false)
+    cancelling.current = null
     executionOwnsPlan.current = true
     const id = crypto.randomUUID()
     trackChanges.current.add(id)
     currentRequest.current = id
     setRequestId(id)
-    setSnapshot(null)
+    clearSnapshot()
     try {
       sessionStorage.setItem(uninstallSessionKey, id)
     } catch {
@@ -323,15 +333,21 @@ export function ApplicationUninstallCenter({
     }
   }
   async function cancel() {
-    if (!requestId || cancelling.current) return
-    cancelling.current = true
+    if (!requestId || cancelling.current === requestId) return
+    const id = requestId
+    cancelling.current = id
     setCancelRequested(true)
+    setCancelError('')
     try {
-      await transport.cancel(requestId)
+      await transport.cancel(id)
     } catch (e) {
-      cancelling.current = false
+      if (!mounted.current || currentRequest.current !== id) return
+      // Re-opening a known record may temporarily clear its visible snapshot;
+      // that cannot revive stale cancellation feedback for the finished work.
+      if (knownTerminalRequests.current.has(id)) return
+      cancelling.current = null
       setCancelRequested(false)
-      setTrackingError(`${message(e)} 是否停止请以实际结果为准。`)
+      setCancelError(`${message(e)} 是否停止请以实际结果为准。`)
       void readAgain()
     }
   }
@@ -376,9 +392,10 @@ export function ApplicationUninstallCenter({
                     : '卸载结果待确认'}
               </strong>
               <p>
-                {active
-                  ? '关闭窗口不会中断系统操作，实际结果仍在收集中。'
-                  : '实际记录已保留；移入废纸篓不等于释放空间。'}
+                {cancelError ||
+                  (active
+                    ? '关闭窗口不会中断系统操作，实际结果仍在收集中。'
+                    : '实际记录已保留；移入废纸篓不等于释放空间。')}
               </p>
             </div>
             <button
@@ -396,7 +413,7 @@ export function ApplicationUninstallCenter({
                 onClick={() => {
                   currentRequest.current = null
                   setRequestId(null)
-                  setSnapshot(null)
+                  clearSnapshot()
                 }}
               >
                 关闭提示
@@ -538,6 +555,11 @@ export function ApplicationUninstallCenter({
               {trackingError && (
                 <p className="notice warning" role="alert">
                   {trackingError}
+                </p>
+              )}
+              {cancelError && (
+                <p className="notice warning" role="alert">
+                  {cancelError}
                 </p>
               )}
               <div className="modal-actions">
