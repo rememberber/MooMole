@@ -54,6 +54,7 @@ export function ExecutionHistory({
   const [cancelRequested, setCancelRequested] = useState(false)
   const refreshRequest = useRef(0)
   const detailRequest = useRef(0)
+  const terminalDetailRequest = useRef<number | null>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
   const refreshButton = useRef<HTMLButtonElement>(null)
   const recordArea = useRef<HTMLElement | null>(null)
@@ -81,12 +82,17 @@ export function ExecutionHistory({
         if (next.id !== selected) throw new Error('返回的执行记录不匹配。')
         return next
       },
-      onValue: (next) =>
+      onValue: (next) => {
+        if (next.state !== 'running') {
+          terminalDetailRequest.current = detailRequest.current
+          setCancelError('')
+        }
         setDetail((current) =>
           current && (current.state !== 'running' || current.events.length > next.events.length)
             ? current
             : next,
-        ),
+        )
+      },
       onError: setTrackingError,
       signal: controller.signal,
     })
@@ -104,7 +110,7 @@ export function ExecutionHistory({
     try {
       await onCancel(id)
     } catch (error) {
-      if (request === detailRequest.current) {
+      if (request === detailRequest.current && terminalDetailRequest.current !== request) {
         setCancelRequested(false)
         setCancelError(`${errorText(error)} 停止是否生效需以更新后的逐项结果为准。`)
       }
@@ -137,7 +143,10 @@ export function ExecutionHistory({
     try {
       const next = await loadDetail(id)
       if (next.id !== id) throw new Error('返回的执行记录不匹配，请重新打开。')
-      if (request === detailRequest.current) setDetail(next)
+      if (request === detailRequest.current) {
+        if (next.state !== 'running') terminalDetailRequest.current = request
+        setDetail(next)
+      }
     } catch (error) {
       if (request === detailRequest.current) setDetailError(errorText(error))
     }

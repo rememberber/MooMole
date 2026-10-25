@@ -101,8 +101,47 @@ test('failed cancellation remains a request error and never reports a terminal r
   await expect(dialog.getByRole('alert')).toContainText('取消请求失败')
   await expect(dialog).toContainText('进行中 · 已移入 1 / 2 项')
   await expect(dialog.getByRole('button', { name: '停止后续项目' })).toBeEnabled()
+  await page.clock.fastForward(1600)
+  await expect(dialog.getByRole('alert')).toContainText('取消请求失败')
+  await dialog.getByRole('button', { name: '停止后续项目' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('取消请求失败')
+  const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem('live-calls') || '[]'))
+  const cancellations = calls.filter((c: { command: string }) => c.command === 'cancel_log_cleanup')
+  expect(cancellations).toHaveLength(2)
+  expect(cancellations[0].runId).toBe(cancellations[1].runId)
+  expect(calls.some((c: { command: string }) => c.command === 'execute_log_cleanup')).toBe(false)
+  await page.evaluate(() => sessionStorage.setItem('live-finished', 'yes'))
+  await page.clock.fastForward(1600)
+  await expect(dialog).toContainText('已取消 · 已移入 1 / 2 项')
+  await expect(dialog.getByRole('alert')).toHaveCount(0)
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('region', { name: '日志处理状态', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: '日志处理状态', exact: true })).toHaveCount(0)
+})
+
+test('late cancellation failure cannot revive a warning after a durable terminal result', async ({
+  page,
+}) => {
+  await page.clock.install()
+  await installLiveExecutionMock(page)
+  await page.goto('/')
+  const dialog = await open(page)
+  await page.evaluate(() => sessionStorage.setItem('live-cancel-pending', 'yes'))
+  await dialog.getByRole('button', { name: '停止后续项目' }).click()
+  await expect(dialog.getByRole('button', { name: '等待实际结果…' })).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('live-finished', 'yes'))
+  await page.clock.fastForward(1600)
+  await expect(dialog).toContainText('已取消 · 已移入 1 / 2 项')
+  await page.evaluate(async () => {
+    window.rejectLiveCancel()
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    )
+  })
+  expect(await dialog.getByRole('alert').count()).toBe(0)
+  const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem('live-calls') || '[]'))
+  expect(calls.filter((c: { command: string }) => c.command === 'cancel_log_cleanup')).toHaveLength(
+    1,
+  )
 })
 
 test('receipt location sends only persisted IDs and preserves results on a missing location', async ({

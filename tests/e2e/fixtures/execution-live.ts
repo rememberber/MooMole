@@ -2,10 +2,17 @@ import type { Page } from '@playwright/test'
 import { demoBootstrap } from '../../../src/lib/demo'
 import { cancelled } from './execution-history'
 
+declare global {
+  interface Window {
+    rejectLiveCancel: () => void
+  }
+}
+
 // Only browser transport fixtures: no native files, SQLite or mutation calls.
 export async function installLiveExecutionMock(page: Page) {
   await page.addInitScript(
     ({ initial, terminal }) => {
+      let rejectCancel: ((error: Error) => void) | undefined
       const running = {
         ...terminal,
         state: 'running',
@@ -14,6 +21,7 @@ export async function installLiveExecutionMock(page: Page) {
       }
       const current = () => (sessionStorage.getItem('live-finished') ? terminal : running)
       Object.assign(window, {
+        rejectLiveCancel: () => rejectCancel?.(new Error('fixture 迟到的取消失败')),
         isTauri: true,
         __TAURI_INTERNALS__: {
           transformCallback: () => 1,
@@ -40,6 +48,10 @@ export async function installLiveExecutionMock(page: Page) {
             }
             if (command === 'cancel_log_cleanup') {
               if (args.runId !== terminal.id) throw new Error('wrong batch')
+              if (sessionStorage.getItem('live-cancel-pending'))
+                await new Promise<void>((_, reject) => {
+                  rejectCancel = reject
+                })
               if (sessionStorage.getItem('live-cancel-error'))
                 throw new Error('fixture 取消请求失败')
               sessionStorage.setItem('live-cancelled', 'yes')
