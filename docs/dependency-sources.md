@@ -45,6 +45,8 @@ DEPENDENCIES.json 和外部 validation.json 均记录报告 SHA-512、实际 ZIP
 
 本机实际复验产物 `local-artifacts/MooMole-dependencies-137-final/`：326 项（Cargo 294、npm 8、Go 22、标准库源码 2），归档 78,378,054 字节，外层及全部内层核对通过。首次获取官方源码后，最终调用使用 --offline。来源为 `7a9b774` 加本阶段工作区、dirty=true；资料被 Git 忽略，未公开发布，没有运行 App 或处理个人文件。
 
+2026-10-25 已补实际干净配对：提交 `362018d7e05d5af27a2b9cf5bd1fd833d21d7bd7` 的 arm64 App/ZIP（`MooMole-0.1.0-mac-arm64-56GOIU`）和 `MooMole-dependencies-145-bound` 同为 dirty=false。依赖 326 项、78,378,484 字节，内外绑定均匹配实际 ZIP 的 13,473,511 字节/SHA-512、相同 App 报告摘要及许可摘要；封装后再读不变。`MooMole-source-145-bound` 的客户端 484 项/完整 Mole 299 项也绑定同一实际 ZIP；另行核对三类资产实际字节、外层/内层绑定及全部来源标识通过，报告在 `local-artifacts/release-pairing-145-tw151a3a/validation.json`。这些是本地对应关系证据，未发布，不把它们标成完整对应源码、许可或发布验收完成。
+
 后续仍须补齐/审阅 npm 及生成代码的首选修改源码、标准库的外部依赖闭包、文件级许可/例外和完整对应关系。清单的 preferredSourceReview、standardLibraryDependencyClosure、licenseReview 与 releaseAcceptance 均保持 pending。该归档不能代替三模块实机执行、干净机器安装升级或正式发布验收。
 
 ## Rust 标准库内置依赖核对
