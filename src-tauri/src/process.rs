@@ -257,7 +257,7 @@ async fn supervise(
             let reason = if job.cancelled.load(Ordering::SeqCst) {
                 Some("任务已取消。".to_string())
             } else if started.elapsed() >= timeout {
-                Some("任务超时，可缩小扫描范围后重试。".to_string())
+                Some("任务超时，未取得完整结果。请查看任务记录。".to_string())
             } else if let Some(problem) = out.problem().or(err.problem()) {
                 Some(problem.to_string())
             } else if streaming && out.value.is_some() && exited_at.is_none() {
