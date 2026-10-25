@@ -75,3 +75,7 @@ node scripts/cargo.mjs test --locked log_cleanup::tests::shutdown::native_exit_c
 ## 实际维护子进程运行时 App 强杀（2026-10-25）
 
 已安装 `71b5142` App 的生成器步骤提交意图后，私有只读观察器核对真实 Apple 子进程及父进程/PGID/账户/微秒启动身份，再只强杀测试 App。启动前保留 running/intent；重启变为 interrupted/uncertain、阻止新修改且不重放。代理核对自建预览和逐项记录后，仅新增绑定的核查记录，未知不改写；再重启十表保持。详情及未注入的快速完成/过期结果见 [真实维护强杀](maintenance-execution.md#真实命令运行时-app-强杀与核查2026-10-25阶段-152)。这不是正常退出控制器的停止证明，不保证系统服务派生工作被终止或缓存刷新撤销；普通启动后取消/退出与 6 秒超时仍待验收。
+
+## Darwin 的非终态 waitid 事件（2026-10-25）
+
+实际维护子进程挂起验收揭示：本机 waitid 即使使用 WEXITED | WNOHANG | WNOWAIT，也会返回匹配 PID 的 CLD_STOPPED（5）。原先仅比较 PID 导致提前最终收集并杀掉尚未退出的命令。自建原生 C 探针与两个 Rust 回归先复现；清理/只读与维护共用的终态判断现在同时要求匹配 PID 和 CLD_EXITED、CLD_KILLED 或 CLD_DUMPED。停止、继续、陷阱或空事件均不当作完成，不回收/注销仍在运行的子进程；原期限、取消、租约和最终信号边界保持。实际修复前批次保留未知原因，不改写成已取消。

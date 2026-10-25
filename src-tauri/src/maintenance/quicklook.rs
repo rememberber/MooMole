@@ -220,7 +220,9 @@ impl OwnedChild<'_> {
             )
         };
         if rc == 0 {
-            Ok(unsafe { info.assume_init() }.si_pid == self.pid as i32)
+            Ok(crate::process::terminal_child_event(self.pid, &unsafe {
+                info.assume_init()
+            }))
         } else {
             let error = std::io::Error::last_os_error();
             if error.kind() == std::io::ErrorKind::Interrupted {

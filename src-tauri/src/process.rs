@@ -38,6 +38,16 @@ impl Drop for Group {
     }
 }
 
+// Darwin can return CLD_STOPPED with WEXITED | WNOWAIT. A matching PID alone
+// does not establish terminal completion and must not trigger final collection.
+pub(crate) fn terminal_child_event(pid: u32, info: &libc::siginfo_t) -> bool {
+    info.si_pid == pid as i32
+        && matches!(
+            info.si_code,
+            libc::CLD_EXITED | libc::CLD_KILLED | libc::CLD_DUMPED
+        )
+}
+
 // This does not reap: the unreaped child pins its PID/PGID until Group releases
 // the registration. No child.wait/try_wait runs while it is registered.
 fn exited(pid: u32) -> Result<bool, String> {
@@ -59,7 +69,7 @@ fn exited(pid: u32) -> Result<bool, String> {
             "无法确认任务主进程的所有权，已停止按 PID 发送信号：{error}"
         ));
     }
-    Ok(unsafe { info.assume_init() }.si_pid == pid as i32)
+    Ok(terminal_child_event(pid, &unsafe { info.assume_init() }))
 }
 
 struct Reader {
@@ -276,7 +286,7 @@ async fn supervise(
                 break;
             }
         }
-        // A stopped leader with closed pipes no longer needs the grace period.
+        // An exited leader with closed pipes no longer needs the grace period.
         // It stays unreaped until the final group signal below pins its PGID.
         if stopping.is_some() && exited_at.is_some() && out.value.is_some() && err.value.is_some() {
             break;
@@ -353,6 +363,64 @@ mod tests {
         let mut c = Command::new("/bin/sh");
         c.args(["-c", script, "fixture"]).arg(path);
         c
+    }
+    #[test]
+    fn a_stopped_child_is_not_exited_and_can_resume_to_success() {
+        use std::os::unix::process::CommandExt;
+        struct ChildGuard(std::process::Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut child = ChildGuard(
+            std::process::Command::new("/bin/sh")
+                .args(["-c", "kill -STOP $$; exit 0"])
+                .process_group(0)
+                .spawn()
+                .unwrap(),
+        );
+        let pid = child.0.id();
+        let job = Arc::new(Job::new(TaskKind::Analyze));
+        let lease = job.register(pid).unwrap();
+        let mut group = Group {
+            job: job.clone(),
+            pid,
+            lease: lease.clone(),
+            armed: true,
+        };
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        loop {
+            let mut info = MaybeUninit::<libc::siginfo_t>::zeroed();
+            assert_eq!(
+                unsafe {
+                    libc::waitid(
+                        libc::P_PID,
+                        pid,
+                        info.as_mut_ptr(),
+                        libc::WSTOPPED | libc::WNOHANG | libc::WNOWAIT,
+                    )
+                },
+                0
+            );
+            let info = unsafe { info.assume_init() };
+            if info.si_pid == pid as i32 && info.si_code == libc::CLD_STOPPED {
+                break;
+            }
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let prematurely_exited = exited(pid).unwrap();
+        job.signal(pid, &lease, libc::SIGCONT);
+        while !exited(pid).unwrap() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        group.release(None);
+        assert!(child.0.wait().unwrap().success());
+        assert!(!prematurely_exited, "SIGSTOP is not terminal completion");
+        assert_eq!(job.process_id(), None);
     }
     #[tokio::test]
     async fn exited_leader_is_not_reaped_or_signalled_after_release() {

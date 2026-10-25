@@ -2921,3 +2921,10 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 - 真实 `928c9f0d-20dd-46f9-aa61-133db7c5bab3` 提交意图后，观察到活跃系统生成器子进程 PID/PGID 15438、PPID 13732；核对后强杀 App 主进程，原 App 消失、子进程后续也不在。启动前 SQLite 保留 running/intent、无结果。真实重启自动变为 interrupted/uncertain，事件 pending → intent → uncertain、无退出码/stop；原生首页/详情明确待核实、禁止自动重试，新只读准备实际被阻止，未创建新批次。旧五份维护及其子项、其余六张设置/清理/卸载表保持，无自动重放。
 - 中断后 Finder 同一自建文本预览正文/标记与原来一致，设备/inode/大小/SHA-256 保持；不把单个样例写成完整缓存重建或提速。代理核对逐项结果/确切请求后保存人工核查，仅新增一条绑定原 snapshot 摘要的 review，原 interrupted/uncertain 和 22 条事件均不改写。新的只读准备恢复，关闭撤下未提交确认，没有再执行刷新；正常退出/重启后十表完全一致，原生历史保留未知和已核查并存。
 - 当前维护 6 批/8 步/22 事件/1 核查，实际 PID 16257 位于 `~/Applications/MooMole.app`。私有 `native-maintenance-kill-152-sx0ydaes` 含所有库备份/原记录/观察与故障证明/预览/核查/重启摘要，不公开本机数据。无生产代码变化，不重复未变化代码自动化套件；无缩略图缓存选择、直接目录删除、系统授权、安全属性修改、新 DMG、push 或公开发布。普通命令启动后取消/退出、超时及其他故障时点、完整重建和首发其余关口继续 pending。
+
+## 阶段 153：Darwin 非终态进程事件误判修正（2026-10-25）
+
+- 从干净 `e0a4c6d` 继续实际启动后取消验收，固定安装 App 仍为 `71b5142`。先备份真实 v6 库，自建 sleep 验证仅对所持子进程 SIGSTOP/CONT 与完整回收。仅选择生成器列表并经原生确认提交，私有观察器核对新 intent、真实 Apple 直接子进程的身份/启动时间/UID/PGID，发 SIGSTOP 模拟不响应；22 秒有界恢复兜底未被使用。
+- 真实批次 `7ce383a7-ab10-4cfc-894e-07fd36c269b6` 却在约 105 毫秒变为 needsReview/uncertain、commandFailedAfterStart、exit_code/stop 空，子进程 29 毫秒内消失，取消入口已撤下，没有发出取消请求；不记取消通过。原生 C 自建 sleep 探针复现本机 waitid 在 WEXITED/WNOHANG/WNOWAIT 下仍返回 CLD_STOPPED（5），重复观察保留该非终态事件；不是实际命令超时或取消。
+- 两个原生回归先明确失败：停止进程被 exited 判断为退出；维护停止进程在超时前就被收集，stop 为 None 而非 TimedOut。共用终态判断增加精确 si_code（CLD_EXITED/KILLED/DUMPED）与原 PID 双重匹配，清理/只读和维护两条监督路线都复用；停止、继续、陷阱等不触发最终收集，所有权/注销先于回收、错误/超时和信号范围保持。测试真实恢复停止子进程并正常结束，以及停止维护命令直到实际期限后保持未知/超时。
+- 两项新回归修正后通过；最终后端 **527 通过、62 显式忽略**（589 总数，55.79 秒），Rustfmt 和 diff 通过。无前端/协议/数据库/规则/参数变化，不额外重复浏览器回归。修复前实际失败记录已在核对自建文本预览和逐项原因后由界面保存绑定核查，仅增加 review、不改原 needsReview/uncertain；下一步验证修正版实际 App，不能以这些原生回归代替实机取消。

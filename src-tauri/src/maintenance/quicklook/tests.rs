@@ -135,6 +135,23 @@ fn timeout_does_not_pretend_no_change_and_kills_a_term_ignoring_child() {
 }
 
 #[test]
+fn a_stopped_command_remains_running_until_the_actual_timeout() {
+    let job = job(false);
+    let result = supervise(
+        Step::Generators,
+        shell("kill -STOP $$; exit 0"),
+        &job,
+        Duration::from_millis(100),
+        Duration::from_millis(40),
+        |_| {},
+    );
+    assert_eq!(result.outcome, Outcome::Uncertain);
+    assert_eq!(result.stop, Some(Stop::TimedOut));
+    assert_eq!(result.reason, "stoppedAfterStart");
+    assert_eq!(job.process_id(), None);
+}
+
+#[test]
 fn a_known_success_is_preserved_when_cancel_arrives_after_exit() {
     let cancelled = job(false);
     let result = supervise(
@@ -156,7 +173,7 @@ fn a_known_success_is_preserved_when_cancel_arrives_after_exit() {
                     )
                 };
                 assert_eq!(rc, 0);
-                if unsafe { info.assume_init() }.si_pid == pid as i32 {
+                if crate::process::terminal_child_event(pid, &unsafe { info.assume_init() }) {
                     break;
                 }
                 assert!(Instant::now() < deadline);
@@ -329,7 +346,7 @@ fn shared_exit_force_stop_reaches_owned_child_before_supervisor_resumes() {
                     )
                 };
                 assert_eq!(rc, 0);
-                if unsafe { info.assume_init() }.si_pid == spawned as i32 {
+                if crate::process::terminal_child_event(spawned, &unsafe { info.assume_init() }) {
                     break;
                 }
                 assert!(Instant::now() < deadline);
