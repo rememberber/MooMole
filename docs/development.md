@@ -2862,3 +2862,11 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 - 新增 3 组 App 绑定测试（含 20 类不匹配/非法输入和收集中改写），依赖归档最终 **8 组通过**（2.70 秒，含真实 Go 的两个独立校验测试）；格式和 diff 检查通过。App 字节夹具只证明归档逻辑，不冒称生产构建或实机执行；实际干净 App/依赖/客户端与 Mole 源码配对仍须随后核对，三模块取消/中断、安装升级和完整发布关口继续保留。
 - 补齐引擎版本必填验证后最终 8 组通过（2.24 秒）。工具提交为 `362018d` 后离线生成该干净提交的 release arm64 ad-hoc App（21.56 秒原生构建、约 35.28 MiB），内嵌/ZIP 校验通过；产物 `MooMole-0.1.0-mac-arm64-56GOIU`。随后离线实际生成 326 项依赖归档（78,378,484 字节），以及客户端 484 项/完整 Mole 299 项源码归档；两份清单绑定同一实际 App 报告 SHA-512、ZIP 13,473,511 字节/SHA-512，许可摘要也匹配。封装后再读、独立外层/内层清单与实际字节交叉核对通过，Git 仍干净；没有用夹具替代这份配对。
 - 依赖为 `local-artifacts/MooMole-dependencies-145-bound/`，源码为 `MooMole-source-145-bound/`，独立交叉报告为 `release-pairing-145-tw151a3a/validation.json`；均 Git 忽略。未切换实际 App 或数据库、触发授权/维护、生成新 DMG、上传或公开发布，preferred-source、标准库闭包、licenseReview 和 releaseAcceptance 继续 pending；此轮补齐的是资产对应与来源检查，不能据此完成实机/安装升级关口。
+
+## 阶段 146：npm 源提交证明与原始输入材料（2026-10-25）
+
+- 从干净 `a6e4b8a` 继续，按固定 production 锁图重新取得全部 8 包官方 registry 元数据，integrity 逐项匹配。既有 npm 11.19.0 签名审计零退出：8 包 registry 签名均通过，6 包有验证通过的发布证明，invalid/missing 为空；没有安装新 npm、依赖或执行包脚本。原文及覆盖输出在私有证据目录，未把仅 JSON 空错误数组冒充覆盖数量。
+- 读取原 SLSA v1 证明，精确匹配产物 purl/版本/SHA-512、仓库与完整源提交，已有 gitHead 同时核对。由此补齐 api `59b63ab5` 与 lucide-react `dab294f3` 的固定源提交；React/React DOM 与 scheduler 仍分别保存两个源提交。@types/react 无同类证明，不从版本/标签猜提交，保留匹配发布归档及 13 份声明输入。固定事实与原证据摘要提交在 `third-party/npm-source-origins.json`，详情见 [npm 源码输入](dependency-sources.md#npm-发布证明与原始源码输入2026-10-25)。
+- 下载固定 GitHub codeload 源码后按预算/路径/类型只读检查，不执行提供方代码。发现 Lucide 上游带超过 32 MiB 的 Angular 构建缓存，完整快照未作为可发布源码纳入；按原 workspace 依赖闭包导出 React/shared 和三个构建工具工作区，含根文件、图标、分类和发布脚本，4,019 项及原始摘要保持。其余五份仓库快照原字节保留，未发现 LFS 占位；总 6 份输入含 21,199 项，未复制本机依赖/构建缓存。Tauri 下载的一次网络失败在任务终态后重新获取，未覆盖仍运行的请求或把失败归档算成功。
+- 从原依赖归档读取 lucide-react 发布 source map，按实际相对路径核对 createLucideIcon、Icon、DynamicIcon、shared/defaultAttributes 四份 TypeScript 字节，均与所留仓库源码一致。不以文件名相同认定对应，也不宣称整个生成器/全部图标或编译重现通过。
+- 本地原始输入包 `local-artifacts/MooMole-npm-source-inputs-146/` 为 44,726,763 字节，外层重新读取所有成员及摘要完全相同，绑定原 326 依赖资产和同一 App ZIP；source-map 另有独立报告。原证据在 `npm-source-review-146-2x63k03v`，均 Git 忽略，用户库/实际 App 未修改，没有系统授权、刷新、DMG 或公开发布。此轮为来源数据/文档与实际材料核对，无业务源码修改，不重复构建或业务测试；首选源码完整性、构建对应/闭包、许可和首发实机/安装升级关口继续保留。

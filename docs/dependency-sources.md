@@ -69,3 +69,25 @@ npm run source:rust-audit -- \
 该结果是 Rust 库 workspace 锁定 registry 包的源文件覆盖证据，不是当前 macOS 标准库的精确目标构建图：路径依赖、生成/本地代码、原生依赖与文件级许可仍须核对，Go 标准库的闭包也未据此完成。报告的 targetBuildClosure、licenseReview 和依赖总清单原有待审状态保持 pending。该独立报告尚未自动绑定最终 App 或并入依赖资产。
 
 同期按固定 npm 版本查询 registry 元数据，并逐项核对 dist.integrity 与 package-lock：plugin-dialog、csstype、react、react-dom、scheduler 有完整 gitHead；api、@types/react、lucide-react 未提供。React/React DOM 与 scheduler 的发布提交不同，不能仅凭同一仓库合并成一个提交。未把版本标签、Cargo 同仓库提交或这次查询当作已完成的首选修改源码；完整仓库快照与分发内容对应仍待补齐。
+
+## npm 发布证明与原始源码输入（2026-10-25）
+
+已补 [固定来源清单](../third-party/npm-source-origins.json)。重新读取全部 8 个固定版本的官方 registry 元数据，名称/版本/dist.integrity 均匹配锁文件；保存原始字节及摘要。使用既有 npm 11.19.0 的 `npm audit signatures --omit=dev --registry=https://registry.npmjs.org`，实际覆盖 8 包，8 个 registry 签名和 6 个发布证明均通过，invalid/missing 为空；未安装依赖或执行提供方脚本。
+
+对 SLSA v1 证明核对产物 purl/版本/SHA-512、GitHub 仓库和 resolvedDependencies 的完整源提交，并与已有 gitHead 交叉核对，不从浮动分支或同仓库其他包推断。两份此前缺失的提交由此补齐：
+
+| 固定包 | 源提交或声明输入 |
+| --- | --- |
+| @tauri-apps/api 2.12.4 | tauri `59b63ab500da9859f12d8888c3298bc29bba0b92`，匹配发布证明 |
+| @tauri-apps/plugin-dialog 2.8.3 | plugins-workspace `44293a5722efcaf27060504e63b17aeba721b40f`，gitHead 与证明一致 |
+| csstype 3.2.3 | csstype `f2162b534ea539bb32cb26365aa2511ac391762d`，registry gitHead |
+| lucide-react 1.57.0 | lucide `dab294f313897bacaa968b725b3259fa37c17bd1`，匹配发布证明 |
+| react / react-dom 19.3.1 | react `61aa00df822d0eb76d0362eb8b6fdd3527693efe`，gitHead 与证明一致 |
+| scheduler 0.28.0 | react `1d34f91dfde6bba84d08b683aaba164c7194dacb`，单独保留，gitHead 与证明一致 |
+| @types/react 19.3.0 | 无提交或同类证明，不编造 Git 来源；保留匹配原 integrity 的发布归档和 13 份 .d.ts 声明输入 |
+
+从固定提交的 GitHub codeload 获取并记录原归档大小/SHA-256/SHA-512，未执行代码或展开到用户目录。五份仓库快照原字节保留；Lucide 原快照含一个超过 32 MiB 的无关 Angular 构建缓存，未放宽单文件预算或将缓存加入分发材料。其 React 源码采用明确子集导出：React、shared、build-icons、build-helpers、rollup-plugins 五个工作区，根文件、icons/categories、scripts 和发布元数据，保留 4,019 个原始源文件及逐份摘要。导出不是完整 Lucide 仓库；工作区依赖由原 package.json 的 workspace 边闭包确定，未运行其构建或生命周期脚本。
+
+另从已绑定依赖包的原 lucide-react tarball 读取四份 source map，以相对路径解析到保留仓库：createLucideIcon、Icon、DynamicIcon、shared/defaultAttributes 的 sourcesContent 与原始 TypeScript 字节完全相同。不能据这四项声称全部图标、代码生成、编译输出或构建依赖闭包已复现。
+
+实际材料在 `local-artifacts/MooMole-npm-source-inputs-146/`：8 包、6 份仓库输入（含 Lucide 子集，共 21,199 项）、13 份发布声明；外层 44,726,763 字节，所有外层成员及摘要重新读取核对。保留原 registry/证明和审计输出，无本机缓存路径或用户数据；对应原依赖资产及同一 App ZIP 的绑定也记录在清单。原始下载/诊断留在 Git 忽略的 `npm-source-review-146-2x63k03v`，不随材料公开。材料本身尚未上传，源码首选形式、完整构建对应/闭包、文件级许可与正式发布审阅继续 pending。

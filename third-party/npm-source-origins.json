@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "purpose": "npm-source-input-origins",
+  "reviewedAt": "2026-10-25",
+  "packageLockSha256": "eb6003462a5ef361080040a57399dc0c6899fd45b7d2fd10d1ae78080f19966e",
+  "registryVerification": {
+    "tool": "npm 11.19.0 audit signatures --omit=dev",
+    "registrySignatures": 8,
+    "attestations": 6,
+    "invalid": [],
+    "missing": []
+  },
+  "packages": [
+    {
+      "name": "@tauri-apps/api",
+      "version": "2.12.4",
+      "integrity": "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg==",
+      "repository": "https://github.com/tauri-apps/tauri",
+      "revision": "59b63ab500da9859f12d8888c3298bc29bba0b92",
+      "evidence": ["npm.slsa.provenance"],
+      "registryMetadataSha256": "5b60b35cef8b170d183bf0813a0ea5b4d512888d04725b85e6304b5480c363d2",
+      "attestationSha256": "c6522b993e02464114fe2b4d7b8eda40a023fb50934f865184582074ac8292bb"
+    },
+    {
+      "name": "@tauri-apps/plugin-dialog",
+      "version": "2.8.3",
+      "integrity": "sha512-Hd/yBfk2R5v2MFrz/0VArSXeh8xKLLXGunqSiTtcHKn1zNZwaKujuA0VSwUvNfwC4hDoF1PveS+gBDNe3nHspw==",
+      "repository": "https://github.com/tauri-apps/plugins-workspace",
+      "revision": "44293a5722efcaf27060504e63b17aeba721b40f",
+      "evidence": ["registry.gitHead", "npm.slsa.provenance"],
+      "registryMetadataSha256": "7ce7b1feb87ba671d8b7a93b5507c73a210e4d832a0c899d33ffeabf8b7fc72b",
+      "attestationSha256": "468d1474c9b0da297dbaa315b1c581bdac7c0748e9507017b0a756ef24de19eb"
+    },
+    {
+      "name": "@types/react",
+      "version": "19.3.0",
+      "integrity": "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+      "revision": null,
+      "evidence": [],
+      "registryMetadataSha256": "eec8e8dd1f72955d2fa12e256cd5ab96d476342594cd2034398679a76cfdcac8",
+      "attestationSha256": null
+    },
+    {
+      "name": "csstype",
+      "version": "3.2.3",
+      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
+      "repository": "https://github.com/frenic/csstype",
+      "revision": "f2162b534ea539bb32cb26365aa2511ac391762d",
+      "evidence": ["registry.gitHead"],
+      "registryMetadataSha256": "011e326aaa6478afb0d75e84c517f4e6b95de1253a2728502791f75c065bc49f",
+      "attestationSha256": null
+    },
+    {
+      "name": "lucide-react",
+      "version": "1.57.0",
+      "integrity": "sha512-bXFZEucYhAzLD62Jse76AbTR6LiSLTn3Tqir2f1n8rZrWAdLodYy7jnRZSPIT89dRLk/IseMOUWG82wJtTyTTw==",
+      "repository": "https://github.com/lucide-icons/lucide",
+      "revision": "dab294f313897bacaa968b725b3259fa37c17bd1",
+      "evidence": ["npm.slsa.provenance"],
+      "registryMetadataSha256": "ccbb44d83f7bf04054c1c4b19d1d22e8d1472ac4f1b00c545f000020879f6e58",
+      "attestationSha256": "2c515801a097646aa8798d0e15f1f724925185dbb5fad48ef4a294862fb1f220"
+    },
+    {
+      "name": "react",
+      "version": "19.3.1",
+      "integrity": "sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==",
+      "repository": "https://github.com/react/react",
+      "revision": "61aa00df822d0eb76d0362eb8b6fdd3527693efe",
+      "evidence": ["registry.gitHead", "npm.slsa.provenance"],
+      "registryMetadataSha256": "ecf8c02b9096a7813842d87fae50a707a8809c5c3d0ec6b359ac51d40188ff6f",
+      "attestationSha256": "e037861ba53784d18fee0166db85d0b07ac3bebbb6f814ae997b7d20baa64bcf"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.1",
+      "integrity": "sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==",
+      "repository": "https://github.com/react/react",
+      "revision": "61aa00df822d0eb76d0362eb8b6fdd3527693efe",
+      "evidence": ["registry.gitHead", "npm.slsa.provenance"],
+      "registryMetadataSha256": "2d72d7d33a8b0fea5614e1b415d06470877efa8eebbdf638cee04e5b83c2c7a5",
+      "attestationSha256": "f9d3287634c46b7434a65fb59aaeb8dcc5752dc74192b4129c6bef564f2c80fa"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.28.0",
+      "integrity": "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==",
+      "repository": "https://github.com/react/react",
+      "revision": "1d34f91dfde6bba84d08b683aaba164c7194dacb",
+      "evidence": ["registry.gitHead", "npm.slsa.provenance"],
+      "registryMetadataSha256": "64d2492ee21a0de21de22120f932c242b70a0ec8a3bc85a438a9903935a26f00",
+      "attestationSha256": "1ac1e1ee7318050ad51b1b37cc943b6003c92ef9e6f1032c9b92add3c212925e"
+    }
+  ],
+  "repositoryInputs": [
+    {
+      "repository": "https://github.com/frenic/csstype",
+      "revision": "f2162b534ea539bb32cb26365aa2511ac391762d",
+      "origin": "https://codeload.github.com/frenic/csstype/tar.gz/f2162b534ea539bb32cb26365aa2511ac391762d",
+      "file": "archives/frenic-csstype-f2162b534ea539bb32cb26365aa2511ac391762d.tar.gz",
+      "size": 209040,
+      "sha256": "ee53cf0e7cba1d97cf70fc5c9da2838b24005dce91b3a2e5bde74420e209ea25",
+      "sha512": "ef56aecc7d8d5352382b0182e2edbd7c388ed341293194e6398583e6bbb29d80225a04039fbebc614c1019c188db8801c413c4c07d68a46270745f9dc5221ac2",
+      "lfsPointers": [],
+      "entries": 105,
+      "expandedBytes": 1828619,
+      "sourceSubtree": null,
+      "trackedCacheOrDependencyFixturePaths": []
+    },
+    {
+      "repository": "https://github.com/lucide-icons/lucide",
+      "revision": "dab294f313897bacaa968b725b3259fa37c17bd1",
+      "origin": "https://codeload.github.com/lucide-icons/lucide/tar.gz/dab294f313897bacaa968b725b3259fa37c17bd1",
+      "file": "archives/lucide-icons-lucide-dab294f313897bacaa968b725b3259fa37c17bd1-react-source.tar.gz",
+      "size": 697889,
+      "sha256": "2018f635351be70a1f90843a5514415c4dda6ba68a011496ccf2d2e439994a85",
+      "sha512": "42c5ff3d08c028deda7e5eb2b4edba3445f4dc9465ad2d016a4fced5ce5d657a79b8d7621f035d18980545253d3879d7e8f5fef9519f499d1b62a17161c32196",
+      "lfsPointers": [],
+      "entries": 4019,
+      "expandedBytes": 2804875,
+      "sourceSubtree": {
+        "scope": "React workspace and transitive workspace build inputs plus root files/icons/categories/scripts/release metadata",
+        "workspacePackages": [
+          "@lucide/build-icons",
+          "@lucide/helpers",
+          "@lucide/rollup-plugins",
+          "@lucide/shared",
+          "lucide-react"
+        ],
+        "retainedPrefixes": [
+          "packages/lucide-react",
+          "packages/shared",
+          "tools/build-helpers",
+          "tools/build-icons",
+          "tools/rollup-plugins",
+          "icons",
+          "categories",
+          "scripts",
+          ".github",
+          ".changeset"
+        ],
+        "excludedNonDirectories": 1705,
+        "originalProviderArchive": {
+          "size": 5551796,
+          "sha256": "8f5452bc89bf9d45095ee482f026818e99a35aafd239d9136b8ebcef9909c17a",
+          "sha512": "94c752b4e0a1effd2189c67fc7e30a904f47325faac8569cbbc5b3893a4d1ae49dd97f12edf4612a9d9d8e6981c5cadfdbce3cbdd259e3f55039060d07f1b6db"
+        }
+      },
+      "trackedCacheOrDependencyFixturePaths": []
+    },
+    {
+      "repository": "https://github.com/react/react",
+      "revision": "1d34f91dfde6bba84d08b683aaba164c7194dacb",
+      "origin": "https://codeload.github.com/react/react/tar.gz/1d34f91dfde6bba84d08b683aaba164c7194dacb",
+      "file": "archives/react-react-1d34f91dfde6bba84d08b683aaba164c7194dacb.tar.gz",
+      "size": 10252630,
+      "sha256": "ef34c2ad2fe4af769cdc8a067d827fbba8fde677d83f5befaa8a8cc5c3a8c6be",
+      "sha512": "d780d0384d5a9c6ebdcef91e5137d5a4f0c66345667bf5e3986f2d6e422e238181859c75a188ae8b3498d6f579a4f3afd66739e016f89608eb6b1be89a93a7b2",
+      "lfsPointers": [],
+      "entries": 7222,
+      "expandedBytes": 40531492,
+      "sourceSubtree": null,
+      "trackedCacheOrDependencyFixturePaths": []
+    },
+    {
+      "repository": "https://github.com/react/react",
+      "revision": "61aa00df822d0eb76d0362eb8b6fdd3527693efe",
+      "origin": "https://codeload.github.com/react/react/tar.gz/61aa00df822d0eb76d0362eb8b6fdd3527693efe",
+      "file": "archives/react-react-61aa00df822d0eb76d0362eb8b6fdd3527693efe.tar.gz",
+      "size": 10260909,
+      "sha256": "df6b860384f0be8bf6e3ca6ce970226c6be70be2f2cf1cb5ed0c7567b8e4dede",
+      "sha512": "80385353fdfef4e7903f5012b116e6b101081e531cb64eda8240890bcea8852e0c67e2137232fb59407f962f98cd46d637a6c5b4be7d9d9f051f3635fe7ecc9a",
+      "lfsPointers": [],
+      "entries": 7222,
+      "expandedBytes": 40584214,
+      "sourceSubtree": null,
+      "trackedCacheOrDependencyFixturePaths": []
+    },
+    {
+      "repository": "https://github.com/tauri-apps/plugins-workspace",
+      "revision": "44293a5722efcaf27060504e63b17aeba721b40f",
+      "origin": "https://codeload.github.com/tauri-apps/plugins-workspace/tar.gz/44293a5722efcaf27060504e63b17aeba721b40f",
+      "file": "archives/tauri-apps-plugins-workspace-44293a5722efcaf27060504e63b17aeba721b40f.tar.gz",
+      "size": 7241106,
+      "sha256": "d17273040fb2f507b4ae23c023037563ecaf73ef18915182665c196f28b560b8",
+      "sha512": "42116c6a931f4507ba433a92ba8446f521cc3936ca820653f0c627d3ee0f78cae737ec9812858fcd3ded4ddbfe057b673bd6a9f92c0e69350be35f500306085e",
+      "lfsPointers": [],
+      "entries": 1534,
+      "expandedBytes": 11352545,
+      "sourceSubtree": null,
+      "trackedCacheOrDependencyFixturePaths": []
+    },
+    {
+      "repository": "https://github.com/tauri-apps/tauri",
+      "revision": "59b63ab500da9859f12d8888c3298bc29bba0b92",
+      "origin": "https://codeload.github.com/tauri-apps/tauri/tar.gz/59b63ab500da9859f12d8888c3298bc29bba0b92",
+      "file": "archives/tauri-apps-tauri-59b63ab500da9859f12d8888c3298bc29bba0b92.tar.gz",
+      "size": 15789961,
+      "sha256": "aebd91e21c036a308ddc3be023deb9fe075706777fb06da9d173be3349beea56",
+      "sha512": "f39e53e3166f1a51300ea769f55abbfab6da7274edec4ea96fd0ce0cfba929bed60d811eefa1f654a14ce8f6a9bad18b8416c7656b70d640d9b31894c6bafd5d",
+      "lfsPointers": [],
+      "entries": 1097,
+      "expandedBytes": 22448985,
+      "sourceSubtree": null,
+      "trackedCacheOrDependencyFixturePaths": []
+    }
+  ],
+  "publishedDeclarations": {
+    "name": "@types/react",
+    "version": "19.3.0",
+    "file": "archives/types-react-19.3.0-original.tgz",
+    "size": 77822,
+    "sha256": "ffa77ffdbdc82e5f67a0fd74d750990375a7dfd8685ec7f10a27c0db128f7766",
+    "sha512": "374ac50ae1fd628c46f7f9bad65f4c7e924a7e62ce554d1e9bb8a9233e9346049292f45e2c1f6f2fce4607ecabf01b3995eaa9be0f7a252c05e194b5b38be242",
+    "declarations": [
+      {
+        "path": "react/canary.d.ts",
+        "size": 1143,
+        "sha256": "865a2612f5ec073dd48d454307ccabb04c48f8b96fda9940c5ebfe6b4b451f51"
+      },
+      {
+        "path": "react/compiler-runtime.d.ts",
+        "size": 116,
+        "sha256": "20fa37b636fdcc1746ea0738f733d0aed17890d1cd7cb1b2f37010222c23f13e"
+      },
+      {
+        "path": "react/experimental.d.ts",
+        "size": 7255,
+        "sha256": "2e07abf27aa06353d46f4448c0bbac73431f6065eef7113128a5cd804d0c384d"
+      },
+      {
+        "path": "react/global.d.ts",
+        "size": 7520,
+        "sha256": "7e29f41b158de217f94cb9676bf9cbd0cd9b5a46e1985141ed36e075c52bf6ad"
+      },
+      {
+        "path": "react/index.d.ts",
+        "size": 182820,
+        "sha256": "045c1b395851aa71ef76393398466330fe1eeebc113c8085eefc6d84abea3a88"
+      },
+      {
+        "path": "react/jsx-dev-runtime.d.ts",
+        "size": 740,
+        "sha256": "c30436b130b6218b7714314dc41d3f459590db4bdf099eecd51cb1bda32109a8"
+      },
+      {
+        "path": "react/jsx-runtime.d.ts",
+        "size": 532,
+        "sha256": "b838d4c72740eb0afd284bf7575b74c624b105eff2e8c7b4aeead57e7ac320ff"
+      },
+      {
+        "path": "react/ts5.0/canary.d.ts",
+        "size": 1143,
+        "sha256": "865a2612f5ec073dd48d454307ccabb04c48f8b96fda9940c5ebfe6b4b451f51"
+      },
+      {
+        "path": "react/ts5.0/experimental.d.ts",
+        "size": 7255,
+        "sha256": "2e07abf27aa06353d46f4448c0bbac73431f6065eef7113128a5cd804d0c384d"
+      },
+      {
+        "path": "react/ts5.0/global.d.ts",
+        "size": 7520,
+        "sha256": "7e29f41b158de217f94cb9676bf9cbd0cd9b5a46e1985141ed36e075c52bf6ad"
+      },
+      {
+        "path": "react/ts5.0/index.d.ts",
+        "size": 181793,
+        "sha256": "3219302a5e14b9ff32b1f2a5ac872741df7847e66726f88f80aa3b11d77ec090"
+      },
+      {
+        "path": "react/ts5.0/jsx-dev-runtime.d.ts",
+        "size": 740,
+        "sha256": "c30436b130b6218b7714314dc41d3f459590db4bdf099eecd51cb1bda32109a8"
+      },
+      {
+        "path": "react/ts5.0/jsx-runtime.d.ts",
+        "size": 532,
+        "sha256": "b838d4c72740eb0afd284bf7575b74c624b105eff2e8c7b4aeead57e7ac320ff"
+      }
+    ],
+    "repositoryRevision": null,
+    "reviewStatus": "pending"
+  },
+  "lucidePublishedSourceMapChecks": [
+    {
+      "map": "package/dist/esm/createLucideIcon.mjs.map",
+      "source": "packages/lucide-react/src/createLucideIcon.ts",
+      "sha256": "690c31b36e1fd358ce1d0e7b9e6975ed06b61324fbc746680c80dc018168a956",
+      "exactBytesMatch": true
+    },
+    {
+      "map": "package/dist/esm/shared/src/build/defaultAttributes.mjs.map",
+      "source": "packages/shared/src/build/defaultAttributes.ts",
+      "sha256": "46e83d93243859f2b5b29fcf6d6c58d378622fb587661b8e61a403b5db5a0afe",
+      "exactBytesMatch": true
+    },
+    {
+      "map": "package/dist/esm/DynamicIcon.mjs.map",
+      "source": "packages/lucide-react/src/DynamicIcon.ts",
+      "sha256": "b22dd98cdb4704fa51fe3ddd95f5862c817187e964dc1d51a346d2db4b84e058",
+      "exactBytesMatch": true
+    },
+    {
+      "map": "package/dist/esm/Icon.mjs.map",
+      "source": "packages/lucide-react/src/Icon.ts",
+      "sha256": "5043c425261353aa86cacf4e4593f7bbc064eea10a43b388fce3de111367e8cb",
+      "exactBytesMatch": true
+    }
+  ],
+  "reviewAsset": {
+    "status": "sourceInputsCollectedAndOuterBytesVerified",
+    "file": "MooMole-0.1.0-npm-source-inputs.tar.gz",
+    "size": 44726763,
+    "sha256": "a8e05e266d9d3733826d4321aac9d19f35423cce5592ec79607217d599b4a921",
+    "sha512": "81f365f7632bc97f0a479e8c23b3411f88ce6ce26819db68dc899b5c12fa622d65490d55052af299ff34e6fd18ff665eaf25b78a99d2c9f9ccddf406676ce49c",
+    "packages": 8,
+    "repositorySnapshots": 6,
+    "declarationFiles": 13,
+    "dependencyPacketSha512": "691044953819827f967af1a1d2ae110efa04789f5a9d1e8f79a22d64481125d4439b2d94a3207b6677aee3c35097416e9e372887c079bebbc3ab782eecf0ed2a",
+    "preferredSourceReview": "pending",
+    "licenseReview": "pending",
+    "releaseAcceptance": "pending"
+  },
+  "dependencyPacketBinding": {
+    "file": "MooMole-0.1.0-mac-arm64-dependencies.tar.gz",
+    "size": 78378484,
+    "sha512": "691044953819827f967af1a1d2ae110efa04789f5a9d1e8f79a22d64481125d4439b2d94a3207b6677aee3c35097416e9e372887c079bebbc3ab782eecf0ed2a",
+    "source": {
+      "revision": "362018d7e05d5af27a2b9cf5bd1fd833d21d7bd7",
+      "dirty": false
+    },
+    "binaryBinding": {
+      "reportSha512": "f6b07c73d5369c490934314bf811896c49578de10113331738b1e3d7d8aa17bab2bdffafc35329364a78ed23e70029764a6311fbddcb79b5f4dafaba11a1cec0",
+      "sourceRevision": "362018d7e05d5af27a2b9cf5bd1fd833d21d7bd7",
+      "architecture": "arm64",
+      "noticesSha256": "bd8a2f7c807b083c2214e17f555c3b7dc326315af42d0976b779cbb472cf07f5",
+      "archive": {
+        "file": "MooMole-0.1.0-mac-arm64.app.zip",
+        "size": 13473511,
+        "sha512": "a4b0669ffb313960246c4f917d4de7df22044979e0e0448ca0aa64b0f061f5b48ccee7e43de038cd85f693ba7589aacd052b259135da7ab0acd23814a8362d8c"
+      }
+    }
+  },
+  "preferredSourceReview": "pending",
+  "buildReproduction": "pending",
+  "licenseReview": "pending",
+  "releaseAcceptance": "pending"
+}
