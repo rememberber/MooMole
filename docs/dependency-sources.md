@@ -8,6 +8,9 @@
 npm run source:dependencies -- --output local-artifacts/dependency-review
 # 第一次准备标准库源码缓存后可离线复验
 npm run source:dependencies -- --offline --output local-artifacts/dependency-offline
+# 可选：将依赖归档绑定到同一干净提交构建的实际 App ZIP
+npm run source:dependencies -- --offline --output local-artifacts/dependency-bound \
+  --app-report local-artifacts/MATCHING-APP/validation.json
 npm run test:dependency-sources
 # 可选发布审计工具，需要 Python 3.9+；运行 App 和正常构建不需要 Python
 npm run test:rust-source
@@ -32,11 +35,13 @@ Go h1 校验只读取 ZIP，不解包或执行。链接/特殊类型、越界/�
 
 生成时与许可清单核对集合：应用和固定 Mole 自身另由 Git 源码归档提供，其余依赖不能遗漏、重复或错配算法/来源。package/锁文件、Cargo 配置、Tauri 配置、引擎和许可清单在收集及封装前后核对摘要，变化则撤回本次输出。外层归档会重新解包，对照完整文件集合与逐份摘要，再记录最终包的大小/SHA-512。已有目录不覆盖。
 
-此包记录当前工作区来源与 dirty 状态，当前没有自动 App 报告绑定；正式发行还须核对同一冻结提交、架构、引擎、许可摘要和源码资产。不会自动上传、创建 Release 或修改更新清单，也不需要付费 Apple 证书。
+此包记录当前工作区来源与 dirty 状态。默认 `binaryBinding=null`；指定 `--app-report` 时要求当前来源和 App 均为同一干净提交、release 构建、相同产品/版本/架构/引擎版本及提交，随包许可文本摘要与依赖数量也须一致。报告限 1 MiB，报告和实际 ZIP 必须为单链接普通文件，ZIP 固定文件名、大小不超过 128 MiB；核对实际字节/SHA-512，封装结束再次读取并确认绑定不变，源提交/工作区状态变化也撤回输出。已有目录保持，不因失败覆盖旧材料。
+
+DEPENDENCIES.json 和外部 validation.json 均记录报告 SHA-512、实际 ZIP 名称/大小/SHA-512、源码提交、架构及许可摘要，不保存本机路径；这证明所声明资产的对应关系，不证明报告发布者身份、首选修改源码完整或许可证兼容性。正式发行仍须核对客户端/Mole 源码资产、依赖归档及完整发行审阅。不会自动上传、创建 Release 或修改更新清单，也不需要付费 Apple 证书。
 
 ## 当前证据与剩余工作
 
-5 组测试通过：Cargo 锁格式/来源/重复校验，逐字节复制与外层解包，篡改/遗漏/错标/错误来源和路径拒绝，旧目录保留与 Go 证明绑定，以及真实 Go 校验器的两个独立测试。Go 用固定预期向量验证排序/UTF-8 和错 hash，拒绝重复及越界路径。Linux 跳过需 Go 工具链的原生组，macOS CI 在已有工具链后执行全部组；没有把这些夹具当作公开依赖来源。
+8 组测试通过：原 5 组覆盖 Cargo 锁格式/来源/重复校验、逐字节复制与外层解包、篡改/遗漏/错标/错误来源和路径拒绝、旧目录保留与 Go 证明绑定，以及真实 Go 校验器的两个独立测试。新增 3 组验证实际字节绑定的双清单/无本机路径、20 类 App 来源/产品/版本/架构/引擎/许可/数量/归档或文件类型错误拒绝，以及收集过程中 App 字节被改写时撤回输出。测试内 App 字节是独立夹具，不声称它是可执行 App。Go 用固定预期向量验证排序/UTF-8 和错 hash，拒绝重复及越界路径。Linux 跳过需 Go 工具链的原生组，macOS CI 在已有工具链后执行全部组；没有把这些夹具当作公开依赖来源。
 
 本机实际复验产物 `local-artifacts/MooMole-dependencies-137-final/`：326 项（Cargo 294、npm 8、Go 22、标准库源码 2），归档 78,378,054 字节，外层及全部内层核对通过。首次获取官方源码后，最终调用使用 --offline。来源为 `7a9b774` 加本阶段工作区、dirty=true；资料被 Git 忽略，未公开发布，没有运行 App 或处理个人文件。
 

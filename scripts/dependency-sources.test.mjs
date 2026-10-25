@@ -2,10 +2,23 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { cargoChecksums, writeDependencyPacket } from './dependency-sources.mjs'
+import {
+  cargoChecksums,
+  dependencyAppBinding,
+  writeDependencyPacket,
+} from './dependency-sources.mjs'
 import { toolchainEnv } from './env.mjs'
 
 const digest = (bytes, algorithm = 'sha256', encoding = 'hex') =>
@@ -24,6 +37,8 @@ function fixture(t) {
       version: '0.1.0',
       arch: 'arm64',
       engineRevision: 'a'.repeat(40),
+      engineVersion: '1.59.1',
+      noticesSha256: 'c'.repeat(64),
       expectedIds: ['cargo:example@1.0.0', 'npm:example@1.0.0'],
       source: { revision: 'b'.repeat(40), dirty: false },
     },
@@ -50,6 +65,30 @@ function fixture(t) {
     ],
   }
 }
+function appFixture(f) {
+  const file = `MooMole-${f.metadata.version}-mac-${f.metadata.arch}.app.zip`,
+    bytes = Buffer.from('owned app archive fixture')
+  const report = {
+    schemaVersion: 1,
+    profile: 'release',
+    identifier: 'io.github.rememberber.moomole',
+    source: { ...f.metadata.source },
+    version: f.metadata.version,
+    architecture: f.metadata.arch,
+    engineRevision: f.metadata.engineRevision,
+    engineVersion: f.metadata.engineVersion,
+    dependencyMaterials: {
+      noticesSha256: f.metadata.noticesSha256,
+      packages: f.metadata.expectedIds.length + 2,
+    },
+    archive: { file, size: bytes.length, sha512: digest(bytes, 'sha512'), sha512Encoding: 'hex' },
+  }
+  f.appReport = join(f.root, 'app-validation.json')
+  const archive = join(f.root, file)
+  writeFileSync(archive, bytes)
+  writeFileSync(f.appReport, JSON.stringify(report))
+  return { report, archive }
+}
 test('registry checksums are unique and literal; ambiguous, private or unsupported lock sources are refused', () => {
   const source = 'registry+https://github.com/rust-lang/crates.io-index'
   const entry = `[[package]]\nname = "example"\nversion = "1.0.0"\nsource = "${source}"\nchecksum = "${'a'.repeat(64)}"\n`
@@ -70,11 +109,106 @@ test('published artifacts are copied byte-for-byte, mapped to the complete inven
     result = writeDependencyPacket(f)
   assert.equal(result.report.records, 2)
   assert.equal(result.manifest.preferredSourceReview, 'pending')
+  assert.equal(result.manifest.binaryBinding, null)
   assert.ok(!JSON.stringify(result.manifest).includes(f.root))
   const file = join(f.output, result.report.file),
     bytes = readFileSync(file)
   assert.equal(digest(bytes, 'sha512'), result.report.sha512)
   assert.equal(bytes.length, result.report.size)
+})
+test('optional binding records the matching clean App bytes and notices in both manifests without local paths', (t) => {
+  const f = fixture(t),
+    { archive } = appFixture(f),
+    result = writeDependencyPacket(f)
+  assert.equal(result.manifest.binaryBinding.sourceRevision, f.metadata.source.revision)
+  assert.equal(
+    result.manifest.binaryBinding.archive.sha512,
+    digest(readFileSync(archive), 'sha512'),
+  )
+  assert.equal(result.manifest.binaryBinding.noticesSha256, f.metadata.noticesSha256)
+  assert.deepEqual(result.report.binaryBinding, result.manifest.binaryBinding)
+  assert.equal(result.report.reviewStatus, 'pending')
+  assert.ok(!JSON.stringify(result).includes(f.root))
+})
+test('dirty, mismatched, unsafe, oversized or changed App inputs cannot produce a bound packet', (t) => {
+  for (const kind of [
+    'dirtySource',
+    'dirtyApp',
+    'revision',
+    'version',
+    'arch',
+    'engine',
+    'engineVersion',
+    'notices',
+    'packages',
+    'product',
+    'profile',
+    'filename',
+    'size',
+    'digest',
+    'missing',
+    'archiveLink',
+    'archiveHardlink',
+    'reportLink',
+    'reportHardlink',
+    'oversized',
+  ]) {
+    const f = fixture(t),
+      { report, archive } = appFixture(f)
+    if (kind === 'dirtySource') f.metadata.source.dirty = true
+    if (kind === 'dirtyApp') report.source.dirty = true
+    if (kind === 'revision') report.source.revision = 'd'.repeat(40)
+    if (kind === 'version') report.version = '9.0.0'
+    if (kind === 'arch') report.architecture = 'x64'
+    if (kind === 'engine') report.engineRevision = 'd'.repeat(40)
+    if (kind === 'engineVersion') report.engineVersion = '9.0.0'
+    if (kind === 'notices') report.dependencyMaterials.noticesSha256 = 'd'.repeat(64)
+    if (kind === 'packages') report.dependencyMaterials.packages++
+    if (kind === 'product') report.identifier = 'another.product'
+    if (kind === 'profile') report.profile = 'debug'
+    if (kind === 'filename') report.archive.file = '../escape.zip'
+    if (kind === 'size') report.archive.size++
+    if (kind === 'digest') writeFileSync(archive, Buffer.alloc(report.archive.size))
+    if (kind === 'missing') rmSync(archive)
+    if (kind === 'archiveLink') {
+      const saved = join(f.root, 'saved')
+      writeFileSync(saved, readFileSync(archive))
+      rmSync(archive)
+      symlinkSync(saved, archive)
+    }
+    if (kind === 'archiveHardlink') linkSync(archive, join(f.root, 'linked'))
+    writeFileSync(f.appReport, JSON.stringify(report))
+    if (kind === 'reportLink') {
+      const saved = join(f.root, 'saved-report')
+      writeFileSync(saved, readFileSync(f.appReport))
+      rmSync(f.appReport)
+      symlinkSync(saved, f.appReport)
+    }
+    if (kind === 'reportHardlink') linkSync(f.appReport, join(f.root, 'linked-report'))
+    if (kind === 'oversized') writeFileSync(f.appReport, Buffer.alloc(1024 ** 2 + 1))
+    assert.throws(() => writeDependencyPacket(f), undefined, kind)
+    assert.equal(existsSync(f.output), false, kind)
+  }
+})
+test('App bytes changed during dependency collection withdraw the complete output', (t) => {
+  const f = fixture(t),
+    { archive } = appFixture(f)
+  f.inputs[0] = {
+    ...f.inputs[0],
+    id: 'go:example.invalid/module@v1.0.0',
+    kind: 'go-published-module',
+    module: 'example.invalid/module@v1.0.0',
+    origin: 'https://proxy.golang.org/example.invalid/module/@v/v1.0.0.zip',
+    verification: { algorithm: 'go-h1', value: 'h1:fixture' },
+  }
+  f.metadata.expectedIds[0] = f.inputs[0].id
+  f.verifyGo = () => {
+    writeFileSync(archive, Buffer.alloc(readFileSync(archive).length))
+    return { version: 1, sum: 'h1:fixture', files: 1, bytes: 4 }
+  }
+  assert.throws(() => writeDependencyPacket(f), /App archive digest/)
+  assert.equal(existsSync(f.output), false)
+  assert.equal(dependencyAppBinding(null, f.metadata), null)
 })
 test('source tampering, incomplete inventory and unsafe output filenames never leave a successful packet', (t) => {
   for (const kind of ['cargo', 'npm', 'missing', 'duplicate', 'filename', 'kind', 'origin']) {

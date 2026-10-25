@@ -90,7 +90,65 @@ function authentic(bytes, verification) {
       throw Error('Published npm integrity mismatch')
   } else if (verification.algorithm !== 'go-h1') throw Error('Unsupported source verification')
 }
-export function writeDependencyPacket({ output, metadata, inputs, verifyGo }) {
+export function dependencyAppBinding(reportPath, metadata) {
+  if (!reportPath) return null
+  const reportMeta = lstatSync(reportPath)
+  if (
+    !reportMeta.isFile() ||
+    reportMeta.isSymbolicLink() ||
+    reportMeta.nlink !== 1 ||
+    reportMeta.size > 1024 ** 2
+  )
+    throw Error('App report is not a bounded private regular file')
+  const bytes = readArchive(reportPath),
+    report = JSON.parse(bytes)
+  if (
+    report.schemaVersion !== 1 ||
+    report.profile !== 'release' ||
+    report.identifier !== 'io.github.rememberber.moomole' ||
+    metadata.source?.dirty !== false ||
+    report.source?.dirty !== false ||
+    !/^[a-f0-9]{40}$/.test(metadata.source?.revision ?? '') ||
+    report.source?.revision !== metadata.source.revision ||
+    report.version !== metadata.version ||
+    report.architecture !== metadata.arch ||
+    report.engineRevision !== metadata.engineRevision ||
+    !validVersion(metadata.engineVersion) ||
+    report.engineVersion !== metadata.engineVersion ||
+    !/^[a-f0-9]{64}$/.test(metadata.noticesSha256 ?? '') ||
+    report.dependencyMaterials?.noticesSha256 !== metadata.noticesSha256 ||
+    report.dependencyMaterials?.packages !== metadata.expectedIds.length + 2
+  )
+    throw Error(
+      'App report does not match clean source, engine, architecture or dependency notices',
+    )
+  const archive = report.archive
+  if (
+    archive?.file !== `MooMole-${metadata.version}-mac-${metadata.arch}.app.zip` ||
+    archive.sha512Encoding !== 'hex' ||
+    !Number.isSafeInteger(archive.size) ||
+    archive.size <= 0 ||
+    archive.size > limit ||
+    !/^[a-f0-9]{128}$/.test(archive.sha512 ?? '')
+  )
+    throw Error('App archive metadata is invalid')
+  const archivePath = join(dirname(resolve(reportPath)), archive.file),
+    meta = lstatSync(archivePath)
+  if (!meta.isFile() || meta.isSymbolicLink() || meta.nlink !== 1 || meta.size !== archive.size)
+    throw Error('App archive is missing or changed')
+  const actual = readArchive(archivePath)
+  if (sha(actual, 'sha512') !== archive.sha512)
+    throw Error('App archive digest does not match report')
+  return {
+    reportSha512: sha(bytes, 'sha512'),
+    sourceRevision: metadata.source.revision,
+    architecture: metadata.arch,
+    noticesSha256: metadata.noticesSha256,
+    archive: { file: archive.file, size: actual.length, sha512: archive.sha512 },
+  }
+}
+
+export function writeDependencyPacket({ output, metadata, inputs, verifyGo, appReport }) {
   if (
     !validVersion(metadata.version) ||
     !['arm64', 'x64'].includes(metadata.arch) ||
@@ -101,6 +159,7 @@ export function writeDependencyPacket({ output, metadata, inputs, verifyGo }) {
     throw Error('Invalid dependency packet metadata')
   mkdirSync(output, { mode: 0o700 })
   try {
+    const binaryBinding = dependencyAppBinding(appReport, metadata)
     const work = mkdtempSync(join(output, '.packet-')),
       prefix = `MooMole-${metadata.version}-mac-${metadata.arch}-dependencies`
     if (!/^[\w.+-]+$/.test(prefix)) throw Error('Invalid dependency packet name')
@@ -183,6 +242,7 @@ export function writeDependencyPacket({ output, metadata, inputs, verifyGo }) {
     records.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     const manifest = {
       ...metadata,
+      binaryBinding,
       schemaVersion: 1,
       purpose: 'moomole-dependency-artifacts',
       records,
@@ -220,6 +280,8 @@ export function writeDependencyPacket({ output, metadata, inputs, verifyGo }) {
       if (d.size !== r.size || d.sha512 !== r.sha512)
         throw Error('Dependency archive did not preserve source bytes')
     }
+    if (JSON.stringify(dependencyAppBinding(appReport, metadata)) !== JSON.stringify(binaryBinding))
+      throw Error('App binding changed while packaging sources')
     const report = {
       schemaVersion: 1,
       status: 'verified',
@@ -228,6 +290,7 @@ export function writeDependencyPacket({ output, metadata, inputs, verifyGo }) {
       sha512Encoding: 'hex',
       records: records.length,
       source: metadata.source,
+      binaryBinding,
       reviewStatus: 'pending',
     }
     writeFileSync(join(output, 'validation.json'), JSON.stringify(report, null, 2) + '\n', {
@@ -319,7 +382,7 @@ function rustSourceDescriptor(text, version) {
     file: `rust-src-${version}.tar.xz`,
   }
 }
-export async function prepareDependencySources(root, output, offline = false) {
+export async function prepareDependencySources(root, output, offline = false, appReport) {
   const version = checkVersion(root),
     env = { ...toolchainEnv(), GOFLAGS: '', GOTOOLCHAIN: 'local' },
     book = prepareNotices(root, offline),
@@ -545,16 +608,18 @@ export async function prepareDependencySources(root, output, offline = false) {
     })
     if (!unchanged()) throw Error('Build inputs changed while collecting sources')
     verifyPrepared(join(root, 'src-tauri/resources/mole'))
-    const source = {
+    const sourceState = () => ({
       revision: run('git', ['rev-parse', 'HEAD'], root, env),
       dirty: !!run('git', ['status', '--porcelain', '--untracked-files=normal'], root, env),
-    }
+    })
+    const source = sourceState()
     const result = writeDependencyPacket({
       output,
       metadata: {
         version,
         arch: engine.arch,
         engineRevision: engine.revision,
+        engineVersion: engine.version,
         source,
         inputSha256: initial,
         noticesSha256: book.notices.sha256,
@@ -565,10 +630,11 @@ export async function prepareDependencySources(root, output, offline = false) {
         standardLibraryDependencyClosure: 'pending',
       },
       inputs,
+      appReport,
       verifyGo: (file, module, sum) =>
         JSON.parse(run(helper, ['-zip', file, '-module', module, '-sum', sum], root, env)),
     })
-    if (!unchanged()) {
+    if (!unchanged() || JSON.stringify(sourceState()) !== JSON.stringify(source)) {
       rmSync(output, { recursive: true })
       throw Error('Build inputs changed while packaging sources')
     }
@@ -581,13 +647,23 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const args = process.argv.slice(2)
     let output,
+      appReport,
       offline = false
     for (let i = 0; i < args.length; i++) {
       if (args[i] === '--offline' && !offline) offline = true
       else if (args[i] === '--output' && !output && args[i + 1] && !args[i + 1].startsWith('--'))
         output = resolve(args[++i])
+      else if (
+        args[i] === '--app-report' &&
+        !appReport &&
+        args[i + 1] &&
+        !args[i + 1].startsWith('--')
+      )
+        appReport = resolve(args[++i])
       else
-        throw Error('Usage: node scripts/dependency-sources.mjs --output NEW_DIRECTORY [--offline]')
+        throw Error(
+          'Usage: node scripts/dependency-sources.mjs --output NEW_DIRECTORY [--offline] [--app-report validation.json]',
+        )
     }
     if (!output) throw Error('A fresh output directory is required')
     if (lstatSync(output, { throwIfNoEntry: false })) throw Error('Output directory already exists')
@@ -595,6 +671,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       resolve(dirname(fileURLToPath(import.meta.url)), '..'),
       output,
       offline,
+      appReport,
     )
     console.log(
       `Verified ${result.report.records} published dependency artifacts. Preferred-source and complete release review remain pending.`,
