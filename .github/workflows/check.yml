@@ -69,6 +69,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     needs: frontend
+    env:
+      # Independent filesystem scenarios must not consume one another's short
+      # observation lifetimes. Deliberate concurrency stays inside each test.
+      RUST_TEST_THREADS: '1'
     strategy:
       fail-fast: false
       matrix:

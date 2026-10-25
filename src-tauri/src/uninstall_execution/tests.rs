@@ -148,7 +148,7 @@ fn single_app_execution_commits_intent_then_actual_receipt_and_does_not_touch_ex
     }));
     let detail = t.run(&mut b).unwrap();
     assert_eq!(detail.summary.id, t.id);
-    assert_eq!(detail.summary.item_state, "moved");
+    assert_eq!(detail.summary.item_state, "moved", "{detail:?}");
     assert_eq!(detail.summary.state, "completed");
     assert_eq!(
         detail
@@ -285,7 +285,8 @@ fn late_cancel_preserves_actual_move_or_uncertain_outcome_and_receipt() {
         let detail = t.run(&mut b).unwrap();
         assert_eq!(
             detail.summary.item_state,
-            if uncertain { "uncertain" } else { "moved" }
+            if uncertain { "uncertain" } else { "moved" },
+            "{detail:?}"
         );
         assert_eq!(b.calls, 1);
         assert!(detail.receipt.is_some());
@@ -303,7 +304,8 @@ fn intent_and_result_storage_failures_never_advance_without_evidence_or_replay()
             "CREATE TRIGGER injected BEFORE UPDATE ON uninstall_runs WHEN NEW.item_state='moved' BEGIN SELECT RAISE(ABORT,'injected'); END;"
         };
         t.db.lock().unwrap().execute_batch(sql).unwrap();
-        assert!(t.run(&mut b).is_err());
+        let result = t.run(&mut b);
+        assert!(result.is_err(), "{phase}: {result:?}");
         let detail = t.record();
         if phase == "intent" {
             assert_eq!(detail.summary.item_state, "notStarted");
@@ -332,7 +334,8 @@ fn worker_faults_collect_only_after_native_work_is_terminal_and_never_rewrite_co
             }
             Ok(())
         }));
-        assert!(t.run(&mut b).is_err());
+        let result = t.run(&mut b);
+        assert!(result.is_err(), "{result:?}");
         let detail = t.record();
         let expected = match phase {
             Phase::Begun => "notStarted",
@@ -396,7 +399,7 @@ fn latest_context_is_reacquired_before_preparation_intent_and_native_call() {
         &mut b,
     )
     .unwrap();
-    assert_eq!(detail.summary.item_state, "moved");
+    assert_eq!(detail.summary.item_state, "moved", "{detail:?}");
     assert!(counter.load(Ordering::SeqCst) >= 4);
 }
 
