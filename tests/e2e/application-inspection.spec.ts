@@ -22,6 +22,9 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
     ).__TAURI_INTERNALS__
     const previous = internal.invoke
     internal.invoke = async (command, args) => {
+      const commandCalls = JSON.parse(sessionStorage.getItem('inspection-command-calls') ?? '[]')
+      commandCalls.push(command)
+      sessionStorage.setItem('inspection-command-calls', JSON.stringify(commandCalls))
       if (command === 'plugin:dialog|open') return '/Applications'
       if (command === 'save_settings') {
         sessionStorage.setItem('inspection-settings', JSON.stringify(args?.settings))
@@ -1212,7 +1215,25 @@ test('opening details checks only the chosen task entry and distinguishes runnin
   await expect(inspection.getByRole('status')).toHaveText('运行状态无法确认')
   await expect(inspection).toContainText('本地应用标识与 Mole 清单不同')
   await expect(inspection).not.toContainText('主应用 PID')
-  await expect(library.getByRole('button', { name: /退出应用|卸载|删除/ })).toHaveCount(0)
+  await expect(inspection.getByRole('button', { name: /退出应用|卸载|删除/ })).toHaveCount(0)
+  await expect(library.getByRole('button', { name: '卸载…', exact: true })).toHaveCount(5)
+  const commandCalls: string[] = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('inspection-command-calls') ?? '[]'),
+  )
+  const readOnlyCommands = new Set([
+    'bootstrap',
+    'start_task',
+    'get_task_snapshot',
+    'get_history',
+    'list_review_plans',
+    'list_executions',
+    'list_application_uninstalls',
+    'list_quicklook_refreshes',
+    'plugin:event|listen',
+    'application_icon',
+    'inspect_application',
+  ])
+  expect(commandCalls.filter((command) => !readOnlyCommands.has(command))).toEqual([])
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)

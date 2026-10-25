@@ -16,7 +16,9 @@
 
 部分发布包没有正文，另有包仅含 SPDX 元数据。缺失补充见 [来源清单](../third-party/license-supplements.json)，按精确版本、crate VCS 或 npm integrity 绑定，文件逐份 SHA-256 固定；依赖变化或材料损坏须重新核对，构建不临时抓取不明新文本。该目录的 Git 属性保留原始字节和空白，不对上游正文作换行或格式化处理。
 
-目前 18 个补充项使用 11 份文件，其中 14 项仍需核查：包括上游政策、许可声明及上下文和标准文本引用。原文中的占位符保持原样，不替包作者编造年份/版权人；原包声明作者单独保留。典型来源包括 [objc2 固定提交政策](https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md)、[Tauri 固定提交许可](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/LICENSE-MIT) 和 [Mozilla MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)。它们不会被标成已完成完整署名或对应源码审阅。
+目前 18 个补充项使用 11 份文件，其中 13 项仍需核查：包括上游政策、许可声明及上下文和标准文本引用。原文中的占位符保持原样，不替包作者编造年份/版权人；原包声明作者单独保留。典型来源包括 [objc2 固定提交政策](https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md) 和 [Mozilla MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)。它们不会被标成已完成完整署名或对应源码审阅。
+
+2026-10-25 阶段 154 已核对 `@tauri-apps/api@2.12.4` 的补充正文来源：原 npm 发布证明将相同 integrity 绑定到 `59b63ab500da9859f12d8888c3298bc29bba0b92`，固定提交下 `packages/api/package.json` 的名称、版本和许可声明匹配；[API 自身 MIT](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/packages/api/LICENSE-MIT) 与 [Apache-2.0 正文](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/packages/api/LICENSE-APACHE-2.0) 分别为 1,090 和 10,174 字节，与原补充 SHA-256 完全一致。因此来源改为包自身的固定提交文件，撤下这一项来源关联核查；原正文、integrity 和其余 13 项标记保持。该收口不代表整体许可证组合、署名或对应源码审阅完成。
 
 ## 构建与包内查看
 
@@ -44,6 +46,8 @@ Tauri 的 build/dev 包装入口会先准备材料；直接调用 Cargo 前应�
 6 组隔离测试覆盖范围/去重/原文保留和本机路径省略，缺失或链接材料拒绝，补充绑定/摘要及政策核查标记，npm 漂移、Go 替换/校验/标准库不符，内部材料变化与未知输出保护。原 App/DMG 的 7 组测试及源码归档 4 组回归也通过；夹具不作为真实许可正文。
 
 真实最终 arm64 构建 `local-artifacts/MooMole-0.1.0-mac-arm64-kj8QLX/` 通过 ad-hoc、嵌套及 ZIP 解压核对：328 条记录、244 份去重材料、文本 2,500,674 字节、14 项政策/参考核查标记；App 约 35.26 MiB。构建来源为 `feedfad` 加本阶段工作区，dirty=true，不冒称冻结发行提交；没有启动 App 或改变用户数据库。
+
+阶段 154 的离线准备仍为 328 条记录、244 份去重材料，改为 13 项核查；文本 2,500,707 字节，SHA-256 为 `d03aaa9f4116b0588babfdb2b0e706aaa447cf895ef6d86accecc98954948360`，整体 `reviewStatus=pending`。6 组材料测试通过。仅更新构建输入，未替换已安装 App；上述历史构建的 14 项及旧摘要不改写。
 
 完整 npm/Rust/Go 及相关嵌入代码的源码供应、未捕获的文件级声明/例外、许可证组合、品牌和发布材料仍须审阅；本工具不自动选择 OR 分支或给出法律结论。三条真实执行、安装升级、干净机器与最终发布验收也保持原门槛，见 [发布路线图](release-roadmap.md)。
 

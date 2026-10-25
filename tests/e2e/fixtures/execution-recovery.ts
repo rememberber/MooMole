@@ -47,7 +47,15 @@ export async function installRecoveryMock(
             const calls = JSON.parse(sessionStorage.getItem('recovery-calls') ?? '[]')
             sessionStorage.setItem('recovery-calls', JSON.stringify([...calls, command]))
             if (command === 'bootstrap') return { ...initial, executions: current() }
-            if (command === 'get_history' || command === 'list_review_plans') return []
+            if (
+              [
+                'get_history',
+                'list_review_plans',
+                'list_application_uninstalls',
+                'list_quicklook_refreshes',
+              ].includes(command)
+            )
+              return []
             if (command === 'list_executions') {
               if (sessionStorage.getItem('recovery-list-error'))
                 throw new Error('fixture 执行记录暂不可读')
