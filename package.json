@@ -24,6 +24,7 @@
     "build:local-app": "node scripts/build-local-app.mjs",
     "build:local-dmg": "node scripts/build-local-app.mjs --dmg",
     "test:app-artifact": "node --test scripts/app-artifact.test.mjs",
+    "test:candidate": "node --test scripts/candidate-artifacts.test.mjs",
     "source:bundle": "node scripts/source-bundle.mjs",
     "test:source": "node --test scripts/source-bundle.test.mjs",
     "notices:prepare": "node scripts/dependency-notices.mjs",

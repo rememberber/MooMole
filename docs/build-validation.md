@@ -70,6 +70,8 @@ git diff
 
 后续已增加 [本地优化 App/DMG/免费签名验收](local-app-build.md) 的独立入口；CI 的前端/原生 job 已加入产物测试，Linux 跳过仅 macOS 可运行的签名/DMG fixture。CI 当前仍保存 debug 包，没有自动调用本地优化产物入口或公开发布。
 
+阶段 156 新增独立 [候选安装包构建](candidate-build.md)：以 `workflow_call` 复用同一提交的 Checks，通过后再在干净双架构 runner 调用既有优化 DMG 配方，绑定源码/依赖并只保存候选 artifact。默认提交检查仍只保存 debug 包；候选流程的新增原生结果须以实际运行验证，不根据 YAML 或夹具标记为通过。复用方式见 [GitHub 官方文档](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)。
+
 
 ## 浏览器测试服务隔离
 

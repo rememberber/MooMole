@@ -6,6 +6,7 @@ on:
     branches: [main, master, dev]
     tags: ['v*']
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -47,6 +48,7 @@ jobs:
       - run: npm run test:projects
       - run: npm run test:installers
       - run: npm run test:app-artifact
+      - run: npm run test:candidate
       - run: npm run test:source
       - run: npm run test:notices
       - run: npm run test:dependency-sources
