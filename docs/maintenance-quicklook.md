@@ -44,4 +44,4 @@
 
 实际 App 由用户确认后的正常返回、历史与正常重启已另行核对，详见 [桌面执行证据](maintenance-execution.md)。这些不代替完整取消/中断/重建和发布验收。共用目标见 [首发执行门槛](first-release-execution.md)，其余偏好路线限制见 [维护边界](system-maintenance.md)。
 
-2026-10-25：实际挂起 Apple 生成器子进程时复现提前收集，定位为 Darwin waitid 的非终态事件：仅凭 si_pid 误把 CLD_STOPPED 当退出。维护与共用进程监督现按 PID 和真正终止 si_code 共同判断，原生回归验证停止命令不会在期限前被收集；真实停止/恢复子进程也可正常成功。没有增加生产延迟或通用参数，实机取消修正版仍须单独核对。详情见 [进程事件修正](process-lifecycle.md#darwin-的非终态-waitid-事件2026-10-25)。
+2026-10-25：实际挂起 Apple 生成器子进程时复现提前收集，定位为 Darwin waitid 的非终态事件：仅凭 si_pid 误把 CLD_STOPPED 当退出。维护与共用进程监督现按 PID 和真正终止 si_code 共同判断，原生回归验证停止命令不会在期限前被收集；真实停止/恢复子进程也可正常成功。没有增加生产延迟或通用参数。修正版实际 App 对同一受控挂起的真实生成器子进程保留取消入口，点击后记录 uncertain/stop=cancelled 并回收，核查及重启保留原未知；普通启动后退出/实际超时及其余矩阵仍待验收。详情见 [进程事件修正](process-lifecycle.md#darwin-的非终态-waitid-事件2026-10-25)。
