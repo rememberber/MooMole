@@ -16,7 +16,8 @@ export function mount(mode = 'normal') {
     id = refreshRequest,
     active = false,
     resolve: ((v: unknown) => void) | null = null,
-    release: ((v: unknown) => void) | null = null
+    release: ((v: unknown) => void) | null = null,
+    rejectCancel: ((e: Error) => void) | null = null
   const calls: { command: string; id?: string }[] = []
   let changed = () => {}
   function finish(state = 'completed') {
@@ -40,8 +41,8 @@ export function mount(mode = 'normal') {
     execute: async (_draft, request) => {
       id = request
       calls.push({ command: 'execute', id })
-      active = true
-      record = refreshDetailRaw(id, 'running')
+      active = mode !== 'admission'
+      record = active ? refreshDetailRaw(id, 'running') : null
       changed()
       if (mode === 'normal') {
         finish()
@@ -54,6 +55,12 @@ export function mount(mode = 'normal') {
     list: async () => (record ? [record] : []),
     cancel: async (request) => {
       calls.push({ command: 'cancel', id: request })
+      if (mode === 'cancel-error') throw new Error('取消响应暂时不可用')
+      if (mode === 'admission' && !active) throw new Error('此维护任务已结束，请读取实际结果。')
+      if (mode === 'late-cancel-error')
+        return new Promise<void>((_, reject) => {
+          rejectCancel = reject
+        })
       finish('cancelled')
     },
     acknowledge: async (value) => {
@@ -67,6 +74,15 @@ export function mount(mode = 'normal') {
     refreshFixture: {
       calls,
       finish,
+      admit: () => {
+        active = true
+        record = refreshDetailRaw(id, 'running')
+        changed()
+      },
+      rejectCancel: () => {
+        rejectCancel?.(new Error('此维护任务已结束，请读取实际结果。'))
+        rejectCancel = null
+      },
       release: () => {
         release?.(draftRaw())
         release = null
@@ -104,6 +120,8 @@ declare global {
     refreshFixture: {
       calls: { command: string; id?: string }[]
       finish: (state?: string) => void
+      admit: () => void
+      rejectCancel: () => void
       release: () => void
     }
   }

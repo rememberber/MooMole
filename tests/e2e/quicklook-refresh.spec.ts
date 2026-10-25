@@ -75,6 +75,98 @@ test('in-flight close retains the worker and exact cancellation preserves first 
     calls.find((c) => c.command === 'execute')?.id,
   )
 })
+test('cancellation is unavailable before admission and then targets only the observed request', async ({
+  page,
+}) => {
+  await mount(page, 'admission')
+  const d = await prepare(page)
+  await d.getByLabel('我已了解预览影响、缓存重建及无法撤销的边界。').check()
+  await d.getByRole('button', { name: '开始刷新', exact: true }).click()
+  const result = page.getByRole('dialog', { name: '维护结果' })
+  await expect(result.getByRole('button', { name: '取消后续步骤' })).toHaveCount(0)
+  expect(
+    (await page.evaluate(() => window.refreshFixture.calls)).filter((c) => c.command === 'cancel'),
+  ).toHaveLength(0)
+  await page.evaluate(() => window.refreshFixture.admit())
+  await result.getByRole('button', { name: '取消后续步骤' }).click()
+  await expect(result.getByRole('status')).toHaveText('已取消后续步骤')
+  const calls = await page.evaluate(() => window.refreshFixture.calls)
+  expect(calls.filter((c) => c.command === 'execute')).toHaveLength(1)
+  expect(calls.filter((c) => c.command === 'cancel')).toHaveLength(1)
+  expect(
+    new Set(calls.filter((c) => ['execute', 'cancel'].includes(c.command)).map((c) => c.id)).size,
+  ).toBe(1)
+})
+test('a late cancellation error cannot overwrite a completed result', async ({ page }) => {
+  await mount(page, 'late-cancel-error')
+  const d = await prepare(page)
+  await d.getByLabel('我已了解预览影响、缓存重建及无法撤销的边界。').check()
+  await d.getByRole('button', { name: '开始刷新', exact: true }).click()
+  const result = page.getByRole('dialog', { name: '维护结果' })
+  await result.getByRole('button', { name: '取消后续步骤' }).click()
+  await page.evaluate(() => window.refreshFixture.finish())
+  await expect(result.getByRole('status')).toHaveText('所选命令已完成')
+  await page.evaluate(() => window.refreshFixture.rejectCancel())
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
+  expect(await result.getByRole('alert').count()).toBe(0)
+  await expect(result.getByRole('status')).toHaveText('所选命令已完成')
+  await expect(page.getByLabel('维护提交次数')).toHaveText('1')
+})
+test('an old cancellation error cannot affect a newly submitted request', async ({ page }) => {
+  await mount(page, 'late-cancel-error')
+  const d = await prepare(page)
+  await d.getByLabel('我已了解预览影响、缓存重建及无法撤销的边界。').check()
+  await d.getByRole('button', { name: '开始刷新', exact: true }).click()
+  const result = page.getByRole('dialog', { name: '维护结果' })
+  await result.getByRole('button', { name: '取消后续步骤' }).click()
+  await page.evaluate(() => window.refreshFixture.finish())
+  await expect(result.getByRole('status')).toHaveText('所选命令已完成')
+  await result.getByRole('button', { name: '完成', exact: true }).click()
+  const again = await prepare(page)
+  await again.getByLabel('我已了解预览影响、缓存重建及无法撤销的边界。').check()
+  await again.getByRole('button', { name: '开始刷新', exact: true }).click()
+  await expect(result.getByRole('button', { name: '取消后续步骤' })).toBeEnabled()
+  await page.evaluate(() => window.refreshFixture.rejectCancel())
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
+  expect(await result.getByRole('alert').count()).toBe(0)
+  const calls = await page.evaluate(() => window.refreshFixture.calls)
+  const executions = calls.filter((c) => c.command === 'execute')
+  expect(executions).toHaveLength(2)
+  expect(executions[0].id).not.toBe(executions[1].id)
+  expect(calls.filter((c) => c.command === 'cancel')).toEqual([
+    { command: 'cancel', id: executions[0].id },
+  ])
+})
+test('a cancellation failure for the current running request stays visible and can be retried', async ({
+  page,
+}) => {
+  await mount(page, 'cancel-error')
+  const d = await prepare(page)
+  await d.getByLabel('我已了解预览影响、缓存重建及无法撤销的边界。').check()
+  await d.getByRole('button', { name: '开始刷新', exact: true }).click()
+  const result = page.getByRole('dialog', { name: '维护结果' })
+  await result.getByRole('button', { name: '取消后续步骤' }).click()
+  await expect(result.getByRole('alert')).toContainText('取消响应暂时不可用')
+  await expect(result.getByRole('button', { name: '取消后续步骤' })).toBeEnabled()
+  await result.getByRole('button', { name: '取消后续步骤' }).click()
+  await expect(result.getByRole('alert')).toContainText('取消响应暂时不可用')
+  const calls = await page.evaluate(() => window.refreshFixture.calls)
+  expect(calls.filter((c) => c.command === 'execute')).toHaveLength(1)
+  expect(calls.filter((c) => c.command === 'cancel')).toHaveLength(2)
+  expect(
+    new Set(calls.filter((c) => ['execute', 'cancel'].includes(c.command)).map((c) => c.id)).size,
+  ).toBe(1)
+})
 test('restart observation and human review keep unknown facts and never execute again', async ({
   page,
 }) => {

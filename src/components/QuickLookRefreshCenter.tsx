@@ -285,10 +285,16 @@ export function QuickLookRefreshCenter({
   }
   async function cancel() {
     if (!request || cancelRequested) return
+    const id = request
     setCancelRequested(true)
     try {
-      await transport.cancel(request)
+      await transport.cancel(id)
     } catch (e) {
+      // A late control response cannot change committed execution evidence or
+      // the feedback for a different request opened in the meantime.
+      if (!alive.current || current.current !== id) return
+      const known = currentSnapshot()?.record
+      if (known && known.state !== 'running') return
       setError(message(e))
       setCancelRequested(false)
     }
