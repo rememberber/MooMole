@@ -3004,3 +3004,12 @@ TypeScript/Vite、Prettier、diff 及最终 Tauri debug App 打包通过，App �
 
 - 阶段收尾：09aa8bb Candidate 40255171488 最终五个作业全部 completed/success，两个干净 runner 的优化 App/DMG 与新增 npm 源码输入准备、绑定和归档均成功；下载读回仍待完成。当前核查修正已提交至 codex/release-candidate-160 的 26cc75752007c5ac42066a4896d685fe3ae68184，并触发 [Candidate 40259126051](https://github.com/rememberber/MooMole/actions/runs/40259126051)，仍在执行。
 - 干净 26cc757 已离线完成 arm64 release App（24.75 秒），产物 MooMole-0.1.0-mac-arm64-d22yn1；三处最终 ad-hoc/对应标识/无自定义 entitlements、内嵌引擎/许可与 ZIP 解压复验通过。App 36,847,849 字节，ZIP 13,483,261 字节、SHA-512 `2aff606940634978ca3a50acb8d0e72e6b4c77904a29cea1b6ae2562558460eebafd64a73555c7c4742c0fcceb85504ea125b626f9f34671327efe8086423407`。没有启动或替换已安装 App，未更改系统安全属性；v7 实际安装/核查验收仍 pending。只移除可重建的旧 Rust incremental 缓存以保留构建空间，源码、测试二进制和验收材料未清除。
+
+
+## 阶段 161：实际安装升级、卸载中断核查及重新准入（2026-10-26）
+
+- 代理独立完成原生操作，无新增系统授权或代操作请求。旧 583dcd6 正常退出、无活动修改；Finder 明确替换为干净 26cc757。实际安装副本三处 ad-hoc/架构/资源与主程序摘要通过，真实库 v6 → v7 原十表及自动 v6 备份完全保持，两张新表为空；重启十二表一致。首页 Mole v1.59.1 就绪；历史原 timedOut/cancelled 文案真实可区分且旧核查保持。
+- 唯一范围为原 149-9b85f374 自建普通 App，原包/全部 8,005 子项与完整救援副本复核。真实 Mole 清单筛选、重新检查/确认后，私有只读观察器绑定新请求/原对象/本次主程序 UID、内核开始时间与摘要，在持久意图后一次 SIGKILL 主 App。首次过期没有批次或信号；有效批次 d876fd79-dd59-406e-95c5-790829b5cd10 在启动前 running/intent，重启为 interrupted/uncertain、空收据，禁止重试。原包完整、旧记录不变；不宣称系统 API 内部的精确时点。
+- 该未知实际阻止跨模块维护准备，无新批次。代理在原生历史核对确切请求、Finder 原包和废纸篓 0 项后明确记录核查；只新增一条绑定快照的 uninstall_reviews，其余十一表保持，原未知/原因/收据/事件未改写。命令行废纸篓读取的 PermissionError 未用作缺失证明，不申请额外权限。
+- 核查后正常退出/重启十二表保持，再重新检查并明确执行生成器单步，真实 16b7e754-6636-4e0e-a748-82ea935c1d83 为 commandSucceeded/exit0、1/1 完成。最后再重启十二表不变、无重放，原包全部条目仍一致。私有证据 native-upgrade-review-161-jxi7332r，详见 [实际边界](native-upgrade-recovery.md)。
+- 26cc757 的 Candidate 40259126051 五个作业最终全部成功；新产物下载复核另行记录。当前为实际 v7 运行，仍非跨 SemVer、公开下载/Gatekeeper、Intel UI 或换签名授权验收。三模块剩余矩阵、容量归档、源码许可和最终发布待办保持。启动首页未主动提示未核查卸载的体验缺口已记录，未将其写成完成。
