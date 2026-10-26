@@ -288,6 +288,11 @@ export function collectNotices({
     'MooMole — third-party notices and license materials',
     'These materials retain upstream wording. License compatibility, source distribution and complete release review remain pending.',
     '',
+    'Source availability for a published build:',
+    `https://github.com/rememberber/MooMole/releases/tag/v${encodeURIComponent(engine.appVersion)}`,
+    `Use the source/materials packet matching this ${engine.arch} build. It includes the application and Mole source, build instructions, dependency sources, and their inventories.`,
+    'MPL-2.0 dependency source is supplied with its original license notices. This book does not replace those source licenses.',
+    '',
   ]
   for (const p of packages) {
     blocks.push(
