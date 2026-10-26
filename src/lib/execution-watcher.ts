@@ -47,14 +47,15 @@ export function watchExecution<T>({
 // A late list response must not turn a committed terminal result back into a
 // running batch. Within a running batch, committed move counts never decrease.
 export function preserveExecutionProgress<
-  T extends { id: string; state: string; movedCount: number },
+  T extends { id: string; state: string; movedCount: number; reviewedAt?: number | null },
 >(next: T[], previous: T[]): T[] {
   const known = new Map(previous.map((item) => [item.id, item]))
   return next.map((item) => {
     const prior = known.get(item.id)
     return prior &&
       ((prior.state !== 'running' && item.state === 'running') ||
-        prior.movedCount > item.movedCount)
+        prior.movedCount > item.movedCount ||
+        (prior.reviewedAt != null && item.reviewedAt == null))
       ? prior
       : item
   })

@@ -541,6 +541,7 @@ export interface ExecutionSummary {
   movedCount: number
   uncertainCount: number
   retainedForReview: boolean
+  reviewedAt: number | null
 }
 export interface ExecutionReceipt {
   destination: string

@@ -80,3 +80,6 @@ git diff
 Playwright 默认在 127.0.0.1:1431 启动本项目服务，关闭 reuseExistingServer 并传入 --strictPort；1431 已被占用时直接报错，不尝试连接或关闭未知进程。可显式设置 MOOMOLE_E2E_PORT 为 1..65535 的整数字符串选择空闲端口；非法值在启动前拒绝。应用/Tauri 的开发端口仍为 1420，CI 使用相同的独立测试服务。
 
 此约束来自实际环境串用：另一项目占用 1420 时，旧配置把它当作已就绪的 MooMole 服务，导致导航测试在错误页面超时。测试使用浏览器 fixture，无须改变其他项目、原生设置、权限或系统主题。
+
+
+2026-10-26：维护停止原因修正的 `5db9282` / [40253783857](https://github.com/rememberber/MooMole/actions/runs/40253783857) 前端与两个原生作业均 completed/success。源码输入候选 `09aa8bb` / [40255171488](https://github.com/rememberber/MooMole/actions/runs/40255171488) 的同提交检查和 arm64 优化候选已成功，Intel 优化作业本条记录时仍在执行；新产物读回尚待完成，不能按部分绿色宣称整体候选完成。

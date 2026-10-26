@@ -22,6 +22,7 @@ mod engine_manifest;
 mod execution;
 mod execution_admission;
 mod execution_location;
+mod execution_review;
 #[cfg(test)]
 mod execution_sandbox;
 mod impact;
@@ -745,6 +746,36 @@ async fn reveal_execution_item(
     .await
     .map_err(|_| "收据位置核对未完成，请重试。")??;
     location.reveal().await
+}
+
+#[tauri::command]
+fn acknowledge_execution_review(
+    kind: execution_review::Kind,
+    run_id: String,
+    snapshot_sha256: String,
+    reviewed: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if !reviewed {
+        return Err("请先核对原对象、废纸篓和逐项结果，再明确确认。".into());
+    }
+    let _operation = state.updates.installation.enter()?;
+    if state.shutdown.closing()
+        || state
+            .jobs
+            .lock()
+            .map_err(|_| "无法核对执行 worker。")?
+            .contains_key(&run_id)
+    {
+        return Err("结果仍在收集中或应用正在退出，请稍后核查。".into());
+    }
+    execution_review::acknowledge(
+        &mut *state.db.lock().map_err(|_| "无法保存人工核查。")?,
+        kind,
+        &run_id,
+        &snapshot_sha256,
+        db::now(),
+    )
 }
 
 #[tauri::command]
@@ -2223,6 +2254,7 @@ pub fn run() {
             save_task_diagnostic,
             list_executions,
             get_execution,
+            acknowledge_execution_review,
             reveal_execution_item,
             get_task_snapshot,
             application_icon,

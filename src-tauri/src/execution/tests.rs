@@ -420,3 +420,67 @@ fn second_owned_startup_cannot_reconcile_a_live_execution_intent() {
     assert!(f.root.join("source/second").is_file());
     assert!(f.root.join("source/中文\ncache *").is_file());
 }
+
+#[test]
+fn human_review_releases_admission_but_preserves_unknown_receipts_events_and_restart() {
+    use crate::execution_review::{acknowledge, Kind};
+    let mut f = Fixture::new();
+    let run = f.begin();
+    f.move_fixture(&run, 0);
+    let second = f.item(1);
+    intent(&mut f.db, &run, &second, f.at + 3).unwrap();
+    reconcile(&mut f.db, f.at + 4).unwrap();
+    let before = serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap();
+    let digest = before["snapshotSha256"].as_str().unwrap().to_owned();
+    {
+        let t = f.db.transaction().unwrap();
+        assert!(crate::execution_admission::reserve(&t, 1).is_err());
+    }
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &"0".repeat(64), f.at + 5).is_err());
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, -1).is_err());
+    assert!(acknowledge(&mut f.db, Kind::Uninstall, &run, &digest, f.at + 5).is_err());
+    acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at + 5).unwrap();
+    acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at + 6).unwrap();
+    let mut expected = before.clone();
+    expected["reviewedAt"] = serde_json::json!(f.at + 5);
+    assert_eq!(
+        serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap(),
+        expected
+    );
+    assert_eq!(list(&f.db).unwrap()[0].reviewed_at, Some(f.at + 5));
+    prune(&f.db, i64::MAX).unwrap();
+    f.db = db::open_fixture(&f.root.join("app.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap(),
+        expected
+    );
+    let t = f.db.transaction().unwrap();
+    crate::execution_admission::reserve(&t, 1).unwrap();
+    assert!(f.root.join("source/second").is_file());
+    assert!(f.root.join("recovery/中文\ncache *").is_file());
+}
+
+#[test]
+fn review_refuses_live_known_results_corrupt_snapshots_and_unreliable_sync() {
+    use crate::execution_review::{acknowledge, Kind};
+    let mut f = Fixture::new();
+    let run = f.begin();
+    let digest = detail(&f.db, &run).unwrap().snapshot_sha256;
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at).is_err());
+    finish(&mut f.db, &run, true, f.at + 1).unwrap();
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at + 2).is_err());
+    assert_eq!(
+        f.db.query_row::<i64, _, _>("SELECT count(*) FROM execution_reviews", [], |r| r.get(0))
+            .unwrap(),
+        0
+    );
+    f.db.pragma_update(None, "synchronous", "NORMAL").unwrap();
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at + 2).is_err());
+    f.db.pragma_update(None, "synchronous", "FULL").unwrap();
+    f.db.execute(
+        "UPDATE execution_runs SET snapshot='{}' WHERE id=?1",
+        [&run],
+    )
+    .unwrap();
+    assert!(acknowledge(&mut f.db, Kind::Cleanup, &run, &digest, f.at + 2).is_err());
+}

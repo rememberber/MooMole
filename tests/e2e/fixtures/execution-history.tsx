@@ -15,6 +15,7 @@ export const interrupted: ExecutionDetail = {
   movedCount: 1,
   uncertainCount: 1,
   retainedForReview: true,
+  reviewedAt: null,
   revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
   protocol: 1,
   snapshotSha256: 'abcd'.repeat(16),
@@ -62,7 +63,20 @@ export const cancelled: ExecutionDetail = {
   ],
 }
 
-export function mount() {
+export function mount(mode = 'normal') {
+  let record = structuredClone(interrupted)
+  let reviewFails = mode === 'review-error'
+  let releaseReview: (() => void) | null = null
+  const calls: { id: string; snapshotSha256: string }[] = []
+  Object.assign(window, {
+    executionReviewFixture: {
+      calls,
+      allowReview: () => {
+        reviewFails = false
+      },
+      releaseReview: () => releaseReview?.(),
+    },
+  })
   let failDetail = false
   let failList = false
   const host = document.createElement('div')
@@ -88,13 +102,30 @@ export function mount() {
         模拟列表读取失败
       </button>
       <ExecutionHistory
-        initialRecords={[interrupted, cancelled]}
+        initialRecords={[record, cancelled]}
         loadRecords={async () => {
           if (failList) {
             failList = false
             throw new Error('fixture 列表暂时不可读取')
           }
-          return [interrupted, cancelled]
+          return [mode === 'stale-review' ? interrupted : record, cancelled]
+        }}
+        onAcknowledge={async (before) => {
+          calls.push({ id: before.id, snapshotSha256: before.snapshotSha256 })
+          if (reviewFails) throw new Error('fixture 核查保存暂时失败')
+          if (mode === 'review-delayed')
+            await new Promise<void>((resolve) => {
+              releaseReview = resolve
+            })
+          record = { ...record, reviewedAt: at + 2000 }
+          return mode === 'review-mismatch'
+            ? {
+                ...record,
+                items: record.items.map((item, i) =>
+                  i === 1 ? { ...item, state: 'moved' } : item,
+                ),
+              }
+            : record
         }}
         loadDetail={async (id) => {
           await new Promise((resolve) => setTimeout(resolve, 150))
@@ -102,7 +133,11 @@ export function mount() {
             failDetail = false
             throw new Error('fixture 详情暂时不可读取')
           }
-          return id === interrupted.id ? interrupted : cancelled
+          return id === interrupted.id
+            ? mode === 'stale-review'
+              ? interrupted
+              : record
+            : cancelled
         }}
       />
     </>,

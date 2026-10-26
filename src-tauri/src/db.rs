@@ -100,7 +100,7 @@ fn open(path: &Path) -> Result<Connection, String> {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    if version > 6 {
+    if version > 7 {
         return Err("数据库来自更新版本，请使用新版 MooMole 打开。".into());
     }
     connection
@@ -115,10 +115,10 @@ fn open(path: &Path) -> Result<Connection, String> {
     connection
         .pragma_update(None, "checkpoint_fullfsync", "ON")
         .map_err(|e| e.to_string())?;
-    if version > 0 && version < 6 {
+    if version > 0 && version < 7 {
         // Back up the original schema before ANY migration. VACUUM INTO includes WAL data.
         let backup =
-            path.with_file_name(format!("moomole-before-v6-{}.sqlite", uuid::Uuid::new_v4()));
+            path.with_file_name(format!("moomole-before-v7-{}.sqlite", uuid::Uuid::new_v4()));
         connection
             .execute(
                 "VACUUM INTO ?1",
@@ -126,7 +126,7 @@ fn open(path: &Path) -> Result<Connection, String> {
             )
             .map_err(|e| format!("升级前备份失败，保留原数据库：{e}"))?;
     }
-    if version < 6 {
+    if version < 7 {
         let migration = connection.transaction().map_err(|e| e.to_string())?;
         if version == 0 {
             migration.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
@@ -156,8 +156,13 @@ fn open(path: &Path) -> Result<Connection, String> {
                 .execute_batch(crate::maintenance::refresh_journal::SCHEMA)
                 .map_err(|e| e.to_string())?;
         }
+        if version < 6 {
+            migration
+                .execute_batch(crate::maintenance::refresh_journal::REVIEW_SCHEMA)
+                .map_err(|e| e.to_string())?;
+        }
         migration
-            .execute_batch(crate::maintenance::refresh_journal::REVIEW_SCHEMA)
+            .execute_batch(crate::execution_review::SCHEMA)
             .map_err(|e| e.to_string())?;
         migration.commit().map_err(|e| e.to_string())?;
     }
@@ -370,6 +375,10 @@ pub fn task(connection: &Connection, id: &str) -> Result<Option<TaskRecord>, Str
 mod retention_tests;
 
 #[cfg(test)]
+#[path = "db/copied_migration_tests.rs"]
+mod copied_migration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -401,7 +410,7 @@ mod tests {
             upgraded
                 .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            6
+            7
         );
         let backups: Vec<_> = std::fs::read_dir(scratch.path())
             .unwrap()
@@ -410,7 +419,7 @@ mod tests {
                 p.file_name()
                     .unwrap()
                     .to_string_lossy()
-                    .starts_with("moomole-before-v6-")
+                    .starts_with("moomole-before-v7-")
             })
             .collect();
         assert_eq!(backups.len(), 1);
@@ -432,7 +441,7 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         let path = scratch.path().join("app.sqlite");
         let legacy = open(&path).unwrap();
-        legacy.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
+        legacy.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
         start(&legacy, "wal-only", "status", None).unwrap();
         finish(&legacy, "wal-only", "succeeded", "preserve WAL data").unwrap();
         let upgraded = open(&path).unwrap();
@@ -444,7 +453,7 @@ mod tests {
                 p.file_name()
                     .unwrap()
                     .to_string_lossy()
-                    .starts_with("moomole-before-v6-")
+                    .starts_with("moomole-before-v7-")
             })
             .collect();
         assert_eq!(backups.len(), 1);
@@ -469,7 +478,7 @@ mod tests {
                     .unwrap()
                     .file_name()
                     .to_string_lossy()
-                    .starts_with("moomole-before-v6-"))
+                    .starts_with("moomole-before-v7-"))
                 .count(),
             1
         );
@@ -521,7 +530,7 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         let path = scratch.path().join("app.sqlite");
         let legacy = open(&path).unwrap();
-        legacy.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
+        legacy.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; DROP TABLE execution_events; DROP TABLE execution_items; DROP TABLE execution_runs; PRAGMA user_version=2;").unwrap();
         // Keep WAL/SHM open, allowing the original DB to open while a new backup cannot be created.
         std::fs::set_permissions(scratch.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
         let result = open(&path);
@@ -697,5 +706,36 @@ mod tests {
         };
         assert!(save_settings(&connection, &invalid).is_err());
         assert_eq!(settings(&connection).unwrap().theme, "system");
+    }
+    #[test]
+    fn v6_review_migration_conflict_rolls_back_without_discarding_original_tables() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("app.sqlite");
+        let original = open(&path).unwrap();
+        original.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; CREATE TABLE uninstall_reviews(sentinel TEXT); INSERT INTO uninstall_reviews VALUES ('keep'); PRAGMA user_version=6;").unwrap();
+        assert!(open(&path).is_err());
+        assert_eq!(
+            original
+                .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            6
+        );
+        assert_eq!(
+            original
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM sqlite_master WHERE name='execution_reviews'",
+                    [],
+                    |r| r.get(0)
+                )
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            original
+                .query_row::<String, _, _>("SELECT sentinel FROM uninstall_reviews", [], |r| r
+                    .get(0))
+                .unwrap(),
+            "keep"
+        );
     }
 }

@@ -8,7 +8,8 @@ export function ExecutionRecoveryNotice({
   onReview: () => void
 }) {
   const affected = records.filter(
-    (record) => record.state === 'interrupted' || record.uncertainCount > 0,
+    (record) =>
+      record.reviewedAt == null && (record.state === 'interrupted' || record.uncertainCount > 0),
   )
   if (!affected.length) return null
   const uncertain = affected.reduce((total, record) => total + record.uncertainCount, 0)

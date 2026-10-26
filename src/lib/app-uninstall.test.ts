@@ -169,4 +169,19 @@ describe('whole-App uninstall native boundary', () => {
     )
     expect(parseUninstallSnapshot({ ...old, active: false }, requestId).active).toBe(false)
   })
+  it('review timestamps apply only to unknown outcomes and stale reads cannot erase them', () => {
+    const raw = detailRaw(requestId, 'uncertain')
+    const record = parseUninstallDetail({ ...raw, reviewedAt: raw.createdAt + 20 }, requestId)
+    expect(record.itemState).toBe('uncertain')
+    const known = { version: 1 as const, requestId, active: false, record }
+    expect(
+      preserveUninstall({ ...known, record: parseUninstallDetail(raw, requestId) }, known).record,
+    ).toEqual(record)
+    for (const invalid of [
+      { ...detailRaw(), reviewedAt: 1 },
+      { ...raw, reviewedAt: -1 },
+      { ...raw, reviewedAt: undefined },
+    ])
+      expect(() => parseUninstallDetail(invalid, requestId)).toThrow()
+  })
 })

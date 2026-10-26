@@ -147,6 +147,7 @@ export function detailRaw(id = requestId, itemState = 'moved') {
     ),
     revision: moleUninstallRevision,
     snapshotSha256: 'd'.repeat(64),
+    reviewedAt: null as number | null,
     reason,
     receipt,
     events,

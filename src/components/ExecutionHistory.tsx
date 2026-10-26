@@ -4,7 +4,9 @@ import type { ExecutionDetail, ExecutionSummary } from '../types'
 import { dateTime } from '../lib/format'
 import { Modal } from './Modal'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
-import { watchExecution } from '../lib/execution-watcher'
+import { ExecutionReview } from './ExecutionReview'
+import { reviewedResult } from '../lib/execution-review'
+import { watchExecution, preserveExecutionProgress } from '../lib/execution-watcher'
 import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
 
@@ -33,8 +35,10 @@ export function ExecutionHistory({
   onRecordsChange,
   onCancel,
   onRevealReceipt,
+  onAcknowledge,
   onReady,
 }: {
+  onAcknowledge?: (record: ExecutionDetail) => Promise<ExecutionDetail>
   onReady?: (section: HTMLElement | null) => void
   initialRecords: ExecutionSummary[]
   loadRecords: () => Promise<ExecutionSummary[]>
@@ -52,6 +56,7 @@ export function ExecutionHistory({
   const [trackingError, setTrackingError] = useState('')
   const [cancelError, setCancelError] = useState('')
   const [cancelRequested, setCancelRequested] = useState(false)
+  const knownReviews = useRef(new Map<string, ExecutionDetail>())
   const refreshRequest = useRef(0)
   const detailRequest = useRef(0)
   const terminalDetailRequest = useRef<number | null>(null)
@@ -65,7 +70,10 @@ export function ExecutionHistory({
     },
     [onReady],
   )
-  useEffect(() => setRecords(initialRecords), [initialRecords])
+  useEffect(
+    () => setRecords((previous) => preserveExecutionProgress(initialRecords, previous)),
+    [initialRecords],
+  )
   useEffect(
     () => () => {
       refreshRequest.current++
@@ -121,7 +129,9 @@ export function ExecutionHistory({
     setRefreshing(true)
     setError('')
     try {
-      const next = await loadRecords()
+      const next = preserveExecutionProgress(await loadRecords(), [
+        ...knownReviews.current.values(),
+      ])
       if (request === refreshRequest.current) {
         setRecords(next)
         onRecordsChange?.(next)
@@ -141,8 +151,10 @@ export function ExecutionHistory({
     setCancelError('')
     setCancelRequested(false)
     try {
-      const next = await loadDetail(id)
+      let next = await loadDetail(id)
       if (next.id !== id) throw new Error('返回的执行记录不匹配，请重新打开。')
+      const known = knownReviews.current.get(id)
+      if (known && next.reviewedAt === null) next = known
       if (request === detailRequest.current) {
         if (next.state !== 'running') terminalDetailRequest.current = request
         setDetail(next)
@@ -202,7 +214,7 @@ export function ExecutionHistory({
                   </strong>
                   <small>
                     {dateTime(record.createdAt)} · 已移入 {record.movedCount} 项 · 待核实{' '}
-                    {record.uncertainCount} 项
+                    {record.uncertainCount} 项{record.reviewedAt !== null ? ' · 已人工核查' : ''}
                   </small>
                 </span>
                 <span>查看逐项结果</span>
@@ -262,6 +274,24 @@ export function ExecutionHistory({
               {cancelError}
             </p>
           )}
+          {detail?.state === 'interrupted' && detail.uncertainCount > 0 && onAcknowledge && (
+            <ExecutionReview
+              key={`${detail.id}:${detail.snapshotSha256}`}
+              reviewedAt={detail.reviewedAt}
+              onAcknowledge={async () => {
+                const before = detail,
+                  request = detailRequest.current
+                const next = reviewedResult(before, await onAcknowledge(before))
+                knownReviews.current.set(before.id, next)
+                if (request === detailRequest.current) {
+                  setDetail(next)
+                  const updated = records.map((row) => (row.id === next.id ? next : row))
+                  setRecords(updated)
+                  onRecordsChange?.(updated)
+                }
+              }}
+            />
+          )}
           {detail ? (
             <ExecutionResults key={detail.id} detail={detail} onRevealReceipt={onRevealReceipt} />
           ) : (
@@ -305,7 +335,9 @@ function ExecutionResults({
       </p>
       <div className={`notice ${detail.uncertainCount ? 'warning' : ''}`}>
         {detail.uncertainCount > 0
-          ? '存在只有意图、没有可靠完成记录的项目。不要据此自动重试或恢复；需要核查实际结果。'
+          ? detail.reviewedAt !== null
+            ? '未知结果已人工核查，原记录保持；实际文件状态以核查为准，不会自动重试或恢复。'
+            : '存在只有意图、没有可靠完成记录的项目。不要据此自动重试或恢复；需要核查实际结果。'
           : '取消与中断不会撤销已经完成的项目。移入废纸篓不等于释放磁盘空间。'}{' '}
         这里仅查看记录，收据本身不能授权恢复操作。
       </div>

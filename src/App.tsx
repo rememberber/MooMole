@@ -1706,6 +1706,7 @@ export default function App() {
                 loadRecords={api.executions}
                 loadDetail={api.execution}
                 onCancel={api.cancelLogCleanup}
+                onAcknowledge={api.acknowledgeExecution}
                 onRevealReceipt={api.revealExecutionItem}
                 onRecordsChange={(executions) => {
                   setExecutionTrackingError('')

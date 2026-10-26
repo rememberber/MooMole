@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { ExecutionReview } from './ExecutionReview'
+import { reviewedResult } from '../lib/execution-review'
 import { RefreshCw, Trash2 } from 'lucide-react'
 import { Modal } from './Modal'
 import { dateTime } from '../lib/format'
@@ -175,7 +177,11 @@ export function ApplicationUninstallCenter({
         next
           .map((item) => {
             const prior = previous.find((r) => r.id === item.id)
-            return prior && prior.state !== 'running' && item.state === 'running' ? prior : item
+            return prior &&
+              ((prior.state !== 'running' && item.state === 'running') ||
+                (prior.reviewedAt !== null && item.reviewedAt === null))
+              ? prior
+              : item
           })
           .concat(previous.filter((r) => r.retainedForReview && !next.some((n) => n.id === r.id)))
           .slice(0, 64),
@@ -454,7 +460,10 @@ export function ApplicationUninstallCenter({
                   <strong>
                     {r.name} · {uninstallStateName(r.itemState)}
                   </strong>
-                  <small>{dateTime(r.createdAt)} · 包外数据保留</small>
+                  <small>
+                    {dateTime(r.createdAt)} · 包外数据保留
+                    {r.reviewedAt !== null ? ' · 已人工核查' : ''}
+                  </small>
                 </span>
                 <span>查看结果</span>
               </button>
@@ -488,10 +497,30 @@ export function ApplicationUninstallCenter({
                   </strong>
                   <p className="mono full-path">{detail.path}</p>
                   <p>{detail.reason}</p>
-                  {detail.itemState === 'uncertain' && (
+                  {detail.itemState === 'uncertain' && active && (
                     <p className="notice warning">
                       系统可能已处理此 App，结果尚未核实。不要按原路径重复执行，也不要覆盖已有对象。
                     </p>
+                  )}
+                  {detail.itemState === 'uncertain' && !active && (
+                    <ExecutionReview
+                      key={`${detail.id}:${detail.snapshotSha256}`}
+                      reviewedAt={detail.reviewedAt}
+                      onAcknowledge={async () => {
+                        const before = detail,
+                          g = generation.current
+                        const next = reviewedResult(
+                          before,
+                          parseUninstallDetail(await transport.acknowledge(before), before.id),
+                        )
+                        if (
+                          mounted.current &&
+                          generation.current === g &&
+                          currentRequest.current === before.id
+                        )
+                          adopt({ version: 1, requestId: before.id, active: false, record: next })
+                      }}
+                    />
                   )}
                   {!snapshot?.active && detail.state === 'running' && (
                     <p className="notice warning">

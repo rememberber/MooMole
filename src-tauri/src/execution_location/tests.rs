@@ -25,6 +25,7 @@ impl Fixture {
                 item_count: 1,
                 moved_count: 1,
                 uncertain_count: 0,
+                reviewed_at: None,
                 retained_for_review: true,
             },
             revision: crate::engine::REVISION.into(),

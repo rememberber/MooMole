@@ -30,6 +30,7 @@ export type UninstallSummary = {
   createdAt: number
   finishedAt: number | null
   retainedForReview: boolean
+  reviewedAt: number | null
 }
 export type UninstallReceipt = {
   version: 1
@@ -58,6 +59,7 @@ export type UninstallTransport = {
   read: (requestId: string) => Promise<unknown>
   list: () => Promise<unknown>
   cancel: (requestId: string) => Promise<unknown>
+  acknowledge: (record: UninstallDetail) => Promise<unknown>
 }
 function fail(): never {
   throw new Error('卸载数据无法核对，请重新读取；不会执行或自动重试。')
@@ -240,7 +242,8 @@ export function parseUninstallSummary(raw: unknown): UninstallSummary {
   if (
     runState[itemState] !== state ||
     v.method !== 'appBundleTrash' ||
-    (state === 'running') !== (v.finishedAt === null)
+    (state === 'running') !== (v.finishedAt === null) ||
+    (v.reviewedAt !== null && (itemState !== 'uncertain' || state !== 'interrupted'))
   )
     fail()
   return {
@@ -255,6 +258,7 @@ export function parseUninstallSummary(raw: unknown): UninstallSummary {
     createdAt: integer(v.createdAt),
     finishedAt: v.finishedAt === null ? null : integer(v.finishedAt),
     retainedForReview: bool(v.retainedForReview),
+    reviewedAt: v.reviewedAt === null ? null : integer(v.reviewedAt),
   }
 }
 function receipt(raw: unknown, state: string): UninstallReceipt | null {
@@ -360,7 +364,8 @@ export function preserveUninstall(
   if (
     !next.record ||
     (previous.record.state !== 'running' && next.record.state === 'running') ||
-    previous.record.events.length > next.record.events.length
+    previous.record.events.length > next.record.events.length ||
+    (previous.record.reviewedAt !== null && next.record.reviewedAt === null)
   )
     return { ...next, active: previous.active && next.active, record: previous.record }
   return next

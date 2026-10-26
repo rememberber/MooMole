@@ -330,6 +330,7 @@ declare global {
   interface Window {
     uninstallFixture: {
       calls: { command: string; args: unknown }[]
+      allowReview: () => void
       finish: (state?: string) => void
       rejectCancel: (request: string) => void
       holdReads: () => void
@@ -337,3 +338,74 @@ declare global {
     }
   }
 }
+
+test('an unknown uninstall can be explicitly reviewed without rewriting facts or submitting again', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 960, height: 680 })
+  await mount(page, 'history-unknown')
+  const history = page.getByRole('region', { name: '卸载记录' })
+  await history.getByRole('button', { name: /结果待核实/ }).click()
+  const d = page.getByRole('dialog', { name: '卸载结果' })
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme
+    }, theme)
+    const bounds = await d.evaluate((el) => ({
+      width: el.getBoundingClientRect().width,
+      height: el.getBoundingClientRect().height,
+      overflow: el.scrollWidth > el.clientWidth + 1,
+    }))
+    expect(bounds.width).toBeLessThanOrEqual(960)
+    expect(bounds.height).toBeLessThanOrEqual(640)
+    expect(bounds.overflow).toBe(false)
+    await d.screenshot({ path: testInfo.outputPath(`uninstall-review-${theme}.png`) })
+  }
+  const save = d.getByRole('button', { name: '记录已核查' })
+  await expect(save).toBeDisabled()
+  await d.getByRole('checkbox', { name: /我已核查原对象/ }).check()
+  await save.dblclick()
+  await expect(d).toContainText('已人工核查，原未知结果保持')
+  await expect(d.getByRole('status')).toContainText('结果待核实')
+  await expect(page.getByLabel('卸载提交次数')).toHaveText('0')
+  await d.getByRole('button', { name: '完成', exact: true }).click()
+  await history.getByRole('button', { name: /已人工核查/ }).click()
+  await expect(d).toContainText('已人工核查，原未知结果保持')
+  await expect(d.getByRole('button', { name: '记录已核查' })).toHaveCount(0)
+  const calls = await page.evaluate(() => window.uninstallFixture.calls)
+  expect(calls.filter((c) => ['execute', 'prepare', 'review'].includes(c.command))).toHaveLength(0)
+  expect(calls.filter((c) => c.command === 'acknowledge')).toHaveLength(1)
+})
+
+test('failed or mismatched uninstall review preserves the original unknown and allows only an explicit retry', async ({
+  page,
+}) => {
+  await mount(page, 'review-error')
+  await page
+    .getByRole('region', { name: '卸载记录' })
+    .getByRole('button', { name: /结果待核实/ })
+    .click()
+  const d = page.getByRole('dialog', { name: '卸载结果' })
+  await d.getByRole('checkbox', { name: /我已核查原对象/ }).check()
+  await d.getByRole('button', { name: '记录已核查' }).click()
+  await expect(d.getByRole('alert')).toContainText('核查保存暂时失败')
+  await expect(d.getByRole('status')).toContainText('结果待核实')
+  expect(
+    (await page.evaluate(() => window.uninstallFixture.calls)).filter(
+      (c) => c.command === 'acknowledge',
+    ),
+  ).toHaveLength(1)
+  await page.evaluate(() => window.uninstallFixture.allowReview())
+  await d.getByRole('button', { name: '记录已核查' }).click()
+  await expect(d).toContainText('已人工核查，原未知结果保持')
+  await expect(page.getByLabel('卸载提交次数')).toHaveText('0')
+  await mount(page, 'review-mismatch')
+  const history = page.getByRole('region', { name: '卸载记录' }).last()
+  await history.getByRole('button', { name: /结果待核实/ }).click()
+  const bad = page.getByRole('dialog', { name: '卸载结果' }).last()
+  await bad.getByRole('checkbox', { name: /我已核查原对象/ }).check()
+  await bad.getByRole('button', { name: '记录已核查' }).click()
+  await expect(bad.getByRole('alert')).toContainText('核查响应与原记录不一致')
+  await expect(bad.getByRole('status')).toContainText('结果待核实')
+  await expect(bad).not.toContainText('invalid rewritten fact')
+})

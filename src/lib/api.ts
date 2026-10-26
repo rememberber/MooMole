@@ -65,6 +65,18 @@ export const uninstallTransport: UninstallTransport = {
   read: (requestId) => invoke('get_application_uninstall', { requestId }),
   list: () => (desktop ? invoke('list_application_uninstalls') : Promise.resolve([])),
   cancel: (requestId) => invoke('cancel_application_uninstall', { requestId }),
+  acknowledge: async (record) => {
+    await invoke('acknowledge_execution_review', {
+      kind: 'uninstall',
+      runId: record.id,
+      snapshotSha256: record.snapshotSha256,
+      reviewed: true,
+    })
+    const snapshot = await invoke<{ record: unknown }>('get_application_uninstall', {
+      requestId: record.id,
+    })
+    return snapshot.record
+  },
 }
 export const getCleanupVisibility = (): Promise<unknown> => invoke('get_cleanup_visibility')
 export const startCleanupVisibility = (): Promise<unknown> => invoke('start_cleanup_visibility')
@@ -147,6 +159,15 @@ export const execution = (runId: string): Promise<ExecutionDetail> =>
   desktop
     ? invoke('get_execution', { runId })
     : Promise.reject(new Error('请在桌面 App 中查看执行记录。'))
+export const acknowledgeExecution = async (record: ExecutionDetail): Promise<ExecutionDetail> => {
+  await invoke('acknowledge_execution_review', {
+    kind: 'cleanup',
+    runId: record.id,
+    snapshotSha256: record.snapshotSha256,
+    reviewed: true,
+  })
+  return execution(record.id)
+}
 export const revealExecutionItem = (runId: string, itemId: string): Promise<void> =>
   desktop
     ? invoke('reveal_execution_item', { runId, itemId })

@@ -13,7 +13,11 @@ export function mount(mode = 'normal') {
     'position:fixed;inset:0;z-index:100;background:var(--background);padding:20px;overflow:auto'
   document.body.append(host)
   let record: ReturnType<typeof detailRaw> | null =
-    mode === 'resume' ? detailRaw(requestId, 'intent') : null
+    mode === 'resume'
+      ? detailRaw(requestId, 'intent')
+      : ['history-unknown', 'review-error', 'review-mismatch'].includes(mode)
+        ? detailRaw(requestId, 'uncertain')
+        : null
   let live = mode === 'resume'
   let id = requestId
   const calls: { command: string; args: unknown }[] = []
@@ -23,6 +27,7 @@ export function mount(mode = 'normal') {
   let releasePrepare: ((v: unknown) => void) | null = null
   const cancelReplies = new Map<string, (e: Error) => void>()
   let readsBlocked = false
+  let reviewFails = mode === 'review-error'
   const call = (command: string, args: unknown = {}) => {
     calls.push({ command, args })
     changed()
@@ -90,6 +95,13 @@ export function mount(mode = 'normal') {
       call('list')
       return record ? [record] : []
     },
+    acknowledge: async (value) => {
+      call('acknowledge', { requestId: value.id, snapshotSha256: value.snapshotSha256 })
+      if (reviewFails) throw new Error('fixture 核查保存暂时失败')
+      record = { ...record!, reviewedAt: Date.now() }
+      changed()
+      return mode === 'review-mismatch' ? { ...record, name: 'invalid rewritten fact' } : record
+    },
     cancel: async (request) => {
       call('cancel', { requestId: request })
       if (mode === 'cancelError') throw new Error('取消响应暂不可用')
@@ -101,6 +113,9 @@ export function mount(mode = 'normal') {
   Object.assign(window, {
     uninstallFixture: {
       calls,
+      allowReview: () => {
+        reviewFails = false
+      },
       finish,
       holdReads: () => {
         readsBlocked = true

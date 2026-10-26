@@ -435,7 +435,7 @@ fn event_order_corruption_cannot_turn_overlapping_steps_into_success() {
 #[test]
 fn v4_schema_conflict_rolls_back_new_tables_and_preserves_backup() {
     let f = Fixture::new();
-    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; CREATE TABLE maintenance_steps(sentinel TEXT); INSERT INTO maintenance_steps VALUES ('keep'); PRAGMA user_version=4;").unwrap();
+    f.db.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; CREATE TABLE maintenance_steps(sentinel TEXT); INSERT INTO maintenance_steps VALUES ('keep'); PRAGMA user_version=4;").unwrap();
     assert!(db::open_fixture(&f._root.path().join("db.sqlite")).is_err());
     assert_eq!(
         f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
@@ -455,7 +455,7 @@ fn v4_schema_conflict_rolls_back_new_tables_and_preserves_backup() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v6-")
+                .starts_with("moomole-before-v7-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -559,14 +559,14 @@ fn v5_wal_backup_precedes_review_upgrade_and_intent_reconciliation() {
     let mut f = Fixture::new();
     let s = f.begin();
     intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
-    f.db.execute_batch("DROP TABLE maintenance_reviews; PRAGMA user_version=5;")
+    f.db.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; PRAGMA user_version=5;")
         .unwrap();
     let upgraded = db::open_fixture(&f._root.path().join("db.sqlite")).unwrap();
     assert_eq!(
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        6
+        7
     );
     assert_eq!(
         detail(&upgraded, s.id()).unwrap().items[0].state,
@@ -579,7 +579,7 @@ fn v5_wal_backup_precedes_review_upgrade_and_intent_reconciliation() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v6-")
+                .starts_with("moomole-before-v7-")
         })
         .unwrap();
     let old = Connection::open(backup).unwrap();
@@ -687,4 +687,23 @@ fn crash_child() {
         libc::kill(libc::getpid(), libc::SIGKILL);
     }
     panic!("fixture must die before graceful DB close");
+}
+
+#[test]
+fn malformed_review_timestamp_does_not_release_modification_admission() {
+    let mut f = Fixture::new();
+    let s = f.begin();
+    intent(&mut f.db, &s, Step::ThumbnailCache, f.at + 1).unwrap();
+    stop_worker(&mut f.db, &s, f.at + 2).unwrap();
+    let digest = detail(&f.db, s.id()).unwrap().snapshot_sha256;
+    // SQLite's older INTEGER affinity plus CHECK(at>=0) accepts text. This is
+    // corrupted fixture data, never a production write route or user database.
+    f.db.execute(
+        "INSERT INTO maintenance_reviews VALUES (?1,?2,'invalid time')",
+        params![s.id(), digest],
+    )
+    .unwrap();
+    assert!(detail(&f.db, s.id()).is_err());
+    let t = f.db.transaction().unwrap();
+    assert!(crate::execution_admission::reserve(&t, 1).is_err());
 }

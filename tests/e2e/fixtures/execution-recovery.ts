@@ -38,12 +38,24 @@ export async function installRecoveryMock(
       const current = () =>
         sessionStorage.getItem('recovery-updated')
           ? records.filter((r) => r.state !== 'interrupted')
-          : records
+          : records.map((record) => ({
+              ...record,
+              reviewedAt:
+                JSON.parse(sessionStorage.getItem('recovery-reviewed') ?? '{}')[record.id] ?? null,
+            }))
       Object.assign(window, {
         isTauri: true,
         __TAURI_INTERNALS__: {
           transformCallback: () => 1,
-          invoke: async (command: string, args: { runId?: string } = {}) => {
+          invoke: async (
+            command: string,
+            args: {
+              runId?: string
+              kind?: string
+              snapshotSha256?: string
+              reviewed?: boolean
+            } = {},
+          ) => {
             const calls = JSON.parse(sessionStorage.getItem('recovery-calls') ?? '[]')
             sessionStorage.setItem('recovery-calls', JSON.stringify([...calls, command]))
             if (command === 'bootstrap') return { ...initial, executions: current() }
@@ -60,6 +72,26 @@ export async function installRecoveryMock(
               if (sessionStorage.getItem('recovery-list-error'))
                 throw new Error('fixture 执行记录暂不可读')
               return current()
+            }
+            if (command === 'acknowledge_execution_review') {
+              const record = current().find((r) => r.id === args.runId)
+              if (
+                !record ||
+                args.kind !== 'cleanup' ||
+                args.reviewed !== true ||
+                args.snapshotSha256 !== record.snapshotSha256 ||
+                record.uncertainCount === 0
+              )
+                throw new Error('Invalid review binding')
+              const previous = JSON.parse(sessionStorage.getItem('recovery-reviewed') ?? '{}')
+              sessionStorage.setItem(
+                'recovery-reviewed',
+                JSON.stringify({
+                  ...previous,
+                  [record.id]: previous[record.id] ?? record.createdAt + 2000,
+                }),
+              )
+              return
             }
             if (command === 'get_execution') {
               const record = current().find((r) => r.id === args.runId)

@@ -84,3 +84,15 @@ it('keeps committed progress when an older response arrives after completion', (
   ]
   expect(preserveExecutionProgress(next, [running])).toEqual(next)
 })
+
+it('stale cleanup summaries keep a known review without changing the unknown count', () => {
+  const reviewed = {
+    id: 'first',
+    state: 'interrupted',
+    movedCount: 1,
+    uncertainCount: 1,
+    reviewedAt: 12,
+  }
+  const stale = { ...reviewed, reviewedAt: null as number | null }
+  expect(preserveExecutionProgress([stale], [reviewed])).toEqual([reviewed])
+})

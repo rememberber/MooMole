@@ -580,7 +580,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
     let run = execution::begin(&mut f.db, &c, db::now()).unwrap();
     execution::intent(&mut f.db, &run, &c.items[0].candidate.id, db::now()).unwrap();
     f.db.execute_batch(
-        "DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; PRAGMA user_version=3;",
+        "DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; PRAGMA user_version=3;",
     )
     .unwrap();
     let upgraded = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
@@ -588,7 +588,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        6
+        7
     );
     assert_eq!(
         execution::detail(&upgraded, &run).unwrap().items[0].state,
@@ -603,7 +603,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .to_str()
                 .unwrap()
-                .starts_with("moomole-before-v6-")
+                .starts_with("moomole-before-v7-")
         })
         .unwrap();
     let before = Connection::open(&backup).unwrap();
@@ -629,7 +629,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v6-"))
+                .starts_with("moomole-before-v7-"))
             .count(),
         1
     );
@@ -638,7 +638,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
 #[test]
 fn v3_schema_conflict_rolls_back_entire_upgrade_and_preserves_old_version() {
     let f = Fixture::new();
-    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; CREATE TABLE uninstall_events(sentinel TEXT); INSERT INTO uninstall_events VALUES ('keep'); PRAGMA user_version=3;").unwrap();
+    f.db.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; DROP TABLE uninstall_events; DROP TABLE uninstall_runs; CREATE TABLE uninstall_events(sentinel TEXT); INSERT INTO uninstall_events VALUES ('keep'); PRAGMA user_version=3;").unwrap();
     assert!(db::open_fixture(&f.home.join("app.sqlite")).is_err());
     assert_eq!(
         f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
@@ -666,13 +666,13 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
         ..db::Settings::default()
     };
     db::save_settings(&f.db, &settings).unwrap();
-    f.db.execute_batch("DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; PRAGMA user_version=4;").unwrap();
+    f.db.execute_batch("DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; DROP TABLE maintenance_reviews; DROP TABLE maintenance_events; DROP TABLE maintenance_steps; DROP TABLE maintenance_runs; PRAGMA user_version=4;").unwrap();
     let upgraded = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
     assert_eq!(
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        6
+        7
     );
     assert_eq!(
         detail(&upgraded, run.id()).unwrap().summary.item_state,
@@ -692,7 +692,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v6-")
+                .starts_with("moomole-before-v7-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -718,8 +718,136 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v6-"))
+                .starts_with("moomole-before-v7-"))
             .count(),
         1
     );
+}
+
+#[test]
+fn unknown_uninstall_review_is_bound_idempotent_preserves_facts_and_other_module_blocks() {
+    use crate::execution_review::{acknowledge, Kind};
+    let mut f = Fixture::new();
+    let session = f.start();
+    let digest = detail(&f.db, session.id()).unwrap().snapshot_sha256;
+    assert!(acknowledge(&mut f.db, Kind::Uninstall, session.id(), &digest, db::now()).is_err());
+    intent(&mut f.db, &session, db::now()).unwrap();
+    reconcile(&mut f.db, db::now()).unwrap();
+    let before = serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap();
+    let at = db::now();
+    {
+        let t = f.db.transaction().unwrap();
+        assert!(crate::execution_admission::reserve(&t, 1).is_err());
+    }
+    assert!(acknowledge(
+        &mut f.db,
+        Kind::Uninstall,
+        session.id(),
+        &"0".repeat(64),
+        at
+    )
+    .is_err());
+    acknowledge(&mut f.db, Kind::Uninstall, session.id(), &digest, at).unwrap();
+    let mut expected = before.clone();
+    expected["reviewedAt"] = serde_json::json!(at);
+    assert_eq!(
+        serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap(),
+        expected
+    );
+    let clean = cleanup_plan(&f.home);
+    let clean_id = execution::begin(&mut f.db, &clean, db::now()).unwrap();
+    execution::intent(
+        &mut f.db,
+        &clean_id,
+        &clean.items[0].candidate.id,
+        db::now(),
+    )
+    .unwrap();
+    execution::reconcile(&mut f.db, db::now()).unwrap();
+    acknowledge(&mut f.db, Kind::Uninstall, session.id(), &digest, at + 1).unwrap();
+    {
+        let t = f.db.transaction().unwrap();
+        assert!(crate::execution_admission::reserve(&t, 1).is_err());
+    }
+    let clean_digest = execution::detail(&f.db, &clean_id).unwrap().snapshot_sha256;
+    acknowledge(&mut f.db, Kind::Cleanup, &clean_id, &clean_digest, at + 1).unwrap();
+    prune(&f.db, i64::MAX).unwrap();
+    f.db = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap(),
+        expected
+    );
+    assert_eq!(list(&f.db).unwrap()[0].reviewed_at, Some(at));
+    assert!(Path::new(f.plan.bundle_binding().0).is_dir());
+    let t = f.db.transaction().unwrap();
+    crate::execution_admission::reserve(&t, 1).unwrap();
+}
+
+#[test]
+fn mismatched_saved_review_is_not_accepted_or_used_to_release_admission() {
+    use crate::execution_review::{acknowledge, Kind};
+    let mut f = Fixture::new();
+    let session = f.start();
+    intent(&mut f.db, &session, db::now()).unwrap();
+    reconcile(&mut f.db, db::now()).unwrap();
+    let digest = detail(&f.db, session.id()).unwrap().snapshot_sha256;
+    f.db.execute(
+        "INSERT INTO uninstall_reviews VALUES (?1,?2,?3)",
+        params![session.id(), "0".repeat(64), db::now()],
+    )
+    .unwrap();
+    assert!(detail(&f.db, session.id()).is_err());
+    assert!(acknowledge(&mut f.db, Kind::Uninstall, session.id(), &digest, db::now()).is_err());
+    let t = f.db.transaction().unwrap();
+    assert!(crate::execution_admission::reserve(&t, 1).is_err());
+}
+
+#[test]
+fn v6_migration_preserves_uninstall_unknown_and_backs_up_original_without_review() {
+    let mut f = Fixture::new();
+    let session = f.start();
+    intent(&mut f.db, &session, db::now()).unwrap();
+    reconcile(&mut f.db, db::now()).unwrap();
+    let before = serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap();
+    f.db.execute_batch(
+        "DROP TABLE execution_reviews; DROP TABLE uninstall_reviews; PRAGMA user_version=6;",
+    )
+    .unwrap();
+    f.db = db::open_fixture(&f.home.join("app.sqlite")).unwrap();
+    assert_eq!(
+        f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap(),
+        before
+    );
+    let backups = fs::read_dir(&f.home)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("moomole-before-v7-")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(backups.len(), 1);
+    let old = Connection::open(&backups[0]).unwrap();
+    assert_eq!(
+        old.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        6
+    );
+    assert_eq!(
+        old.query_row::<String, _, _>(
+            "SELECT item_state FROM uninstall_runs WHERE id=?1",
+            [session.id()],
+            |r| r.get(0)
+        )
+        .unwrap(),
+        "uncertain"
+    );
+    assert_eq!(old.query_row::<i64,_,_>("SELECT count(*) FROM sqlite_master WHERE name IN ('execution_reviews','uninstall_reviews')",[],|r|r.get(0)).unwrap(),0);
 }

@@ -63,6 +63,7 @@ pub(crate) struct Summary {
     pub created_at: i64,
     pub finished_at: Option<i64>,
     pub retained_for_review: bool,
+    pub reviewed_at: Option<i64>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,6 +96,7 @@ struct Stored {
     digest: String,
     reason: String,
     receipt: Option<Receipt>,
+    reviewed_at: Option<i64>,
 }
 impl Stored {
     fn summary(&self) -> Summary {
@@ -109,6 +111,7 @@ impl Stored {
             bundle_id: self.archive.bundle_id().into(),
             created_at: self.created_at,
             finished_at: self.finished_at,
+            reviewed_at: self.reviewed_at,
             retained_for_review: matches!(self.state.as_str(), "running" | "interrupted")
                 || matches!(self.item_state.as_str(), "moved" | "uncertain" | "intent"),
         }
@@ -230,7 +233,15 @@ fn load(db: &Connection, id: &str) -> Result<Stored, String> {
     reason(&why)?;
     let decoded = decode_receipt(raw_receipt)?;
     receipt(&archive, &item_state, decoded.as_ref())?;
+    let reviewed_at = crate::execution_review::reviewed_at(
+        db,
+        crate::execution_review::Kind::Uninstall,
+        id,
+        &digest,
+        state == "interrupted" && item_state == "uncertain",
+    )?;
     Ok(Stored {
+        reviewed_at,
         id: id.into(),
         plan_id,
         state,
@@ -445,9 +456,14 @@ pub(crate) fn prune(db: &Connection, before: i64) -> Result<(), String> {
 }
 pub(crate) fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
     let transaction = db.unchecked_transaction().map_err(sql)?;
-    let stored = load(&transaction, id)?;
+    let result = detail_in_snapshot(&transaction, id)?;
+    transaction.commit().map_err(sql)?;
+    Ok(result)
+}
+pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, String> {
+    let stored = load(db, id)?;
     let events = {
-        let mut s=transaction.prepare("SELECT state,created_at,reason,receipt FROM uninstall_events WHERE run_id=?1 ORDER BY seq LIMIT 4").map_err(sql)?;
+        let mut s=db.prepare("SELECT state,created_at,reason,receipt FROM uninstall_events WHERE run_id=?1 ORDER BY seq LIMIT 4").map_err(sql)?;
         let rows = s
             .query_map([id], |r| {
                 Ok((
@@ -492,7 +508,6 @@ pub(crate) fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
     {
         return Err("卸载逐项结果与事件顺序不一致，保留记录供核查。".into());
     }
-    transaction.commit().map_err(sql)?;
     Ok(Detail {
         summary: stored.summary(),
         revision: stored.archive.revision().into(),

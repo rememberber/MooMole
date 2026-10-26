@@ -89,3 +89,40 @@ test('refresh failures preserve recovery evidence and a successful refresh updat
   await expect(records.getByText('已中断', { exact: false })).toHaveCount(0)
   await expect(records).toContainText('已取消')
 })
+
+test('an acknowledged unknown remains in history without repeating the startup review demand or execution', async ({
+  page,
+}) => {
+  await installRecoveryMock(page, 'uncertain')
+  await page.goto('/')
+  const notice = page.getByRole('region', { name: '清理中断与待核实结果' })
+  await notice.getByRole('button').click()
+  await page
+    .getByRole('region', { name: '执行记录', exact: true })
+    .getByRole('button')
+    .filter({ hasText: '待核实 1 项' })
+    .click()
+  const d = page.getByRole('dialog', { name: '逐项执行结果' })
+  await d.getByRole('checkbox', { name: /我已核查原对象/ }).check()
+  await d.getByRole('button', { name: '记录已核查' }).click()
+  await expect(d).toContainText('已人工核查，原未知结果保持')
+  await expect(d).toContainText('待核实 1 项')
+  await d.getByRole('button', { name: '关闭弹窗' }).click()
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await expect(notice.getByRole('heading')).toHaveText('有 1 个清理批次中断')
+  await page.reload()
+  await expect(notice.getByRole('heading')).toHaveText('有 1 个清理批次中断')
+  await notice.getByRole('button').click()
+  await page
+    .getByRole('region', { name: '执行记录', exact: true })
+    .getByRole('button')
+    .filter({ hasText: '已人工核查' })
+    .click()
+  await expect(d).toContainText('未知结果已人工核查，原记录保持')
+  await expect(d.getByRole('button', { name: '记录已核查' })).toHaveCount(0)
+  const calls: string[] = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('recovery-calls') ?? '[]'),
+  )
+  expect(calls.filter((c) => c === 'acknowledge_execution_review')).toHaveLength(1)
+  expect(calls.filter((c) => /execute|start_task|prepare_/.test(c))).toEqual([])
+})

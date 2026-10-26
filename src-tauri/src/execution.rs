@@ -78,6 +78,7 @@ pub struct Summary {
     pub moved_count: usize,
     pub uncertain_count: usize,
     pub retained_for_review: bool,
+    pub reviewed_at: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -439,6 +440,7 @@ fn summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<Summary> {
         moved_count: moved,
         uncertain_count: uncertain,
         retained_for_review: retained,
+        reviewed_at: None,
     })
 }
 
@@ -449,14 +451,37 @@ pub fn list(db: &Connection) -> Result<Vec<Summary>, String> {
         ))
         .map_err(sql)?;
     let rows = statement.query_map([], summary).map_err(sql)?;
-    rows.collect::<Result<_, _>>().map_err(sql)
+    let mut records = rows.collect::<Result<Vec<_>, _>>().map_err(sql)?;
+    for row in &mut records {
+        let digest: String = db
+            .query_row(
+                "SELECT snapshot_sha256 FROM execution_runs WHERE id=?1",
+                [&row.id],
+                |r| r.get(0),
+            )
+            .map_err(sql)?;
+        row.reviewed_at = crate::execution_review::reviewed_at(
+            db,
+            crate::execution_review::Kind::Cleanup,
+            &row.id,
+            &digest,
+            row.state == "interrupted" && row.uncertain_count > 0,
+        )?;
+    }
+    Ok(records)
 }
 
 pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
     uuid::Uuid::parse_str(id).map_err(|_| "执行记录 ID 无效。")?;
     // All fields are read from the same snapshot, even with another writer.
     let tx = db.unchecked_transaction().map_err(sql)?;
-    let summary = tx
+    let result = detail_in_snapshot(&tx, id)?;
+    tx.commit().map_err(sql)?;
+    Ok(result)
+}
+pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, String> {
+    uuid::Uuid::parse_str(id).map_err(|_| "执行记录 ID 无效。")?;
+    let mut summary = db
         .query_row(
             &format!("{SUMMARY_QUERY} WHERE r.id=?1 GROUP BY r.id"),
             [id],
@@ -465,7 +490,7 @@ pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
         .optional()
         .map_err(sql)?
         .ok_or("执行记录不存在或已按保留期限清理。")?;
-    let (body, digest): (String, String) = tx
+    let (body, digest): (String, String) = db
         .query_row(
             "SELECT snapshot,snapshot_sha256 FROM execution_runs WHERE id=?1",
             [id],
@@ -477,7 +502,7 @@ pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
     }
     let plan: Plan = serde_json::from_str(&body).map_err(|_| "执行计划快照无法读取。")?;
     let items = {
-        let mut s = tx.prepare("SELECT item_id,path,state,reason,receipt FROM execution_items WHERE run_id=?1 ORDER BY ordinal").map_err(sql)?;
+        let mut s = db.prepare("SELECT item_id,path,state,reason,receipt FROM execution_items WHERE run_id=?1 ORDER BY ordinal").map_err(sql)?;
         let rows = s
             .query_map([id], |r| {
                 Ok((
@@ -510,7 +535,7 @@ pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
         return Err("逐项记录与不可变计划不一致，保留原始记录供核查。".into());
     }
     let events = {
-        let mut s = tx.prepare("SELECT item_id,state,created_at,reason,receipt FROM execution_events WHERE run_id=?1 ORDER BY seq").map_err(sql)?;
+        let mut s = db.prepare("SELECT item_id,state,created_at,reason,receipt FROM execution_events WHERE run_id=?1 ORDER BY seq").map_err(sql)?;
         let rows = s
             .query_map([id], |r| {
                 Ok((
@@ -534,7 +559,13 @@ pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
         })
         .collect::<Result<Vec<_>, String>>()?
     };
-    tx.commit().map_err(sql)?;
+    summary.reviewed_at = crate::execution_review::reviewed_at(
+        db,
+        crate::execution_review::Kind::Cleanup,
+        id,
+        &digest,
+        summary.state == "interrupted" && summary.uncertain_count > 0,
+    )?;
     Ok(Detail {
         summary,
         revision: plan.revision,
