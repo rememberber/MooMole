@@ -70,6 +70,8 @@ test('in-flight close retains the worker and exact cancellation preserves first 
   await result.getByRole('button', { name: '取消后续步骤' }).click()
   await expect(result.getByRole('status')).toHaveText('已取消后续步骤')
   await expect(result).toContainText('已完成 1/2 项')
+  await expect(result).toContainText('开始前已取消。')
+  await expect(result).not.toContainText('因取消而停止')
   const calls = await page.evaluate(() => window.refreshFixture.calls)
   expect(calls.find((c) => c.command === 'cancel')?.id).toBe(
     calls.find((c) => c.command === 'execute')?.id,
@@ -223,3 +225,41 @@ test('startup recovers unresolved database history even without a session-storag
   await expect(page.getByRole('dialog', { name: '维护结果' })).toContainText('结果待核实')
   await expect(page.getByLabel('维护提交次数')).toHaveText('0')
 })
+
+for (const [mode, explanation] of [
+  ['stopped-timeout', '命令执行超时，实际刷新结果待核实。'],
+  ['stopped-cancel', '命令启动后因取消而停止，实际刷新结果待核实。'],
+  ['stopped-supervision', '命令运行状态无法持续确认，实际刷新结果待核实。'],
+  ['stopped-unknown', '命令启动后停止，实际刷新结果待核实。'],
+]) {
+  test(`${mode}: history explains the stop and review keeps the unknown result without replay`, async ({
+    page,
+  }) => {
+    await mount(page, mode)
+    await page
+      .getByRole('region', { name: '维护记录' })
+      .getByRole('button', { name: /结果待核实/ })
+      .click()
+    const result = page.getByRole('dialog', { name: '维护结果' })
+    await expect(result.getByRole('status')).toHaveText('结果待核实')
+    await expect(result).toContainText(explanation)
+    await expect(result).toContainText('已完成 0/1 项')
+    await expect(result.getByRole('button', { name: '记录已核查' })).toBeDisabled()
+    await result.getByLabel('我已核查结果，了解未知步骤不会自动重试。').check()
+    await result.getByRole('button', { name: '记录已核查' }).click()
+    await expect(result).toContainText('人工核查，原结果保持')
+    await expect(result).toContainText(explanation)
+    await result.getByRole('button', { name: '完成', exact: true }).click()
+    await page
+      .getByRole('region', { name: '维护记录' })
+      .getByRole('button', { name: /已人工核查/ })
+      .click()
+    await expect(result).toContainText(explanation)
+    await expect(result.getByRole('status')).toHaveText('结果待核实')
+    await expect(result.getByRole('button', { name: '记录已核查' })).toHaveCount(0)
+    expect(
+      (await page.evaluate(() => window.refreshFixture.calls)).map((call) => call.command),
+    ).toEqual(['acknowledge'])
+    await expect(page.getByLabel('维护提交次数')).toHaveText('0')
+  })
+}

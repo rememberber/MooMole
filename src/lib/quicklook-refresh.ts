@@ -340,16 +340,24 @@ export const refreshStateName = (state: string) =>
     notStarted: '未开始',
     uncertain: '结果待核实',
   })[state] ?? state
-export const refreshReason = (reason: string) =>
-  ({
-    commandSucceeded: '命令正常返回，后续预览由系统处理。',
-    gateRefused: '执行前条件未通过，此步骤未启动。',
-    identityChanged: '系统工具或账户发生变化，此步骤未启动。',
-    spawnFailed: '系统工具未能启动。',
-    cancelledBeforeStart: '开始前已取消。',
-    stoppedAfterStart: '命令启动后停止，实际刷新结果待核实。',
-    commandFailedAfterStart: '命令启动后未正常完成，实际刷新结果待核实。',
-    childOwnershipUnknown: '系统命令状态无法确认，请核查结果。',
-    childRegistrationFailed: '刷新任务未能正常登记，请核查实际结果。',
-    collectionFailed: '命令结果未能完整收集，请核查。',
-  })[reason] ?? reason
+export function refreshReason(reason: string, stop: Result['stop'] = null): string {
+  if (reason === 'stoppedAfterStart') {
+    if (stop === 'timedOut') return '命令执行超时，实际刷新结果待核实。'
+    if (stop === 'cancelled') return '命令启动后因取消而停止，实际刷新结果待核实。'
+    if (stop === 'supervisionFailed') return '命令运行状态无法持续确认，实际刷新结果待核实。'
+  }
+  return (
+    {
+      commandSucceeded: '命令正常返回，后续预览由系统处理。',
+      gateRefused: '执行前条件未通过，此步骤未启动。',
+      identityChanged: '系统工具或账户发生变化，此步骤未启动。',
+      spawnFailed: '系统工具未能启动。',
+      cancelledBeforeStart: '开始前已取消。',
+      stoppedAfterStart: '命令启动后停止，实际刷新结果待核实。',
+      commandFailedAfterStart: '命令启动后未正常完成，实际刷新结果待核实。',
+      childOwnershipUnknown: '系统命令状态无法确认，请核查结果。',
+      childRegistrationFailed: '刷新任务未能正常登记，请核查实际结果。',
+      collectionFailed: '命令结果未能完整收集，请核查。',
+    }[reason] ?? reason
+  )
+}

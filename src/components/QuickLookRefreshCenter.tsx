@@ -480,7 +480,7 @@ export function QuickLookRefreshCenter({
                       <article className="refresh-result-row" key={item.step}>
                         <strong>{refreshStepName(item.step)}</strong>
                         <span className="tag">{refreshStateName(item.state)}</span>
-                        <p>{refreshReason(item.reason)}</p>
+                        <p>{refreshReason(item.reason, item.stop)}</p>
                       </article>
                     ))}
                   </div>

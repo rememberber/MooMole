@@ -1,5 +1,5 @@
 import { moleUninstallRevision } from '../../src/lib/application-inspection'
-import type { RefreshStep } from '../../src/lib/quicklook-refresh'
+import type { RefreshItem, RefreshStep } from '../../src/lib/quicklook-refresh'
 export const refreshRequest = '9d54bcdd-a9a4-4444-a1ab-282a11e33641'
 export function draftRaw(selected: RefreshStep[] = ['thumbnailCache', 'generators']) {
   const now = Date.now()
@@ -43,7 +43,9 @@ export function refreshDetailRaw(id = refreshRequest, state = 'completed', at = 
           ? '已提交意图，尚无完成证据'
           : state === 'uncertain'
             ? '已记录意图但缺少结果，禁止自动重试'
-            : '后续步骤未启动',
+            : state === 'cancelled'
+              ? 'cancelledBeforeStart'
+              : '后续步骤未启动',
   })
   events.push(terminal(0, 'intent', at + 1))
   if (state !== 'running') {
@@ -89,6 +91,26 @@ export function refreshDetailRaw(id = refreshRequest, state = 'completed', at = 
     revision: moleUninstallRevision,
     snapshotSha256: 'a'.repeat(64),
     items,
+    events,
+  }
+}
+
+export function stoppedRefreshDetailRaw(stop: RefreshItem['stop']) {
+  const record = refreshDetailRaw(refreshRequest, 'interrupted')
+  const events = [record.events[0], record.events[2], record.events[3]].map((event) => ({
+    ...event,
+    position: 0,
+    ...(event.state === 'uncertain' ? { stop, reason: 'stoppedAfterStart' } : {}),
+  }))
+  const last = events[2]
+  return {
+    ...record,
+    state: 'needsReview',
+    selectedCount: 1,
+    succeededCount: 0,
+    uncertainCount: 1,
+    notStartedCount: 0,
+    items: [{ ...last, step: 'generators' as const, finishedAt: last.createdAt }],
     events,
   }
 }

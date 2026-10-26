@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QuickLookRefreshCenter } from '../../../src/components/QuickLookRefreshCenter'
-import { refreshSessionKey, type RefreshTransport } from '../../../src/lib/quicklook-refresh'
-import { draftRaw, refreshDetailRaw, refreshRequest } from '../../fixtures/quicklook'
+import {
+  refreshSessionKey,
+  type RefreshItem,
+  type RefreshTransport,
+} from '../../../src/lib/quicklook-refresh'
+import {
+  draftRaw,
+  refreshDetailRaw,
+  refreshRequest,
+  stoppedRefreshDetailRaw,
+} from '../../fixtures/quicklook'
 export function mount(mode = 'normal') {
   sessionStorage.removeItem(refreshSessionKey)
   if (mode === 'resume') sessionStorage.setItem(refreshSessionKey, refreshRequest)
@@ -10,9 +19,18 @@ export function mount(mode = 'normal') {
   host.style.cssText =
     'position:fixed;inset:0;z-index:100;background:var(--background);padding:20px;overflow:auto'
   document.body.append(host)
-  let record = ['resume', 'bootstrap'].includes(mode)
-      ? refreshDetailRaw(refreshRequest, 'interrupted')
-      : null,
+  const stops: Record<string, RefreshItem['stop']> = {
+    'stopped-timeout': 'timedOut',
+    'stopped-cancel': 'cancelled',
+    'stopped-supervision': 'supervisionFailed',
+    'stopped-unknown': null,
+  }
+  let record =
+      mode in stops
+        ? stoppedRefreshDetailRaw(stops[mode])
+        : ['resume', 'bootstrap'].includes(mode)
+          ? refreshDetailRaw(refreshRequest, 'interrupted')
+          : null,
     id = refreshRequest,
     active = false,
     resolve: ((v: unknown) => void) | null = null,
