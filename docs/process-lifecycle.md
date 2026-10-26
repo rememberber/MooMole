@@ -81,3 +81,5 @@ node scripts/cargo.mjs test --locked log_cleanup::tests::shutdown::native_exit_c
 实际维护子进程挂起验收揭示：本机 waitid 即使使用 WEXITED | WNOHANG | WNOWAIT，也会返回匹配 PID 的 CLD_STOPPED（5）。原先仅比较 PID 导致提前最终收集并杀掉尚未退出的命令。自建原生 C 探针与两个 Rust 回归先复现；清理/只读与维护共用的终态判断现在同时要求匹配 PID 和 CLD_EXITED、CLD_KILLED 或 CLD_DUMPED。停止、继续、陷阱或空事件均不当作完成，不回收/注销仍在运行的子进程；原期限、取消、租约和最终信号边界保持。实际修复前批次保留未知原因，不改写成已取消。
 
 干净 `583dcd6` 的已安装 App 进一步通过同一外部受控挂起的实际生成器取消：UI 取消入口保持、子进程回收、uncertain/stop=cancelled、核查后未知不改写与重启十表保持。修复前的实际提前失败和两项原生回归失败均保留，未用新结果覆盖。该证据不证明正常退出超时或所有系统服务工作已停止，见 [实际取消范围](maintenance-execution.md#实际挂起命令的取消与-darwin-修正2026-10-25阶段-153)。
+
+阶段 167 已在安装的 6dd4785 补齐真实生成器启动后关闭最后原生窗口：正常退出收集为 uncertain/stop=cancelled，外部恢复 watchdog 未触发，核查后原事实及重启十二表保持。与阶段 157 的启动后 ⌘Q 分别提供证据；不把它算作共享 6 秒强停或所有服务派生工作停止，见 [实际最后窗口关闭](maintenance-execution.md#启动后关闭最后窗口2026-10-26阶段-167)。
