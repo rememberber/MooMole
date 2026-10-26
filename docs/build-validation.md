@@ -72,6 +72,8 @@ git diff
 
 阶段 156 新增独立 [候选安装包构建](candidate-build.md)：以 `workflow_call` 复用同一提交的 Checks，通过后再在干净双架构 runner 调用既有优化 DMG 配方，绑定源码/依赖并只保存候选 artifact。默认提交检查仍只保存 debug 包；候选流程的新增原生结果须以实际运行验证，不根据 YAML 或夹具标记为通过。复用方式见 [GitHub 官方文档](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)。
 
+阶段 157 已核对 `a4c553c` 的 [40201866081](https://github.com/rememberber/MooMole/actions/runs/40201866081)：同提交检查与两个优化候选作业共五个全部成功。实际下载 arm64/x64 两份候选后，官方摘要、源码/依赖配对、嵌套 ad-hoc 签名、只读 DMG 挂载/卸载及候选汇总再生成均通过。默认 Checks 仍保存 debug 包，优化产物来自独立候选作业；真实安装/升级、Gatekeeper 和完整许可闭包仍待完成，详见 [候选实际结果](candidate-build.md#首次双架构实际结果2026-10-26阶段-157)。
+
 
 ## 浏览器测试服务隔离
 
