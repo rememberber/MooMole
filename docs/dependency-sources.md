@@ -91,3 +91,8 @@ npm run source:rust-audit -- \
 另从已绑定依赖包的原 lucide-react tarball 读取四份 source map，以相对路径解析到保留仓库：createLucideIcon、Icon、DynamicIcon、shared/defaultAttributes 的 sourcesContent 与原始 TypeScript 字节完全相同。不能据这四项声称全部图标、代码生成、编译输出或构建依赖闭包已复现。
 
 实际材料在 `local-artifacts/MooMole-npm-source-inputs-146/`：8 包、6 份仓库输入（含 Lucide 子集，共 21,199 项）、13 份发布声明；外层 44,726,763 字节，所有外层成员及摘要重新读取核对。保留原 registry/证明和审计输出，无本机缓存路径或用户数据；对应原依赖资产及同一 App ZIP 的绑定也记录在清单。原始下载/诊断留在 Git 忽略的 `npm-source-review-146-2x63k03v`，不随材料公开。材料本身尚未上传，源码首选形式、完整构建对应/闭包、文件级许可与正式发布审阅继续 pending。
+
+
+## 候选包携带原始源码输入（2026-10-26）
+
+阶段 159 新增可重复的 [npm 源码输入打包](npm-source-inputs.md)，以固定提供方原摘要重新取得/读取六份仓库输入及发布声明，不依赖阶段 146 私有打包目录。当前 pins/lock 必须匹配实际二进制源提交；输入包绑定同一 App 和依赖资产，已接候选 schema 2。实际 arm64/x64 的旧 a4c553c 资产分别封装/读回/汇总通过，新完整远程构建仍待验收。工具保留源码供应与许可审阅 pending，不把历史签名审阅说成重新执行，也不据此完成生成代码/构建依赖闭包。

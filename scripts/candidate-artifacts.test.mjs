@@ -27,6 +27,14 @@ function fixture(t) {
     output = join(root, 'output')
   mkdirSync(build)
   const expected = {
+    npmSource: {
+      originsSha256: '1'.repeat(64),
+      packageLockSha256: '2'.repeat(64),
+      packages: 8,
+      repositorySnapshots: 6,
+      repositoryFiles: 21199,
+      declarationFiles: 13,
+    },
     version: '0.1.0',
     arch: 'arm64',
     revision: 'a'.repeat(40),
@@ -87,6 +95,8 @@ function fixture(t) {
       deps = join(output, 'dependencies')
     mkdirSync(src)
     mkdirSync(deps)
+    const npmFolder = join(output, 'npm-source')
+    mkdirSync(npmFolder)
     const binding = {
       reportSha512: digest(readFileSync(join(output, 'validation.json'))),
       architecture: expected.arch,
@@ -122,13 +132,27 @@ function fixture(t) {
       records: 1,
       reviewStatus: 'pending',
     }
+    const npmSources = {
+      schemaVersion: 1,
+      purpose: 'npm-source-inputs-validation',
+      status: 'verified',
+      ...asset(npmFolder, 'MooMole-0.1.0-npm-source-inputs.tar.gz', 'fixture npm inputs'),
+      source: report.source,
+      binaryBinding: structuredClone(dependency.binaryBinding),
+      dependencyPacket: { file: dependency.file, size: dependency.size, sha512: dependency.sha512 },
+      ...expected.npmSource,
+      preferredSourceReview: 'pending',
+      licenseReview: 'pending',
+      releaseAcceptance: 'pending',
+    }
     const savePackets = () => {
       writeFileSync(join(src, 'SOURCE.json'), json(source))
       writeFileSync(join(deps, 'validation.json'), json(dependency))
+      writeFileSync(join(npmFolder, 'validation.json'), json(npmSources))
     }
     writeFileSync(join(src, 'BUILD.md'), 'fixture instructions')
     savePackets()
-    return { source, dependency, savePackets }
+    return { source, dependency, npmSources, savePackets }
   }
   return {
     root,
@@ -156,9 +180,10 @@ test('stages exact bytes and seals only matching App/source/dependency packets w
   assert.equal(result.releaseAcceptance, 'pending')
   assert.equal(result.licenseReview, 'pending')
   assert.equal(result.notarized, false)
-  assert.equal(result.payload.length, 9)
+  assert.equal(result.schemaVersion, 2)
+  assert.equal(result.payload.length, 11)
   const sums = readFileSync(join(f.output, 'SHA512SUMS'), 'utf8').trim().split('\n')
-  assert.equal(sums.length, 10)
+  assert.equal(sums.length, 12)
   for (const line of sums) {
     const [hash, file] = line.split('  ')
     assert.equal(hash, digest(readFileSync(join(f.output, file))))
@@ -230,6 +255,13 @@ test('refuses replaced, linked, shared or oversized inputs and preserves existin
 
 test('sealing refuses cross-build packets, changed assets, missing or unrelated payloads without blessing partial output', (t) => {
   for (const kind of [
+    'npmBinding',
+    'npmPacket',
+    'npmPins',
+    'npmLock',
+    'npmInventory',
+    'npmReview',
+    'npmAsset',
     'sourceBinding',
     'depBinding',
     'revision',
@@ -243,6 +275,14 @@ test('sealing refuses cross-build packets, changed assets, missing or unrelated 
     const f = fixture(t)
     f.stage()
     const p = f.packets()
+    if (kind === 'npmBinding') p.npmSources.binaryBinding.reportSha512 = 'f'.repeat(128)
+    if (kind === 'npmPacket') p.npmSources.dependencyPacket.sha512 = 'f'.repeat(128)
+    if (kind === 'npmPins') p.npmSources.originsSha256 = 'f'.repeat(64)
+    if (kind === 'npmLock') p.npmSources.packageLockSha256 = 'f'.repeat(64)
+    if (kind === 'npmInventory') p.npmSources.repositoryFiles = 0
+    if (kind === 'npmReview') p.npmSources.preferredSourceReview = 'complete'
+    if (kind === 'npmAsset')
+      writeFileSync(join(f.output, 'npm-source/MooMole-0.1.0-npm-source-inputs.tar.gz'), 'changed')
     if (kind === 'sourceBinding') p.source.binaryBinding.reportSha512 = 'f'.repeat(128)
     if (kind === 'depBinding') p.dependency.binaryBinding.noticesSha256 = 'f'.repeat(64)
     if (kind === 'revision') p.source.app.revision = 'f'.repeat(40)

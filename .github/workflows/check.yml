@@ -53,6 +53,7 @@ jobs:
       - run: npm run test:notices
       - run: npm run test:dependency-sources
       - run: npm run test:rust-source
+      - run: npm run test:npm-source
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium

@@ -75,6 +75,7 @@ jobs:
           node scripts/candidate-artifacts.mjs stage --report "$APP_REPORT" --output "$CANDIDATE_DIR"
           npm run source:bundle -- --output "$CANDIDATE_DIR/source" --app-report "$APP_REPORT"
           npm run source:dependencies -- --output "$CANDIDATE_DIR/dependencies" --app-report "$APP_REPORT"
+          npm run source:npm -- --output "$CANDIDATE_DIR/npm-source" --app-report "$APP_REPORT" --dependency-report "$CANDIDATE_DIR/dependencies/validation.json"
           node scripts/candidate-artifacts.mjs seal --output "$CANDIDATE_DIR"
       - name: Keep candidate evidence (no public Release or update manifest)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

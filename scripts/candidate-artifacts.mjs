@@ -149,6 +149,7 @@ export function sealCandidate({ output, expected }) {
   const report = validateReport(readJson(reportPath), expected)
   const source = readJson(join(output, 'source/SOURCE.json'))
   const deps = readJson(join(output, 'dependencies/validation.json'))
+  const npmSources = readJson(join(output, 'npm-source/validation.json'))
   const binding = {
     reportSha512: hash(readFileSync(reportPath)),
     architecture: expected.arch,
@@ -185,6 +186,29 @@ export function sealCandidate({ output, expected }) {
     deps.records + 2 !== report.dependencyMaterials.packages
   )
     throw Error('Candidate source/dependency packets do not match the same App')
+  if (
+    npmSources.schemaVersion !== 1 ||
+    npmSources.purpose !== 'npm-source-inputs-validation' ||
+    npmSources.status !== 'verified' ||
+    npmSources.sha512Encoding !== 'hex' ||
+    !isDeepStrictEqual(npmSources.source, report.source) ||
+    !isDeepStrictEqual(npmSources.binaryBinding, deps.binaryBinding) ||
+    !isDeepStrictEqual(npmSources.dependencyPacket, {
+      file: deps.file,
+      size: deps.size,
+      sha512: deps.sha512,
+    }) ||
+    !isDeepStrictEqual(
+      Object.fromEntries(Object.keys(expected.npmSource).map((key) => [key, npmSources[key]])),
+      expected.npmSource,
+    ) ||
+    npmSources.preferredSourceReview !== 'pending' ||
+    npmSources.licenseReview !== 'pending' ||
+    npmSources.releaseAcceptance !== 'pending'
+  )
+    throw Error(
+      'Candidate npm source inputs do not match the pinned inventory and same App/dependency packet',
+    )
   const assets = [
     ['', report.archive, `MooMole-${expected.version}-mac-${expected.arch}.app.zip`],
     ['', report.diskImage, `MooMole-${expected.version}-mac-${expected.arch}.dmg`],
@@ -195,6 +219,7 @@ export function sealCandidate({ output, expected }) {
       `Mole-${expected.engineVersion}-${expected.engineRevision.slice(0, 12)}-source.tar.gz`,
     ],
     ['dependencies', deps, `MooMole-${expected.version}-mac-${expected.arch}-dependencies.tar.gz`],
+    ['npm-source', npmSources, `MooMole-${expected.version}-npm-source-inputs.tar.gz`],
   ]
   for (const [folder, record, name] of assets) checkedFile(join(output, folder), record, name)
   const files = [
@@ -202,6 +227,7 @@ export function sealCandidate({ output, expected }) {
     'source/SOURCE.json',
     'source/BUILD.md',
     'dependencies/validation.json',
+    'npm-source/validation.json',
     ...assets.map(([folder, , name]) => (folder ? folder + '/' + name : name)),
   ].sort()
   const found = []
@@ -211,7 +237,8 @@ export function sealCandidate({ output, expected }) {
       const path = join(folder, name),
         rel = prefix + name
       if (lstatSync(path).isDirectory()) {
-        if (!['source', 'dependencies'].includes(rel)) throw Error('Unknown candidate directory')
+        if (!['source', 'dependencies', 'npm-source'].includes(rel))
+          throw Error('Unknown candidate directory')
         physical(path, true)
         walk(path, rel + '/')
       } else {
@@ -228,7 +255,7 @@ export function sealCandidate({ output, expected }) {
   if (!isDeepStrictEqual(found.sort(), files)) throw Error('Unknown or missing candidate payload')
   const payload = files.map((file) => ({ file, ...fileDigest(join(output, file)) }))
   const candidate = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     purpose: 'release-candidate-validation',
     version: expected.version,
     architecture: expected.arch,
@@ -305,7 +332,20 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     )
       throw Error('Candidate output must be inside an ignored build output directory')
     if (!lstatSync(dirname(output), { throwIfNoEntry: false })) mkdirSync(dirname(output))
+    const npmPins = readJson(join(root, 'third-party/npm-source-origins.json'))
     const expected = {
+      npmSource: {
+        originsSha256: createHash('sha256')
+          .update(readMetadata(join(root, 'third-party/npm-source-origins.json')))
+          .digest('hex'),
+        packageLockSha256: createHash('sha256')
+          .update(readMetadata(join(root, 'package-lock.json')))
+          .digest('hex'),
+        packages: npmPins.packages.length,
+        repositorySnapshots: npmPins.repositoryInputs.length,
+        repositoryFiles: npmPins.repositoryInputs.reduce((sum, item) => sum + item.entries, 0),
+        declarationFiles: npmPins.publishedDeclarations.declarations.length,
+      },
       revision,
       arch: process.arch,
       version: checkVersion(root),
