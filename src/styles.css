@@ -3567,3 +3567,16 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
   margin: 6px 0 0;
 }
+
+.execution-archive-content > h2 {
+  font-size: 21px;
+  margin-bottom: 10px;
+}
+.execution-archive-content > p {
+  margin-block: 12px;
+  line-height: 1.6;
+}
+.execution-archive-content .saved-plan-row {
+  overflow-wrap: anywhere;
+  text-align: left;
+}

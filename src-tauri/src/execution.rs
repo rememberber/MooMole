@@ -489,7 +489,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         )
         .optional()
         .map_err(sql)?
-        .ok_or("执行记录不存在或已按保留期限清理。")?;
+        .ok_or("执行记录不在活动历史中，可能已归档或超过保留期限；请在执行归档核对。")?;
     let (body, digest): (String, String) = db
         .query_row(
             "SELECT snapshot,snapshot_sha256 FROM execution_runs WHERE id=?1",

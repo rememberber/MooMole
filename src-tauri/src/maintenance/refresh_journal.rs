@@ -288,7 +288,7 @@ fn final_state(items: &[Item]) -> &'static str {
 }
 fn load(db: &Connection, id: &str) -> Result<Stored, String> {
     uuid::Uuid::parse_str(id).map_err(|_| "维护记录标识无效。")?;
-    let raw = db.query_row("SELECT plan_id,method,state,created_at,finished_at,CASE WHEN length(CAST(snapshot AS BLOB))<=16384 THEN snapshot ELSE NULL END,snapshot_sha256,reserved_bytes FROM maintenance_runs WHERE id=?1", [id], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<i64>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,r.get::<_,i64>(7)?))).optional().map_err(sql)?.ok_or("维护记录不存在或已按期限清理。")?;
+    let raw = db.query_row("SELECT plan_id,method,state,created_at,finished_at,CASE WHEN length(CAST(snapshot AS BLOB))<=16384 THEN snapshot ELSE NULL END,snapshot_sha256,reserved_bytes FROM maintenance_runs WHERE id=?1", [id], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<i64>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,r.get::<_,i64>(7)?))).optional().map_err(sql)?.ok_or("维护记录不在活动历史中，可能已归档或超过保留期限；请在执行归档核对。")?;
     let (plan, method, state, created_at, finished_at, body, digest, reserved) = raw;
     let body = body.ok_or("维护快照超过记录上限。")?;
     if hash(&body) != digest || reserved != (body.len() + RESERVE) as i64 {
@@ -713,11 +713,14 @@ pub(crate) fn stop_worker(db: &mut Connection, session: &Session, at: i64) -> Re
 }
 pub(crate) fn detail(db: &Connection, id: &str) -> Result<Detail, String> {
     let t = db.unchecked_transaction().map_err(sql)?;
-    let stored = load(&t, id)?;
-    let summary = stored.summary();
+    let result = detail_in_snapshot(&t, id)?;
     t.commit().map_err(sql)?;
+    Ok(result)
+}
+pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, String> {
+    let stored = load(db, id)?;
     Ok(Detail {
-        summary,
+        summary: stored.summary(),
         revision: stored.archive.revision,
         snapshot_sha256: stored.digest,
         items: stored.items,

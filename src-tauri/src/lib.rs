@@ -21,6 +21,8 @@ mod engine;
 mod engine_manifest;
 mod execution;
 mod execution_admission;
+mod execution_archive;
+mod execution_archive_commands;
 mod execution_location;
 mod execution_review;
 #[cfg(test)]
@@ -76,6 +78,7 @@ struct AppState {
     db: Arc<Mutex<db::Database>>,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     results: Arc<Mutex<tasks::Results>>,
+    archive_slots: Arc<tokio::sync::Semaphore>,
     icon_slots: Arc<tokio::sync::Semaphore>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
@@ -2214,6 +2217,7 @@ pub fn run() {
                 db: Arc::new(Mutex::new(connection)),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
                 results: Arc::new(Mutex::new(tasks::Results::default())),
+                archive_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                 maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
@@ -2255,6 +2259,14 @@ pub fn run() {
             list_executions,
             get_execution,
             acknowledge_execution_review,
+            execution_archive_commands::prepare_execution_archive,
+            execution_archive_commands::archive_execution_history,
+            execution_archive_commands::list_execution_archives,
+            execution_archive_commands::read_execution_archive,
+            execution_archive_commands::get_archived_execution,
+            execution_archive_commands::import_execution_archive,
+            execution_archive_commands::export_execution_archive,
+            execution_archive_commands::reveal_execution_archives,
             reveal_execution_item,
             get_task_snapshot,
             application_icon,

@@ -24,7 +24,9 @@ pub(crate) fn reserve(db: &Transaction<'_>, reserved: i64) -> Result<(), String>
             .checked_add(reserved)
             .is_none_or(|total| total > MAX_RESERVED)
     {
-        return Err("执行记录达到共享容量上限；需要先处理保留记录，不能丢弃恢复证据。".into());
+        return Err(
+            "执行记录达到共享容量上限；请在操作历史的归档入口保存恢复证据，再释放活动容量。".into(),
+        );
     }
     Ok(())
 }

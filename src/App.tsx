@@ -82,6 +82,9 @@ const ReviewPlanDialog = deferredView(
   async () => ({ default: (await import('./components/ReviewPlanDialog')).ReviewPlanDialog }),
   { onClose: (props) => props.onClose() },
 )
+const ExecutionArchiveCenter = deferredView(async () => ({
+  default: (await import('./components/ExecutionArchiveCenter')).ExecutionArchiveCenter,
+}))
 const ExecutionHistory = deferredView(async () => ({
   default: (await import('./components/ExecutionHistory')).ExecutionHistory,
 }))
@@ -258,6 +261,8 @@ export default function App() {
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [recoveryNavigation, setRecoveryNavigation] = useState(0)
+  const [archiveOpenSignal, setArchiveOpenSignal] = useState(0)
+  const [historyEpoch, setHistoryEpoch] = useState(0)
   const [executionPending, setExecutionPending] = useState(false)
   const [executionTrackingError, setExecutionTrackingError] = useState('')
   const executionActive =
@@ -1095,9 +1100,18 @@ export default function App() {
                   </>
                 )}
                 {page === 'history' && (
-                  <span className="toolbar-note">
-                    客户端任务保留 {data.settings.retentionDays} 天
-                  </span>
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={!api.desktop || executionActive || uninstallActive || refreshActive}
+                      onClick={() => setArchiveOpenSignal((v) => v + 1)}
+                    >
+                      归档…
+                    </button>
+                    <span className="toolbar-note">
+                      客户端任务保留 {data.settings.retentionDays} 天
+                    </span>
+                  </>
                 )}
               </>
             )}
@@ -1110,7 +1124,19 @@ export default function App() {
           </span>
         </header>
         <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
+          <ExecutionArchiveCenter
+            openSignal={archiveOpenSignal}
+            enabled={api.desktop}
+            transport={api.archiveTransport}
+            onChanged={async () => {
+              const initial = await api.bootstrap()
+              setData(initial)
+              setExecutionTrackingError('')
+              setHistoryEpoch((v) => v + 1)
+            }}
+          />
           <QuickLookRefreshCenter
+            key={`maintenance-${historyEpoch}`}
             openSignal={refreshOpenSignal}
             enabled={api.desktop}
             historyVisible={page === 'history'}
@@ -1119,6 +1145,7 @@ export default function App() {
             initialRecords={data.maintenanceRefreshes}
           />
           <ApplicationUninstallCenter
+            key={`uninstall-${historyEpoch}`}
             target={uninstallTarget}
             enabled={api.desktop}
             historyVisible={page === 'history'}
@@ -1701,6 +1728,7 @@ export default function App() {
                 </section>
               )}
               <ExecutionHistory
+                key={`cleanup-${historyEpoch}`}
                 onReady={focusExecutionRecords}
                 initialRecords={data.executions}
                 loadRecords={api.executions}

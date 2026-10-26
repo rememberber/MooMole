@@ -85,4 +85,4 @@ Playwright 默认在 127.0.0.1:1431 启动本项目服务，关闭 reuseExisting
 2026-10-26：维护停止原因修正的 `5db9282` / [40253783857](https://github.com/rememberber/MooMole/actions/runs/40253783857) 前端与两个原生作业均 completed/success。源码输入候选 `09aa8bb` / [40255171488](https://github.com/rememberber/MooMole/actions/runs/40255171488) 的前端、双架构原生检查与两个优化候选作业现已全部成功；新增 npm 源码输入已在干净 runner 实际打包/绑定，但新产物下载读回尚待完成。核查修正 26cc757 的 [40259126051](https://github.com/rememberber/MooMole/actions/runs/40259126051) 是独立的新候选，五个作业也已全部 completed/success；阶段 163 已实际下载复核其两架构 App/DMG、全部材料及 npm 原始输入，原生签名/只读挂载/推出与重新汇总通过，见 [实际候选结果](candidate-build.md#v7-与源码输入的双架构候选2026-10-26阶段-163)。不推造未读取原日志的测试数量。
 
 
-阶段 162 的后续界面修正 `7d1633d` / [40278309175](https://github.com/rememberber/MooMole/actions/runs/40278309175) 前端检查已 success，双架构原生检查仍在执行；它不是上述已下载的 26cc757 候选。本机干净 7d1633d 的 arm64 release App、三处最终 ad-hoc 及 ZIP 解压复验通过，安装及 Gatekeeper 仍 pending。
+阶段 162 的后续界面修正 `7d1633d` / [40278309175](https://github.com/rememberber/MooMole/actions/runs/40278309175) 前端与两个原生作业最终均 completed/success；它不是上述已下载的 26cc757 候选。本机干净 7d1633d 的 arm64 release App、三处最终 ad-hoc 及 ZIP 解压复验通过，安装及 Gatekeeper 仍 pending。

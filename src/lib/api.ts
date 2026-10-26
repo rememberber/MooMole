@@ -290,3 +290,5 @@ export async function resumeTask<K extends TaskKind>(
   if (!desktop) throw new Error('浏览器预览不能跟踪本机任务。')
   return taskResult<K>(await observeTask(taskTransport, { id: taskId, kind, signal }))
 }
+
+export { archiveTransport } from './execution-archive'

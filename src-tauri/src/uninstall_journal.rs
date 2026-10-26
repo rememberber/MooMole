@@ -192,7 +192,7 @@ fn load(db: &Connection, id: &str) -> Result<Stored, String> {
     let raw=db.query_row("SELECT plan_id,method,state,item_state,created_at,finished_at,
         CASE WHEN length(CAST(snapshot AS BLOB))<=262144 THEN snapshot ELSE NULL END,snapshot_sha256,reserved_bytes,reason,
         CASE WHEN receipt IS NULL OR length(CAST(receipt AS BLOB))<=8192 THEN receipt ELSE 'oversized' END
-        FROM uninstall_runs WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<i64>>(5)?,r.get::<_,Option<String>>(6)?,r.get::<_,String>(7)?,r.get::<_,i64>(8)?,r.get::<_,String>(9)?,r.get::<_,Option<String>>(10)?))).optional().map_err(sql)?.ok_or("卸载记录不存在或已按期限清理。")?;
+        FROM uninstall_runs WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<i64>>(5)?,r.get::<_,Option<String>>(6)?,r.get::<_,String>(7)?,r.get::<_,i64>(8)?,r.get::<_,String>(9)?,r.get::<_,Option<String>>(10)?))).optional().map_err(sql)?.ok_or("卸载记录不在活动历史中，可能已归档或超过保留期限；请在执行归档核对。")?;
     let (
         plan_id,
         method,
