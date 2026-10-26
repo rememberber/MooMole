@@ -239,14 +239,19 @@ async fn observer_loss_retains_job_update_and_database_ownership_until_worker_fi
     let install = Arc::new(crate::update_install::Gate::default());
     let release = Arc::new(tokio::sync::Notify::new());
     let wait = release.clone();
+    let (committed, execution_finished) = tokio::sync::oneshot::channel();
+    let (publish, publication) = tokio::sync::oneshot::channel::<()>();
     let recv = crate::uninstall_execution::dispatch(
         id.clone(),
         jobs.clone(),
         job.clone(),
         install.enter().unwrap(),
         async move {
+            // Only this owned worker retains the database after the observer
+            // and test's original handle go away. Keep it through publication.
+            let retained_database = db.clone();
             wait.notified().await;
-            tauri::async_runtime::spawn_blocking(move || {
+            let result = tauri::async_runtime::spawn_blocking(move || {
                 run_with(
                     db.clone(),
                     &id,
@@ -261,26 +266,60 @@ async fn observer_loss_retains_job_update_and_database_ownership_until_worker_fi
                 )
             })
             .await
-            .unwrap()
+            .unwrap();
+            let _ = committed.send(
+                result
+                    .as_ref()
+                    .map(|detail| detail.summary.state.clone())
+                    .map_err(Clone::clone),
+            );
+            // A dropped test also releases the barrier instead of leaking a
+            // background worker after a failed assertion.
+            let _ = publication.await;
+            drop(retained_database);
+            result
         },
     );
     drop(recv);
+    drop(t.db);
     assert!(install.begin().is_err());
     assert!(!jobs.lock().unwrap().is_empty());
     assert!(db::open_owned(&t.ctx.home.join("app.sqlite")).is_err());
+    let execution_started = std::time::Instant::now();
     release.notify_one();
+    // Disk-backed execution is a distinct phase from dispatch cleanup. The
+    // old eight-second poll could not tell which phase had failed. Observe
+    // execution within the existing confirmation's 30-second lifetime; do not
+    // renew its timestamps or alter production command/exit timeouts.
+    let state = tokio::time::timeout(std::time::Duration::from_secs(30), execution_finished)
+        .await
+        .expect("real fixture execution did not finish within its confirmation lifetime")
+        .expect("real fixture worker ended before publishing its persisted outcome")
+        .expect("real fixture execution failed before dispatch publication");
+    eprintln!(
+        "maintenance lifetime: persisted execution observed after {} ms",
+        execution_started.elapsed().as_millis()
+    );
+    assert_eq!(state, "completed");
+    assert!(install.begin().is_err());
+    assert!(!jobs.lock().unwrap().is_empty());
+    assert!(db::open_owned(&t.ctx.home.join("app.sqlite")).is_err());
+    let publication_started = std::time::Instant::now();
+    publish.send(()).unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(8), async {
         while !jobs.lock().unwrap().is_empty() {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     })
     .await
-    .unwrap();
+    .expect("dispatch did not release its completed worker within eight seconds");
+    eprintln!(
+        "maintenance lifetime: completed worker released after {} ms",
+        publication_started.elapsed().as_millis()
+    );
+    let reopened = db::open_owned(&t.ctx.home.join("app.sqlite")).unwrap();
     assert_eq!(
-        journal::detail(&*t.db.lock().unwrap(), &t.id)
-            .unwrap()
-            .summary
-            .state,
+        journal::detail(&reopened, &t.id).unwrap().summary.state,
         "completed"
     );
     assert!(install.begin().is_ok());

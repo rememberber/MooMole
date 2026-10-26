@@ -86,3 +86,5 @@ Playwright 默认在 127.0.0.1:1431 启动本项目服务，关闭 reuseExisting
 
 
 阶段 162 的后续界面修正 `7d1633d` / [40278309175](https://github.com/rememberber/MooMole/actions/runs/40278309175) 前端与两个原生作业最终均 completed/success；它不是上述已下载的 26cc757 候选。本机干净 7d1633d 的 arm64 release App、三处最终 ad-hoc 及 ZIP 解压复验通过，安装及 Gatekeeper 仍 pending。
+
+阶段 164 的 `6dd4785` / [40284567893](https://github.com/rememberber/MooMole/actions/runs/40284567893) 前端和 arm64 成功；Intel 后端 542 通过、1 失败、63 明确可选，未构建候选。失败是维护观察者断开测试的 8 秒清理轮询超时，旧日志不能区分真实执行尚未结束与注册表未释放。阶段 166 将真实执行与结果发布/清理分成独立屏障：执行观察采用原确认的 30 秒范围，不续期；保留原 8 秒清理界限，并真正撤下测试自身的数据库句柄，验证仅后台 worker 持有占用。生产代码和期限不变。本机相关 8 项及带阶段诊断的单项通过，Intel 新提交的完整复验另行跟踪；不把此本机结果当作远程已修复。
