@@ -15,9 +15,18 @@ export function mount(mode = 'normal') {
   let record: ReturnType<typeof detailRaw> | null =
     mode === 'resume'
       ? detailRaw(requestId, 'intent')
-      : ['history-unknown', 'review-error', 'review-mismatch'].includes(mode)
+      : [
+            'history-unknown',
+            'review-error',
+            'review-mismatch',
+            'home-unknown',
+            'home-reviewed',
+            'home-moved',
+          ].includes(mode)
         ? detailRaw(requestId, 'uncertain')
         : null
+  if (record && mode === 'home-reviewed') record.reviewedAt = Date.now()
+  if (mode === 'home-moved') record = detailRaw(requestId, 'moved')
   let live = mode === 'resume'
   let id = requestId
   const calls: { command: string; args: unknown }[] = []
@@ -134,6 +143,7 @@ export function mount(mode = 'normal') {
   function Fixture() {
     const [selected, setSelected] = useState<UninstallTarget | null>(null)
     const [active, setActive] = useState(false)
+    const [historyVisible, setHistoryVisible] = useState(!mode.startsWith('home-'))
     const [epoch, setEpoch] = useState(0)
     const [, render] = useState(0)
     changed = () => render((v) => v + 1)
@@ -147,6 +157,9 @@ export function mount(mode = 'normal') {
         >
           重建观察界面
         </button>
+        <button onClick={() => setHistoryVisible((v) => !v)}>
+          {historyVisible ? '返回概览' : '操作历史'}
+        </button>
         <output aria-label="卸载提交次数">
           {calls.filter((c) => c.command === 'execute').length}
         </output>
@@ -157,7 +170,7 @@ export function mount(mode = 'normal') {
           key={epoch}
           target={selected}
           enabled
-          historyVisible
+          historyVisible={historyVisible}
           transport={transport}
           onTargetClose={() => setSelected(null)}
           onActiveChange={setActive}

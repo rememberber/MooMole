@@ -379,14 +379,33 @@ export function ApplicationUninstallCenter({
     )
   }
   const detail = snapshot?.record
+  const needsReview = records.filter((r) => r.itemState === 'uncertain' && r.reviewedAt === null)
   const confirmation = review?.confirmation
   const expired = !!confirmation && (now < confirmation.createdAt || now >= confirmation.expiresAt)
   const title = requestId ? '卸载结果' : '确认卸载'
   return (
     <>
+      {!open && !historyVisible && !active && needsReview.length > 0 && (
+        <section className="notice warning uninstall-progress" aria-label="卸载待核实结果">
+          <div>
+            <strong>有 {needsReview.length} 项卸载结果待核实</strong>
+            <p>请先核对原 App、废纸篓和逐项记录。原结果会保留，不会自动重试。</p>
+          </div>
+          <button
+            className="button secondary compact"
+            onClick={(e) => {
+              opener.current = e.currentTarget
+              openRecord(needsReview[0]!.id)
+            }}
+          >
+            核查卸载结果
+          </button>
+        </section>
+      )}
       {!open &&
         requestId &&
         (active || trackChanges.current.has(requestId)) &&
+        (active || needsReview.length === 0) &&
         (!historyVisible || active) && (
           <section className="notice uninstall-progress" aria-label="卸载状态">
             <div>
