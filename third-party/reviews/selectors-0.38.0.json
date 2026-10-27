@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "purpose": "supplement-source-association-review",
+  "package": "cargo:selectors@0.38.0",
+  "declaredLicense": "MPL-2.0",
+  "crateSha256": "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d",
+  "revision": "572ecba2d1600e7c3d490586692a209faf703baa",
+  "sourcePath": "selectors/lib.rs",
+  "publishedFileSha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
+  "upstreamFile": "https://github.com/servo/stylo/blob/572ecba2d1600e7c3d490586692a209faf703baa/selectors/lib.rs",
+  "retainedNoticeSha256": "5ad24dc31896f9c9109b18d510cc85dbff09ef8bd52a1ecf5098c7ec8d87befd",
+  "retainedNoticeBytes": 297,
+  "retainedNoticeScope": "exact prefix of published and fixed upstream file",
+  "licenseReference": {
+    "source": "https://spdx.org/licenses/MPL-2.0.txt",
+    "sha256": "66c10535a495f4cd8115607e890f8116d657064b98557f660c51e123b3f3fee6",
+    "bytes": 15190
+  },
+  "decision": "supplement source association verified; retain the reference-kind review prompt required by the material validator",
+  "sourceAvailability": "version-bound release/source-materials notice added in 897c2fd; public asset delivery remains a release gate",
+  "licenseCompatibilityReview": "pending",
+  "sdkPolicyReview": "not applicable to this package",
+  "reviewedOn": "2026-10-26",
+  "automaticReviewFlagRetained": true
+}

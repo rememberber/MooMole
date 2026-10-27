@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "purpose": "release-supplement-source-associations",
+  "reviewedOn": "2026-10-26",
+  "candidateSource": "fd481573d2dc9298db366989fb0fc640289b076c",
+  "candidateArtifactSha256": "5fc105fa6a491a46c2cf06aee5a21911623b5530c3121574e7dac0f7d23acc42",
+  "entries": [
+    {
+      "id": "cargo:block2@0.6.2",
+      "crateSha256": "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5",
+      "declaredLicense": "MIT",
+      "vcs": {
+        "git": {
+          "sha1": "b4167b582b2f75f9a1be75495c41b765344fd03c"
+        },
+        "path_in_vcs": "crates/block2"
+      },
+      "files": 17,
+      "bytes": 129370
+    },
+    {
+      "id": "cargo:dispatch2@0.3.1",
+      "crateSha256": "1e0e367e4e7da84520dedcac1901e4da967309406d1e51017ae1abfb97adbd38",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "8852b424193ca41602281b3d7540d7c8ed51e49a"
+        },
+        "path_in_vcs": "crates/dispatch2"
+      },
+      "files": 26,
+      "bytes": 291202
+    },
+    {
+      "id": "cargo:objc2-app-kit@0.3.2",
+      "crateSha256": "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-app-kit"
+      },
+      "files": 309,
+      "bytes": 4708471
+    },
+    {
+      "id": "cargo:objc2-core-foundation@0.3.2",
+      "crateSha256": "2a180dd8642fa45cdb7dd721cd4c11b1cadd4929ce112ebd8b9f5803cc79d536",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-core-foundation"
+      },
+      "files": 76,
+      "bytes": 1519913
+    },
+    {
+      "id": "cargo:objc2-core-graphics@0.3.2",
+      "crateSha256": "e022c9d066895efa1345f8e33e584b9f958da2fd4cd116792e15e07e4720a807",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-core-graphics"
+      },
+      "files": 61,
+      "bytes": 808308
+    },
+    {
+      "id": "cargo:objc2-encode@4.1.0",
+      "crateSha256": "ef25abbcd74fb2609453eb695bd2f860d389e457f67dc17cafc8b8cbc89d0c33",
+      "declaredLicense": "MIT",
+      "vcs": {
+        "git": {
+          "sha1": "8d214f5477365ffcbcbb7de058c86ed9a518efb7"
+        },
+        "path_in_vcs": "crates/objc2-encode"
+      },
+      "files": 12,
+      "bytes": 94349
+    },
+    {
+      "id": "cargo:objc2-exception-helper@0.1.1",
+      "crateSha256": "c7a1c5fbb72d7735b076bb47b578523aedc40f3c439bea6dfd595c089d79d98a",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "8d214f5477365ffcbcbb7de058c86ed9a518efb7"
+        },
+        "path_in_vcs": "crates/objc2-exception-helper"
+      },
+      "files": 9,
+      "bytes": 12373
+    },
+    {
+      "id": "cargo:objc2-foundation@0.3.2",
+      "crateSha256": "e3e0adef53c21f888deb4fa59fc59f7eb17404926ee8a6f59f5df0fd7f9f3272",
+      "declaredLicense": "MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-foundation"
+      },
+      "files": 239,
+      "bytes": 2975291
+    },
+    {
+      "id": "cargo:objc2-io-surface@0.3.2",
+      "crateSha256": "180788110936d59bab6bd83b6060ffdfffb3b922ba1396b312ae795e1de9d81d",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-io-surface"
+      },
+      "files": 16,
+      "bytes": 95381
+    },
+    {
+      "id": "cargo:objc2-quartz-core@0.3.2",
+      "crateSha256": "96c1358452b371bf9f104e21ec536d37a650eb10f7ee379fff67d2e08d537f1f",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-quartz-core"
+      },
+      "files": 38,
+      "bytes": 266826
+    },
+    {
+      "id": "cargo:objc2-web-kit@0.3.2",
+      "crateSha256": "b2e5aaab980c433cf470df9d7af96a7b46a9d892d521a2cbbb2f8a4c16751e7f",
+      "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+      "vcs": {
+        "git": {
+          "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+        },
+        "path_in_vcs": "framework-crates/objc2-web-kit"
+      },
+      "files": 222,
+      "bytes": 1502687
+    },
+    {
+      "id": "cargo:objc2@0.6.5",
+      "crateSha256": "08849bbd4767dfae9457696856ae1c84fe4e0281bbe4a7abff2d0e06fb7981f8",
+      "declaredLicense": "MIT",
+      "vcs": {
+        "git": {
+          "sha1": "d7d2fa23ceaa5e6096c923b081040e5d81b3b9df"
+        },
+        "path_in_vcs": "crates/objc2"
+      },
+      "files": 120,
+      "bytes": 1170864
+    },
+    {
+      "id": "cargo:selectors@0.38.0",
+      "crateSha256": "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d",
+      "declaredLicense": "MPL-2.0",
+      "vcs": {
+        "git": {
+          "sha1": "572ecba2d1600e7c3d490586692a209faf703baa"
+        },
+        "path_in_vcs": "selectors"
+      },
+      "files": 22,
+      "bytes": 333611
+    }
+  ],
+  "upstreamSources": [
+    {
+      "source": "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+      "fetchedFrom": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+      "upstreamBytes": 1339,
+      "upstreamSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "retainedBytes": 1339,
+      "retainedSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://github.com/madsmtm/objc2/blob/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+      "fetchedFrom": "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+      "upstreamBytes": 1339,
+      "upstreamSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "retainedBytes": 1339,
+      "retainedSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://github.com/madsmtm/objc2/blob/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+      "fetchedFrom": "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+      "upstreamBytes": 1339,
+      "upstreamSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "retainedBytes": 1339,
+      "retainedSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://github.com/madsmtm/objc2/blob/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+      "fetchedFrom": "https://raw.githubusercontent.com/madsmtm/objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+      "upstreamBytes": 1339,
+      "upstreamSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "retainedBytes": 1339,
+      "retainedSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md",
+      "fetchedFrom": "https://raw.githubusercontent.com/madsmtm/objc2/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md",
+      "upstreamBytes": 1339,
+      "upstreamSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "retainedBytes": 1339,
+      "retainedSha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://github.com/servo/stylo/blob/572ecba2d1600e7c3d490586692a209faf703baa/selectors/lib.rs",
+      "fetchedFrom": "https://raw.githubusercontent.com/servo/stylo/572ecba2d1600e7c3d490586692a209faf703baa/selectors/lib.rs",
+      "upstreamBytes": 643,
+      "upstreamSha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
+      "retainedBytes": 297,
+      "retainedSha256": "5ad24dc31896f9c9109b18d510cc85dbff09ef8bd52a1ecf5098c7ec8d87befd",
+      "scope": "exact-prefix"
+    },
+    {
+      "source": "https://spdx.org/licenses/MIT.txt",
+      "fetchedFrom": "https://spdx.org/licenses/MIT.txt",
+      "upstreamBytes": 1077,
+      "upstreamSha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+      "retainedBytes": 1077,
+      "retainedSha256": "c3b1b78bc8bd3ea13aa4bc9778442d16560270afa235006d816e5e88cef24db4",
+      "scope": "exact-file"
+    },
+    {
+      "source": "https://spdx.org/licenses/MPL-2.0.txt",
+      "fetchedFrom": "https://spdx.org/licenses/MPL-2.0.txt",
+      "upstreamBytes": 15190,
+      "upstreamSha256": "66c10535a495f4cd8115607e890f8116d657064b98557f660c51e123b3f3fee6",
+      "retainedBytes": 15190,
+      "retainedSha256": "66c10535a495f4cd8115607e890f8116d657064b98557f660c51e123b3f3fee6",
+      "scope": "exact-file"
+    }
+  ],
+  "additionalMplInventory": [
+    {
+      "id": "cargo:cssparser-macros@0.7.1",
+      "crateSha256": "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a",
+      "files": 6,
+      "bytes": 24274
+    },
+    {
+      "id": "cargo:cssparser@0.37.0",
+      "crateSha256": "8c9cdaae01d5ed7882b04d795e7f752f46ff52d2fa3b50a20d28c464510bba98",
+      "files": 24,
+      "bytes": 253007
+    },
+    {
+      "id": "cargo:dtoa-short@0.3.5",
+      "crateSha256": "cd1511a7b6a56299bd043a9c167a6d2bfb37bf84a6dfceaba651168adfb43c87",
+      "files": 6,
+      "bytes": 24754
+    },
+    {
+      "id": "cargo:option-ext@0.2.0",
+      "crateSha256": "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d",
+      "files": 8,
+      "bytes": 22611
+    },
+    {
+      "id": "cargo:selectors@0.38.0",
+      "crateSha256": "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d",
+      "files": 22,
+      "bytes": 333611
+    }
+  ],
+  "sourceAssociationReview": "verified",
+  "automaticReviewPrompts": "retained: policy/reference types always require a prompt in generated materials; these are not completed-review counters",
+  "licenseCompatibilityReview": "pending",
+  "sharedSdkPolicyReview": "pending: the retained upstream objc2 policy explicitly records uncertainty for SDK-derived bindings",
+  "sourceScanScope": "1211 files / 14233292 bytes in 17 actual published crates. Copyright/API name hits and Foundation copying modules were not treated as licensing notices; only the ordinary option-ext MPL license text mentioned secondary licenses, not an attached source-code notice."
+}

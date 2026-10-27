@@ -4,19 +4,19 @@
 
 ## 收集范围
 
-| 来源 | 当前 arm64 记录 | 依据与边界 |
-| --- | --- | --- |
-| 客户端与 Mole | 2 | 应用 GPL、上游许可证/品牌政策和适配说明，固定引擎版本/提交 |
-| npm | 8 | production lock graph 与实际安装包的名称、版本、许可声明相符；包括类型依赖，不声称每项都进入运行代码 |
-| Rust | 294 | 当前目标、custom-protocol 的 Cargo 解析图，排除纯 dev 边，保守包含 build 依赖；不是最终机器码的精确裁剪分析 |
-| Go | 22 | 从包内两个实际引擎的 JSON BuildInfo 合并模块，核对缓存版本与 h1；替换模块、冲突或缺失拒绝 |
-| 标准库 | 2 | 匹配引擎 Go 版本的原材料，以及所用 Rust 的 COPYRIGHT-library 和随附许可文本；不复制整套编译器材料 |
+| 来源          | 当前 arm64 记录 | 依据与边界                                                                                                  |
+| ------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| 客户端与 Mole | 2               | 应用 GPL、上游许可证/品牌政策和适配说明，固定引擎版本/提交                                                  |
+| npm           | 8               | production lock graph 与实际安装包的名称、版本、许可声明相符；包括类型依赖，不声称每项都进入运行代码        |
+| Rust          | 294             | 当前目标、custom-protocol 的 Cargo 解析图，排除纯 dev 边，保守包含 build 依赖；不是最终机器码的精确裁剪分析 |
+| Go            | 22              | 从包内两个实际引擎的 JSON BuildInfo 合并模块，核对缓存版本与 h1；替换模块、冲突或缺失拒绝                   |
+| 标准库        | 2               | 匹配引擎 Go 版本的原材料，以及所用 Rust 的 COPYRIGHT-library 和随附许可文本；不复制整套编译器材料           |
 
 各包根目录的 LICENSE/LICENCE/COPYING/NOTICE/COPYRIGHT/AUTHORS/PATENTS、许可目录或明确 license_file 均保留原字节。读取要求物理路径、普通文件、完整 UTF-8 与有限大小，前后身份、大小或修改时间变化拒绝。只有 SPDX 元数据或署名、没有正文/固定补充时拒绝，不把它们当许可正文。Go 没有机器声明的许可证时保留 null，不能根据文件名猜 SPDX。
 
 部分发布包没有正文，另有包仅含 SPDX 元数据。缺失补充见 [来源清单](../third-party/license-supplements.json)，按精确版本、crate VCS 或 npm integrity 绑定，文件逐份 SHA-256 固定；依赖变化或材料损坏须重新核对，构建不临时抓取不明新文本。该目录的 Git 属性保留原始字节和空白，不对上游正文作换行或格式化处理。
 
-目前 18 个补充项使用 11 份文件，其中 13 项仍需核查：包括上游政策、许可声明及上下文和标准文本引用。原文中的占位符保持原样，不替包作者编造年份/版权人；原包声明作者单独保留。典型来源包括 [objc2 固定提交政策](https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md) 和 [Mozilla MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)。它们不会被标成已完成完整署名或对应源码审阅。
+目前 18 个补充项使用 11 份文件，其中 13 项保留政策或标准文本引用的核查提示；生成器要求此类材料始终保留提示，数量不等于尚未核对来源的项目数。原文中的占位符保持原样，不替包作者编造年份/版权人；原包声明作者单独保留。典型来源包括 [objc2 固定提交政策](https://github.com/madsmtm/objc2/blob/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md) 和 [Mozilla MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)。这些提示不代表完整署名或对应源码审阅已完成。
 
 2026-10-25 阶段 154 已核对 `@tauri-apps/api@2.12.4` 的补充正文来源：原 npm 发布证明将相同 integrity 绑定到 `59b63ab500da9859f12d8888c3298bc29bba0b92`，固定提交下 `packages/api/package.json` 的名称、版本和许可声明匹配；[API 自身 MIT](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/packages/api/LICENSE-MIT) 与 [Apache-2.0 正文](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/packages/api/LICENSE-APACHE-2.0) 分别为 1,090 和 10,174 字节，与原补充 SHA-256 完全一致。因此来源改为包自身的固定提交文件，撤下这一项来源关联核查；原正文、integrity 和其余 13 项标记保持。该收口不代表整体许可证组合、署名或对应源码审阅完成。
 
@@ -62,3 +62,9 @@ Tauri 的 build/dev 包装入口会先准备材料；直接调用 Cargo 前应�
 离线真实准备仍为 328 包/244 份材料，新增说明后正文 2,501,100 字节、SHA-256 `2f3a58e606b1069714074f775f40eb95c63139fdbb3931a17ac5bb9637f5553d`，13 项和整体 pending 保持。现有材料 6 组、App/DMG 7 组、源码 4 组和依赖归档 8 组均通过；原材料偏移/摘要及签名打包约束没有因正文增长失效。
 
 13 项可归为 objc2 家族 12 个包的共同 SDK 政策及 selectors 的 MPL 引用，并非 13 套独立许可证；本次只补源码获取说明，不冒充这些来源/署名和完整兼容性审阅已经完成。新说明尚未进入阶段 171 的 fd48157 候选，应在源码材料审阅冻结后重新生成最终发布物。
+
+## 补充材料来源核对（阶段 174）
+
+已从 fd48157 的实际 arm64 候选中核对全部 13 项补充材料的固定来源，并检查相关 17 个源码包的声明和版本绑定；证据见 [来源核对记录](../third-party/reviews/supplement-sources-0.1.0.json) 和 [selectors 记录](../third-party/reviews/selectors-0.38.0.json)。selectors 的发布源码与固定上游文件逐字节一致，材料册保留其原始许可声明及标准文本引用。生成器仍按材料类型保留 13 项提示，不能仅凭这些来源核对得出完整兼容性结论。
+
+objc2 家族仍有一项共同的 SDK 衍生来源政策问题需要判断。Apple 的 [Xcode 和 SDK 协议](https://www.apple.com/legal/sla/docs/xcode.pdf)第 2.4 节允许符合其条款的 macOS 应用在 App Store 之外分发，不要求因此购买开发者计划；这本身不能解决具体生成绑定是否受 SDK 再分发条款限制。MPL 对应源码的公开提供、许可组合及最终发行审阅也仍待完成。
