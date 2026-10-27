@@ -423,22 +423,32 @@ async fn lost_observer_keeps_live_job_and_update_lease_through_native_result_com
         Ok(())
     }));
     let work = t.clone();
+    let completed = Arc::new(Mutex::new(None));
+    let worker_result = completed.clone();
     let response = dispatch(
         t.id.clone(),
         jobs.clone(),
         t.job.clone(),
         operation,
         async move {
-            tokio::task::spawn_blocking(move || work.run(&mut backend))
-                .await
-                .unwrap()
+            tokio::task::spawn_blocking(move || {
+                let result = work.run(&mut backend);
+                *worker_result.lock().unwrap() = Some(format!("{result:?}"));
+                result
+            })
+            .await
+            .unwrap()
         },
     );
     drop(response);
-    tokio::time::timeout(std::time::Duration::from_secs(10), waiting)
+    let reached_native = tokio::time::timeout(std::time::Duration::from_secs(10), waiting)
         .await
-        .unwrap()
         .unwrap();
+    assert!(
+        reached_native.is_ok(),
+        "worker ended before native result: {:?}",
+        *completed.lock().unwrap()
+    );
     assert!(jobs.lock().unwrap().contains_key(&t.id));
     assert!(installation.begin().is_err());
     assert_eq!(t.record().summary.item_state, "intent");
