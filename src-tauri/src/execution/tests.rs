@@ -188,7 +188,11 @@ fn pre_intent_crash_does_not_claim_attempt_and_cancel_keeps_completed_items() {
         vec!["notStarted", "notStarted"]
     );
     assert_eq!(d.summary.uncertain_count, 0);
-    assert!(begin(&mut f.db, &f.plan, f.at + 2).is_err()); // Same immutable plan cannot replay.
+    let error = begin(&mut f.db, &f.plan, f.at + 2).unwrap_err();
+    assert!(error.contains("此审阅计划已用于一次处理"));
+    assert!(error.contains("重新扫描并保存新计划"));
+    assert!(!error.contains("UNIQUE"));
+    assert_eq!(detail(&f.db, &run).unwrap().summary.state, "interrupted");
     f.plan.id = uuid::Uuid::new_v4().to_string();
     let next = f.begin();
     f.move_fixture(&next, 0);

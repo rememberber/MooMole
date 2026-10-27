@@ -206,6 +206,16 @@ pub fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<String, String
     }
     let reserved = body.len() as i64 + plan.items.len() as i64 * RESERVE_PER_ITEM;
     let tx = transaction(db)?;
+    let already_used: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM execution_runs WHERE plan_id=?1)",
+            [&plan.id],
+            |r| r.get(0),
+        )
+        .map_err(sql)?;
+    if already_used {
+        return Err("此审阅计划已用于一次处理。请重新扫描并保存新计划，再检查处理范围。".into());
+    }
     crate::execution_admission::reserve(&tx, reserved)?;
     let id = uuid::Uuid::new_v4().to_string();
     let digest = format!("{:x}", Sha256::digest(body.as_bytes()));
