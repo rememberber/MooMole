@@ -76,6 +76,8 @@ MooTool 的 `CSC_IDENTITY_AUTO_DISCOVERY=false` 是 Electron Builder 配置；Mo
 
 发布顺序：版本与说明校验 → 构建/测试 → 验证 ad-hoc 与嵌套资源 → 上传 Release 资产 → 验证实际可下载资产及摘要 → 发布更新清单。清单不能提前指向不存在的安装包。
 
+首发的源码和依赖材料按架构分别提供完整候选 ZIP，保留其内部目录、`CANDIDATE.json` 和 `SHA512SUMS`；Release 上使用包含版本和架构的不同文件名，并单独提供对应 DMG。两个候选内部都有 `source/SOURCE.json`、`validation.json` 等同名文件，不能把内部文件平铺到同一个 Release。发布前须核对候选与 DMG 的版本、源码提交、架构、大小及摘要绑定；上传后从公开地址下载复核，再填入更新清单。阶段 171 的候选仅供演练，不包含后续源码入口说明，不能直接作为最终发布物。
+
 CI 明确记录“未使用 Developer ID、未公证”。缺少付费证书不是失败条件，实际发布物验证失败仍必须阻止发布。
 
 ## 权限与系统级功能
