@@ -68,3 +68,5 @@ Tauri 的 build/dev 包装入口会先准备材料；直接调用 Cargo 前应�
 已从 fd48157 的实际 arm64 候选中核对全部 13 项补充材料的固定来源，并检查相关 17 个源码包的声明和版本绑定；证据见 [来源核对记录](../third-party/reviews/supplement-sources-0.1.0.json) 和 [selectors 记录](../third-party/reviews/selectors-0.38.0.json)。selectors 的发布源码与固定上游文件逐字节一致，材料册保留其原始许可声明及标准文本引用。生成器仍按材料类型保留 13 项提示，不能仅凭这些来源核对得出完整兼容性结论。
 
 objc2 家族仍有一项共同的 SDK 衍生来源政策问题需要判断。Apple 的 [Xcode 和 SDK 协议](https://www.apple.com/legal/sla/docs/xcode.pdf)第 2.4 节允许符合其条款的 macOS 应用在 App Store 之外分发，不要求因此购买开发者计划；这本身不能解决具体生成绑定是否受 SDK 再分发条款限制。MPL 对应源码的公开提供、许可组合及最终发行审阅也仍待完成。
+
+2026-10-27：从 `e3ac7e1` 的 arm64 候选依赖归档再次读取 `selectors 0.38.0`，包摘要与既有来源记录一致；22 个普通文件中未发现 `Incompatible With Secondary Licenses` 或 `Exhibit B` 字样。[Mozilla FAQ Q14](https://www.mozilla.org/en-US/MPL/2.0/FAQ/) 说明 MPL 与 GPL 组合还取决于其他条件及源码许可提供方式，因此这一文本检查不能单独证明兼容或完成发行审阅。该候选的版本绑定源码入口已进入随包材料；Release 草稿已上传匹配材料，但公开提供及读回仍待发布验收。objc2 上游政策对 SDK 衍生代码分发明确保留疑问，仍需独立判断，不能以未发现 MPL 标记替代这一问题。

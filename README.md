@@ -28,7 +28,9 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 正式分发采用架构匹配的 DMG、免费 ad-hoc 签名和 GitHub Releases；目前尚未发布经过完整验收的正式版本。不会要求购买 Apple 开发者账户，也不声称具有 Developer ID 或 Apple 公证。
 
-安装后从固定位置启动。首次打开可能需要本人按 macOS 的实际提示确认；应用不会关闭 Gatekeeper 或移除系统安全属性。更新采用“设置 → 关于 → 检查更新 → 下载并校验大小/SHA-512 → 打开 DMG → 正常退出后手动替换”的流程，不静默覆盖运行中的 App。没有已发布新版时，更新检查不会生成安装包。
+发布后，Apple 芯片的 Mac 选择 `arm64`，Intel Mac 选择 `x64`；可在[关于本机](https://support.apple.com/zh-cn/guide/mac-help/mchlea7173f3/mac)查看芯片或处理器。核对发布页的文件大小和 SHA-512，再打开 DMG，将应用复制到“应用程序”并从安装位置启动。
+
+首次打开时，macOS 可能提示无法验证开发者或检查恶意软件；请先确认来源和文件完整性，再根据 [Apple 的安全说明](https://support.apple.com/zh-cn/102445)自行判断。应用不会关闭 Gatekeeper 或移除系统安全属性。更新采用“设置 → 关于 → 检查更新 → 下载并校验大小/SHA-512 → 打开 DMG → 正常退出后手动替换”的流程，不静默覆盖运行中的 App。没有已发布新版时，更新检查不会生成安装包。
 
 两种架构的候选构建及本机安装/替换已有验证记录；公开下载后的 Gatekeeper、跨 SemVer 更新、Intel 原生使用及完整支持环境验收仍待完成。具体证据和限制见 [安装升级方案](docs/distribution.md) 与 [候选构建](docs/candidate-build.md)。
 
