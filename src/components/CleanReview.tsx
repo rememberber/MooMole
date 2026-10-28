@@ -7,6 +7,7 @@ import { previewTotal, protectionFor } from '../lib/clean-preview'
 import { ImpactDetails } from './ImpactDetails'
 import { useNow } from '../lib/use-now'
 import { OriginDetails } from './OriginDetails'
+import { DustCloud } from './TaskMotion'
 
 export function CleanReview({
   preview,
@@ -103,12 +104,23 @@ export function CleanReview({
   return (
     <section className="card clean-review" aria-label="Mole 清理项目审阅">
       <div className="review-heading">
-        <div>
-          <h2>逐项审阅</h2>
-          <p>
-            {items.length} 个候选路径 · 已测量 {bytes(total.size)}
-            {total.unknown > 0 ? ' 起' : ''}
-          </p>
+        <div className="motion-summary">
+          <DustCloud
+            remaining={items.some((item) => !item.protections.length) ? 1 : 0}
+            phase={
+              preview.expiresAt != null &&
+              (now >= preview.expiresAt || now < (preview.scannedAt ?? 0))
+                ? 'paused'
+                : 'detected'
+            }
+          />
+          <div>
+            <h2>逐项审阅</h2>
+            <p>
+              {items.length} 个候选路径 · 已测量 {bytes(total.size)}
+              {total.unknown > 0 ? ' 起' : ''}
+            </p>
+          </div>
         </div>
         <span className="tag">dry-run · 未执行删除</span>
       </div>

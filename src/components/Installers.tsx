@@ -71,8 +71,10 @@ export function Installers({
         </p>
       )}
       {reading && (
-        <p className="muted" role="status">
-          正在所选目录中只读查找安装包文件名，不打开安装包或读取压缩内容…
+        <p className="muted motion-scan" data-scanning role="status">
+          <span className="motion-text" data-active>
+            正在所选目录中只读查找安装包文件名，不打开安装包或读取压缩内容…
+          </span>
         </p>
       )}
       {!report ? (

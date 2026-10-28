@@ -34,10 +34,16 @@ export function AnalysisTaskNotice({
   const active = analysisTaskActive(task)
   const problem = !active && task.state !== 'cancelled'
   return (
-    <section className="analysis-task notice" aria-label="空间分析任务">
+    <section
+      className="analysis-task notice motion-scan"
+      data-scanning={active && task.state !== 'cancelling'}
+      aria-label="空间分析任务"
+    >
       <div className="analysis-task-body">
         <div role={problem ? 'alert' : 'status'}>
-          <strong>{titles[task.state]}</strong>
+          <strong className="motion-text" data-active={active && task.state !== 'cancelling'}>
+            {titles[task.state]}
+          </strong>
           <p className="mono analysis-task-path">
             请求目录：{task.path ?? '任务未记录目录，请从历史核对'}
           </p>

@@ -15,6 +15,7 @@ import {
 import { cleanupPreparation } from '../lib/cleanup-preparation'
 import { appSizeEstimate, compareApps } from '../lib/application-library'
 import { largeFileReport, largeFileInScope } from '../lib/large-files'
+import { DustCloud } from './TaskMotion'
 
 export function QuickCleanup({
   preview,
@@ -198,19 +199,32 @@ export function QuickCleanup({
   }
   return (
     <div className="quick-cleanup">
-      <div className="quick-action card quick-selection">
-        <div>
-          <strong>
-            已选 {chosen.length} 项 · {bytes(total.size)}
-            {total.unknown ? `，另有 ${total.unknown} 项大小未知` : ''}
-          </strong>
-          <p className="quick-intro">
-            {checking
-              ? '正在检查默认推荐项，可继续浏览。'
-              : recommended.length
-                ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
-                : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
-          </p>
+      <div
+        className="quick-action card quick-selection motion-scan"
+        data-scanning={scanRunning || checking || pending}
+      >
+        <div className="motion-summary">
+          <DustCloud
+            remaining={
+              items.some(({ protected: blocked, supported }) => !blocked && supported) ? 1 : 0
+            }
+            phase={scanRunning || checking || pending ? 'working' : fresh ? 'detected' : 'paused'}
+          />
+          <div>
+            <strong>
+              已选 {chosen.length} 项 · {bytes(total.size)}
+              {total.unknown ? `，另有 ${total.unknown} 项大小未知` : ''}
+            </strong>
+            <p className="quick-intro">
+              <span className="motion-text" data-active={checking}>
+                {checking
+                  ? '正在检查默认推荐项，可继续浏览。'
+                  : recommended.length
+                    ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
+                    : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
+              </span>
+            </p>
+          </div>
         </div>
         <button
           className="button primary"

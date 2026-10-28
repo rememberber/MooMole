@@ -342,9 +342,15 @@ export function QuickLookRefreshCenter({
           issue ||
           record?.state === 'running' ||
           (record?.retainedForReview && !historyVisible)) && (
-          <section className="notice execution-recovery" aria-label="维护状态">
+          <section
+            className="notice execution-recovery motion-scan"
+            data-scanning={active && !cancelRequested && !issue}
+            aria-label="维护状态"
+          >
             <div>
-              <strong>{active ? '正在刷新预览' : '维护结果需要核对'}</strong>
+              <strong className="motion-text" data-active={active && !cancelRequested && !issue}>
+                {active ? '正在刷新预览' : '维护结果需要核对'}
+              </strong>
               <p>{issue || '结果持续保存；关闭窗口不会丢弃已发生的结果。'}</p>
             </div>
             <button className="button secondary compact" onClick={() => showRecord(request)}>
@@ -461,12 +467,18 @@ export function QuickLookRefreshCenter({
             </>
           ) : (
             <>
-              <p role="status">
-                {record
-                  ? refreshStateName(record.state)
-                  : active
-                    ? '正在提交并读取记录…'
-                    : '正在读取原请求结果…'}
+              <p
+                role="status"
+                className="motion-scan"
+                data-scanning={active && !cancelRequested && !issue}
+              >
+                <span className="motion-text" data-active={active && !cancelRequested && !issue}>
+                  {record
+                    ? refreshStateName(record.state)
+                    : active
+                      ? '正在提交并读取记录…'
+                      : '正在读取原请求结果…'}
+                </span>
               </p>
               {issue && (
                 <p role="alert" className="error-text">

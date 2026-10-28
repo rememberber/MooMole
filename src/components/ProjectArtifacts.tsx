@@ -55,7 +55,7 @@ export function ProjectArtifacts({
   return (
     <section aria-label="工程产物结果">
       {loadingRoots && (
-        <p className="muted" role="status">
+        <p className="muted motion-text" data-active role="status">
           正在读取 Mole 保存的目录；不会扫描这些目录…
         </p>
       )}
@@ -81,8 +81,10 @@ export function ProjectArtifacts({
         </p>
       )}
       {reading && (
-        <p className="muted" role="status">
-          正在所选目录中查找工程产物名称；不会进入产物内部或修改文件…
+        <p className="muted motion-scan" data-scanning role="status">
+          <span className="motion-text" data-active>
+            正在所选目录中查找工程产物名称；不会进入产物内部或修改文件…
+          </span>
         </p>
       )}
       {!report ? (
