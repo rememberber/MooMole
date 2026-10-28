@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "findings", "limitations"],
+  "properties": {
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidenceId", "recommendation", "reason", "impact"],
+        "properties": {
+          "evidenceId": { "type": "string" },
+          "recommendation": { "type": "string", "enum": ["review", "keep", "investigate"] },
+          "reason": { "type": "string" },
+          "impact": { "type": "string" }
+        }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  }
+}

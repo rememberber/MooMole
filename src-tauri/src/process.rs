@@ -178,7 +178,17 @@ pub async fn output_bounded(
     timeout: Duration,
     limit: u64,
 ) -> Result<Vec<u8>, String> {
-    supervise(command, job, timeout, limit, None).await
+    supervise(command, job, timeout, limit, None, None).await
+}
+
+pub(crate) async fn output_with_input(
+    command: Command,
+    job: Arc<Job>,
+    input: Vec<u8>,
+    timeout: Duration,
+    limit: u64,
+) -> Result<Vec<u8>, String> {
+    supervise(command, job, timeout, limit, None, Some(input)).await
 }
 
 type LineReceiver = Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>;
@@ -194,6 +204,7 @@ pub(crate) async fn stream_lines(
         Duration::from_secs(24 * 3600),
         64 * 1024,
         Some(Box::new(receive)),
+        None,
     )
     .await
     .map(|_| ())
@@ -204,6 +215,7 @@ async fn supervise(
     timeout: Duration,
     limit: u64,
     receive: Option<LineReceiver>,
+    input: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, String> {
     if limit == 0 || limit > OUTPUT_LIMIT {
         return Err("输出边界无法识别。".into());
@@ -216,7 +228,11 @@ async fn supervise(
     // Cleanup belongs to Group. Tokio's implicit PID signal on drop would not
     // share the registration lock or the unreaped-leader ownership boundary.
     command
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(false);
@@ -239,6 +255,24 @@ async fn supervise(
         lease,
         armed: true,
     };
+    // The prompt goes through a pipe, never argv or a user-visible shell command.
+    // Abort a stalled writer when supervision ends, including cancellation.
+    struct InputWriter(Option<JoinHandle<Result<(), std::io::Error>>>);
+    impl Drop for InputWriter {
+        fn drop(&mut self) {
+            if let Some(handle) = &self.0 {
+                handle.abort();
+            }
+        }
+    }
+    let mut writer = InputWriter(input.map(|input| {
+        let mut stdin = child.stdin.take().expect("piped input");
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            stdin.write_all(&input).await?;
+            stdin.shutdown().await
+        })
+    }));
     let streaming = receive.is_some();
     let stdout = child.stdout.take().ok_or("无法读取任务输出。")?;
     let mut out = match receive {
@@ -323,6 +357,12 @@ async fn supervise(
     }
     if job.cancelled.load(Ordering::SeqCst) {
         return Err("任务已取消。".into());
+    }
+    if let Some(handle) = writer.0.as_mut() {
+        match tokio::time::timeout(PIPE_GRACE, handle).await {
+            Ok(Ok(Ok(()))) => (),
+            _ => return Err("任务输入未完整传递，未接受本次输出。".into()),
+        }
     }
     if !status.success() {
         let source = if stderr.is_empty() { &stdout } else { &stderr };
@@ -420,6 +460,54 @@ mod tests {
         group.release(None);
         assert!(child.0.wait().unwrap().success());
         assert!(!prematurely_exited, "SIGSTOP is not terminal completion");
+        assert_eq!(job.process_id(), None);
+    }
+    #[tokio::test]
+    async fn ai_prompt_pipe_preserves_literal_data_and_remains_cancellable() {
+        let prompt =
+            b"untrusted path $(touch /never-create) `echo data`\nprivate metadata".to_vec();
+        let job = Arc::new(Job::new(TaskKind::AiScan));
+        let value = output_with_input(
+            Command::new("/bin/cat"),
+            job.clone(),
+            prompt.clone(),
+            Duration::from_secs(5),
+            2048,
+        )
+        .await
+        .unwrap();
+        assert_eq!(value, prompt);
+        assert_eq!(job.process_id(), None);
+        let incomplete = output_with_input(
+            Command::new("/usr/bin/true"),
+            job.clone(),
+            vec![b'x'; 256 * 1024],
+            Duration::from_secs(5),
+            2048,
+        )
+        .await;
+        assert!(incomplete.unwrap_err().contains("输入未完整"));
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "cat >/dev/null; exec sleep 20"]);
+        let running_job = job.clone();
+        let running = tokio::spawn(async move {
+            output_with_input(
+                command,
+                running_job,
+                vec![b'x'; 256 * 1024],
+                Duration::from_secs(30),
+                2048,
+            )
+            .await
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        job.cancel();
+        assert!(tokio::time::timeout(Duration::from_secs(6), running)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err()
+            .contains("取消"));
         assert_eq!(job.process_id(), None);
     }
     #[tokio::test]

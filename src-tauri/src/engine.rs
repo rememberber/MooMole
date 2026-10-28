@@ -28,6 +28,7 @@ pub enum TaskKind {
     MaintenanceRefresh,
     StatusWatch,
     VisibilityProbe,
+    AiScan,
 }
 
 impl TaskKind {
@@ -45,12 +46,17 @@ impl TaskKind {
             Self::MaintenanceRefresh => "maintenancerefresh",
             Self::StatusWatch => "statuswatch",
             Self::VisibilityProbe => "visibilityprobe",
+            Self::AiScan => "aiscan",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
         matches!(
             self,
-            Self::LogTrash | Self::AppTrash | Self::MaintenanceRefresh | Self::VisibilityProbe
+            Self::LogTrash
+                | Self::AppTrash
+                | Self::MaintenanceRefresh
+                | Self::VisibilityProbe
+                | Self::AiScan
         )
     }
 }
@@ -272,18 +278,38 @@ pub async fn run(
     path: Option<PathBuf>,
     protected: &[String],
 ) -> Result<Value, String> {
+    run_kind(root, home, job.clone(), path, protected, job.kind).await
+}
+
+pub(crate) async fn run_clean_preview(
+    root: &Path,
+    home: &Path,
+    job: Arc<Job>,
+    protected: &[String],
+) -> Result<Value, String> {
+    run_kind(root, home, job, None, protected, TaskKind::Clean).await
+}
+
+async fn run_kind(
+    root: &Path,
+    home: &Path,
+    job: Arc<Job>,
+    path: Option<PathBuf>,
+    protected: &[String],
+    kind: TaskKind,
+) -> Result<Value, String> {
     let prepared = info(root);
     if !prepared.available {
         return Err(prepared.reason.unwrap_or("引擎不可用。".into()));
     }
-    if job.kind == TaskKind::Cleanup {
+    if kind == TaskKind::Cleanup {
         return inspect_cleanup(root, home, job, protected).await;
     }
-    if job.kind == TaskKind::History {
+    if kind == TaskKind::History {
         return crate::mole_history::run(root, home, job).await;
     }
     // A new private directory for each run prevents stale or shared preview files.
-    let scratch = if job.kind == TaskKind::Clean {
+    let scratch = if kind == TaskKind::Clean {
         Some(
             tempfile::Builder::new()
                 .prefix("moomole-preview-")
@@ -297,7 +323,7 @@ pub async fn run(
     if let Some(report) = &report {
         std::fs::File::create(report).map_err(|e| e.to_string())?;
     }
-    let mut command = match job.kind {
+    let mut command = match kind {
         TaskKind::Analyze => {
             let mut command = command(&root.join("bin/analyze-go"));
             command
@@ -343,7 +369,8 @@ pub async fn run(
         | TaskKind::AppTrash
         | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
-        | TaskKind::VisibilityProbe => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::VisibilityProbe
+        | TaskKind::AiScan => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -351,16 +378,16 @@ pub async fn run(
     let bytes = output(
         command,
         job.clone(),
-        Duration::from_secs(if job.kind == TaskKind::Status {
+        Duration::from_secs(if kind == TaskKind::Status {
             45
-        } else if job.kind == TaskKind::Clean {
+        } else if kind == TaskKind::Clean {
             300
         } else {
             180
         }),
     )
     .await?;
-    if job.kind == TaskKind::Clean {
+    if kind == TaskKind::Clean {
         let text = String::from_utf8(bytes).map_err(|_| "Mole 清理预览返回了无法解码的文本。")?;
         let report = report.ok_or("缺少清理预览记录。")?;
         let mut data = Vec::new();
@@ -380,12 +407,12 @@ pub async fn run(
         preview.output = plain_terminal_text(&text);
         return serde_json::to_value(preview).map_err(|e| e.to_string());
     }
-    if job.kind == TaskKind::Status {
+    if kind == TaskKind::Status {
         return crate::status_watch::validate(&bytes);
     }
     let mut result: Value =
         serde_json::from_slice(&bytes).map_err(|e| format!("Mole 输出格式无法识别：{e}"))?;
-    let valid = match job.kind {
+    let valid = match kind {
         TaskKind::Analyze => {
             result["entries"].is_array()
                 && ["complete", "partial", "unavailable"]
@@ -401,12 +428,13 @@ pub async fn run(
         | TaskKind::AppTrash
         | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
-        | TaskKind::VisibilityProbe => false,
+        | TaskKind::VisibilityProbe
+        | TaskKind::AiScan => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
     }
-    if job.kind == TaskKind::Analyze {
+    if kind == TaskKind::Analyze {
         crate::analysis_protocol::validate(&result, path.as_deref().ok_or("缺少扫描目录。")?)?;
         record_analysis_read(
             &mut result,

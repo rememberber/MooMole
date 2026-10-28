@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Activity,
+  BrainCircuit,
   Archive,
   ArrowRight,
   ArrowUpRight,
@@ -29,6 +30,7 @@ import {
   X,
 } from 'lucide-react'
 import * as api from './lib/api'
+import { useAiScan } from './lib/use-ai-scan'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
@@ -76,6 +78,9 @@ const SettingsModal = deferredView(
   async () => ({ default: (await import('./components/SettingsModal')).SettingsModal }),
   { onClose: (props) => props.onClose() },
 )
+const AiDeepScan = deferredView(async () => ({
+  default: (await import('./components/AiDeepScan')).AiDeepScan,
+}))
 const QuickCleanup = deferredView(async () => ({
   default: (await import('./components/QuickCleanup')).QuickCleanup,
 }))
@@ -144,6 +149,7 @@ const StatusDisks = deferredView(async () => ({
 const navigation = [
   ['overview', LayoutGrid, '概览'],
   ['quickCleanup', Zap, '速战速决'],
+  ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
   ['apps', Box, '应用列表'],
@@ -210,6 +216,7 @@ function Metric({
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
+  const aiScan = useAiScan(data?.home ?? '')
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -256,6 +263,13 @@ export default function App() {
   const autoStatus = useRef(false)
   const observation = useRef(new AbortController())
   const historyRequest = useRef(0)
+  const aiHistoryRequest = useRef('')
+  useEffect(() => {
+    const snapshot = aiScan.snapshot
+    if (!snapshot?.finishedAt || aiHistoryRequest.current === snapshot.id) return
+    aiHistoryRequest.current = snapshot.id
+    void refreshRecords().catch((error) => setError(`AI 扫描历史无法刷新：${String(error)}`))
+  }, [aiScan.snapshot?.id, aiScan.snapshot?.finishedAt])
   const [settingsTab, setSettingsTab] = useState<'general' | 'protected' | 'about' | null>(null)
   const settingsButton = useRef<HTMLButtonElement>(null)
   const settingsOpener = useRef<HTMLElement | null>(null)
@@ -724,6 +738,7 @@ export default function App() {
     data.engine.available &&
     !busy &&
     !quickScanning &&
+    !aiScan.running &&
     !uninstallActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
@@ -931,6 +946,44 @@ export default function App() {
                           ? '正在暂停'
                           : '暂停采集'}
                     </button>
+                  </>
+                )}
+                {page === 'aiScan' && (
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={!api.desktop || aiScan.running || aiScan.detecting}
+                      onClick={() => void aiScan.detect()}
+                    >
+                      <RefreshCw size={14} />
+                      {aiScan.detecting ? '正在检测…' : '检测 Agent'}
+                    </button>
+                    {aiScan.running ? (
+                      <button
+                        className="button secondary compact"
+                        disabled={aiScan.starting || aiScan.stopping}
+                        onClick={() => void aiScan.cancel()}
+                      >
+                        <Square size={13} />
+                        {aiScan.stopping ? '正在停止…' : '停止扫描'}
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        form="ai-scan-form"
+                        className="button primary compact"
+                        disabled={
+                          !canRun ||
+                          executionActive ||
+                          !aiScan.ready ||
+                          !aiScan.consent ||
+                          !aiScan.root.trim()
+                        }
+                      >
+                        <BrainCircuit size={15} />
+                        开始深度扫描
+                      </button>
+                    )}
                   </>
                 )}
                 {page === 'quickCleanup' && (
@@ -1382,6 +1435,17 @@ export default function App() {
                 />
               </div>
             </>
+          )}
+
+          {page === 'aiScan' && (
+            <AiDeepScan
+              controller={aiScan}
+              home={data.home}
+              protectedPaths={data.settings.protectedPaths}
+              enabled={canRun && !executionActive}
+              onCreatePlan={createPlan}
+              onReveal={reveal}
+            />
           )}
 
           {page === 'quickCleanup' && (

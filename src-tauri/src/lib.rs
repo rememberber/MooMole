@@ -1,4 +1,5 @@
 mod activity_authorization;
+mod ai_scan;
 mod analysis_protocol;
 mod app_associations;
 mod app_background;
@@ -91,6 +92,7 @@ struct AppState {
     uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
     status_watch: Arc<Mutex<status_watch::Store>>,
     cleanup_visibility: Arc<Mutex<activity_authorization::Store>>,
+    ai_scan: Arc<Mutex<ai_scan::Store>>,
     engine_root: PathBuf,
     home: PathBuf,
     shutdown: Arc<shutdown::Controller>,
@@ -832,6 +834,7 @@ fn start_task(
             | TaskKind::MaintenanceRefresh
             | TaskKind::StatusWatch
             | TaskKind::VisibilityProbe
+            | TaskKind::AiScan
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -856,7 +859,9 @@ fn start_task(
     if jobs.len() >= 3
         || jobs.contains_key(&task_id)
         || jobs.values().any(|job| {
-            job.kind == kind || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
+            job.kind == kind
+                || job.kind == TaskKind::AiScan
+                || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
     {
         return Err("已有同类任务正在运行，请等待或取消。".into());
@@ -1852,9 +1857,12 @@ fn start_status_watch(
     if state.shutdown.closing()
         || jobs.len() >= 3
         || jobs.contains_key(&session_id)
-        || jobs
-            .values()
-            .any(|j| matches!(j.kind, TaskKind::Status | TaskKind::StatusWatch))
+        || jobs.values().any(|j| {
+            matches!(
+                j.kind,
+                TaskKind::Status | TaskKind::StatusWatch | TaskKind::AiScan
+            )
+        })
     {
         return Err("已有状态采集正在运行或应用正在退出，请稍后重试。".into());
     }
@@ -2232,6 +2240,7 @@ pub fn run() {
                 )),
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
+                ai_scan: Arc::new(Mutex::new(ai_scan::Store::default())),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(shutdown::Controller::default()),
@@ -2249,6 +2258,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            ai_scan::detect_ai_agents,
+            ai_scan::ai_scan_skill,
+            ai_scan::start_ai_scan,
+            ai_scan::get_ai_scan,
+            ai_scan::cancel_ai_scan,
             save_settings,
             start_cleanup_visibility,
             get_cleanup_visibility,
