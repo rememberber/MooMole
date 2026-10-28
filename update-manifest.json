@@ -1,5 +1,31 @@
 {
   "schemaVersion": 1,
   "productId": "io.github.rememberber.moomole",
-  "releases": []
+  "releases": [
+    {
+      "version": "0.1.0",
+      "notes": "首个可用版本：支持限定范围的日志清理、普通应用卸载和 Quick Look 刷新。详情及限制见发布页。",
+      "releaseUrl": "https://github.com/rememberber/MooMole/releases/tag/v0.1.0",
+      "assets": [
+        {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "packageType": "dmg",
+          "fileName": "MooMole-0.1.0-mac-arm64.dmg",
+          "url": "https://github.com/rememberber/MooMole/releases/download/v0.1.0/MooMole-0.1.0-mac-arm64.dmg",
+          "size": 16097611,
+          "sha512": "f5dd85b1139f41997eabae037d24e2cab0f2244c2d8153dda753e2d9a953ed8ffd887a29d2a25caac9c5b30d6569aaa7a623049b6cadb8848c5204f5c44effcf"
+        },
+        {
+          "platform": "darwin",
+          "architecture": "x64",
+          "packageType": "dmg",
+          "fileName": "MooMole-0.1.0-mac-x64.dmg",
+          "url": "https://github.com/rememberber/MooMole/releases/download/v0.1.0/MooMole-0.1.0-mac-x64.dmg",
+          "size": 17086126,
+          "sha512": "505f4f1445835939e57917dc1df97327fe550bc3e5523eff5714e21aa00906147c6d9107c6dede72e532ecbe0a193865572a89b0b2a558e25a3d3f0df189eb47"
+        }
+      ]
+    }
+  ]
 }
