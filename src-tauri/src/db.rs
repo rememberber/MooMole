@@ -52,15 +52,22 @@ pub fn open_owned(path: &Path) -> Result<Database, OpenError> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
     pub theme: String,
+    #[serde(default = "default_language")]
+    pub language: String,
     pub retention_days: u32,
     pub protected_paths: Vec<String>,
     pub acknowledged: bool,
+}
+
+fn default_language() -> String {
+    "system".into()
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             theme: "system".into(),
+            language: default_language(),
             retention_days: 30,
             protected_paths: vec![],
             acknowledged: false,
@@ -182,7 +189,7 @@ pub(crate) fn open_fixture(path: &Path) -> Result<Connection, String> {
 }
 
 pub fn settings(connection: &Connection) -> Result<Settings, String> {
-    match connection.query_row::<String, _, _>(
+    let mut value: Settings = match connection.query_row::<String, _, _>(
         "SELECT value FROM settings WHERE id = 1",
         [],
         |row| row.get(0),
@@ -190,11 +197,14 @@ pub fn settings(connection: &Connection) -> Result<Settings, String> {
         Ok(value) => serde_json::from_str(&value).map_err(|e| format!("设置无法读取：{e}")),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(Settings::default()),
         Err(e) => Err(e.to_string()),
-    }
+    }?;
+    value.language = crate::language::load(connection)?;
+    Ok(value)
 }
 
 pub fn save_settings(connection: &Connection, settings: &Settings) -> Result<(), String> {
     if !["light", "dark", "system"].contains(&settings.theme.as_str())
+        || !["system", "zh", "en", "ja"].contains(&settings.language.as_str())
         || ![7, 30, 90].contains(&settings.retention_days)
         || settings.protected_paths.len() > 100
     {
@@ -205,7 +215,16 @@ pub fn save_settings(connection: &Connection, settings: &Settings) -> Result<(),
     let transaction = connection
         .unchecked_transaction()
         .map_err(|e| e.to_string())?;
-    transaction.execute("INSERT INTO settings VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET value = excluded.value", [serde_json::to_string(settings).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
+    // Keep the four-field JSON readable by old versions with deny_unknown_fields.
+    // The optional language table is additive and shares this transaction.
+    let stored = serde_json::json!({
+        "theme": settings.theme,
+        "retentionDays": settings.retention_days,
+        "protectedPaths": settings.protected_paths,
+        "acknowledged": settings.acknowledged,
+    });
+    transaction.execute("INSERT INTO settings VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET value = excluded.value", [stored.to_string()]).map_err(|e| e.to_string())?;
+    crate::language::save(&transaction, &settings.language)?;
     prune_in_transaction(&transaction, settings.retention_days)?;
     transaction.commit().map_err(|e| e.to_string())
 }
@@ -694,6 +713,35 @@ mod tests {
             "succeeded"
         );
         assert!(settings(&connection).unwrap().acknowledged);
+    }
+
+    #[test]
+    fn old_settings_default_to_system_language_without_schema_migration() {
+        let legacy =
+            r#"{"theme":"dark","retentionDays":30,"protectedPaths":[],"acknowledged":true}"#;
+        let saved: Settings = serde_json::from_str(legacy).unwrap();
+        assert_eq!(saved.language, "system");
+        assert!(saved.acknowledged);
+    }
+
+    #[test]
+    fn language_preferences_round_trip_and_reject_unsupported_values() {
+        let temp = tempfile::tempdir().unwrap();
+        let connection = open(&temp.path().join("language.sqlite")).unwrap();
+        for language in ["system", "zh", "en", "ja"] {
+            let value = Settings {
+                language: language.into(),
+                ..Settings::default()
+            };
+            save_settings(&connection, &value).unwrap();
+            assert_eq!(settings(&connection).unwrap().language, language);
+        }
+        let invalid = Settings {
+            language: "fr".into(),
+            ..Settings::default()
+        };
+        assert!(save_settings(&connection, &invalid).is_err());
+        assert_eq!(settings(&connection).unwrap().language, "ja");
     }
 
     #[test]

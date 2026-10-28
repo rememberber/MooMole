@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { Snapshot } from '../types'
@@ -21,7 +22,7 @@ export function ProcessSnapshot({
   const samples = Array.isArray(snapshot.top_processes) ? snapshot.top_processes : null
   const matching = useMemo(
     () => matchingProcesses(samples ?? [], query, sort),
-    [samples, query, sort],
+    [samples, query, sort, getLocale()],
   )
   const sampleTime = processSampleTime(snapshot.process_collected_at)
   return (
@@ -78,7 +79,9 @@ export function ProcessSnapshot({
           <tbody>
             {matching.map((sample, index) => (
               <tr key={`${sample.pid}:${index}`}>
-                <th scope="row">{sample.name}</th>
+                <th scope="row" data-i18n="off">
+                  {sample.name}
+                </th>
                 <td className="mono">{sample.pid}</td>
                 <td>{processMetric(sample.cpu) == null ? '未知' : percent(sample.cpu!)}</td>
                 <td>

@@ -31,6 +31,7 @@ mod execution_sandbox;
 mod impact;
 mod installers;
 mod instance;
+mod language;
 mod log_cleanup;
 mod maintenance;
 mod mole_history;
@@ -110,6 +111,7 @@ struct StartupIssue {
 #[serde(rename_all = "camelCase")]
 struct Bootstrap {
     settings: Settings,
+    system_language: String,
     history: Vec<TaskRecord>,
     engine: engine::EngineInfo,
     home: String,
@@ -130,6 +132,7 @@ fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     Ok(Bootstrap {
         settings: db::settings(&db)?,
+        system_language: language::system_language(),
         history: db::history(&db)?,
         engine: engine::info(&state.engine_root),
         home: state.home.to_string_lossy().into_owned(),
@@ -143,6 +146,7 @@ fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
 #[tauri::command]
 fn save_settings(
     settings: Settings,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<Settings, String> {
     let _operation = state.updates.installation.enter()?;
@@ -156,6 +160,12 @@ fn save_settings(
     )?;
     db::save_settings(&db, &settings)
         .map_err(|error| format!("设置保存失败，请重试。诊断：{error}"))?;
+    drop(db);
+    if previous.language != settings.language {
+        if let Err(error) = language::apply_menu(&app, &settings.language) {
+            eprintln!("Unable to update native menu language: {error}");
+        }
+    }
     Ok(settings)
 }
 
@@ -183,12 +193,26 @@ async fn save_task_diagnostic(
 ) -> Result<bool, String> {
     let operation = state.updates.installation.enter()?;
     diagnostics::validate(&report)?;
+    let language = language::saved(&state);
     let (sender, receiver) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
-        .set_title("保存诊断摘要")
+        .set_title(language::text(
+            &language,
+            "保存诊断摘要",
+            "Save diagnostic summary",
+            "診断概要を保存",
+        ))
         .set_file_name("MooMole-diagnostic.json")
-        .add_filter("JSON 诊断摘要", &["json"])
+        .add_filter(
+            language::text(
+                &language,
+                "JSON 诊断摘要",
+                "JSON diagnostic summary",
+                "JSON 診断概要",
+            ),
+            &["json"],
+        )
         .save_file(move |path| {
             let _ = sender.send(path);
         });
@@ -2167,6 +2191,7 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            language::apply_menu(app.handle(), "system")?;
             let data = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let connection = match db::open_owned(&data.join("moomole.sqlite")) {
@@ -2174,9 +2199,19 @@ pub fn run() {
                 Err(error) => {
                     let busy = matches!(error, db::OpenError::Instance(instance::Error::Busy));
                     let title = if busy {
-                        "MooMole 已在运行"
+                        language::text(
+                            "system",
+                            "MooMole 已在运行",
+                            "MooMole is already running",
+                            "MooMole は起動済みです",
+                        )
                     } else {
-                        "无法打开 MooMole 本机数据"
+                        language::text(
+                            "system",
+                            "无法打开 MooMole 本机数据",
+                            "Unable to open MooMole local data",
+                            "MooMole のローカルデータを開けません",
+                        )
                     };
                     let message = error.to_string();
                     app.manage(StartupIssue {
@@ -2247,6 +2282,8 @@ pub fn run() {
                 updates,
                 window_placement: window_placement.clone(),
             });
+            let preference = language::saved(&app.state::<AppState>());
+            language::apply_menu(app.handle(), &preference)?;
             // Restore only after database ownership, without holding a mutex
             // during native size/move calls or overwriting settings/history.
             if let Some(window) = app.get_webview_window("main") {

@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Analysis, AppEntry, CleanPreview, Page, ReviewPlan } from '../types'
 import type { UninstallTarget } from '../lib/app-uninstall'
@@ -136,8 +137,8 @@ export function QuickCleanup({
     }),
   )
   const recommended = inspection.flatMap((plan) => recommendedQuickIds(plan, now))
-  const needle = query.trim().toLocaleLowerCase('zh-CN')
-  const matches = (path: string) => path.toLocaleLowerCase('zh-CN').includes(needle)
+  const needle = query.trim().toLocaleLowerCase(getLocale())
+  const matches = (path: string) => path.toLocaleLowerCase(getLocale()).includes(needle)
   const protectedPath = (path: string) => protectedPaths.some((rule) => pathOverlaps(rule, path))
   const largeApps = useMemo(
     () =>
@@ -346,7 +347,9 @@ export function QuickCleanup({
                             onChange={(event) => select([item.id], event.target.checked)}
                           />
                           <div>
-                            <strong title={item.path}>{item.path.split('/').at(-1)}</strong>
+                            <strong data-i18n="off" title={item.path}>
+                              {item.path.split('/').at(-1)}
+                            </strong>
                             <span className="mono full-path">{shortPath(item.path, home)}</span>
                             <small>
                               {blocked
@@ -434,7 +437,7 @@ export function QuickCleanup({
                 .map((file) => (
                   <div className="quick-item quick-readonly" key={file.path}>
                     <div>
-                      <strong>{file.name}</strong>
+                      <strong data-i18n="off">{file.name}</strong>
                       <span className="mono full-path">{shortPath(file.path, home)}</span>
                       <small>{protectedPath(file.path) ? '已保护' : '个人文件 · 需自行确认'}</small>
                     </div>
@@ -490,7 +493,7 @@ export function QuickCleanup({
                 .map((app) => (
                   <div className="quick-item quick-readonly" key={app.path}>
                     <div>
-                      <strong>{app.name}</strong>
+                      <strong data-i18n="off">{app.name}</strong>
                       <span className="mono full-path">{shortPath(app.path, home)}</span>
                       <small>{protectedPath(app.path) ? '已保护' : '需确认不再使用'}</small>
                     </div>

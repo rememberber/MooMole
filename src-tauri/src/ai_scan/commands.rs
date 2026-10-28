@@ -97,6 +97,7 @@ pub(crate) fn start_ai_scan(
             PathBuf::from(root),
             job.clone(),
             settings.protected_paths,
+            settings.language,
         )
         .await;
         let cancelled = job.cancelled.load(Ordering::SeqCst);
@@ -163,6 +164,7 @@ async fn run(
     root: PathBuf,
     job: Arc<Job>,
     protected: Vec<String>,
+    language: String,
 ) -> Result<super::Report, String> {
     let work_root = root.clone();
     let rules = protected.clone();
@@ -240,6 +242,7 @@ async fn run(
         scratch.path(),
         &evidence,
         &limitations,
+        &language,
         job,
     )
     .await

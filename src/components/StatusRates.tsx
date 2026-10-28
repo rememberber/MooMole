@@ -65,7 +65,9 @@ export function StatusRates({
             <tbody>
               {network.map((item, index) => (
                 <tr key={`${item.name}:${index}`}>
-                  <th scope="row">{item.name}</th>
+                  <th scope="row" data-i18n="off">
+                    {item.name}
+                  </th>
                   <td>{statusRate(item.rx_rate_mbs)}</td>
                   <td>{statusRate(item.tx_rate_mbs)}</td>
                 </tr>

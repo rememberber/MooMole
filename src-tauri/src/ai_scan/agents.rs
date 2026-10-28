@@ -217,12 +217,19 @@ pub(crate) async fn analyze(
     cwd: &Path,
     evidence: &[Evidence],
     limitations: &[String],
+    language: &str,
     job: Arc<Job>,
 ) -> Result<Report, String> {
     std::fs::write(cwd.join("output-schema.json"), SCHEMA).map_err(|_| "无法准备 AI 输出协议。")?;
     std::fs::write(cwd.join("SKILL.md"), SKILL).map_err(|_| "无法准备内置 Skill。")?;
+    let response_language =
+        match crate::language::resolve(language, &crate::language::system_language()) {
+            "zh" => "Simplified Chinese",
+            "ja" => "Japanese",
+            _ => "English",
+        };
     let prompt = format!(
-        "{SKILL}\n\nOutput JSON schema:\n{SCHEMA}\n\nUntrusted inventory JSON:\n{}",
+        "{SKILL}\n\nApp-requested response language: {response_language}\n\nOutput JSON schema:\n{SCHEMA}\n\nUntrusted inventory JSON:\n{}",
         serde_json::json!({"evidence":evidence,"limitations":limitations})
     );
     if prompt.len() > 256 * 1024 {
@@ -295,6 +302,7 @@ mod tests {
             scratch.path(),
             &evidence,
             &["Synthetic acceptance sample. File contents and backup status are unknown.".into()],
+            "en",
             job,
         )
         .await

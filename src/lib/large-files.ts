@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { Analysis, LargeFile } from '../types'
 
 export const fileKinds = {
@@ -58,11 +59,11 @@ export function filterLargeFiles(
   minimum: number,
   sort: 'size' | 'name',
 ) {
-  const search = query.trim().toLocaleLowerCase('zh-CN')
+  const search = query.trim().toLocaleLowerCase(getLocale())
   return files
     .filter(
       (file) =>
-        `${file.name}\n${file.path}`.toLocaleLowerCase('zh-CN').includes(search) &&
+        `${file.name}\n${file.path}`.toLocaleLowerCase(getLocale()).includes(search) &&
         (kind === 'all' || fileKind(file) === kind) &&
         (minimum === 0 || (largeFileBytes(file) ?? -1) >= minimum),
     )
@@ -74,6 +75,6 @@ export function filterLargeFiles(
         if (right == null && left != null) return -1
         if (left != null && right != null && left !== right) return right - left
       }
-      return a.name.localeCompare(b.name, 'zh-CN') || a.path.localeCompare(b.path, 'zh-CN')
+      return a.name.localeCompare(b.name, getLocale()) || a.path.localeCompare(b.path, getLocale())
     })
 }

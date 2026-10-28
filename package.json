@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "npm run version:check && tsc -b && vite build",
+    "build": "npm run version:check && npm run i18n:check && tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "node scripts/tauri.mjs",
     "desktop": "node scripts/tauri.mjs dev",
@@ -36,7 +36,8 @@
     "source:rust-audit": "python3 -B scripts/audit-rust-source.py",
     "test:rust-source": "python3 -B -m unittest discover -s scripts -p test_audit_rust_source.py",
     "test:projects": "node --test scripts/project-artifacts-catalog.test.mjs",
-    "test:installers": "node --test scripts/installers-catalog.test.mjs"
+    "test:installers": "node --test scripts/installers-catalog.test.mjs",
+    "i18n:check": "node scripts/i18n-catalog.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",

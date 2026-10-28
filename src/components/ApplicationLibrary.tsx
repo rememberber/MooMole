@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import { ApplicationRow } from './ApplicationRow'
@@ -49,12 +50,12 @@ export function ApplicationLibrary({
             (source === 'all' || source === kind) &&
             (!onlySelected || selected.has(app.path)) &&
             `${app.name}\n${app.bundle_id}\n${app.path}\n${app.source}`
-              .toLocaleLowerCase('zh-CN')
-              .includes(query.trim().toLocaleLowerCase('zh-CN'))
+              .toLocaleLowerCase(getLocale())
+              .includes(query.trim().toLocaleLowerCase(getLocale()))
           )
         })
         .sort((a, b) => compareApps(a, b, sort)),
-    [apps, query, source, sort, onlySelected, selected],
+    [apps, query, source, sort, onlySelected, selected, getLocale()],
   )
   const visible = matching.slice(0, limit)
   const pageSelected = visible.filter((app) => selected.has(app.path)).length

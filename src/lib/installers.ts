@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import catalog from './installers-catalog.json' with { type: 'json' }
 export const installerCatalog = catalog
 export interface InstallerItem {
@@ -252,7 +253,7 @@ export function installerView(
       if (left === null && right !== null) return 1
       if (left !== null && right !== null && left !== right) return right - left
     }
-    return a.path.localeCompare(b.path, 'zh-CN')
+    return a.path.localeCompare(b.path, getLocale())
   })
 }
 

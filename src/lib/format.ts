@@ -1,10 +1,11 @@
+import { getLocale } from '../i18n/locale'
 import type { ScanState } from '../types'
 
 export function bytes(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value) || value < 0) return '—'
   if (value === 0) return '0 B'
   const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), 4)
-  return `${(value / 1024 ** index).toLocaleString('zh-CN', { maximumFractionDigits: index ? 1 : 0 })} ${['B', 'KB', 'MB', 'GB', 'TB'][index]}`
+  return `${(value / 1024 ** index).toLocaleString(getLocale(), { maximumFractionDigits: index ? 1 : 0 })} ${['B', 'KB', 'MB', 'GB', 'TB'][index]}`
 }
 
 export function measuredBytes(value: number | null | undefined, state: ScanState): string {
@@ -19,7 +20,7 @@ export function shortPath(path: string, home: string): string {
   return path === home ? '~' : path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path
 }
 export function dateTime(value: number | string): string {
-  return new Date(value).toLocaleString('zh-CN', {
+  return new Date(value).toLocaleString(getLocale(), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react'
 import * as api from './lib/api'
+import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -214,6 +215,11 @@ function Metric({
 }
 
 export default function App() {
+  const language = useLanguage()
+  useEffect(() => {
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : language
+    document.title = 'MooMole'
+  }, [language])
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
   const aiScan = useAiScan(data?.home ?? '')
@@ -362,6 +368,8 @@ export default function App() {
         (task) => task.state === 'running' && Object.hasOwn(kindNames, task.kind),
       )
       if (api.desktop && active.length) autoStatus.current = true
+      setSystemLanguage(initial.systemLanguage)
+      setLanguagePreference(initial.settings.language)
       setData(initial)
       if (api.desktop && initial.latestCleanPreview) setCleanPreview(initial.latestCleanPreview)
       setPath(initial.home)
@@ -628,6 +636,7 @@ export default function App() {
   }
   async function updateSettings(settings: Settings) {
     const saved = await api.saveSettings(settings)
+    setLanguagePreference(saved.language)
     setData((current) => (current ? { ...current, settings: saved } : current))
     setCleanup((current) =>
       current
@@ -1244,6 +1253,8 @@ export default function App() {
             transport={api.archiveTransport}
             onChanged={async () => {
               const initial = await api.bootstrap()
+              setSystemLanguage(initial.systemLanguage)
+              setLanguagePreference(initial.settings.language)
               setData(initial)
               setExecutionTrackingError('')
               setHistoryEpoch((v) => v + 1)

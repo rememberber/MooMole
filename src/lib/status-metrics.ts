@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { StatusWatchSnapshot } from './status-watch'
 
 export interface StatusSample {
@@ -21,7 +22,7 @@ export function statusRate(value: unknown): string {
   const rate = value as number
   if (rate === 0) return '0 MiB/s'
   if (rate < 0.01) return '< 0.01 MiB/s'
-  return `${rate.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} MiB/s`
+  return `${rate.toLocaleString(getLocale(), { maximumFractionDigits: 2 })} MiB/s`
 }
 export function statusRateValue(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null

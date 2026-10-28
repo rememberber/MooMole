@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { statusRate, statusRateTrend, type StatusSample } from '../lib/status-metrics'
 
 export function StatusRateTrend({
@@ -12,7 +13,7 @@ export function StatusRateTrend({
   const { upper, series } = statusRateTrend(samples, metric, name)
   const label = metric === 'disk' ? '磁盘读写' : `${name} 网络`
   const hasData = series.some((s) => s.count > 0)
-  const time = (at: number) => new Date(at).toLocaleTimeString('zh-CN', { hour12: false })
+  const time = (at: number) => new Date(at).toLocaleTimeString(getLocale(), { hour12: false })
   return (
     <div className="status-trend status-rate-trend">
       {hasData ? (

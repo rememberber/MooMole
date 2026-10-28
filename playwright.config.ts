@@ -9,6 +9,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   use: {
     baseURL: url,
+    locale: 'zh-CN',
     viewport: { width: 1200, height: 900 },
     trace: 'retain-on-failure',
   },

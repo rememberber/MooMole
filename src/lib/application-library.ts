@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { AppEntry } from '../types'
 
 // The pinned Mole bytes_to_human uses decimal units and rounded display values.
@@ -12,7 +13,7 @@ export function appSizeEstimate(value: unknown): number | null {
 
 export function appEstimateLabel(size: number): string {
   const unit = Math.min(Math.floor(Math.log10(Math.max(1, size)) / 3), 3)
-  return `${(size / 1000 ** unit).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${['B', 'KB', 'MB', 'GB'][unit]}`
+  return `${(size / 1000 ** unit).toLocaleString(getLocale(), { maximumFractionDigits: 2 })} ${['B', 'KB', 'MB', 'GB'][unit]}`
 }
 
 export const appSource = (value: string) =>
@@ -26,5 +27,5 @@ export function compareApps(a: AppEntry, b: AppEntry, sort: 'size' | 'name') {
     if (right == null && left != null) return -1
     if (left != null && right != null && left !== right) return right - left
   }
-  return a.name.localeCompare(b.name, 'zh-CN') || a.path.localeCompare(b.path, 'zh-CN')
+  return a.name.localeCompare(b.name, getLocale()) || a.path.localeCompare(b.path, getLocale())
 }

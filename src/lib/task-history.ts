@@ -1,3 +1,5 @@
+import { translate } from '../i18n/translate'
+import { getLocale } from '../i18n/locale'
 import type { TaskKind, TaskRecord } from '../types'
 import { kindNames, stateNames } from './format'
 
@@ -27,16 +29,16 @@ export function taskTime(value: unknown): number | null {
 }
 export function taskTimeLabel(value: unknown): string {
   const time = taskTime(value)
-  return time == null ? '未知' : new Date(time).toLocaleString('zh-CN', { hour12: false })
+  return time == null ? '未知' : new Date(time).toLocaleString(getLocale(), { hour12: false })
 }
 export function taskDuration(task: TaskRecord): string {
   const start = taskTime(task.createdAt)
   const finish = taskTime(task.finishedAt)
   if (start == null || finish == null || finish < start) return '未知'
-  return `${((finish - start) / 1000).toLocaleString('zh-CN', { maximumFractionDigits: 3 })} 秒`
+  return `${((finish - start) / 1000).toLocaleString(getLocale(), { maximumFractionDigits: 3 })} 秒`
 }
 export function filterTasks(records: TaskRecord[], query: string, state: string): TaskRecord[] {
-  const text = query.trim().toLocaleLowerCase('zh-CN')
+  const text = query.trim().toLocaleLowerCase(getLocale())
   return records.filter((task) => {
     const stateMatches =
       state === 'all' ||
@@ -47,13 +49,16 @@ export function filterTasks(records: TaskRecord[], query: string, state: string)
         task.id,
         task.kind,
         taskKindName(task.kind),
+        translate(taskKindName(task.kind)),
         task.state,
         taskStateName(task.state),
+        translate(taskStateName(task.state)),
         task.path ?? '',
         task.message ?? '',
+        translate(task.message ?? ''),
       ]
         .join('\n')
-        .toLocaleLowerCase('zh-CN')
+        .toLocaleLowerCase(getLocale())
         .includes(text)
     )
   })

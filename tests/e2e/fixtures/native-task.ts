@@ -58,6 +58,7 @@ export async function installTaskMock(
                 engine: { ...initial.engine, available: true, version: '1.59.1' },
               }
             if (command === 'get_history') return history()
+            if (command === 'get_ai_scan') return null
             if (mode === 'analyze' && command === 'reveal_path') {
               sessionStorage.setItem('mock-reveal-path', args.path ?? '')
               return

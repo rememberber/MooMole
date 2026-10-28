@@ -1,7 +1,8 @@
+import { getLocale } from '../i18n/locale'
 import { statusTrend, type StatusSample } from '../lib/status-metrics'
 
 function time(value: number) {
-  return new Date(value).toLocaleTimeString('zh-CN', { hour12: false })
+  return new Date(value).toLocaleTimeString(getLocale(), { hour12: false })
 }
 export function StatusTrend({
   samples,

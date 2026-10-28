@@ -31,6 +31,7 @@ test('recovered uncertainty is visible on startup and leads to focused execution
   expect(calls).toContain('get_execution')
   const readOnlyCommands = new Set([
     'bootstrap',
+    'get_ai_scan',
     'list_executions',
     'get_execution',
     'list_application_uninstalls',

@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import {
   useEffect,
   useImperativeHandle,
@@ -75,15 +76,15 @@ export function AnalysisExplorer({
         .filter(
           (entry) =>
             `${entry.name}\n${entry.path}`
-              .toLocaleLowerCase('zh-CN')
-              .includes(query.trim().toLocaleLowerCase('zh-CN')) &&
+              .toLocaleLowerCase(getLocale())
+              .includes(query.trim().toLocaleLowerCase(getLocale())) &&
             (type === 'all' ||
               (type === 'directory' && entry.is_dir) ||
               (type === 'file' && !entry.is_dir) ||
               (type === 'unknown' && entryBytes(entry) == null)),
         )
         .sort((a, b) => compareEntries(a, b, sort)),
-    [analysis, query, type, sort],
+    [analysis, query, type, sort, getLocale()],
   )
   const [page, setPage] = useState(() => {
     const index = entries.findIndex(
@@ -173,8 +174,8 @@ export function AnalysisExplorer({
                   <li key={crumb.path}>
                     {index > 0 && <ChevronRight size={12} aria-hidden="true" />}
                     {index === crumbs.length - 1 ? (
-                      <span aria-current="location" title={analysis.path}>
-                        {crumb.name}
+                      <span data-i18n="off" aria-current="location" title={analysis.path}>
+                        <span data-i18n="off">{crumb.name}</span>
                       </span>
                     ) : (
                       <button
@@ -184,14 +185,16 @@ export function AnalysisExplorer({
                         aria-label={`分析目录 ${crumb.path}`}
                         onClick={() => onAnalyze(crumb.path)}
                       >
-                        {crumb.name}
+                        <span data-i18n="off">{crumb.name}</span>
                       </button>
                     )}
                   </li>
                 ))}
               </ol>
             ) : (
-              <span aria-current="location">{shortPath(analysis.path, home)}</span>
+              <span data-i18n="off" aria-current="location">
+                {shortPath(analysis.path, home)}
+              </span>
             )}
           </nav>
           <small>
@@ -210,10 +213,12 @@ export function AnalysisExplorer({
             <>
               本次读取完成{' '}
               <time dateTime={new Date(observation.finishedAt).toISOString()}>
-                {new Date(observation.finishedAt).toLocaleString('zh-CN', { hour12: false })}
+                {new Date(observation.finishedAt).toLocaleString(getLocale(), { hour12: false })}
               </time>
               {' · '}用时{' '}
-              {(observation.elapsedMs / 1000).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}{' '}
+              {(observation.elapsedMs / 1000).toLocaleString(getLocale(), {
+                maximumFractionDigits: 1,
+              })}{' '}
               秒
             </>
           ) : (
@@ -374,7 +379,7 @@ export function AnalysisExplorer({
               aria-label="选中项目详情"
             >
               <div role="status">
-                <strong>{selected.name}</strong>
+                <strong data-i18n="off">{selected.name}</strong>
                 <span>
                   {sizeLabel(selected)} · {selected.is_dir ? '文件夹' : '文件'}
                   {selected.scan_status === 'partial' ? ' · 尚未完整测量' : ''}
@@ -427,7 +432,7 @@ export function AnalysisExplorer({
                     {entry.is_dir ? <Folder size={19} /> : <File size={18} />}
                   </span>
                   <span className="truncate">
-                    {entry.name}
+                    <span data-i18n="off">{entry.name}</span>
                     <small>
                       {entryBytes(entry) == null
                         ? '无法访问或测量'
@@ -514,7 +519,7 @@ export function AnalysisExplorer({
                   来源：Mole CLI{' '}
                   {observation.engineVersion ? `v${observation.engineVersion}` : '版本未记录'}
                   {' · '}显式目录 JSON。读取开始{' '}
-                  {new Date(observation.startedAt).toLocaleString('zh-CN', { hour12: false })}
+                  {new Date(observation.startedAt).toLocaleString(getLocale(), { hour12: false })}
                   （本机时间）；完成时间为客户端取得本次结果的时间，用时由单调时钟记录，包含引擎调用、输出读取和解析。
                 </p>
                 <p className="mono">引擎修订：{observation.revision || '未记录'}</p>

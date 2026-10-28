@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { ProcessSample } from '../types'
 
 export type ProcessSort = 'cpu' | 'memory' | 'name' | 'pid'
@@ -17,9 +18,11 @@ export function matchingProcesses(
   query: string,
   sort: ProcessSort,
 ): ProcessSample[] {
-  const search = query.trim().toLocaleLowerCase('zh-CN')
+  const search = query.trim().toLocaleLowerCase(getLocale())
   return samples
-    .filter((sample) => `${sample.name}\n${sample.pid}`.toLocaleLowerCase('zh-CN').includes(search))
+    .filter((sample) =>
+      `${sample.name}\n${sample.pid}`.toLocaleLowerCase(getLocale()).includes(search),
+    )
     .sort((a, b) => {
       if (sort === 'cpu' || sort === 'memory') {
         const field = sort === 'cpu' ? 'cpu' : 'memory_bytes'
@@ -30,9 +33,9 @@ export function matchingProcesses(
         if (x != null && y != null && x !== y) return y - x
       }
       if (sort === 'name') {
-        const name = a.name.localeCompare(b.name, 'zh-CN')
+        const name = a.name.localeCompare(b.name, getLocale())
         if (name) return name
       }
-      return a.pid - b.pid || a.name.localeCompare(b.name, 'zh-CN')
+      return a.pid - b.pid || a.name.localeCompare(b.name, getLocale())
     })
 }

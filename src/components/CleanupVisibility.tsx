@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useRef, useState } from 'react'
 import {
   cancelCleanupVisibility,
@@ -94,7 +95,9 @@ export function CleanupVisibility({ saving = false }: { saving?: boolean }) {
             : '正在读取检查状态…'}
       </p>
       {snapshot?.finishedAt && (
-        <p className="muted">检查时间：{new Date(snapshot.finishedAt).toLocaleString('zh-CN')}</p>
+        <p className="muted">
+          检查时间：{new Date(snapshot.finishedAt).toLocaleString(getLocale())}
+        </p>
       )}
       {snapshot?.diagnostic && (
         <details>

@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useRef, useState } from 'react'
 import { desktop, inspectApplication } from '../lib/api'
 import { parseApplicationInspection } from '../lib/application-inspection'
@@ -954,7 +955,7 @@ export function ApplicationInspection({
             </p>
           )}
           <p className="muted">
-            检查于 {new Date(value.checkedAt).toLocaleTimeString('zh-CN', { hour12: false })} ·
+            检查于 {new Date(value.checkedAt).toLocaleTimeString(getLocale(), { hour12: false })} ·
             瞬时观察，辅助进程与文件占用未检查，不代表可卸载。{stale && '请重新检查。'}
           </p>
         </>

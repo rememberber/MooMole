@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { Analysis, AnalysisObservation, Entry } from '../types'
 
 export function analysisObservation(analysis: Analysis): AnalysisObservation | null {
@@ -43,7 +44,7 @@ export function compareEntries(a: Entry, b: Entry, sort: 'size' | 'name') {
     if (right == null && left != null) return -1
     if (left != null && right != null && left !== right) return right - left
   }
-  return a.name.localeCompare(b.name, 'zh-CN') || a.path.localeCompare(b.path, 'zh-CN')
+  return a.name.localeCompare(b.name, getLocale()) || a.path.localeCompare(b.path, getLocale())
 }
 
 export interface SpaceTile {

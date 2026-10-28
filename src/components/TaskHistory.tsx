@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, RefreshCw, Search } from 'lucide-react'
 import type { TaskRecord } from '../types'
@@ -46,7 +47,10 @@ export function TaskHistory({
     },
     [],
   )
-  const matching = useMemo(() => filterTasks(records, query, state), [records, query, state])
+  const matching = useMemo(
+    () => filterTasks(records, query, state),
+    [records, query, state, getLocale()],
+  )
   const visible = matching.slice(0, limit)
   const detail = selected == null ? null : records.find((task) => task.id === selected)
   async function refresh() {

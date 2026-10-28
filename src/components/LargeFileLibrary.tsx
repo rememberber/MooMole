@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { LargeFileContext, LargeFileHandle } from '../lib/analysis-context'
 import { ExternalLink, Folder, Search } from 'lucide-react'
@@ -41,7 +42,7 @@ export function LargeFileLibrary({
   const report = useMemo(() => largeFileReport(analysis), [analysis])
   const files = useMemo(
     () => filterLargeFiles(report.files, query, kind, minimum, sort),
-    [report, query, kind, minimum, sort],
+    [report, query, kind, minimum, sort, getLocale()],
   )
   const pages = Math.max(1, Math.ceil(files.length / PAGE_SIZE))
   const currentPage = Math.min(page, pages - 1)
@@ -136,7 +137,9 @@ export function LargeFileLibrary({
           return (
             <article className="large-file-row" key={`${file.path}:${index}`}>
               <div className="large-file-info">
-                <strong>{file.name || '未命名文件'}</strong>
+                <strong data-i18n={file.name ? 'off' : undefined}>
+                  {file.name || '未命名文件'}
+                </strong>
                 <p className="mono">{file.path || '路径未提供'}</p>
                 {!inScope && <small>路径不在本次目录范围内，无法定位或继续分析。</small>}
               </div>

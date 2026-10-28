@@ -143,7 +143,7 @@ export function LogCleanupDialog({
           <div className="plan-items">
             {confirmation.items.map((item) => (
               <article className="plan-item" key={item.id}>
-                <strong>{item.path.split('/').at(-1)}</strong>
+                <strong data-i18n="off">{item.path.split('/').at(-1)}</strong>
                 <p className="mono full-path">{item.path}</p>
                 <span>{bytes(item.sizeBytes)}</span>
               </article>

@@ -410,11 +410,16 @@ export function ApplicationUninstallCenter({
           <section className="notice uninstall-progress" aria-label="卸载状态">
             <div>
               <strong>
-                {detail
-                  ? `${detail.name} · ${uninstallStateName(detail.itemState)}`
-                  : active
-                    ? '正在核对卸载结果'
-                    : '卸载结果待确认'}
+                {detail ? (
+                  <>
+                    <span data-i18n="off">{detail.name}</span> ·{' '}
+                    {uninstallStateName(detail.itemState)}
+                  </>
+                ) : active ? (
+                  '正在核对卸载结果'
+                ) : (
+                  '卸载结果待确认'
+                )}
               </strong>
               <p>
                 {cancelError ||
@@ -477,7 +482,7 @@ export function ApplicationUninstallCenter({
               >
                 <span>
                   <strong>
-                    {r.name} · {uninstallStateName(r.itemState)}
+                    <span data-i18n="off">{r.name}</span> · {uninstallStateName(r.itemState)}
                   </strong>
                   <small>
                     {dateTime(r.createdAt)} · 包外数据保留
@@ -512,7 +517,8 @@ export function ApplicationUninstallCenter({
               {detail ? (
                 <>
                   <strong role="status">
-                    {detail.name} · {uninstallStateName(detail.itemState)}
+                    <span data-i18n="off">{detail.name}</span> ·{' '}
+                    {uninstallStateName(detail.itemState)}
                   </strong>
                   <p className="mono full-path">{detail.path}</p>
                   <p>{detail.reason}</p>
@@ -621,7 +627,7 @@ export function ApplicationUninstallCenter({
             </>
           ) : (
             <>
-              <strong>{plan?.name ?? target?.name}</strong>
+              <strong data-i18n="off">{plan?.name ?? target?.name}</strong>
               <p className="mono full-path">{plan?.path ?? target?.path}</p>
               {checking && <p role="status">正在检查 App、运行状态与卸载范围；尚未执行。</p>}
               {review && <p role="status">{review.message}</p>}

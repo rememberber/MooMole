@@ -16,6 +16,7 @@ import type {
   ApplicationInspection,
 } from '../types'
 import { demoBootstrap } from './demo'
+import { translate } from '../i18n/translate'
 import { observeTask, type TaskTransport } from './task-watcher'
 import { taskResult } from './task-result'
 import type { StatusTransport } from './status-watch'
@@ -138,7 +139,9 @@ export const prepareMaintenanceReview = (
     ? invoke('prepare_maintenance_review', { observationId, selectedIds })
     : Promise.reject(new Error('请在桌面 App 中审阅本机维护条件。'))
 export const bootstrap = (): Promise<Bootstrap> =>
-  desktop ? invoke('bootstrap') : Promise.resolve(structuredClone(demoBootstrap))
+  desktop
+    ? invoke('bootstrap')
+    : Promise.resolve({ ...structuredClone(demoBootstrap), settings: readPreviewSettings() })
 export const inspectApplication = (taskId: string, index: number): Promise<ApplicationInspection> =>
   invoke('inspect_application', { taskId, index })
 export const applicationIcon = (taskId: string, index: number): Promise<string | null> =>
@@ -177,7 +180,7 @@ export const cancelLogCleanup = (runId: string): Promise<void> =>
     ? invoke('cancel_log_cleanup', { runId })
     : Promise.reject(new Error('请在桌面 App 中停止清理。'))
 export const saveSettings = (settings: Settings): Promise<Settings> =>
-  desktop ? invoke('save_settings', { settings }) : Promise.resolve(settings)
+  desktop ? invoke('save_settings', { settings }) : savePreviewSettings(settings)
 export const reveal = (path: string): Promise<void> =>
   desktop
     ? invoke('reveal_path', { path })
@@ -255,7 +258,7 @@ export async function executeLogCleanup(
 }
 export const chooseDirectory = async (title = '选择要检查的文件夹'): Promise<string | null> => {
   if (!desktop) return null
-  const selected = await open({ directory: true, multiple: false, title })
+  const selected = await open({ directory: true, multiple: false, title: translate(title) })
   return typeof selected === 'string' ? selected : null
 }
 
@@ -299,4 +302,25 @@ export const aiTransport: import('./ai-scan').AiTransport = {
   start: (agentId, root, metadataConsent) =>
     invoke('start_ai_scan', { agentId, root, metadataConsent }),
   cancel: (requestId) => invoke('cancel_ai_scan', { requestId }),
+}
+
+// Browser previews retain settings across reloads, independently of native SQLite.
+const previewSettingsKey = 'moomole.preview.settings'
+function readPreviewSettings(): Settings {
+  try {
+    const saved = JSON.parse(localStorage.getItem(previewSettingsKey) ?? 'null')
+    if (saved && ['system', 'zh', 'en', 'ja'].includes(saved.language))
+      return { ...structuredClone(demoBootstrap.settings), ...saved }
+  } catch {
+    /* Storage can be unavailable in private/embedded browsers. */
+  }
+  return structuredClone(demoBootstrap.settings)
+}
+function savePreviewSettings(settings: Settings): Promise<Settings> {
+  try {
+    localStorage.setItem(previewSettingsKey, JSON.stringify(settings))
+  } catch {
+    return Promise.reject(new Error('Unable to save settings.'))
+  }
+  return Promise.resolve(settings)
 }

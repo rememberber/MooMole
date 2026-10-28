@@ -135,12 +135,26 @@ pub(crate) async fn import_execution_archive(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<archive::Header>, String> {
     let dialog = app.clone();
+    let language = crate::language::saved(&state);
     work(app, &state, move |root| {
         let Some(path) = dialog
             .dialog()
             .file()
-            .set_title("打开执行归档（只读副本）")
-            .add_filter("MooMole 执行归档", &["moomole-history"])
+            .set_title(crate::language::text(
+                &language,
+                "打开执行归档（只读副本）",
+                "Open execution archive (read-only copy)",
+                "実行アーカイブを開く（読み取り専用コピー）",
+            ))
+            .add_filter(
+                crate::language::text(
+                    &language,
+                    "MooMole 执行归档",
+                    "MooMole execution archive",
+                    "MooMole 実行アーカイブ",
+                ),
+                &["moomole-history"],
+            )
             .blocking_pick_file()
         else {
             return Ok(None);
@@ -157,14 +171,28 @@ pub(crate) async fn export_execution_archive(
     state: tauri::State<'_, AppState>,
 ) -> Result<bool, String> {
     let dialog = app.clone();
+    let language = crate::language::saved(&state);
     work(app, &state, move |root| {
         archive::view(&root, &archive_id)?;
         let Some(path) = dialog
             .dialog()
             .file()
-            .set_title("导出执行归档（包含路径与收据）")
+            .set_title(crate::language::text(
+                &language,
+                "导出执行归档（包含路径与收据）",
+                "Export execution archive (includes paths and receipts)",
+                "実行アーカイブを書き出す（パス・レシートを含む）",
+            ))
             .set_file_name(format!("{archive_id}.moomole-history"))
-            .add_filter("MooMole 执行归档", &["moomole-history"])
+            .add_filter(
+                crate::language::text(
+                    &language,
+                    "MooMole 执行归档",
+                    "MooMole execution archive",
+                    "MooMole 実行アーカイブ",
+                ),
+                &["moomole-history"],
+            )
             .blocking_save_file()
         else {
             return Ok(false);

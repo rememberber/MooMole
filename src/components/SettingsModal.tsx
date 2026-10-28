@@ -125,6 +125,33 @@ export function SettingsModal({
         <h2>{tab === 'general' ? '通用' : tab === 'protected' ? '保护列表' : '关于 MooMole'}</h2>
         {tab === 'general' && (
           <>
+            <p className="section-label">语言</p>
+            <div className="setting-group">
+              <label className="setting-row">
+                <span>
+                  界面语言<small>首次启动跟随系统；其他系统语言使用英语</small>
+                </span>
+                <select
+                  aria-label="界面语言"
+                  disabled={!!pending}
+                  value={settings.language ?? 'system'}
+                  onChange={(event) =>
+                    void save({ ...settings, language: event.target.value as Settings['language'] })
+                  }
+                >
+                  <option value="system">跟随系统</option>
+                  <option value="zh" lang="zh-CN" data-i18n="off">
+                    简体中文
+                  </option>
+                  <option value="en" lang="en" data-i18n="off">
+                    English
+                  </option>
+                  <option value="ja" lang="ja" data-i18n="off">
+                    日本語
+                  </option>
+                </select>
+              </label>
+            </div>
             <p className="section-label">外观</p>
             <div className="setting-group">
               <label className="setting-row">

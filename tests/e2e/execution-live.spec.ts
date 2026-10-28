@@ -51,6 +51,7 @@ test('reload follows existing execution and cancellation waits for durable resul
     calls.every((c: { command: string }) =>
       [
         'bootstrap',
+        'get_ai_scan',
         'list_executions',
         'get_execution',
         'cancel_log_cleanup',

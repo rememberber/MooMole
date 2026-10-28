@@ -223,7 +223,7 @@ export function ProjectArtifacts({
                       >
                         <div>
                           <div className="project-artifact-heading">
-                            <strong>{item.name}</strong>
+                            <strong data-i18n="off">{item.name}</strong>
                             <span
                               className="muted"
                               title={

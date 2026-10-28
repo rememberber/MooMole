@@ -44,7 +44,7 @@ export function ApplicationRow({
         />
         <ApplicationIcon taskId={taskId} index={index} />
         <div className="app-info">
-          <strong>{app.name}</strong>
+          <strong data-i18n="off">{app.name}</strong>
           <small className="mono">{shortPath(app.path, home)}</small>
         </div>
         <span className="tag">{appSource(app.source)}</span>

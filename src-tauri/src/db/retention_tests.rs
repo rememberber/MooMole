@@ -9,6 +9,7 @@ fn fixture(saved: bool) -> (tempfile::TempDir, Connection) {
         save_settings(
             &db,
             &Settings {
+                language: "system".into(),
                 theme: "dark".into(),
                 retention_days: 90,
                 protected_paths: vec!["/fixture/保留".into()],

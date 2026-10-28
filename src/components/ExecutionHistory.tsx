@@ -395,7 +395,7 @@ function ExecutionResults({
         {items.slice(0, limit).map((item) => (
           <details key={item.id} className="execution-item">
             <summary>
-              <span>{item.path}</span>
+              <span data-i18n="off">{item.path}</span>
               <span
                 className={`state-tag ${item.state === 'moved' ? 'succeeded' : item.state === 'uncertain' ? 'failed' : ''}`}
               >

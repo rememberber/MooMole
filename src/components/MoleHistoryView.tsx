@@ -1,3 +1,5 @@
+import { getLocale } from '../i18n/locale'
+import { translate } from '../i18n/translate'
 import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { bytes, dateTime } from '../lib/format'
@@ -52,20 +54,27 @@ export function MoleHistoryView({
   const [status, setStatus] = useState('all')
   const [sessionLimit, setSessionLimit] = useState(20)
   const [deletionLimit, setDeletionLimit] = useState(20)
-  const needle = query.toLocaleLowerCase()
+  const needle = query.toLocaleLowerCase(getLocale())
   const sessions =
     report?.sessions.filter(
       (s) =>
         (command === 'all' || s.command === command) &&
-        [s.command, commands[s.command] ?? '', s.run_id, s.started_at, s.ended_at].some((v) =>
-          v.toLocaleLowerCase().includes(needle),
-        ),
+        [
+          s.command,
+          commands[s.command] ?? '',
+          translate(commands[s.command] ?? ''),
+          s.run_id,
+          s.started_at,
+          s.ended_at,
+        ].some((v) => v.toLocaleLowerCase(getLocale()).includes(needle)),
     ) ?? []
   const deletions =
     report?.deletions.filter(
       (d) =>
         (status === 'all' || d.status === status) &&
-        [d.path, d.timestamp, d.mode, d.status].some((v) => v.toLocaleLowerCase().includes(needle)),
+        [d.path, d.timestamp, d.mode, d.status].some((v) =>
+          v.toLocaleLowerCase(getLocale()).includes(needle),
+        ),
     ) ?? []
   return (
     <section className="card mole-history" aria-label="Mole CLI 原始历史">

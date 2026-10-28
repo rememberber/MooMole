@@ -58,6 +58,7 @@ export async function installRecoveryMock(
           ) => {
             const calls = JSON.parse(sessionStorage.getItem('recovery-calls') ?? '[]')
             sessionStorage.setItem('recovery-calls', JSON.stringify([...calls, command]))
+            if (command === 'get_ai_scan') return null
             if (command === 'bootstrap') return { ...initial, executions: current() }
             if (
               [

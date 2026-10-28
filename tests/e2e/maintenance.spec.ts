@@ -110,6 +110,7 @@ test('explicit setting inspection exposes protection, preserves prior results on
           'bootstrap',
           'get_task_snapshot',
           'get_history',
+          'get_ai_scan',
           'list_application_uninstalls',
           'list_quicklook_refreshes',
           'plugin:event|listen',

@@ -162,7 +162,7 @@ export function Installers({
                 <article className="installer-row" key={item.path} aria-label={item.path}>
                   <div>
                     <div className="installer-heading">
-                      <strong>{item.name}</strong>
+                      <strong data-i18n="off">{item.name}</strong>
                       <span className="muted">
                         {item.extension.toUpperCase()} ·{' '}
                         {item.classification === 'archiveUnverified'

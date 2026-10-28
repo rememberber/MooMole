@@ -28,6 +28,7 @@ export async function installLiveExecutionMock(page: Page) {
           invoke: async (command: string, args: { runId?: string; itemId?: string } = {}) => {
             const calls = JSON.parse(sessionStorage.getItem('live-calls') || '[]')
             sessionStorage.setItem('live-calls', JSON.stringify([...calls, { command, ...args }]))
+            if (command === 'get_ai_scan') return null
             if (command === 'bootstrap') return { ...initial, executions: [current()] }
             if (command === 'list_executions') {
               if (sessionStorage.getItem('live-list-error')) throw new Error('fixture 列表读取失败')

@@ -1225,6 +1225,7 @@ test('opening details checks only the chosen task entry and distinguishes runnin
     'start_task',
     'get_task_snapshot',
     'get_history',
+    'get_ai_scan',
     'list_review_plans',
     'list_executions',
     'list_application_uninstalls',

@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import type { Snapshot } from '../types'
 import { percent } from '../lib/format'
 import { statusPercent } from '../lib/status-metrics'
@@ -97,7 +98,7 @@ export function StatusHardware({ snapshot, stale }: { snapshot: Snapshot; stale:
                 ? '未知'
                 : temperature < 0.1
                   ? '< 0.1 °C'
-                  : `${temperature.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} °C`}
+                  : `${temperature.toLocaleString(getLocale(), { maximumFractionDigits: 1 })} °C`}
             </strong>
           </p>
           <p className="muted">当前内置 Mole 未提供 CPU/GPU 温度，不以电池温度代替。</p>

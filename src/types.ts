@@ -14,6 +14,7 @@ export type TaskKind = 'analyze' | 'status' | 'apps' | 'cleanup' | 'clean' | 'hi
 export type ScanState = 'complete' | 'partial' | 'unavailable'
 export interface Settings {
   theme: 'light' | 'dark' | 'system'
+  language?: 'system' | 'zh' | 'en' | 'ja'
   retentionDays: number
   protectedPaths: string[]
   acknowledged: boolean
@@ -28,6 +29,7 @@ export interface TaskRecord {
   message: string | null
 }
 export interface Bootstrap {
+  systemLanguage?: string
   maintenanceRefreshes?: RefreshSummary[]
   settings: Settings
   history: TaskRecord[]

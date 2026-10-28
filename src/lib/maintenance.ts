@@ -1,3 +1,5 @@
+import { getLocale } from '../i18n/locale'
+import { translate } from '../i18n/translate'
 import catalog from './maintenance-catalog.json' with { type: 'json' }
 
 // Source-bound reference information, never a machine assessment or execution plan.
@@ -5,9 +7,13 @@ export const maintenanceCatalog = catalog
 export type MaintenanceItem = (typeof catalog.items)[number]
 
 export function maintenanceItems(query: string): MaintenanceItem[] {
-  const needle = query.trim().toLocaleLowerCase()
+  const needle = query.trim().toLocaleLowerCase(getLocale())
   return catalog.items.filter((item) =>
-    Object.values(item).some((value) => value.toLocaleLowerCase().includes(needle)),
+    Object.values(item).some(
+      (value) =>
+        value.toLocaleLowerCase(getLocale()).includes(needle) ||
+        translate(value).toLocaleLowerCase(getLocale()).includes(needle),
+    ),
   )
 }
 

@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Folder, Search, ShieldCheck } from 'lucide-react'
 import type { CleanPreview } from '../types'
@@ -63,7 +64,7 @@ export function CleanReview({
           (filter === 'selected' && chosen.some((i) => i.id === item.id))),
     )
     .sort((a, b) =>
-      sort === 'size' ? (b.size ?? -1) - (a.size ?? -1) : a.path.localeCompare(b.path, 'zh-CN'),
+      sort === 'size' ? (b.size ?? -1) - (a.size ?? -1) : a.path.localeCompare(b.path, getLocale()),
     )
   const pages = Math.max(1, Math.ceil(visible.length / 100))
   const currentPage = Math.min(page, pages - 1)
@@ -272,7 +273,9 @@ export function CleanReview({
                 <details className="review-detail">
                   <summary>
                     <span className="review-name">
-                      {item.path.split('/').filter(Boolean).at(-1) || '/'}
+                      <span data-i18n="off">
+                        {item.path.split('/').filter(Boolean).at(-1) || '/'}
+                      </span>
                       {item.protections.length > 0 && (
                         <span className="tag">
                           <ShieldCheck size={11} />

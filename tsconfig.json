@@ -5,6 +5,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    "jsxImportSource": "@moomole/i18n",
+    "paths": { "@moomole/i18n/*": ["./src/i18n/*"] },
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,

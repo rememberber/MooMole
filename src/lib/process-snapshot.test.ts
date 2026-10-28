@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/locale'
 import { describe, expect, it } from 'vitest'
 import { matchingProcesses, processMetric, processSampleTime } from './process-snapshot'
 import type { ProcessSample } from '../types'
@@ -25,7 +26,7 @@ describe('Mole process samples', () => {
     expect(matchingProcesses(samples, '[*] $(literal)', 'cpu')).toEqual([samples[2]])
     expect(matchingProcesses(samples, 'missing', 'name')).toEqual([])
     const names = matchingProcesses(samples, '', 'name').map((p) => p.name)
-    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'zh-CN')))
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, getLocale())))
     expect(samples.map((p) => p.pid)).toEqual([11, 10, 22, 20, 2])
   })
   it('never substitutes snapshot time for an absent or invalid process sample time', () => {
