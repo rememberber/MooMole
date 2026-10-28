@@ -21,6 +21,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  Zap,
   Square,
   Play,
   Pause,
@@ -75,6 +76,9 @@ const SettingsModal = deferredView(
   async () => ({ default: (await import('./components/SettingsModal')).SettingsModal }),
   { onClose: (props) => props.onClose() },
 )
+const QuickCleanup = deferredView(async () => ({
+  default: (await import('./components/QuickCleanup')).QuickCleanup,
+}))
 const CleanReview = deferredView(async () => ({
   default: (await import('./components/CleanReview')).CleanReview,
 }))
@@ -139,6 +143,7 @@ const StatusDisks = deferredView(async () => ({
 
 const navigation = [
   ['overview', LayoutGrid, '概览'],
+  ['quickCleanup', Zap, '速战速决'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
   ['apps', Box, '应用列表'],
@@ -232,6 +237,10 @@ export default function App() {
   const [cleanPreview, setCleanPreview] = useState<CleanPreview | null>(
     api.desktop ? null : demoCleanPreview,
   )
+  const [quickScanning, setQuickScanning] = useState(false)
+  const quickScanCancelled = useRef(false)
+  const quickScanActive = useRef(false)
+  const [quickScanStatus, setQuickScanStatus] = useState('')
   const [apps, setApps] = useState<AppEntry[] | null>(null)
   const [appsTaskId, setAppsTaskId] = useState<string | null>(null)
   const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | null>(null)
@@ -260,6 +269,7 @@ export default function App() {
   const [cancelPending, setCancelPending] = useState(false)
   const [plan, setPlan] = useState<ReviewPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
+  const [autoCheckPlanId, setAutoCheckPlanId] = useState<string | null>(null)
   const [recoveryNavigation, setRecoveryNavigation] = useState(0)
   const [archiveOpenSignal, setArchiveOpenSignal] = useState(0)
   const [historyEpoch, setHistoryEpoch] = useState(0)
@@ -394,7 +404,7 @@ export default function App() {
     target?: string,
     analysisTarget?: AnalysisHistoryTarget,
   ) {
-    if (busyRef.current) return
+    if (busyRef.current) return false
     busyRef.current = true
     ++cancelRequest.current
     setError('')
@@ -423,13 +433,15 @@ export default function App() {
         observation.current.signal,
       )
       applyTaskResult(kind, result, analysisTarget, resultTaskId)
+      return true
     } catch (error) {
       if (!observation.current.signal.aborted) {
         if (kind === 'analyze') setAnalysisTask(failedAnalysisTask(trackedAnalysis, error))
         else setError(String(error).replace(/^(?:TaskResultError|Error): /, ''))
       }
+      return false
     } finally {
-      if (observation.current.signal.aborted) return
+      if (observation.current.signal.aborted) return false
       setBusy(null)
       ++cancelRequest.current
       busyRef.current = false
@@ -439,6 +451,38 @@ export default function App() {
       } catch (error) {
         setError(`历史记录无法刷新：${String(error)}`)
       }
+    }
+  }
+
+  async function scanQuickCleanup() {
+    if (!data || quickScanActive.current || busyRef.current) return
+    quickScanActive.current = true
+    quickScanCancelled.current = false
+    setQuickScanning(true)
+    setCleanPreview(null)
+    setAppsStale(true)
+    const failures: string[] = []
+    try {
+      for (const [kind, label] of [
+        ['clean', '缓存与日志'],
+        ['apps', '应用'],
+        ['analyze', '大文件'],
+      ] as const) {
+        if (quickScanCancelled.current || observation.current.signal.aborted) break
+        setQuickScanStatus(`正在扫描${label}…`)
+        const success = await execute(kind, kind === 'analyze' ? data.home : undefined)
+        if (!success) failures.push(label)
+      }
+      setQuickScanStatus(
+        quickScanCancelled.current
+          ? '扫描已停止，已取得的结果仍可查看；其余范围未完成。'
+          : failures.length
+            ? `${failures.join('、')}扫描未完成，请重新扫描；较早结果仅供参考。`
+            : '扫描完成。大文件来自主目录空间分析，应用大小为 Mole 估算；结果可能不完整。',
+      )
+    } finally {
+      quickScanActive.current = false
+      setQuickScanning(false)
     }
   }
 
@@ -529,6 +573,7 @@ export default function App() {
   }
 
   function cancelCurrentTask() {
+    if (quickScanActive.current) quickScanCancelled.current = true
     if (!busy || cancelPending) return
     const request = ++cancelRequest.current
     const id = busy.id
@@ -618,13 +663,15 @@ export default function App() {
       setError(String(error))
     }
   }
-  async function createPlan(scanId: string, ids: string[]) {
+  async function createPlan(scanId: string, ids: string[], autoCheck = false) {
     const saved = await api.createReviewPlan(scanId, ids)
+    setAutoCheckPlanId(autoCheck ? saved.id : null)
     setPlan(saved)
     const reviewPlans = await api.reviewPlans()
     setData((current) => (current ? { ...current, reviewPlans } : current))
   }
   async function openPlan(id: string) {
+    setAutoCheckPlanId(null)
     setPlanLoading(true)
     try {
       setPlan(await api.reviewPlan(id))
@@ -676,6 +723,7 @@ export default function App() {
     api.desktop &&
     data.engine.available &&
     !busy &&
+    !quickScanning &&
     !uninstallActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
@@ -884,6 +932,16 @@ export default function App() {
                           : '暂停采集'}
                     </button>
                   </>
+                )}
+                {page === 'quickCleanup' && (
+                  <button
+                    className="button primary compact"
+                    disabled={!canRun || executionActive}
+                    onClick={() => void scanQuickCleanup()}
+                  >
+                    <Search size={15} />
+                    {quickScanning ? '正在扫描…' : cleanPreview ? '重新扫描' : '扫描可清理项'}
+                  </button>
                 )}
                 {page === 'cleanup' && (
                   <button
@@ -1118,7 +1176,10 @@ export default function App() {
           </div>
           <span className="read-only-tag">
             <ShieldCheck size={13} />
-            {page === 'cleanup' || page === 'apps' || page === 'maintenance'
+            {page === 'quickCleanup' ||
+            page === 'cleanup' ||
+            page === 'apps' ||
+            page === 'maintenance'
               ? '逐项确认'
               : '只读检查'}
           </span>
@@ -1155,9 +1216,9 @@ export default function App() {
             onOutcome={() => setAppsStale(true)}
           />
           {(executionActive || executionTrackingError) && (
-            <section className="notice execution-recovery" aria-label="日志处理状态">
+            <section className="notice execution-recovery" aria-label="清理状态">
               <div>
-                <strong>{executionTrackingError ? '日志处理状态待确认' : '日志处理进行中'}</strong>
+                <strong>{executionTrackingError ? '清理状态待确认' : '清理进行中'}</strong>
                 <p>
                   {executionTrackingError ||
                     '逐项结果持续保存在历史中；关闭审阅框会请求停止后续项目，已发生的结果会保留。'}
@@ -1320,6 +1381,44 @@ export default function App() {
                   icon={Clock3}
                 />
               </div>
+            </>
+          )}
+
+          {page === 'quickCleanup' && (
+            <>
+              {quickScanStatus && (
+                <p className="quick-intro" role="status">
+                  {quickScanStatus}
+                </p>
+              )}
+              <QuickCleanup
+                preview={cleanPreview}
+                home={data.home}
+                protectedPaths={data.settings.protectedPaths}
+                desktop={api.desktop}
+                enabled={canRun && !executionActive}
+                scanRunning={quickScanning}
+                apps={apps}
+                appsTaskId={appsTaskId}
+                appsStale={appsStale}
+                analysis={analysis}
+                onUninstall={setUninstallTarget}
+                onReveal={reveal}
+                onProtect={protect}
+                onInspect={async (scanId, ids, signal) => {
+                  const saved = await api.createReviewPlan(scanId, ids)
+                  try {
+                    const checked = await api.checkReviewRules(saved.id, signal)
+                    if (checked.cleanupConfirmation)
+                      await api.discardCleanupConfirmation(checked.cleanupConfirmation.id)
+                    return { ...checked, cleanupConfirmation: null }
+                  } finally {
+                    await refreshRecords(true)
+                  }
+                }}
+                onCreatePlan={(scanId, ids) => createPlan(scanId, ids, true)}
+                onNavigate={changePage}
+              />
             </>
           )}
 
@@ -1700,7 +1799,7 @@ export default function App() {
                 <section className="card saved-plans" aria-label="已保存的审阅计划">
                   <div className="list-toolbar">
                     <h2>审阅计划</h2>
-                    <span className="muted">仅保存选中范围，尚未执行</span>
+                    <span className="muted">保存的选择范围；实际结果见执行记录</span>
                   </div>
                   {data.reviewPlans.map((item) => (
                     <button
@@ -1764,6 +1863,7 @@ export default function App() {
         <ReviewPlanDialog
           key={plan.id}
           initialPlan={plan}
+          autoCheck={autoCheckPlanId === plan.id}
           onRefresh={api.reviewPlan}
           onCheckRules={api.checkReviewRules}
           onDiscardConfirmation={api.discardCleanupConfirmation}
@@ -1788,6 +1888,7 @@ export default function App() {
                 setExecutionTrackingError('执行状态读取失败，请在历史中刷新核对实际结果。')
               }
               setExecutionPending(false)
+              setCleanPreview(null)
             }
           }}
           onClose={() => setPlan(null)}
@@ -1839,7 +1940,7 @@ export default function App() {
           </p>
           <div className="welcome-note">
             <ShieldCheck size={16} />
-            仅符合条件的日志可单独确认移入废纸篓，其他范围保持只读。暂无应用内恢复。
+            符合条件的用户缓存和日志可确认移入废纸篓，其他范围需分别审阅。暂无应用内恢复。
           </div>
           <label className="acceptance">
             <input

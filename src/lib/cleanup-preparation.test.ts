@@ -77,7 +77,7 @@ describe('single-log preparation evidence', () => {
     const plan = fixture()
     const result = cleanupPreparation(plan, 1001)!
     expect(result.valid).toBe(true)
-    expect(result.summary).toContain('1 项日志完成本轮准备检查 · 1 项保留')
+    expect(result.summary).toContain('1 项完成本轮准备检查 · 1 项保留')
     expect(result.items.get('cache')?.code).toBe('retained')
     expect(result.next).toContain('不代表清理授权')
     plan.cleanupPreparation = null

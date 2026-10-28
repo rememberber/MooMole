@@ -756,3 +756,32 @@ fn darwin_fileport_fields_are_valid_but_similar_or_error_fields_still_withdraw_v
         );
     }
 }
+
+#[test]
+fn cache_tree_request_binds_deep_inventory_and_recursive_lsof_sees_child_handles() {
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let plan = crate::cleanup_preparation::tests::cache_plan(&home);
+    let request = new_request(&plan, &home, crate::db::now()).unwrap();
+    // Only visibility/account gates are synthetic; recursive +D uses actual
+    // lsof against this owned temporary tree, never a root process or prompt.
+    let source = fixture_source(Some(VISIBLE), None);
+    let output = direct(&source, &request.payload);
+    assert!(output.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["items"][0]["code"], "noOpenHandles");
+    let path = home.join("Library/Caches/com.apple.helpd/deep/fixture.bin");
+    let held = fs::File::open(&path).unwrap();
+    let output = direct(&source, &request.payload);
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // Darwin +D may return 1 WITH matching records; nonempty output is
+    // conservatively unknown, never idle. Both busy/unknown retain the tree.
+    assert!(
+        ["busy", "unknown"].contains(&value["items"][0]["code"].as_str().unwrap()),
+        "{value}"
+    );
+    assert!(value["items"][0]["query"]["bytes"].as_u64().unwrap() > 0);
+    drop(held);
+    fs::write(&path, "deep changed after capture").unwrap();
+    assert!(new_request(&plan, &home, crate::db::now()).is_err());
+}

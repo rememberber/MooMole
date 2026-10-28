@@ -72,6 +72,7 @@ pub(crate) struct BundleWitness {
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
     Strict,
+    StrictContents,
     Bundle,
 }
 
@@ -236,7 +237,7 @@ fn walk(
         {
             return Err("目录包含符号链接或特殊文件，需要单独审阅。".into());
         }
-        if mode == Mode::Bundle && stat.st_flags & 0x40000000 != 0 {
+        if mode != Mode::Strict && stat.st_flags & 0x40000000 != 0 {
             return Err("应用包包含尚未落地的云占位项目，本次不生成完整快照。".into());
         }
         if kind == libc::S_IFREG && stat.st_nlink > 1 {
@@ -287,6 +288,54 @@ fn walk(
     }
     digest.update(b"directory-end");
     Ok(())
+}
+
+// Compare directory contents across Trash relocation without following links.
+// The caller separately verifies the root identity and attributes. Retain only
+// this already-authorized directory fd; never enumerate the Trash parent.
+pub(crate) fn inspect_contents(path: &Path, dev: u64, ino: u64) -> Result<TreeWitness, String> {
+    let held = crate::observation::AnchoredPath::open(path)?;
+    let result = inspect_contents_held(held.target(), path, dev, ino)?;
+    held.validate()?;
+    Ok(result)
+}
+pub(crate) fn inspect_contents_held(
+    directory: &File,
+    path: &Path,
+    dev: u64,
+    ino: u64,
+) -> Result<TreeWitness, String> {
+    let mut budget = Budget::new();
+    let root = stat_fd(directory)?;
+    if root.st_mode & libc::S_IFMT != libc::S_IFDIR
+        || root.st_dev as u64 != dev
+        || root.st_ino != ino
+    {
+        return Err("返回的缓存目录身份不一致。".into());
+    }
+    let mut digest = Sha256::new();
+    digest.update(b"MooMole.cache.contents.v1");
+    let mut entries = 0;
+    walk(
+        directory,
+        path,
+        dev,
+        0,
+        Mode::StrictContents,
+        &mut digest,
+        &mut budget,
+        &mut entries,
+        &mut |_| {},
+        &mut |_| Ok(()),
+    )?;
+    if stamp(&root) != stamp(&stat_fd(directory)?) {
+        return Err("缓存目录核对期间发生变化。".into());
+    }
+    Ok(TreeWitness {
+        version: VERSION,
+        digest: format!("{:x}", digest.finalize()),
+        entries,
+    })
 }
 
 pub fn inspect(

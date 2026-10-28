@@ -10,9 +10,7 @@ test('real-rule preparation summary keeps scope, retention and recovery boundari
   )
   const dialog = page.getByRole('dialog', { name: '审阅计划' })
   await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
-  await expect(
-    dialog.getByText('1 项日志完成本轮准备检查 · 1 项保留', { exact: true }),
-  ).toBeVisible()
+  await expect(dialog.getByText('1 项完成本轮准备检查 · 1 项保留', { exact: true })).toBeVisible()
   await expect(dialog.getByRole('status')).toContainText('准备结果不代表清理授权')
   await expect(dialog.getByText('日志准备已核对', { exact: true })).toHaveCount(1)
   await expect(dialog.getByText('日志暂不处理', { exact: true })).toHaveCount(1)
@@ -42,7 +40,7 @@ test('expired preparation withdraws positive badges and remains read-only', asyn
   await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
   await expect(dialog.getByText('日志准备已核对', { exact: true })).toBeVisible()
   await page.clock.fastForward(31_000)
-  await expect(dialog.getByText('日志处理前检查已失效', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('清理前检查已失效', { exact: true })).toBeVisible()
   await expect(dialog.getByText('日志准备已核对', { exact: true })).toHaveCount(0)
   await expect(dialog.getByRole('status')).toContainText('重新复查 Mole')
 })
@@ -59,7 +57,7 @@ test('local failure, repeated-rule cancellation and unknown protocol never retai
     const dialog = page.getByRole('dialog', { name: '审阅计划' })
     await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
     if (mode === 'invalid') {
-      await expect(dialog.getByText('日志处理前检查结果无法核对', { exact: true })).toBeVisible()
+      await expect(dialog.getByText('清理前检查结果无法核对', { exact: true })).toBeVisible()
     } else {
       await expect(dialog.getByText('日志准备已核对', { exact: true })).toBeVisible()
       await dialog
@@ -75,4 +73,19 @@ test('local failure, repeated-rule cancellation and unknown protocol never retai
     await expect(dialog.getByText('日志准备已核对', { exact: true })).toHaveCount(0)
     await expect(dialog.getByText('当前未开放执行', { exact: false }).first()).toBeVisible()
   }
+})
+
+test('fully retained executable review points to reasons instead of a missing confirmation', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/cleanup-preparation.tsx')).mount('all-retained'),
+  )
+  const dialog = page.getByRole('dialog', { name: '审阅计划' })
+  await dialog.getByRole('button', { name: '复查 Mole 规则', exact: true }).click()
+  await expect(dialog.getByText('本轮所选项目全部保留', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('status')).toContainText('查看逐项保留原因')
+  await expect(dialog.getByRole('status')).not.toContainText('查看后端固定的移入范围')
+  await expect(dialog.getByRole('button', { name: /查看.*移入.*范围/ })).toHaveCount(0)
 })

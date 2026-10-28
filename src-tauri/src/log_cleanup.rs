@@ -1,4 +1,4 @@
-//! Narrow single-log execution. No IPC accepts file paths or frontend eligibility.
+//! Narrow user-cache and single-log execution. No IPC accepts file paths or frontend eligibility.
 //! Short-lived confirmations bind a server-owned subset and the entire saved
 //! source plan. Every item re-runs REAL rules before recording intent and acting.
 use crate::activity_authorization::selected_logs;
@@ -71,7 +71,7 @@ impl Confirmations {
             || report.plan_id != plan.id
             || !report.read_only
             || report.method != "trash"
-            || report.scope != "userLogFiles"
+            || !["userLogFiles", "userCachesAndLogs"].contains(&report.scope)
             || now < report.checked_at
             || now >= report.expires_at
             || report.expires_at > plan.expires_at
@@ -113,17 +113,28 @@ impl Confirmations {
             .iter()
             .map(|i| {
                 let w = i.witness.as_ref().ok_or("日志确认缺少文件身份。")?;
-                if i.candidate.is_directory
-                    || w.size > 9_007_199_254_740_991
-                    || provenance::binding(i.candidate.provenance.as_ref(), &i.candidate.path)
-                        != "userLogs"
+                if w.size > 9_007_199_254_740_991
+                    || !["userCache", "userLogs"].contains(&provenance::binding(
+                        i.candidate.provenance.as_ref(),
+                        &i.candidate.path,
+                    ))
+                    || (i.candidate.is_directory
+                        && provenance::binding(i.candidate.provenance.as_ref(), &i.candidate.path)
+                            != "userCache")
                 {
                     return Err("日志确认包含不支持的范围。".to_string());
                 }
                 Ok(ConfirmationItem {
                     id: i.candidate.id.clone(),
                     path: i.candidate.path.clone(),
-                    size_bytes: w.size,
+                    size_bytes: if i.candidate.is_directory {
+                        i.candidate
+                            .size
+                            .filter(|size| *size <= 9_007_199_254_740_991)
+                            .ok_or("缓存目录大小未知，保留。")?
+                    } else {
+                        w.size
+                    },
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
@@ -366,12 +377,15 @@ where
             if started.elapsed() > Duration::from_secs(120) {
                 return Err("本批处理超时；已停止未开始项目，请查看历史。".into());
             }
-            let requested = vec![(
-                item.candidate.id.clone(),
-                item.candidate.path.clone(),
-                provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path)
-                    .into(),
-            )];
+            // Rebuild descendants from the saved tree on EVERY execution pass.
+            let one = review::Plan {
+                items: vec![item.clone()],
+                ..plan.clone()
+            };
+            let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
+            let local = review::check(&one, &settings.protected_paths, db::now());
+            let batch = crate::descendant_rules::prepare(&one, &local, &home);
+            let requested = batch.requested.clone();
             let mut checks = match check(requested, job.clone()).await {
                 Ok(checks) => checks,
                 Err(_) if job.cancelled.load(Ordering::SeqCst) => {
@@ -428,10 +442,14 @@ where
             let stopped = tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
                 let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
                 let now = db::now();
-                let view = review::apply_rule_checks(
-                    review::check(&one, &settings.protected_paths, now),
+                let view = crate::descendant_rules::apply(
+                    review::apply_rule_checks(
+                        review::check(&one, &settings.protected_paths, now),
+                        &checks,
+                        now,
+                    ),
+                    &batch,
                     &checks,
-                    now,
                 );
                 let target = cleanup_preparation::prepare_one(&one, &view, &home, now, || {
                     job.cancelled.load(Ordering::SeqCst)

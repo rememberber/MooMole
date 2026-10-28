@@ -175,7 +175,7 @@ export const revealExecutionItem = (runId: string, itemId: string): Promise<void
 export const cancelLogCleanup = (runId: string): Promise<void> =>
   desktop
     ? invoke('cancel_log_cleanup', { runId })
-    : Promise.reject(new Error('请在桌面 App 中停止日志处理。'))
+    : Promise.reject(new Error('请在桌面 App 中停止清理。'))
 export const saveSettings = (settings: Settings): Promise<Settings> =>
   desktop ? invoke('save_settings', { settings }) : Promise.resolve(settings)
 export const reveal = (path: string): Promise<void> =>
@@ -239,7 +239,7 @@ export async function executeLogCleanup(
   confirmationId: string,
   signal: AbortSignal,
 ): Promise<ExecutionDetail> {
-  if (!desktop) throw new Error('请在桌面 App 中处理日志。')
+  if (!desktop) throw new Error('请在桌面 App 中清理。')
   if (signal.aborted) throw new Error('开始前已取消，未请求处理。')
   const requestId = crypto.randomUUID()
   const cancel = () => {

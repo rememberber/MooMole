@@ -18,12 +18,14 @@ const states: Record<string, string> = {
 }
 export function LogCleanupDialog({
   confirmation,
+  simple = false,
   onExecute,
   onDiscard,
   onBack,
   onClose,
   onRevealReceipt,
 }: {
+  simple?: boolean
   confirmation: CleanupConfirmation
   onExecute: (id: string, signal: AbortSignal) => Promise<ExecutionDetail>
   onDiscard?: (id: string) => Promise<void>
@@ -33,7 +35,7 @@ export function LogCleanupDialog({
 }) {
   useNow()
   const expired = Date.now() < confirmation.createdAt || Date.now() >= confirmation.expiresAt
-  const [acknowledged, setAcknowledged] = useState(false)
+  const [acknowledged, setAcknowledged] = useState(simple)
   const [busy, setBusy] = useState(false)
   const [consumed, setConsumed] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -75,11 +77,11 @@ export function LogCleanupDialog({
   }
   return (
     <Modal
-      title={result ? '日志处理结果' : busy ? '正在处理日志' : '确认移入废纸篓'}
+      title={result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}
       onClose={close}
       className="review-plan-modal"
     >
-      <h2>{result ? '日志处理结果' : busy ? '正在处理日志' : '确认移入废纸篓'}</h2>
+      <h2>{result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}</h2>
       {result ? (
         <>
           <p role="status">
@@ -122,12 +124,12 @@ export function LogCleanupDialog({
       ) : (
         <>
           <p>
-            {confirmation.items.length} 个日志文件 · 文件大小合计{' '}
+            {confirmation.items.length} 个清理项目 · 文件大小合计{' '}
             {bytes(confirmation.items.reduce((total, item) => total + item.sizeBytes, 0))}
           </p>
           <p className="muted">
             仅处理下面列出的文件，另有 {confirmation.retainedCount}{' '}
-            项保留。日志可能用于排查问题，请先确认不再需要。
+            项保留。缓存可能需要重新生成或下载，日志可能用于排查问题，请确认不再需要。
           </p>
           <p className="notice warning">
             移入废纸篓不会立即释放空间，当前没有应用内恢复。处理期间若外部应用移动或改写文件，结果可能需要核实；不会自动重试。
@@ -181,15 +183,17 @@ export function LogCleanupDialog({
                     : '确认已过期，请返回复查后再处理。'}
                 </p>
               )}
-              <label className="review-selection">
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  disabled={expired || consumed}
-                  onChange={(event) => setAcknowledged(event.target.checked)}
-                />
-                已核对所列日志及处理影响
-              </label>
+              {!simple && (
+                <label className="review-selection">
+                  <input
+                    type="checkbox"
+                    checked={acknowledged}
+                    disabled={expired || consumed}
+                    onChange={(event) => setAcknowledged(event.target.checked)}
+                  />
+                  已核对所列项目及处理影响
+                </label>
+              )}
               <div className="plan-toolbar">
                 <button className="button secondary" onClick={onBack}>
                   返回审阅
@@ -199,7 +203,11 @@ export function LogCleanupDialog({
                   disabled={!acknowledged || expired || consumed}
                   onClick={() => void execute()}
                 >
-                  {confirmation.requiresAuthorization ? '授权检查并移入废纸篓' : '移入废纸篓'}
+                  {confirmation.requiresAuthorization
+                    ? '授权检查并移入废纸篓'
+                    : simple
+                      ? '确认清理'
+                      : '移入废纸篓'}
                 </button>
               </div>
             </>

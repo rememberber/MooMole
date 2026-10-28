@@ -17,19 +17,35 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_cache_directories(false)
+    }
+    fn new_cache() -> Self {
+        Self::with_cache_directories(true)
+    }
+    fn with_cache_directories(directory: bool) -> Self {
         let root = tempfile::Builder::new()
             .prefix("MooMole-log-executor-")
             .tempdir()
             .unwrap();
         let home = root.path().canonicalize().unwrap();
         std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700)).unwrap();
-        std::fs::create_dir_all(home.join("Library/Logs")).unwrap();
-        let items=["first.log","second.log","unselected.log"].iter().map(|name| {
-            let path=home.join("Library/Logs").join(format!("{}-{name}",uuid::Uuid::new_v4()));
-            std::fs::write(&path,name).unwrap();
-            let m=path.metadata().unwrap(); let path=path.to_str().unwrap().to_string();
-            Candidate { id:String::new(),upstream_identity:format!("inode:{}:{}",m.dev(),m.ino()),path:path.clone(),section:"isolated log fixture".into(),size:Some(m.len()),item_count:1,is_directory:false,resolved_path:None,covered_by:None,impact:None,
-                provenance:Some(Provenance {version:1,observations:vec![Origin::from_fields(&path,"record_dry_run_cleanup_target,_safe_clean_impl,safe_clean_guarded,_clean_user_log_directory,clean_user_essentials","_user_log_delete_guard","_user_log_delete_guard").unwrap()]}) }
+        let parent = home.join(if directory {
+            "Library/Caches"
+        } else {
+            "Library/Logs"
+        });
+        std::fs::create_dir_all(&parent).unwrap();
+        let items = ["first.log", "second.log", "unselected.log"].iter().map(|name| {
+            let path = parent.join(format!("{}-{name}", uuid::Uuid::new_v4()));
+            if directory {
+                std::fs::create_dir_all(path.join("deep")).unwrap();
+                std::fs::write(path.join("deep/payload"), name).unwrap();
+            } else { std::fs::write(&path, name).unwrap(); }
+            let m = path.metadata().unwrap();
+            let path = path.to_str().unwrap().to_string();
+            let (stack, guard) = if directory { ("record_dry_run_cleanup_target,_safe_clean_impl,safe_clean_guarded,clean_user_essentials", "_user_cache_deno_delete_guard") } else { ("record_dry_run_cleanup_target,_safe_clean_impl,safe_clean_guarded,_clean_user_log_directory,clean_user_essentials", "_user_log_delete_guard") };
+            Candidate { id: String::new(), upstream_identity: format!("inode:{}:{}", m.dev(), m.ino()), path: path.clone(), section: "isolated cleanup fixture".into(), size: Some(name.len() as u64), item_count: 1, is_directory: directory, resolved_path: None, covered_by: None, impact: None,
+                provenance: Some(Provenance { version: 1, observations: vec![Origin::from_fields(&path, stack, guard, guard).unwrap()] }) }
         }).collect();
         let at = db::now();
         let scan = review::capture(
@@ -80,7 +96,11 @@ impl Fixture {
         cleanup_preparation::Report {
             version: cleanup_preparation::VERSION,
             plan_id: self.plan.id.clone(),
-            scope: "userLogFiles",
+            scope: if self.plan.items[0].candidate.is_directory {
+                "userCachesAndLogs"
+            } else {
+                "userLogFiles"
+            },
             method: "trash",
             read_only: true,
             checked_at: now,
@@ -259,8 +279,16 @@ fn clear(requested: Vec<(String, String, String)>) -> HashMap<String, rules::Rul
                     code: "passed".into(),
                     source: "fixture".into(),
                     reason: "fixture only".into(),
-                    module: rules::ModuleCheck::from_codes("userLogs", "checked", &binding)
-                        .unwrap(),
+                    module: rules::ModuleCheck::from_codes(
+                        &binding,
+                        if binding == "unsupported" {
+                            "unsupported"
+                        } else {
+                            "checked"
+                        },
+                        &binding,
+                    )
+                    .unwrap(),
                     activity: rules::ActivityCheck::from_code("noOpenHandles").unwrap(),
                 },
             )
@@ -619,3 +647,101 @@ async fn finder_put_back_uses_exact_native_receipt_without_rewriting_history() {
 }
 
 mod shutdown;
+
+#[tokio::test]
+#[ignore = "Explicit full native cache execution and SQLite history on an owned fixture; restores exact receipt"]
+async fn native_cache_executor_persists_results_and_rechecks_new_descendant_protection() {
+    for protect_child in [true, false] {
+        let mut temp = tempfile::tempdir().unwrap();
+        temp.disable_cleanup(true);
+        let home = temp.path().canonicalize().unwrap();
+        eprintln!(
+            "Owned cache journal fixture retained on failure: {}",
+            home.display()
+        );
+        let plan = crate::cleanup_preparation::tests::cache_plan(&home);
+        let view = crate::cleanup_preparation::tests::checked_cache(&plan, &home);
+        let report = cleanup_preparation::observe(&plan, &view, &home, db::now(), || false);
+        let mut confirmations = Confirmations::default();
+        let offer = confirmations
+            .issue(&plan, &report, db::now())
+            .unwrap()
+            .unwrap();
+        let authorized = confirmations.take(&offer.id, db::now()).unwrap();
+        let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+        db::save_scan(
+            &database,
+            &review::Scan {
+                id: plan.scan_id.clone(),
+                created_at: plan.created_at,
+                expires_at: plan.expires_at,
+                revision: plan.revision.clone(),
+                protocol: plan.protocol,
+                system_included: false,
+                items: plan.items.clone(),
+            },
+        )
+        .unwrap();
+        db::save_plan(&database, &plan).unwrap();
+        db::save_settings(
+            &database,
+            &db::Settings {
+                acknowledged: true,
+                protected_paths: if protect_child {
+                    vec![home
+                        .join("Library/Caches/com.apple.helpd/deep/fixture.bin")
+                        .to_str()
+                        .unwrap()
+                        .into()]
+                } else {
+                    vec![]
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let database = Arc::new(Mutex::new(database));
+        let result = run_with(
+            database.clone(),
+            home.clone(),
+            authorized,
+            Arc::new(Job::new(TaskKind::LogTrash)),
+            |requested, _| async { Ok(clear(requested)) },
+        )
+        .await
+        .unwrap();
+        std::fs::write(
+            home.join("receipt.json"),
+            serde_json::to_vec_pretty(&result).unwrap(),
+        )
+        .unwrap();
+        for item in result.items.iter().filter(|item| item.receipt.is_some()) {
+            crate::execution_location::Location::prepare(&result, &item.id)
+                .unwrap()
+                .validate()
+                .unwrap();
+        }
+        for item in &result.items {
+            if let Some(receipt) = &item.receipt {
+                let m = std::fs::symlink_metadata(&receipt.destination).unwrap();
+                assert_eq!((m.dev(), m.ino()), (receipt.device, receipt.inode));
+                assert!(!Path::new(&item.path).exists());
+                std::fs::rename(&receipt.destination, &item.path).unwrap();
+            }
+        }
+        assert_eq!(result.summary.moved_count, usize::from(!protect_child));
+        assert_eq!(
+            result.items[0].state,
+            if protect_child { "skipped" } else { "moved" }
+        );
+        let persisted = execution::detail(&*database.lock().unwrap(), &result.summary.id).unwrap();
+        assert_eq!(persisted.items[0].state, result.items[0].state);
+        assert_eq!(persisted.summary.moved_count, result.summary.moved_count);
+        assert_eq!(
+            std::fs::read_to_string(home.join("Library/Caches/com.apple.helpd/deep/fixture.bin"))
+                .unwrap(),
+            "owned rebuildable fixture"
+        );
+        temp.disable_cleanup(false);
+    }
+}

@@ -1,4 +1,4 @@
-//! A sealed, read-only exact-log observer used by confirmed log execution.
+//! A sealed read-only cache-tree/exact-log observer used by confirmed cleanup.
 //! PID-1 diagnostics cannot construct this request or supply its evidence.
 //! No direct IPC, persistence, confirmation or mutation is provided here.
 use super::{apple_literal, monotonic_ms, shell_literal};
@@ -156,23 +156,37 @@ fn validate_plan(plan: &review::Plan, home: &Path, now: i64) -> Result<(), Strin
         if candidate.id.is_empty()
             || candidate.id.len() > 128
             || candidate.path.len() > 4096
-            || candidate.is_directory
-            || rules::module_scope(Path::new(&candidate.path), home) != "userLogs"
-            || provenance::binding(candidate.provenance.as_ref(), &candidate.path) != "userLogs"
+            || !crate::cleanup_preparation::supported(item, home)
         {
-            return Err("此检查只支持来源明确的本账户普通日志文件。".into());
+            return Err("此检查只支持来源明确的本账户缓存和普通日志文件。".into());
         }
         let expected = item.witness.as_ref().ok_or("缺少原计划文件身份。")?;
         let held = AnchoredPath::open(Path::new(&candidate.path))?;
         let target = held.witness.nodes.last().ok_or("缺少文件身份。")?;
         if expected.version != crate::observation::VERSION
             || held.witness != *expected
-            || expected.links != 1
+            || (!candidate.is_directory && expected.links != 1)
             || target.uid != uid
-            || target.mode & libc::S_IFMT as u32 != libc::S_IFREG as u32
+            || target.mode & libc::S_IFMT as u32
+                != if candidate.is_directory {
+                    libc::S_IFDIR as u32
+                } else {
+                    libc::S_IFREG as u32
+                }
             || !held.local_materialized()
         {
             return Err("日志或祖先已变化，或不是本账户已落地的单链接普通文件。".into());
+        }
+        if candidate.is_directory {
+            let tree = crate::tree::inspect(
+                Path::new(&candidate.path),
+                target.dev,
+                target.ino,
+                &mut crate::tree::Budget::new(),
+            )?;
+            if item.tree.as_ref() != Some(&tree) {
+                return Err("缓存目录内容已变化。".into());
+            }
         }
         held.validate()?;
         // DROP every O_EVTONLY target descriptor BEFORE lsof. Retaining one
@@ -439,8 +453,12 @@ impl Guard {
             .ok_or("缺少当次 Mole 规则，保留文件。")?;
         if rule.code != "passed"
             || rule.module.version != rules::MODULE_VERSION
-            || rule.module.binding != "userLogs"
-            || rule.module.scope != "userLogs"
+            || rule.module.binding
+                != provenance::binding(
+                    self.one.items[0].candidate.provenance.as_ref(),
+                    &self.one.items[0].candidate.path,
+                )
+            || rule.module.scope != rule.module.binding
             || rule.module.code != "checked"
             || rule.activity.version != rules::ACTIVITY_VERSION
         {

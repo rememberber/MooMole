@@ -224,7 +224,7 @@ export function ExecutionHistory({
           </>
         ) : (
           <p className="execution-retention muted">
-            暂无执行记录。保存计划不会执行清理；符合条件的日志需单独核对并确认处理。
+            暂无执行记录。保存计划不会执行清理；符合条件的用户缓存和日志需核对并确认处理。
           </p>
         )}
       </section>

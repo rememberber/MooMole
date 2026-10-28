@@ -3,7 +3,7 @@ import { installLiveExecutionMock } from './fixtures/execution-live'
 
 async function open(page: import('@playwright/test').Page) {
   await page
-    .getByRole('region', { name: '日志处理状态', exact: true })
+    .getByRole('region', { name: '清理状态', exact: true })
     .getByRole('button', { name: '查看执行记录' })
     .click()
   await page
@@ -21,7 +21,7 @@ test('reload follows existing execution and cancellation waits for durable resul
   await page.setViewportSize({ width: 960, height: 800 })
   await installLiveExecutionMock(page)
   await page.goto('/')
-  await expect(page.getByRole('region', { name: '日志处理状态', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: '清理状态', exact: true })).toBeVisible()
   await page.reload()
   const dialog = await open(page)
   await expect(dialog.getByText('正在跟踪本批次，逐项结果自动更新。')).toBeVisible()
@@ -42,7 +42,7 @@ test('reload follows existing execution and cancellation waits for durable resul
   await page.clock.fastForward(1600)
   await expect(dialog).toContainText('已取消 · 已移入 1 / 2 项')
   await expect(dialog.getByRole('button', { name: '停止后续项目' })).toHaveCount(0)
-  await expect(page.getByRole('region', { name: '日志处理状态', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '清理状态', exact: true })).toHaveCount(0)
   const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem('live-calls') || '[]'))
   expect(calls.filter((c: { command: string }) => c.command === 'cancel_log_cleanup')).toHaveLength(
     1,
@@ -115,7 +115,7 @@ test('failed cancellation remains a request error and never reports a terminal r
   await expect(dialog).toContainText('已取消 · 已移入 1 / 2 项')
   await expect(dialog.getByRole('alert')).toHaveCount(0)
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('region', { name: '日志处理状态', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '清理状态', exact: true })).toHaveCount(0)
 })
 
 test('late cancellation failure cannot revive a warning after a durable terminal result', async ({

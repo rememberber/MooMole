@@ -29,7 +29,7 @@ test('fixed scope requires explicit acknowledgement; records a single result', a
   }
   await dialog.getByRole('checkbox').check()
   await action.click()
-  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '清理结果' })).toBeVisible()
   await expect(page.getByLabel('调用次数')).toHaveText('1')
   await expect(page.getByText('开始前取消', { exact: true })).toBeVisible()
 })
@@ -54,7 +54,7 @@ test('cancel preserves completed evidence after confirmation expires', async ({ 
   await page.getByRole('button', { name: '移入废纸篓', exact: true }).click()
   await page.clock.fastForward(31000)
   await page.getByRole('button', { name: '停止后续项目' }).click()
-  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '清理结果' })).toBeVisible()
   await expect(page.getByLabel('调用次数')).toHaveText('1')
   await expect(page.getByText('已移入 1 项 · 其余 1 项未确认移入')).toBeVisible()
 })
@@ -79,7 +79,7 @@ test('completed result can locate its actual receipt without repeating execution
   await page.getByRole('button', { name: '查看移入废纸篓范围' }).click()
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: '移入废纸篓', exact: true }).click()
-  const result = page.getByRole('dialog', { name: '日志处理结果' })
+  const result = page.getByRole('dialog', { name: '清理结果' })
   await result.getByText('实际移入位置', { exact: true }).click()
   await result.getByRole('button', { name: '在 Finder 中查看' }).click()
   await expect(page.getByLabel('定位收据')).toHaveText(
@@ -115,7 +115,7 @@ test('unknown occupancy stays conditional until the fixed-scope action is acknow
     })
   }
   await action.click()
-  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '清理结果' })).toBeVisible()
   await expect(page.getByLabel('调用次数')).toHaveText('1')
 })
 
@@ -125,11 +125,25 @@ test('authorization waiting can be cancelled after the confirmation expires', as
   await page.getByRole('button', { name: '查看授权后移入范围' }).click()
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: '授权检查并移入废纸篓', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '正在处理日志' })
+  const dialog = page.getByRole('dialog', { name: '正在清理' })
   await expect(dialog).toContainText('系统确认窗口需要你本人操作')
   await expect(dialog).toContainText('若窗口仍在，请亲自取消')
   await page.clock.fastForward(31000)
   await dialog.getByRole('button', { name: '停止后续项目' }).click()
-  await expect(page.getByRole('dialog', { name: '日志处理结果' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '清理结果' })).toBeVisible()
+  await expect(page.getByLabel('调用次数')).toHaveText('1')
+})
+
+test('quick cleanup automatically checks once then opens the fixed final confirmation without executing', async ({
+  page,
+}) => {
+  await mount(page, 'quick')
+  const dialog = page.getByRole('dialog', { name: '确认移入废纸篓' })
+  await expect(dialog).toBeVisible()
+  await expect(page.getByLabel('调用次数')).toHaveText('0')
+  await expect(dialog.locator('article')).toHaveCount(1)
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0)
+  await dialog.getByRole('button', { name: '确认清理', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '清理结果' })).toBeVisible()
   await expect(page.getByLabel('调用次数')).toHaveText('1')
 })

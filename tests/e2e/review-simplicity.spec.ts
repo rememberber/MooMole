@@ -69,3 +69,20 @@ test('compact review wraps within narrow windows in both themes and retains filt
   await expect(dialog.getByRole('button', { name: '复查 Mole 规则', exact: true })).toBeDisabled()
   await expect(dialog.getByText('计划已过期', { exact: true })).toHaveCount(6)
 })
+
+test('quick review starts the existing cancellable rule check automatically', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/permission-plan.tsx')).mount('normal', true),
+  )
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('fixture-rules-started')))
+    .toBe('yes')
+  await expect(page.getByRole('dialog', { name: '审阅计划' }).getByRole('status')).toContainText(
+    '正在检查所选项目',
+  )
+  await page
+    .getByRole('dialog', { name: '审阅计划' })
+    .getByRole('button', { name: '取消复查' })
+    .click()
+})

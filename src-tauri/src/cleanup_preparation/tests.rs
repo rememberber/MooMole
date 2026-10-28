@@ -352,3 +352,213 @@ SYSTEM_CLEAN=false; moomole_write_clean_report "$2"
     assert_eq!(report.observed_count + report.authorization_count, 0);
     assert!(log.is_file());
 }
+
+pub(crate) fn cache_plan(home: &Path) -> review::Plan {
+    let path = home.join("Library/Caches/com.apple.helpd");
+    std::fs::create_dir_all(path.join("deep")).unwrap();
+    std::fs::write(path.join("deep/fixture.bin"), "owned rebuildable fixture").unwrap();
+    let m = path.metadata().unwrap();
+    let path = path.to_str().unwrap().to_string();
+    let candidate = Candidate {
+        id: String::new(), upstream_identity: format!("inode:{}:{}", m.dev(), m.ino()), path: path.clone(), section: "fixture cache".into(), size: Some(25), item_count: 2, covered_by: None, is_directory: true, resolved_path: None, impact: None,
+        provenance: Some(Provenance { version: 1, observations: vec![Origin::from_fields(&path, "record_dry_run_cleanup_target,_safe_clean_impl,safe_clean_guarded,clean_user_essentials", "_user_cache_deno_delete_guard", "_user_cache_deno_delete_guard").unwrap()] }),
+    };
+    let now = crate::db::now();
+    let scan = review::capture(
+        "cache-fixture".into(),
+        Preview {
+            output: String::new(),
+            dry_run: true,
+            protocol: PROTOCOL,
+            revision: crate::engine::REVISION.into(),
+            system_included: false,
+            items: vec![candidate],
+        },
+        now,
+    )
+    .unwrap();
+    review::create(&scan, &[scan.items[0].candidate.id.clone()], &[], now).unwrap()
+}
+pub(crate) fn checked_cache(plan: &review::Plan, home: &Path) -> review::PlanView {
+    let now = crate::db::now();
+    let local = review::check(plan, &[], now);
+    let batch = crate::descendant_rules::prepare(plan, &local, home);
+    let checks = batch
+        .requested
+        .iter()
+        .map(|(id, _, binding)| {
+            (
+                id.clone(),
+                rules::RuleCheck {
+                    code: "passed".into(),
+                    source: "fixture-only".into(),
+                    reason: "fixture-only".into(),
+                    module: rules::ModuleCheck::from_codes(
+                        if binding == "userCache" {
+                            "userCache"
+                        } else {
+                            "unsupported"
+                        },
+                        if binding == "userCache" {
+                            "checked"
+                        } else {
+                            "unsupported"
+                        },
+                        binding,
+                    )
+                    .unwrap(),
+                    activity: rules::ActivityCheck::from_code(if binding == "userCache" {
+                        "noOpenHandles"
+                    } else {
+                        "notChecked"
+                    })
+                    .unwrap(),
+                },
+            )
+        })
+        .collect();
+    crate::descendant_rules::apply(
+        review::apply_rule_checks(local, &checks, now),
+        &batch,
+        &checks,
+    )
+}
+
+#[test]
+fn cache_directory_requires_provenance_complete_descendants_current_tree_and_client_protection() {
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let plan = cache_plan(&home);
+    let view = checked_cache(&plan, &home);
+    let report = observe(&plan, &view, &home, crate::db::now(), || false);
+    assert_eq!(report.scope, "userCachesAndLogs");
+    assert_eq!(report.observed_count, 1);
+    let mut store = crate::log_cleanup::Confirmations::default();
+    let offer = store
+        .issue(&plan, &report, crate::db::now())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        offer.items[0].size_bytes, 25,
+        "use measured cache bytes, not directory metadata length"
+    );
+    for mode in [
+        "missingChildren",
+        "protectedChild",
+        "unknownChild",
+        "protectedPath",
+        "source",
+        "unknownSize",
+        "deepChange",
+    ] {
+        let mut plan = plan.clone();
+        let mut view = checked_cache(&plan, &home);
+        match mode {
+            "missingChildren" => view.items[0].descendant_rules = None,
+            "protectedChild" => {
+                view.items[0].descendant_rules.as_mut().unwrap().code = "protected".into()
+            }
+            "unknownChild" => {
+                view.items[0].descendant_rules.as_mut().unwrap().code = "unavailable".into()
+            }
+            "protectedPath" => view.items[0].state = "protected".into(),
+            "source" => plan.items[0].candidate.provenance = None,
+            "unknownSize" => plan.items[0].candidate.size = None,
+            _ => std::fs::write(
+                home.join("Library/Caches/com.apple.helpd/deep/fixture.bin"),
+                "changed",
+            )
+            .unwrap(),
+        }
+        let report = observe(&plan, &view, &home, crate::db::now(), || false);
+        assert_eq!(
+            report.observed_count + report.authorization_count,
+            0,
+            "{mode}"
+        );
+    }
+}
+
+#[test]
+fn cache_native_reference_rejects_deep_changes_and_relocation_digest_ignores_only_root_move() {
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let plan = cache_plan(&home);
+    let item = &plan.items[0];
+    let prepared = crate::cleanup_target::PreparedFile::prepare(item).unwrap();
+    prepared.validate().unwrap();
+    let node = item.witness.as_ref().unwrap().nodes.last().unwrap();
+    let before =
+        crate::tree::inspect_contents(Path::new(&item.candidate.path), node.dev, node.ino).unwrap();
+    let renamed = home.join("renamed-cache");
+    std::fs::rename(&item.candidate.path, &renamed).unwrap();
+    let after = crate::tree::inspect_contents(&renamed, node.dev, node.ino).unwrap();
+    assert_eq!(before, after);
+    assert!(
+        prepared.validate().is_err(),
+        "native reference must not follow moved source"
+    );
+    std::fs::write(renamed.join("deep/fixture.bin"), "changed").unwrap();
+    assert_ne!(
+        before,
+        crate::tree::inspect_contents(&renamed, node.dev, node.ino).unwrap()
+    );
+    std::os::unix::fs::symlink("/", renamed.join("link")).unwrap();
+    assert!(crate::tree::inspect_contents(&renamed, node.dev, node.ino).is_err());
+}
+
+#[tokio::test]
+#[ignore = "Explicit real cache-directory Trash on a fresh isolated fixture; exact receipt is restored"]
+async fn native_cache_directory_execution_records_real_receipt_and_restores_fixture() {
+    use crate::execution::Outcome;
+    let mut temp = tempfile::tempdir().unwrap();
+    temp.disable_cleanup(true);
+    let home = temp.path().canonicalize().unwrap();
+    eprintln!(
+        "Owned cache fixture retained on failure: {}",
+        home.display()
+    );
+    let plan = cache_plan(&home);
+    let view = checked_cache(&plan, &home);
+    let target = prepare_one(&plan, &view, &home, crate::db::now(), || false).unwrap();
+    let attempt = target.move_to_trash().unwrap();
+    let moved = matches!(attempt.outcome, Outcome::Moved(_));
+    let receipt = match attempt.outcome {
+        Outcome::Moved(r) | Outcome::Uncertain(Some(r)) => r,
+        _ => panic!("cache Trash did not return receipt: {}", attempt.reason),
+    };
+    std::fs::write(
+        home.join("receipt.json"),
+        serde_json::to_vec(&receipt).unwrap(),
+    )
+    .unwrap();
+    let original = Path::new(&plan.items[0].candidate.path);
+    let destination = Path::new(&receipt.destination);
+    eprintln!(
+        "Cache receipt: {}; reason: {}",
+        receipt.destination, attempt.reason
+    );
+    let after = destination.metadata().unwrap();
+    let before = plan.items[0].witness.as_ref().unwrap();
+    eprintln!(
+        "root before size/links/mtime: {}/{}/{}:{}, after: {}/{}/{}:{}",
+        before.size,
+        before.links,
+        before.mtime,
+        before.mtime_ns,
+        after.size(),
+        after.nlink(),
+        after.mtime(),
+        after.mtime_nsec()
+    );
+    assert_eq!(after.ino(), receipt.inode);
+    assert_eq!(after.dev(), receipt.device);
+    assert!(!original.exists());
+    std::fs::rename(destination, original).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(original.join("deep/fixture.bin")).unwrap(),
+        "owned rebuildable fixture"
+    );
+    assert!(moved, "cache Trash did not verify: {}", attempt.reason);
+    temp.disable_cleanup(false);
+}

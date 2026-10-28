@@ -3580,3 +3580,131 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
   text-align: left;
 }
+
+.quick-cleanup {
+  display: grid;
+  gap: 12px;
+}
+.quick-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.quick-empty {
+  padding: 24px;
+  color: var(--muted);
+}
+.quick-group summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 14px 16px;
+}
+.quick-group summary span,
+.quick-group-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+.quick-group-empty {
+  margin: 0;
+  padding: 0 16px 14px;
+}
+.quick-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.quick-item div {
+  min-width: 0;
+}
+.quick-item small {
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.quick-item > span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.quick-action,
+.quick-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quick-action {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}
+.quick-selection {
+  padding: 14px 16px;
+  position: sticky;
+  top: 66px;
+  z-index: 2;
+  background: var(--surface);
+}
+.quick-selection strong {
+  color: var(--text);
+  font-size: 14px;
+}
+.quick-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.quick-group-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.quick-item {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+.quick-item .full-path {
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.quick-item details {
+  margin-top: 6px;
+  color: var(--muted);
+}
+.quick-item details summary {
+  padding: 0;
+  display: list-item;
+  font-size: 11px;
+}
+.quick-item details p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+.quick-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.quick-readonly {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+@media (max-width: 900px) {
+  .quick-item {
+    gap: 8px;
+  }
+  .quick-row-actions {
+    flex-direction: column;
+  }
+}

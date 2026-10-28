@@ -28,10 +28,11 @@ for my $item (@{$request->{items}}) {
     ref($item) eq 'HASH' && defined($item->{id}) && length($item->{id}) <= 128 && !$seen{$item->{id}}++ or reject();
     my $path = $item->{path};
     defined($path) && index($path, "\0") == -1 && length(encode('UTF-8', $path)) <= 4096 or reject();
-    my $prefix = $home . '/Library/Logs/';
+    my $cache = index($path, $home . '/Library/Caches/') == 0;
+    my $prefix = $home . ($cache ? '/Library/Caches/' : '/Library/Logs/');
     index($path, $prefix) == 0 or reject();
     my $tail = substr($path, length($prefix));
-    $tail =~ s{\ADiagnosticReports/}{};
+    $tail =~ s{\ADiagnosticReports/}{} unless $cache;
     length($tail) && $tail !~ m{[\/]} && $tail !~ /\A\./ or reject();
     my @parts = split('/', $path, -1);
     shift @parts;
@@ -45,11 +46,13 @@ for my $item (@{$request->{items}}) {
         ref($node) eq 'ARRAY' && @$node == 6 && $node->[0] eq $paths[$index] or reject();
         for my $value (@$node[1..5]) { defined($value) && $value =~ /\A[0-9]{1,20}\z/ or reject(); }
         my $kind = $node->[3] & 0170000;
-        $kind == ($index == $#paths ? 0100000 : 0040000) or reject();
+        if ($index == $#paths) { ($kind == 0100000 || ($cache && $kind == 0040000)) or reject(); }
+        else { $kind == 0040000 or reject(); }
     }
     $item->{nodes}[-1][4] eq "$uid" or reject();
     for my $key (qw(size links)) { defined($item->{$key}) && $item->{$key} =~ /\A[0-9]{1,20}\z/ or reject(); }
-    $item->{links} eq '1' or reject();
+    $item->{directory} = ($item->{nodes}[-1][3] & 0170000) == 0040000;
+    ($item->{directory} || $item->{links} eq '1') or reject();
     for my $key (qw(mtime ctime)) { defined($item->{$key}) && $item->{$key} =~ /\A-?[0-9]{1,19}\z/ or reject(); }
 }
 open STDIN, '<', '/dev/null' or reject();
@@ -70,6 +73,8 @@ sub query {
         close $writer;
         if ($mode eq 'visibility') {
             exec { '/usr/sbin/lsof' } '/usr/sbin/lsof', '-F', 'pu', '-p', '1';
+        } elsif ($mode eq 'directory') {
+            exec { '/usr/sbin/lsof' } '/usr/sbin/lsof', '-F', 'pfn', '+D', encode('UTF-8', $path);
         } else {
             exec { '/usr/sbin/lsof' } '/usr/sbin/lsof', '-F', 'pfn', '--', encode('UTF-8', $path);
         }
@@ -130,7 +135,7 @@ for my $item (@{$request->{items}}) {
     if ($at >= $deadline) { $code = 'budgetExhausted'; }
     elsif (!same_identity($item)) { $code = 'changed'; }
     elsif ($visible) {
-        my ($exit, $output) = query('exact', $item->{path});
+        my ($exit, $output) = query($item->{directory} ? 'directory' : 'exact', $item->{path});
         $query = { status => 0 + $exit, bytes => length($output) };
         $code = $exit == 0 ? 'busy' : ($exit == 1 && $output eq '' ? 'noOpenHandles' : 'unknown');
         $code = 'budgetExhausted' if $exit == 124;

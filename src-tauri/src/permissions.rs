@@ -24,6 +24,10 @@ extern "C" {
         entry_id: libc::c_int,
         entry: *mut *mut c_void,
     ) -> libc::c_int;
+    fn acl_get_tag_type(entry: *mut c_void, tag: *mut libc::c_int) -> libc::c_int;
+    fn acl_get_permset_mask_np(entry: *mut c_void, mask: *mut u64) -> libc::c_int;
+    fn acl_get_flagset_np(object: *mut c_void, flags: *mut *mut c_void) -> libc::c_int;
+    fn acl_get_flag_np(flags: *mut c_void, mask: libc::c_int) -> libc::c_int;
     fn acl_free(acl: *mut c_void) -> libc::c_int;
 }
 
@@ -60,6 +64,76 @@ pub(crate) fn has_acl(file: &File) -> Result<bool, i32> {
         (-1, _) if errno() == libc::EINVAL => Ok(false),
         _ => Err(errno()),
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ParentAcl {
+    Empty,
+    SelfDeleteOnly,
+    Other,
+}
+
+// This is deliberately NOT a general ACL authorization evaluator. Only a
+// parent's unflagged DENY/DELETE-only entries are unrelated to removing an
+// existing child. Target ACLs and every other parent form remain unknown.
+// Darwin SDK sys/acl.h and Apple's Libc posix1e/acl_flag.c define these APIs.
+fn parent_acl(file: &File) -> Result<ParentAcl, i32> {
+    let Some(pointer) = NonNull::new(unsafe { acl_get_fd_np(file.as_raw_fd(), 0x100) }) else {
+        return match errno() {
+            libc::ENOENT => Ok(ParentAcl::Empty),
+            error => Err(error),
+        };
+    };
+    let acl = Acl(pointer);
+    unsafe fn unflagged(object: *mut c_void) -> Result<bool, i32> {
+        let mut flags = std::ptr::null_mut();
+        if acl_get_flagset_np(object, &mut flags) != 0 {
+            return Err(errno());
+        }
+        if flags.is_null() {
+            return Err(libc::EIO);
+        }
+        // Ask about every bit, including flags not currently named by the SDK.
+        // An implementation rejecting the mask fails closed as unknown.
+        match acl_get_flag_np(flags, -1) {
+            0 => Ok(true),
+            1 => Ok(false),
+            _ => Err(errno()),
+        }
+    }
+    if !unsafe { unflagged(acl.0.as_ptr())? } {
+        return Ok(ParentAcl::Other);
+    }
+    for index in 0..=128 {
+        let mut entry = std::ptr::null_mut();
+        let result =
+            unsafe { acl_get_entry(acl.0.as_ptr(), if index == 0 { 0 } else { -1 }, &mut entry) };
+        if result == -1 && errno() == libc::EINVAL {
+            return Ok(if index == 0 {
+                ParentAcl::Empty
+            } else {
+                ParentAcl::SelfDeleteOnly
+            });
+        }
+        if result != 0 {
+            return Err(errno());
+        }
+        if entry.is_null() || index == 128 {
+            return Err(libc::EIO);
+        }
+        let mut tag = 0;
+        let mut mask = 0u64;
+        if unsafe { acl_get_tag_type(entry, &mut tag) } != 0
+            || unsafe { acl_get_permset_mask_np(entry, &mut mask) } != 0
+        {
+            return Err(errno());
+        }
+        // ACL_EXTENDED_DENY=2; ACL_DELETE=1<<4 (not DELETE_CHILD=1<<6).
+        if tag != 2 || mask != 1 << 4 || !unsafe { unflagged(entry)? } {
+            return Ok(ParentAcl::Other);
+        }
+    }
+    Err(libc::EIO)
 }
 
 fn errno() -> i32 {
@@ -317,16 +391,20 @@ fn observe_with(
             )
         },
     );
-    findings.push(match (has_acl(anchor.target()), has_acl(anchor.parent())) {
-        (Ok(true), _) | (_, Ok(true)) => Finding::new(
+    findings.push(match (has_acl(anchor.target()), parent_acl(anchor.parent())) {
+        (Ok(true), _) | (_, Ok(ParentAcl::Other)) => Finding::new(
             "extendedAcl",
             State::Unknown,
             "目标或父目录存在扩展访问控制（ACL）；未计算删除/移入权限，需单独核对。",
         ),
-        (Ok(false), Ok(false)) => Finding::new(
+        (Ok(false), Ok(ParentAcl::Empty)) => Finding::new(
             "extendedAcl",
             State::Clear,
             "本次未发现目标及父目录有扩展访问控制条目。",
+        ),
+        (Ok(false), Ok(ParentAcl::SelfDeleteOnly)) => Finding::new(
+            "extendedAcl", State::Clear,
+            "目标没有 ACL；父目录仅禁止删除目录自身，未包含对子项删除或继承的限制。仍需核对其他权限、保护和占用条件。",
         ),
         (Err(error), _) | (_, Err(error)) => Finding::unknown(
             "extendedAcl",
@@ -532,6 +610,104 @@ mod tests {
             );
             assert_eq!(std::fs::read_to_string(&f.file).unwrap(), "private fixture");
         }
+    }
+
+    #[test]
+    fn parent_self_delete_only_acl_does_not_block_moving_its_unrestricted_child() {
+        for directory in [false, true] {
+            let f = Fixture::new();
+            if directory {
+                std::fs::remove_file(&f.file).unwrap();
+                std::fs::create_dir(&f.file).unwrap();
+                std::fs::write(f.file.join("payload"), "private fixture").unwrap();
+            }
+            assert!(Command::new("/bin/chmod")
+                .args(["+a", "everyone deny delete"])
+                .arg(&f.parent)
+                .status()
+                .unwrap()
+                .success());
+            let guard = AclFixture(f.parent.clone());
+            let before = crate::observation::witness(&f.file).unwrap();
+            let result = f.check();
+            assert_eq!(result.code, Code::NoRestrictionObserved, "{result:?}");
+            assert_eq!(crate::observation::witness(&f.file).unwrap(), before);
+            let held = AnchoredPath::open(&f.file).unwrap();
+            assert_eq!(parent_acl(held.parent()), Ok(ParentAcl::SelfDeleteOnly));
+            // The OS, not our ACL classifier, decides whether the move works.
+            // This is only our own temporary fixture, never the user's Caches.
+            let moved = f.parent.parent().unwrap().join("moved-owned-fixture");
+            std::fs::rename(&f.file, &moved).unwrap();
+            assert_eq!(has_acl(held.parent()), Ok(true), "parent ACL is preserved");
+            assert_eq!(
+                std::fs::read_to_string(if directory {
+                    moved.join("payload")
+                } else {
+                    moved.clone()
+                })
+                .unwrap(),
+                "private fixture"
+            );
+            std::fs::rename(&moved, &f.file).unwrap();
+            drop(guard);
+        }
+    }
+
+    #[test]
+    fn every_other_parent_acl_and_target_acl_remain_unknown() {
+        for rule in [
+            "everyone deny delete_child",
+            "everyone deny delete,delete_child",
+            "everyone allow delete",
+            "everyone deny delete,file_inherit",
+            "everyone deny delete,directory_inherit",
+            "everyone deny readattr",
+        ] {
+            let f = Fixture::new();
+            let held = AnchoredPath::open(&f.file).unwrap();
+            assert!(
+                Command::new("/bin/chmod")
+                    .args(["+a", rule])
+                    .arg(&f.parent)
+                    .status()
+                    .unwrap()
+                    .success(),
+                "{rule}"
+            );
+            let guard = AclFixture(f.parent.clone());
+            let result = observe(&held, &Budget::new());
+            assert!(
+                matches!(parent_acl(held.parent()), Ok(ParentAcl::Other) | Err(_)),
+                "{rule}"
+            );
+            if let Ok(result) = result {
+                assert_ne!(
+                    result.code,
+                    Code::NoRestrictionObserved,
+                    "{rule}: {result:?}"
+                );
+            } // An inability to observe metadata is also a refusal, never a pass.
+            assert_ne!(
+                has_acl(held.parent()),
+                Ok(false),
+                "an unreadable ACL is never absent"
+            );
+            drop(guard);
+        }
+        let f = Fixture::new();
+        assert!(Command::new("/bin/chmod")
+            .args(["+a", "everyone deny delete"])
+            .arg(&f.file)
+            .status()
+            .unwrap()
+            .success());
+        let guard = AclFixture(f.file.clone());
+        assert_eq!(
+            f.check().code,
+            Code::Unknown,
+            "target DELETE is relevant and is never exempted"
+        );
+        drop(guard);
     }
 
     #[test]

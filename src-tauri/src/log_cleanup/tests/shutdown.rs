@@ -7,6 +7,16 @@ use std::sync::atomic::AtomicBool;
 #[tokio::test]
 #[ignore = "Exit drain + actual Foundation Trash on private HOME; restores exact receipts before assertions"]
 async fn native_exit_collects_inflight_result_and_cancels_later_items_before_drain() {
+    exit_matrix(false).await;
+}
+
+#[tokio::test]
+#[ignore = "Exit drain + native cache-directory Trash on private HOME; exact receipts restored before assertions"]
+async fn native_cache_exit_collects_inflight_result_and_cancels_later_items_before_drain() {
+    exit_matrix(true).await;
+}
+
+async fn exit_matrix(directory: bool) {
     use objc2_foundation::{NSFileManager, NSString, NSURL};
     for phase in [
         Phase::Begun,
@@ -14,7 +24,11 @@ async fn native_exit_collects_inflight_result_and_cancels_later_items_before_dra
         Phase::NativeReturned,
         Phase::ItemCommitted,
     ] {
-        let mut f = Fixture::new();
+        let mut f = if directory {
+            Fixture::new_cache()
+        } else {
+            Fixture::new()
+        };
         f.root.disable_cleanup(true);
         eprintln!(
             "Native exit fixture {phase:?} (preserved on failure): {}",
@@ -131,10 +145,22 @@ async fn native_exit_collects_inflight_result_and_cancels_later_items_before_dra
         drop(operation);
         assert_eq!(controller.poll(&jobs, &checker), Outcome::Drained);
         assert_eq!(controller.request(&jobs, &checker), Request::Exit);
-        let mut values = std::fs::read_dir(f.home.join("Library/Logs"))
+        let mut values = std::fs::read_dir(f.home.join(if directory {
+            "Library/Caches"
+        } else {
+            "Library/Logs"
+        }))
+        .unwrap()
+        .map(|e| {
+            let path = e.unwrap().path();
+            std::fs::read_to_string(if directory {
+                path.join("deep/payload")
+            } else {
+                path
+            })
             .unwrap()
-            .map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap())
-            .collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
         values.sort();
         assert_eq!(values, ["first.log", "second.log", "unselected.log"]);
         assert_eq!(

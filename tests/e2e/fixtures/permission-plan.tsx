@@ -8,7 +8,7 @@ import {
 } from './permission-observation'
 
 // Browser-only reports. This fixture never opens files or a native database.
-export function mount(mode: 'normal' | 'error' = 'normal') {
+export function mount(mode: 'normal' | 'error' = 'normal', autoCheck = false) {
   const host = document.createElement('div')
   host.id = 'permission-plan-fixture'
   document.body.append(host)
@@ -42,6 +42,7 @@ export function mount(mode: 'normal' | 'error' = 'normal') {
   root.render(
     <ReviewPlanDialog
       initialPlan={plan}
+      autoCheck={autoCheck}
       onClose={() => root.unmount()}
       onRefresh={async () => {
         await new Promise((resolve) => setTimeout(resolve, 150))
@@ -53,6 +54,7 @@ export function mount(mode: 'normal' | 'error' = 'normal') {
         }
       }}
       onCheckRules={async (_, signal) => {
+        sessionStorage.setItem('fixture-rules-started', 'yes')
         await new Promise((_, reject) =>
           signal.addEventListener('abort', () => reject(new Error('fixture 规则复查已取消')), {
             once: true,

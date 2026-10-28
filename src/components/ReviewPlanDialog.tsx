@@ -13,6 +13,7 @@ import { LogCleanupDialog } from './LogCleanupDialog'
 
 export function ReviewPlanDialog({
   initialPlan,
+  autoCheck = false,
   onRefresh,
   onClose,
   onCheckRules,
@@ -21,6 +22,7 @@ export function ReviewPlanDialog({
   onRevealReceipt,
 }: {
   initialPlan: ReviewPlan
+  autoCheck?: boolean
   onRefresh: (id: string) => Promise<ReviewPlan>
   onClose: () => void
   onCheckRules?: (id: string, signal: AbortSignal) => Promise<ReviewPlan>
@@ -121,7 +123,12 @@ export function ReviewPlanDialog({
       })),
     }))
     try {
-      setPlan(await onCheckRules(plan.id, abort.signal))
+      const checked = await onCheckRules(plan.id, abort.signal)
+      setPlan(checked)
+      if (autoCheck && !abort.signal.aborted) {
+        const confirmation = cleanupConfirmation(checked, Date.now())
+        if (confirmation) setConfirming(confirmation)
+      }
     } catch (error) {
       setError(String(error).replace(/^Error: /, ''))
       setPlan((current) => ({
@@ -140,10 +147,18 @@ export function ReviewPlanDialog({
       setCancelling(false)
     }
   }
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (autoCheck && onCheckRules && !autoStarted.current) {
+      autoStarted.current = true
+      void checkRules()
+    }
+  }, [])
   if (confirming && onExecute)
     return (
       <LogCleanupDialog
         confirmation={confirming}
+        simple={autoCheck}
         onExecute={onExecute}
         onDiscard={onDiscardConfirmation}
         onRevealReceipt={onRevealReceipt}
@@ -171,7 +186,7 @@ export function ReviewPlanDialog({
         <ShieldCheck size={18} />
         <span>
           {onExecute
-            ? '复核不会清理文件。仅满足条件的日志可在单独确认后移入废纸篓。'
+            ? '复核不会清理文件。仅满足条件的用户缓存和日志可在单独确认后移入废纸篓。'
             : '当前未开放执行，复核不会清理文件。检查结果不代表已获准清理。'}
         </span>
       </div>
@@ -188,8 +203,8 @@ export function ReviewPlanDialog({
           : pending
             ? '正在检查所选项目，请等待结果。'
             : preparation
-              ? onExecute && preparation.valid
-                ? '下一步：核对日志用途与影响，再查看后端固定的移入范围。未满足条件的项目保留。'
+              ? onExecute && offer
+                ? '下一步：核对项目用途与影响，再查看后端固定的移入范围。未满足条件的项目保留。'
                 : preparation.next
               : problems
                 ? '下一步：先查看需确认的项目，展开检查详情了解原因。'

@@ -32,6 +32,13 @@ export function mount(mode = 'normal') {
     return (
       <ReviewPlanDialog
         initialPlan={initial}
+        onExecute={
+          mode === 'all-retained'
+            ? async () => {
+                throw new Error('retained scope must never execute')
+              }
+            : undefined
+        }
         onClose={() => setClosed(true)}
         onRefresh={async () => {
           await new Promise((resolve) => setTimeout(resolve, 250))
@@ -81,12 +88,12 @@ export function mount(mode = 'normal') {
               readOnly: true,
               checkedAt: checked,
               expiresAt: checked + 30_000,
-              observedCount: 1,
+              observedCount: mode === 'all-retained' ? 0 : 1,
               authorizationCount: 0,
               items: [
                 {
                   id: 'item-0',
-                  code: 'observed',
+                  code: mode === 'all-retained' ? 'retained' : 'observed',
                   reason: '本轮日志规则、权限及原生对象准备已核对；执行前仍需重新验证。',
                 },
                 {

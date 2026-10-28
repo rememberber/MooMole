@@ -1376,9 +1376,10 @@ mod tests {
 
     #[test]
     fn empty_seed_and_prerelease_only_are_not_claimed_current() {
-        let seed = include_bytes!("../../update-manifest.json");
+        // Keep the empty-feed fixture independent of published repository releases.
+        let seed = manifest(vec![]);
         assert_eq!(
-            select(seed, "0.1.0", "arm64").unwrap().status,
+            parse(seed, "0.1.0", "arm64").unwrap().status,
             Status::Unpublished
         );
         let pre = manifest(vec![release("1.0.0-rc.1", "arm64")]);

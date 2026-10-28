@@ -11,7 +11,7 @@ mod app_shared_rules;
 mod app_uninstall_rules;
 mod clean_preview;
 mod cleanup_preparation;
-// Native mutation is reachable only through sealed single-log confirmation.
+// Native cleanup requires a sealed cache/log confirmation and fresh per-item checks.
 mod cleanup_target;
 mod db;
 mod descendant_rules;
@@ -1676,7 +1676,7 @@ async fn execute_log_cleanup(
             || jobs.contains_key(&request_id)
             || jobs.values().any(|j| j.kind.exclusive_operation())
         {
-            return Err("已有日志处理正在进行或应用正在退出，请稍后重试。".into());
+            return Err("已有清理正在进行或应用正在退出，请稍后重试。".into());
         }
         jobs.insert(request_id.clone(), job.clone());
     }

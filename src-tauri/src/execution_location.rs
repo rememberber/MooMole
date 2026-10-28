@@ -1,6 +1,6 @@
 //! Read-only Finder handoff for an exact persisted receipt. Never restores,
 //! changes journal state, follows observed links or accepts a destination in IPC.
-//! Trash may allow an exact file open while denying a directory open/enumeration.
+//! Trash may allow an exact metadata-only file/directory open while denying a directory open/enumeration.
 //! This locator uses metadata-only ancestor checks; cleanup keeps AnchoredPath.
 use crate::{execution, observation::Node};
 use std::{
@@ -49,15 +49,17 @@ fn chain(path: &Path) -> Result<Vec<Node>, String> {
             current.push(parts[index - 1]);
         }
         let meta = std::fs::symlink_metadata(&current).map_err(|_| MISSING)?;
-        if (index < parts.len() && !meta.is_dir()) || (index == parts.len() && !meta.is_file()) {
-            return Err("记录位置或祖先是链接或特殊对象，无法核对原文件。".into());
+        if (index < parts.len() && !meta.is_dir())
+            || (index == parts.len() && !(meta.is_file() || meta.is_dir()))
+        {
+            return Err("记录位置或祖先是链接或特殊对象，无法核对原项目。".into());
         }
         if index == parts.len()
-            && (meta.nlink() != 1
+            && ((meta.is_file() && meta.nlink() != 1)
                 || meta.uid() != unsafe { libc::geteuid() }
                 || meta.st_flags() & 0x40000000 != 0)
         {
-            return Err("记录位置不是本账户已落地的单链接文件，无法自动定位。".into());
+            return Err("记录位置不是本账户已落地的普通文件或目录，无法自动定位。".into());
         }
         result.push(Node {
             path: current.clone(),
@@ -70,7 +72,7 @@ fn chain(path: &Path) -> Result<Vec<Node>, String> {
     }
     Ok(result)
 }
-fn observation(meta: &Metadata) -> (u64, i64, i64, i64, i64, u32) {
+fn observation(meta: &Metadata) -> (u64, i64, i64, i64, i64, u32, u64) {
     (
         meta.size(),
         meta.mtime(),
@@ -78,13 +80,14 @@ fn observation(meta: &Metadata) -> (u64, i64, i64, i64, i64, u32) {
         meta.ctime(),
         meta.ctime_nsec(),
         meta.st_flags(),
+        meta.nlink(),
     )
 }
 pub(crate) struct Location {
     held: File,
     path: PathBuf,
     nodes: Vec<Node>,
-    observed: (u64, i64, i64, i64, i64, u32),
+    observed: (u64, i64, i64, i64, i64, u32, u64),
     device: u64,
     inode: u64,
 }
@@ -109,7 +112,7 @@ impl Location {
         let nodes = chain(&path)?;
         let held = OpenOptions::new()
             .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
+            .custom_flags(libc::O_EVTONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
             .open(&path)
             .map_err(|_| MISSING)?;
         let meta = held.metadata().map_err(|_| MISSING)?;
@@ -132,8 +135,8 @@ impl Location {
         let local = unsafe { libc::fstatfs(self.held.as_raw_fd(), stat.as_mut_ptr()) } == 0
             && unsafe { stat.assume_init() }.f_flags & libc::MNT_LOCAL as u32 != 0;
         if nodes != self.nodes
-            || !meta.is_file()
-            || meta.nlink() != 1
+            || !(meta.is_file() || meta.is_dir())
+            || (meta.is_file() && meta.nlink() != 1)
             || meta.dev() != self.device
             || meta.ino() != self.inode
             || named.dev != self.device

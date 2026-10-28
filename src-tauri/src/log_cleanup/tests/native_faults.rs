@@ -4,7 +4,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
-    io::{Read, Write},
+    io::Write,
     os::{
         macos::fs::MetadataExt as _,
         unix::{fs::PermissionsExt, process::ExitStatusExt},
@@ -49,7 +49,7 @@ fn restore(rescues: &[Rescue]) {
     use objc2_foundation::{NSFileManager, NSString, NSURL};
     for rescue in rescues {
         let metadata = std::fs::symlink_metadata(&rescue.receipt.destination).unwrap();
-        assert!(metadata.is_file() && metadata.nlink() == 1);
+        assert!(metadata.is_dir() || (metadata.is_file() && metadata.nlink() == 1));
         assert_eq!(
             (metadata.dev(), metadata.ino()),
             (rescue.receipt.device, rescue.receipt.inode)
@@ -67,13 +67,29 @@ fn restore(rescues: &[Rescue]) {
         });
     }
 }
+fn fixture_parent(home: &Path) -> PathBuf {
+    home.join(if home.join("Library/Caches").is_dir() {
+        "Library/Caches"
+    } else {
+        "Library/Logs"
+    })
+}
+fn fixture_contents(path: &Path, directory: bool) -> PathBuf {
+    if directory {
+        path.join("deep/payload")
+    } else {
+        path.to_owned()
+    }
+}
 fn assert_fixture_contents(home: &Path) {
-    let mut contents = std::fs::read_dir(home.join("Library/Logs"))
+    let parent = fixture_parent(home);
+    let directory = parent.ends_with("Caches");
+    let mut contents = std::fs::read_dir(parent)
         .unwrap()
         .map(|entry| {
             let path = entry.unwrap().path();
-            assert!(path.is_file());
-            std::fs::read_to_string(path).unwrap()
+            assert_eq!(path.is_dir(), directory);
+            std::fs::read_to_string(fixture_contents(&path, directory)).unwrap()
         })
         .collect::<Vec<_>>();
     contents.sort();
@@ -85,12 +101,16 @@ fn report(plan: &review::Plan) -> cleanup_preparation::Report {
     cleanup_preparation::Report {
         version: cleanup_preparation::VERSION,
         plan_id: plan.id.clone(),
-        scope: "userLogFiles",
+        scope: if plan.items[0].candidate.is_directory {
+            "userCachesAndLogs"
+        } else {
+            "userLogFiles"
+        },
         method: "trash",
         read_only: true,
         checked_at: now,
         expires_at: now + 30_000,
-        observed_count: 2,
+        observed_count: plan.items.len(),
         authorization_count: 0,
         items: plan
             .items
@@ -137,7 +157,7 @@ async fn worker() {
     for item in &plan.items {
         assert_eq!(
             Path::new(&item.candidate.path).parent(),
-            Some(home.join("Library/Logs").as_path())
+            Some(fixture_parent(&home).as_path())
         );
     }
     let mut offers = Confirmations::default();
@@ -169,9 +189,11 @@ async fn worker() {
         }
         if phase == control.phase {
             publish(&root.join("ready.json"), &run);
-            let mut byte = [0];
-            std::io::stdin().read_exact(&mut byte).unwrap();
-            panic!("the parent must terminate this fixture worker");
+            // Remain at this exact boundary even if the test runner closes
+            // stdin; only the owning parent terminates the fixture process.
+            loop {
+                std::thread::park();
+            }
         }
     });
     run_observed(
@@ -190,6 +212,16 @@ async fn worker() {
 #[test]
 #[ignore = "SIGKILL actual log loop at five boundaries with real Trash; exact rescue receipts restored; fixtures only"]
 fn sigkill_native_log_loop_preserves_results_without_replay() {
+    crash_matrix(false);
+}
+
+#[test]
+#[ignore = "SIGKILL actual cache-directory loop at five boundaries; restores exact owned fixture receipts"]
+fn sigkill_native_cache_loop_preserves_results_without_replay() {
+    crash_matrix(true);
+}
+
+fn crash_matrix(directory: bool) {
     for (phase, expected, moved, uncertain) in [
         (Phase::Begun, ["notStarted", "notStarted"], 0, 0),
         (Phase::Intent, ["uncertain", "notStarted"], 0, 1),
@@ -202,10 +234,14 @@ fn sigkill_native_log_loop_preserves_results_without_replay() {
             home,
             plan,
             db: database,
-        } = Fixture::new();
+        } = if directory {
+            Fixture::new_cache()
+        } else {
+            Fixture::new()
+        };
         root.disable_cleanup(true);
         eprintln!(
-            "Native log crash fixture {phase:?} (preserved on failure): {}",
+            "Native cleanup crash fixture directory={directory}/{phase:?} (preserved on failure): {}",
             home.display()
         );
         drop(database);
@@ -228,7 +264,7 @@ fn sigkill_native_log_loop_preserves_results_without_replay() {
                 ])
                 .env(ROOT, &home)
                 .env(NONCE, nonce)
-                .stdin(Stdio::piped())
+                .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::inherit())
                 .spawn()
@@ -259,7 +295,9 @@ fn sigkill_native_log_loop_preserves_results_without_replay() {
         let disk_state = || {
             plan.items
                 .iter()
-                .map(|item| std::fs::read(&item.candidate.path).ok())
+                .map(|item| {
+                    std::fs::read(fixture_contents(Path::new(&item.candidate.path), directory)).ok()
+                })
                 .collect::<Vec<_>>()
         };
         let before = disk_state();
@@ -267,9 +305,18 @@ fn sigkill_native_log_loop_preserves_results_without_replay() {
         let recovered = execution::detail(&database, &run).unwrap();
         let unchanged = disk_state() == before;
         publish(&home.join("recovered.json"), &recovered);
+        for item in recovered.items.iter().filter(|item| item.receipt.is_some()) {
+            crate::execution_location::Location::prepare(&recovered, &item.id)
+                .unwrap()
+                .validate()
+                .unwrap();
+        }
         // Rescue only exact test receipts, including a receipt that SQLite
         // deliberately has not recorded. Startup itself must not infer it.
         restore(&rescues);
+        for item in recovered.items.iter().filter(|item| item.receipt.is_some()) {
+            assert!(crate::execution_location::Location::prepare(&recovered, &item.id).is_err());
+        }
         assert!(unchanged, "startup must perform no target IO");
         assert_eq!(
             recovered.summary.state,
@@ -305,15 +352,14 @@ fn sigkill_native_log_loop_preserves_results_without_replay() {
             serde_json::to_value(execution::detail(&database, &run).unwrap()).unwrap(),
             once
         );
-        assert_eq!(
-            std::fs::read_dir(home.join("Library/Logs"))
-                .unwrap()
-                .count(),
-            3
-        );
+        assert_eq!(std::fs::read_dir(fixture_parent(&home)).unwrap().count(), 3);
         for (item, content) in plan.items.iter().zip(["first.log", "second.log"]) {
             assert_eq!(
-                std::fs::read_to_string(&item.candidate.path).unwrap(),
+                std::fs::read_to_string(fixture_contents(
+                    Path::new(&item.candidate.path),
+                    directory
+                ))
+                .unwrap(),
                 content
             );
         }
@@ -375,14 +421,28 @@ impl Drop for Restriction {
 #[tokio::test]
 #[ignore = "Changes permissions on OWN fixture Logs only after durable intent; no user paths; restores restrictions and exact receipts"]
 async fn permission_restrictions_after_intent_never_call_trash_or_clear_protection() {
+    restriction_matrix(false).await;
+}
+
+#[tokio::test]
+#[ignore = "Changes permissions only on OWN cache fixture after durable intent; restores restrictions and receipts"]
+async fn cache_permission_restrictions_after_intent_never_call_trash_or_clear_protection() {
+    restriction_matrix(true).await;
+}
+
+async fn restriction_matrix(directory: bool) {
     for kind in ["acl", "flags", "mode"] {
-        let mut f = Fixture::new();
+        let mut f = if directory {
+            Fixture::new_cache()
+        } else {
+            Fixture::new()
+        };
         f.root.disable_cleanup(true);
         eprintln!(
             "Native permission fixture {kind} (preserved on failure): {}",
             f.home.display()
         );
-        let parent = f.home.join("Library/Logs");
+        let parent = fixture_parent(&f.home);
         let restriction = Arc::new(Mutex::new(None));
         let held = restriction.clone();
         let job = Arc::new(Job::new(TaskKind::LogTrash));
@@ -409,7 +469,7 @@ async fn permission_restrictions_after_intent_never_call_trash_or_clear_protecti
         .await;
         // Capture evidence without asserting while our restriction is active;
         // always remove our own restriction before assertions or rescue.
-        let path = f.home.join("Library/Logs");
+        let path = fixture_parent(&f.home);
         let still_restricted = match kind {
             "acl" => Command::new("/bin/ls")
                 .arg("-lde")
@@ -462,7 +522,7 @@ async fn permission_restrictions_after_intent_never_call_trash_or_clear_protecti
         }
         assert!(detail.items.iter().all(|item| item.receipt.is_none()));
         assert_eq!(detail.items[1].state, "cancelled");
-        assert_eq!(f.original_files(), 3);
+        assert_fixture_contents(&f.home);
         assert_fixture_contents(&f.home);
         f.root.disable_cleanup(false);
     }

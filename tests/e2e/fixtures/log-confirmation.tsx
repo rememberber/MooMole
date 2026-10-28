@@ -38,6 +38,8 @@ export function mount(mode = 'normal') {
         {!closed && (
           <ReviewPlanDialog
             initialPlan={plan}
+            autoCheck={mode === 'quick'}
+            onCheckRules={async () => plan}
             onClose={() => setClosed(true)}
             onRefresh={async () => plan}
             onRevealReceipt={async (runId, itemId) => {

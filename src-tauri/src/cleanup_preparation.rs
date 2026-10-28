@@ -1,4 +1,4 @@
-//! Read-only single-log preparation from THIS rule review. Never an execution
+//! Read-only cache and single-log preparation from THIS rule review. Never an execution
 //! ticket: no handles, approvals or rule evidence are persisted for later use.
 use crate::{cleanup_target::PreparedFile, permissions, provenance, review, rules};
 use serde::Serialize;
@@ -43,6 +43,13 @@ impl Report {
             item.reason = reason.into();
         }
     }
+}
+
+/// Execution scope comes from captured Mole provenance and physical path boundaries.
+pub(crate) fn supported(item: &review::ScanItem, home: &Path) -> bool {
+    let binding = provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path);
+    rules::module_scope(Path::new(&item.candidate.path), home) == binding
+        && (binding == "userCache" || (binding == "userLogs" && !item.candidate.is_directory))
 }
 
 pub fn observe(
@@ -125,7 +132,13 @@ fn observe_with(
     let mut report = Report {
         version: VERSION,
         plan_id: plan.id.clone(),
-        scope: "userLogFiles",
+        scope: if plan.items.iter().any(|i| {
+            provenance::binding(i.candidate.provenance.as_ref(), &i.candidate.path) == "userCache"
+        }) {
+            "userCachesAndLogs"
+        } else {
+            "userLogFiles"
+        },
         method: "trash",
         read_only: true,
         checked_at: now,
@@ -152,20 +165,24 @@ fn observe_with(
             "unchanged" | "activityUnknown"
         ) {
             Some(("retained", current.unwrap().reason.clone()))
-        } else if provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path)
-            != "userLogs"
-            || rules::module_scope(Path::new(&item.candidate.path), home) != "userLogs"
-            || item.candidate.is_directory
-            || !item
-                .witness
-                .as_ref()
-                .and_then(|w| w.nodes.last())
-                .is_some_and(|n| n.mode & libc::S_IFMT as u32 == libc::S_IFREG as u32)
-        {
+        } else if !supported(item, home) {
             Some((
                 "retained",
-                "当前只准备来源明确的用户日志普通文件；此项目保留。".into(),
+                "仅支持来源明确的用户缓存和普通日志文件；此项目保留。".into(),
             ))
+        } else if item.candidate.is_directory
+            && item
+                .candidate
+                .size
+                .is_none_or(|size| size > 9_007_199_254_740_991)
+        {
+            Some(("retained", "缓存目录缺少可核对的大小，保留。".into()))
+        } else if item.candidate.is_directory
+            && !current.unwrap().descendant_rules.as_ref().is_some_and(|d| {
+                d.version == crate::descendant_rules::VERSION && d.code == "checked"
+            })
+        {
+            Some(("retained", "缓存目录的后代保护尚未全部核对，保留。".into()))
         } else if current.unwrap().permissions.version != permissions::VERSION
             || current.unwrap().permissions.code != permissions::Code::NoRestrictionObserved
         {
@@ -173,8 +190,9 @@ fn observe_with(
         } else if !current.unwrap().mole_rule.as_ref().is_some_and(|rule| {
             rule.code == "passed"
                 && rule.module.version == rules::MODULE_VERSION
-                && rule.module.binding == "userLogs"
-                && rule.module.scope == "userLogs"
+                && rule.module.binding
+                    == provenance::binding(item.candidate.provenance.as_ref(), &item.candidate.path)
+                && rule.module.scope == rule.module.binding
                 && rule.module.code == "checked"
                 && rule.activity.version == rules::ACTIVITY_VERSION
                 && ((rule.activity.code == "noOpenHandles"
@@ -184,7 +202,7 @@ fn observe_with(
         }) {
             Some((
                 "retained",
-                "本次 Mole 日志、保护或占用条件尚未全部确认，保留此项。".into(),
+                "本次 Mole 模块、保护或占用条件尚未全部确认，保留此项。".into(),
             ))
         } else if attempts >= MAX_NATIVE || started.elapsed() > Duration::from_millis(500) {
             Some((
@@ -214,7 +232,7 @@ fn observe_with(
             report.observed_count += 1;
             (
                 "observed",
-                "本轮日志规则、权限及原生对象准备已核对；执行前仍需重新验证。".into(),
+                "本轮清理规则、权限及原生对象准备已核对；执行前仍需重新验证。".into(),
             )
         });
         report.items.push(Item {
@@ -230,4 +248,4 @@ fn observe_with(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
