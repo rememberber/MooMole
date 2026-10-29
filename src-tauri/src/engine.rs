@@ -32,6 +32,7 @@ pub enum TaskKind {
     PersonalScan,
     PersonalTrash,
     PersonalMove,
+    AppControl,
 }
 
 impl TaskKind {
@@ -53,6 +54,7 @@ impl TaskKind {
             Self::PersonalScan => "personalscan",
             Self::PersonalTrash => "personaltrash",
             Self::PersonalMove => "personalmove",
+            Self::AppControl => "appcontrol",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -66,6 +68,7 @@ impl TaskKind {
                 | Self::PersonalScan
                 | Self::PersonalTrash
                 | Self::PersonalMove
+                | Self::AppControl
         )
     }
 }
@@ -386,7 +389,8 @@ async fn run_kind(
         | TaskKind::AiScan
         | TaskKind::PersonalScan
         | TaskKind::PersonalTrash
-        | TaskKind::PersonalMove => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::PersonalMove
+        | TaskKind::AppControl => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -448,7 +452,8 @@ async fn run_kind(
         | TaskKind::AiScan
         | TaskKind::PersonalScan
         | TaskKind::PersonalTrash
-        | TaskKind::PersonalMove => false,
+        | TaskKind::PersonalMove
+        | TaskKind::AppControl => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

@@ -3,6 +3,7 @@ mod ai_scan;
 mod analysis_protocol;
 mod app_associations;
 mod app_background;
+mod app_control;
 mod app_discovery;
 mod app_icons;
 mod app_inspection;
@@ -867,6 +868,7 @@ fn start_task(
             | TaskKind::PersonalScan
             | TaskKind::PersonalTrash
             | TaskKind::PersonalMove
+            | TaskKind::AppControl
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -898,6 +900,7 @@ fn start_task(
                         | TaskKind::PersonalScan
                         | TaskKind::PersonalTrash
                         | TaskKind::PersonalMove
+                        | TaskKind::AppControl
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -2354,6 +2357,7 @@ pub fn run() {
             get_task_snapshot,
             application_icon,
             inspect_application,
+            app_control::control_application,
             prepare_application_uninstall_plan,
             recheck_application_uninstall_plan,
             discard_application_uninstall_plan,

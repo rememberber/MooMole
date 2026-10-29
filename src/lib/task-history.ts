@@ -12,6 +12,8 @@ export const taskStates = [
   'interrupted',
 ] as const
 export function taskKindName(kind: string): string {
+  if (kind === 'appopen') return '打开应用'
+  if (kind === 'appquit') return '正常退出应用'
   if (kind === 'aiscan') return 'AI 深度扫描'
   if (kind === 'statuswatch') return '系统状态持续采集'
   return Object.hasOwn(kindNames, kind) ? kindNames[kind as TaskKind] : `未知检查（${kind}）`

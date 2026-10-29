@@ -22,6 +22,9 @@ pub(crate) struct Source {
     source: String,
 }
 impl Source {
+    pub(crate) fn control_target(&self) -> (&str, &str, &str, &str) {
+        (&self.path, &self.bundle_id, &self.name, &self.source)
+    }
     pub(crate) fn path(&self) -> &str {
         &self.path
     }

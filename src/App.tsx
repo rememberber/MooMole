@@ -40,6 +40,8 @@ import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
 import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
+import { ApplicationControlCenter } from './components/ApplicationControlCenter'
+import type { AppControlTarget } from './lib/app-control'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -308,6 +310,8 @@ export default function App() {
   const [appsTaskId, setAppsTaskId] = useState<string | null>(null)
   const [uninstallTarget, setUninstallTarget] = useState<UninstallTarget | null>(null)
   const [uninstallActive, setUninstallActive] = useState(false)
+  const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
+  const [appControlActive, setAppControlActive] = useState(false)
   const [refreshActive, setRefreshActive] = useState(false)
   const [refreshOpenSignal, setRefreshOpenSignal] = useState(0)
   const [appsStale, setAppsStale] = useState(false)
@@ -807,6 +811,7 @@ export default function App() {
     !personalFiles.running &&
     !duplicates.running &&
     !uninstallActive &&
+    !appControlActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -1376,6 +1381,15 @@ export default function App() {
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
           />
+          <ApplicationControlCenter
+            target={appControlTarget}
+            onClose={() => setAppControlTarget(null)}
+            onActiveChange={setAppControlActive}
+            onOutcome={() => {
+              setAppsStale(true)
+              void refreshRecords(true)
+            }}
+          />
           <ApplicationUninstallCenter
             key={`uninstall-${historyEpoch}`}
             target={uninstallTarget}
@@ -1812,6 +1826,8 @@ export default function App() {
               )}
               {apps ? (
                 <ApplicationLibrary
+                  onControl={setAppControlTarget}
+                  canControl={canRun && !executionActive && !appsStale}
                   apps={apps}
                   taskId={appsTaskId}
                   protectedPaths={data.settings.protectedPaths}

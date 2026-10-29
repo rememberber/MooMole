@@ -75,6 +75,65 @@ pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String
     capture_with(path, expected_id, false)
 }
 
+// Lifecycle controls bind the bundle, Info.plist and main executable. They do
+// not need the recursive inventory required to authorize whole-App removal.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ControlIdentity {
+    pub bundle_id: String,
+    pub background: Marker,
+    root: Witness,
+    info: Witness,
+    executable: Witness,
+    digest: String,
+}
+pub(crate) fn capture_control(path: &Path, expected_id: &str) -> Result<ControlIdentity, String> {
+    let root = AnchoredPath::open(path)?;
+    let bundle = Bundle::open(path.to_str().ok_or("应用路径无法编码。")?)?;
+    if stamp(&root.target().metadata().map_err(|e| e.to_string())?) != stamp(&bundle.metadata) {
+        return Err("应用位置已变化，请刷新列表。".into());
+    }
+    let (evidence, bytes) = Evidence::read(&bundle)?;
+    let fields = parse(&bytes)?;
+    if fields.id.as_deref() != Some(expected_id) || fields.package_type.as_deref() != Some("APPL") {
+        return Err("应用身份与所选清单不一致，请刷新列表。".into());
+    }
+    let name = fields
+        .executable
+        .filter(|n| {
+            Path::new(n).components().count() == 1
+                && Path::new(n)
+                    .components()
+                    .all(|c| matches!(c, Component::Normal(_)))
+        })
+        .ok_or("应用主程序名称无法核对。")?;
+    let info = AnchoredPath::open(&path.join("Contents/Info.plist"))?;
+    let executable = AnchoredPath::open(&path.join("Contents/MacOS").join(name))?;
+    let m = executable.target().metadata().map_err(|e| e.to_string())?;
+    use std::os::unix::fs::MetadataExt;
+    if !m.is_file()
+        || m.mode() & 0o111 == 0
+        || !root.local_materialized()
+        || !info.local_materialized()
+        || !executable.local_materialized()
+        || stamp(&info.target().metadata().map_err(|e| e.to_string())?)
+            != stamp(&evidence.plist_meta)
+        || !evidence.verify(&bundle)
+    {
+        return Err("应用主程序、本地状态或身份文件无法核对。".into());
+    }
+    root.validate()?;
+    info.validate()?;
+    executable.validate()?;
+    Ok(ControlIdentity {
+        bundle_id: expected_id.into(),
+        background: fields.background,
+        root: root.witness,
+        info: info.witness,
+        executable: executable.witness,
+        digest: format!("{:x}", Sha256::digest(bytes)),
+    })
+}
+
 // Post-call evidence for an EXACT native return only. Never use this weaker
 // ancestor observation as a source/plan or mutation target preparation route.
 pub(crate) fn capture_returned(path: &Path, expected_id: &str) -> Result<Snapshot, String> {

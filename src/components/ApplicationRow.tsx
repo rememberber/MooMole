@@ -5,6 +5,7 @@ import { ApplicationInspection } from './ApplicationInspection'
 import type { AppEntry } from '../types'
 import { shortPath } from '../lib/format'
 import { appSizeEstimate, appSource } from '../lib/application-library'
+import type { AppControlTarget } from '../lib/app-control'
 import type { UninstallTarget } from '../lib/app-uninstall'
 
 export function ApplicationRow({
@@ -19,6 +20,8 @@ export function ApplicationRow({
   onReveal,
   canUninstall = false,
   onUninstall,
+  onControl,
+  canControl = false,
 }: {
   app: AppEntry
   taskId?: string | null
@@ -29,6 +32,8 @@ export function ApplicationRow({
   onSelect: (checked: boolean) => void
   canReveal: boolean
   onReveal: (path: string) => void
+  canControl?: boolean
+  onControl?: (target: AppControlTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
 }) {
@@ -51,6 +56,30 @@ export function ApplicationRow({
         <span className="app-size">
           {appSizeEstimate(app.size) == null ? '大小未知' : app.size}
         </span>
+        {onControl && (
+          <div className="application-control-actions">
+            {(['open', 'quit'] as const).map((action) => (
+              <button
+                className="button secondary compact"
+                key={action}
+                disabled={!canControl || !taskId || app.source !== 'App'}
+                onClick={() => {
+                  if (taskId)
+                    onControl({
+                      taskId,
+                      index,
+                      name: app.name,
+                      path: app.path,
+                      bundleId: app.bundle_id,
+                      action,
+                    })
+                }}
+              >
+                {action === 'open' ? '打开' : '退出…'}
+              </button>
+            ))}
+          </div>
+        )}
         {onUninstall && (
           <button
             className="button secondary compact"

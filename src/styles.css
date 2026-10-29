@@ -4288,3 +4288,9 @@ input[type='checkbox'] {
   align-items: center;
   font-size: 12px;
 }
+
+.application-control-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
