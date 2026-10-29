@@ -52,6 +52,8 @@ import { SearchRepairCenter } from './components/SearchRepairCenter'
 import { ProblemRepairs } from './components/ProblemRepairs'
 import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
+import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
+import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import { storageMonitorTransport } from './lib/storage-monitor'
 import type { UninstallTarget } from './lib/app-uninstall'
@@ -385,6 +387,8 @@ export default function App() {
   const [appControlActive, setAppControlActive] = useState(false)
   const [restorationTarget, setRestorationTarget] = useState<RestorationTarget | null>(null)
   const [restorationActive, setRestorationActive] = useState(false)
+  const [fileArchiveActive, setFileArchiveActive] = useState(false)
+  const [fileArchiveTarget, setFileArchiveTarget] = useState<FileArchiveTarget | null>(null)
   const [searchRepairActive, setSearchRepairActive] = useState(false)
   const [searchRepairOpenSignal, setSearchRepairOpenSignal] = useState(0)
   const [refreshActive, setRefreshActive] = useState(false)
@@ -428,7 +432,10 @@ export default function App() {
     (item) => item.state === 'running' && item.method === 'move',
   )
   const executionActive =
-    api.desktop && (executionPending || !!data?.executions.some((item) => item.state === 'running'))
+    api.desktop &&
+    (fileArchiveActive ||
+      executionPending ||
+      !!data?.executions.some((item) => item.state === 'running'))
   function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
     if (!settingsOpen.current) {
       settingsOpener.current =
@@ -891,6 +898,7 @@ export default function App() {
     !appControlActive &&
     !searchRepairActive &&
     !restorationActive &&
+    !fileArchiveActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -1495,6 +1503,16 @@ export default function App() {
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
           />
+          <FileArchiveCenter
+            target={fileArchiveTarget}
+            home={data.home}
+            onClose={() => setFileArchiveTarget(null)}
+            onActiveChange={setFileArchiveActive}
+            onOutcome={() => {
+              setHistoryEpoch((v) => v + 1)
+              void refreshRecords()
+            }}
+          />
           <FileRestorationCenter
             target={restorationTarget}
             transport={restorationTransport}
@@ -1724,6 +1742,7 @@ export default function App() {
                     : 'personal'
               }
               controller={activeFiles}
+              onArchive={page === 'personalFiles' ? setFileArchiveTarget : undefined}
               home={data.home}
               protectedPaths={data.settings.protectedPaths}
               enabled={canRun && !executionActive}
@@ -2313,6 +2332,7 @@ export default function App() {
                   )
                 }}
               />
+              <FileArchiveHistory key={`file-archives-${historyEpoch}`} />
               <TaskHistory
                 records={data.history}
                 home={data.home}

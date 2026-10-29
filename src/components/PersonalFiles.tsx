@@ -14,6 +14,7 @@ import { ExecutionReason } from './ExecutionReason'
 import { ExecutionLocation } from './ExecutionLocation'
 import { FilePreview } from './FilePreview'
 import type { PreviewTarget } from '../lib/file-preview'
+import type { FileArchiveTarget } from '../lib/file-archive'
 
 export function PersonalFiles({
   controller: c,
@@ -21,6 +22,7 @@ export function PersonalFiles({
   protectedPaths,
   enabled,
   onHistory,
+  onArchive,
   mode = 'personal',
   softwareSource,
   playlistPath,
@@ -30,6 +32,7 @@ export function PersonalFiles({
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
+  onArchive?: (target: FileArchiveTarget) => void
   mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads' | 'offline'
   softwareSource?: string
   playlistPath?: string
@@ -327,6 +330,15 @@ export function PersonalFiles({
               已选 {chosen.length} 项 · {bytes(chosen.reduce((sum, item) => sum + item.size, 0))}
             </strong>
             <span>每批最多 20 项</span>
+            {mode === 'personal' && onArchive && (
+              <button
+                className="button secondary compact"
+                disabled={!enabled || c.running || !fresh || !chosen.length || pending}
+                onClick={() => onArchive({ scanId: report.id, root: report.root, items: chosen })}
+              >
+                归档为 ZIP…
+              </button>
+            )}
             {!grouped && (
               <button
                 className="button secondary compact"

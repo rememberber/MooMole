@@ -97,6 +97,7 @@ struct AppState {
     refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
+    personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
@@ -879,6 +880,7 @@ fn start_task(
             | TaskKind::AppControl
             | TaskKind::SearchRepair
             | TaskKind::FileRestore
+            | TaskKind::PersonalArchive
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -913,6 +915,7 @@ fn start_task(
                         | TaskKind::AppControl
                         | TaskKind::SearchRepair
                         | TaskKind::FileRestore
+                        | TaskKind::PersonalArchive
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -2307,6 +2310,7 @@ pub fn run() {
                 refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
                 search_repairs: Arc::new(Mutex::new(None)),
                 file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
+                personal_archives: Arc::new(Mutex::new(personal_files::archive::Store::default())),
                 storage_monitor: Arc::new(storage_monitor::Controller::default()),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
@@ -2394,6 +2398,11 @@ pub fn run() {
             application_icon,
             inspect_application,
             app_control::control_application,
+            personal_files::archive::commands::prepare_personal_archive,
+            personal_files::archive::commands::discard_personal_archive,
+            personal_files::archive::commands::execute_personal_archive,
+            personal_files::archive::commands::get_personal_archives,
+            personal_files::archive::commands::acknowledge_personal_archive,
             file_restoration::commands::prepare_file_restoration,
             file_restoration::commands::discard_file_restoration,
             file_restoration::commands::execute_file_restoration,

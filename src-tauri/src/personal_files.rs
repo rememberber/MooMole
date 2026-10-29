@@ -8,6 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub(crate) mod archive;
 pub(crate) mod commands;
 pub(crate) mod duplicates;
 mod media;

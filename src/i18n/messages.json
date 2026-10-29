@@ -7019,5 +7019,83 @@
     "VLC 播放列表中的本地影音",
     "Local media from a VLC playlist",
     "VLC プレイリスト内のローカルメディア"
-  ]
+  ],
+  ["归档所选文件", "Archive selected files", "選択ファイルをアーカイブ"],
+  [
+    "创建 ZIP 并逐项校验，原文件保留；归档本身不释放原文件占用。ZIP 不加密，仅保存文件内容和相对路径，暂不保存 Finder 标签、扩展属性、资源分支或原始权限。",
+    "Create a ZIP and verify each file while keeping the originals. Archiving does not free the space used by originals. ZIP is not encrypted and stores file contents and relative paths; Finder tags, extended attributes, resource forks and original permissions are not preserved yet.",
+    "ZIP を作成して各ファイルを検証し、元ファイルを保持します。アーカイブだけでは元ファイルの使用容量は減りません。ZIP は暗号化されず、内容と相対パスを保存します。Finder タグ、拡張属性、リソースフォーク、元の権限は未対応です。"
+  ],
+  ["归档目标目录", "Archive destination folder", "アーカイブ先フォルダ"],
+  ["选择文件归档目标", "Choose an archive destination", "アーカイブ先を選択"],
+  ["选择归档目录", "Choose archive folder", "アーカイブ先を選択"],
+  ["ZIP 文件名", "ZIP filename", "ZIP ファイル名"],
+  [
+    "每批最多 20 个普通文件、合计 16 GiB，十五分钟预算；同名目标不覆盖。发布前原文件变化或取消时不发布完整 ZIP。",
+    "Up to 20 regular files and 16 GiB per batch, with a 15-minute budget. Existing destinations are never overwritten. Source changes or cancellation before publication prevent a complete ZIP from being published.",
+    "1 回につき通常ファイル 20 個、合計 16 GiB まで、制限時間は 15 分です。同名の保存先は上書きしません。公開前に元ファイルが変化した場合や中止した場合、完成した ZIP として保存しません。"
+  ],
+  ["归档文件列表", "Files to archive", "アーカイブ対象"],
+  [
+    "归档确认已过期，请返回后重新检查。",
+    "Archive confirmation expired. Go back and check again.",
+    "アーカイブの確認期限が切れました。戻って再確認してください。"
+  ],
+  [
+    "我已核对所选文件、归档位置和原文件保留方式。",
+    "I checked the selected files, destination and how originals are kept.",
+    "選択ファイル、保存先、元ファイルの保持方法を確認しました。"
+  ],
+  [
+    "正在生成并核对 ZIP；停止会保留原文件，发布边界的未知结果须在历史核对。",
+    "Creating and verifying the ZIP. Stopping keeps originals; uncertain publication results must be checked in history.",
+    "ZIP を作成・検証中です。停止しても元ファイルは保持します。保存時の結果が不明な場合は履歴で確認してください。"
+  ],
+  ["文件归档结果", "File archive result", "ファイルアーカイブ結果"],
+  ["{0} / {1} 项", "{0} / {1} items", "{0} / {1} 項目"],
+  ["正在检查归档…", "Checking archive…", "アーカイブを確認中…"],
+  ["检查归档计划", "Review archive plan", "アーカイブ計画を確認"],
+  ["确认创建 ZIP", "Confirm ZIP creation", "ZIP 作成を確認"],
+  ["停止归档", "Stop archiving", "アーカイブを停止"],
+  ["文件归档记录", "File archive history", "ファイルアーカイブ履歴"],
+  ["刷新归档记录", "Refresh archive history", "アーカイブ履歴を更新"],
+  [
+    "尚无文件归档记录。",
+    "No file archive history yet.",
+    "ファイルアーカイブ履歴はまだありません。"
+  ],
+  [
+    "请核对目标和以下临时路径。确认已检查只允许之后建立新计划，不会补发、删除文件或把本次结果标成成功。",
+    "Check the destination and temporary path below. Acknowledging allows a new plan later; it does not publish again, delete files or mark this result successful.",
+    "保存先と以下の一時パスを確認してください。確認済みとして記録すると新しい計画を作成できますが、再保存・削除は行わず、この結果を成功には変更しません。"
+  ],
+  [
+    "我已核对目标和临时归档，了解原结果仍待核实。",
+    "I checked the destination and temporary archive and understand the original result remains uncertain.",
+    "保存先と一時アーカイブを確認し、元の結果は引き続き不明であることを理解しました。"
+  ],
+  ["记录已核对", "Record as reviewed", "確認済みとして記録"],
+  ["关闭归档记录", "Close archive history", "アーカイブ履歴を閉じる"],
+  ["归档为 ZIP…", "Archive as ZIP…", "ZIP にアーカイブ…"],
+  [
+    "文件归档数据无法核对，请在历史检查实际状态；不会重复归档。",
+    "Archive data could not be verified. Check the actual state in history; archiving will not repeat.",
+    "アーカイブデータを検証できません。履歴で実際の状態を確認してください。アーカイブは繰り返しません。"
+  ],
+  ["正在生成归档", "Creating archive", "アーカイブ作成中"],
+  ["归档已生成并校验", "Archive created and verified", "アーカイブ作成・検証済み"],
+  ["归档已取消", "Archiving cancelled", "アーカイブを中止しました"],
+  ["归档未发布", "Archive not published", "アーカイブ未保存"],
+  ["归档结果待核实", "Archive result needs review", "アーカイブ結果の確認が必要"],
+  ["归档曾中断", "Archiving interrupted", "アーカイブが中断されました"],
+  ["在 Finder 中显示归档", "Show archive in Finder", "Finder でアーカイブを表示"],
+  [
+    "在 Finder 中查看目标目录",
+    "Show destination folder in Finder",
+    "Finder で保存先フォルダを表示"
+  ],
+  ["已归档", "Archived", "アーカイブ済み"],
+  ["未归档", "Not archived", "未アーカイブ"],
+  ["临时归档内容已核对", "Temporary archive contents verified", "一時アーカイブの内容を検証済み"],
+  ["临时归档记录位置：", "Recorded temporary archive location:", "記録された一時アーカイブの場所："]
 ]
