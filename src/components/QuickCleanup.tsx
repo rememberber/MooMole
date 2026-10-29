@@ -1,4 +1,5 @@
 import { getLocale } from '../i18n/locale'
+import { translate } from '../i18n/translate'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Analysis, AppEntry, CleanPreview, Page, ReviewPlan } from '../types'
 import type { UninstallTarget } from '../lib/app-uninstall'
@@ -16,6 +17,11 @@ import { cleanupPreparation } from '../lib/cleanup-preparation'
 import { appSizeEstimate, compareApps } from '../lib/application-library'
 import { largeFileReport, largeFileInScope } from '../lib/large-files'
 import { DustCloud } from './TaskMotion'
+import {
+  softwareCategories,
+  softwareCleanupGroups,
+  type SoftwareCategory,
+} from '../lib/software-cleanup'
 
 export function QuickCleanup({
   preview,
@@ -34,7 +40,9 @@ export function QuickCleanup({
   appsStale = false,
   analysis = null,
   onUninstall,
+  mode = 'quick',
 }: {
+  mode?: 'quick' | 'software'
   preview: CleanPreview | null
   home: string
   protectedPaths: string[]
@@ -59,6 +67,7 @@ export function QuickCleanup({
   const [error, setError] = useState('')
   const [inspectionErrors, setInspectionErrors] = useState<Record<string, string>>({})
   const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<SoftwareCategory>('all')
   const [onlySelected, setOnlySelected] = useState(false)
   const [limit, setLimit] = useState(100)
   const touched = useRef(false)
@@ -92,7 +101,7 @@ export function QuickCleanup({
     setInspectionErrors({})
     setError('')
     setChecking(false)
-    if (fresh && !scanRunning && preview?.scanId && inspector.current) {
+    if (mode !== 'software' && fresh && !scanRunning && preview?.scanId && inspector.current) {
       const ids = quickInspectionIds(preview.items, home, protectedPaths)
       if (ids.length) {
         setChecking(true)
@@ -125,7 +134,7 @@ export function QuickCleanup({
       }
     }
     return () => abort.abort()
-  }, [preview, home, protectionsKey, fresh, scanRunning])
+  }, [preview, home, protectionsKey, fresh, scanRunning, mode])
   const chosen = items.filter(
     ({ item, protected: blocked, supported }) =>
       selected.includes(item.id) && !blocked && supported && fresh,
@@ -140,6 +149,33 @@ export function QuickCleanup({
   const recommended = inspection.flatMap((plan) => recommendedQuickIds(plan, now))
   const needle = query.trim().toLocaleLowerCase(getLocale())
   const matches = (path: string) => path.toLocaleLowerCase(getLocale()).includes(needle)
+  const software = mode === 'software'
+  const groups = useMemo(
+    () =>
+      software
+        ? softwareCleanupGroups(preview?.items ?? [], home, appsStale ? null : apps).filter(
+            (group) => category === 'all' || group.category === category,
+          )
+        : quickGroups.map(([id, label]) => ({
+            id,
+            label,
+            literal: false,
+            category: null,
+            items: preview?.items.filter((item) => quickGroup(item) === id) ?? [],
+          })),
+    [software, preview, home, apps, appsStale, category],
+  )
+  const visibleGroups = groups.filter(
+    (group) =>
+      !software ||
+      group.items.some(
+        (item) =>
+          (matches(item.path) ||
+            matches(group.label) ||
+            (!group.literal && matches(translate(group.label)))) &&
+          (!onlySelected || chosen.some((entry) => entry.item.id === item.id)),
+      ),
+  )
   const protectedPath = (path: string) => protectedPaths.some((rule) => pathOverlaps(rule, path))
   const largeApps = useMemo(
     () =>
@@ -217,11 +253,13 @@ export function QuickCleanup({
             </strong>
             <p className="quick-intro">
               <span className="motion-text" data-active={checking}>
-                {checking
-                  ? '正在检查默认推荐项，可继续浏览。'
-                  : recommended.length
-                    ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
-                    : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
+                {software
+                  ? '选择不再需要的缓存，确认前将逐项检查。所有软件候选默认不选。'
+                  : checking
+                    ? '正在检查默认推荐项，可继续浏览。'
+                    : recommended.length
+                      ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
+                      : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
               </span>
             </p>
           </div>
@@ -231,15 +269,19 @@ export function QuickCleanup({
           disabled={!fresh || !enabled || !chosen.length || pending || checking}
           onClick={() => void prepare()}
         >
-          {pending ? '正在准备…' : '一键清理'}
+          {pending ? '正在准备…' : software ? '清理所选' : '一键清理'}
         </button>
       </div>
       <p className="quick-intro">
-        默认只推荐已检查的帮助、图标等可重建缓存。其他缓存、日志和诊断需自行选择；大文件和大应用需单独审阅。清理移入废纸篓，逐项结果保存到历史。
+        {software
+          ? '按缓存目录标识整理软件候选，可选择后确认清理。目录名匹配不代表数据独占；聊天记录、附件、离线下载和其他应用数据需另行审阅。'
+          : '默认只推荐已检查的帮助、图标等可重建缓存。其他缓存、日志和诊断需自行选择；大文件和大应用需单独审阅。清理移入废纸篓，逐项结果保存到历史。'}
       </p>
       {!preview ? (
         <div className="card quick-empty">
-          点击顶部“扫描可清理项”，汇总缓存、日志、大文件和大应用。
+          {software
+            ? '点击顶部“扫描可清理项”，按软件查看缓存候选并选择处理。'
+            : '点击顶部“扫描可清理项”，汇总缓存、日志、大文件和大应用。'}
         </div>
       ) : (
         <>
@@ -252,14 +294,30 @@ export function QuickCleanup({
             <input
               className="quick-search"
               type="search"
-              aria-label="搜索清理项目"
-              placeholder="搜索名称或路径…"
+              aria-label={software ? '搜索软件或清理项目' : '搜索清理项目'}
+              placeholder={software ? '搜索软件、名称或路径…' : '搜索名称或路径…'}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value)
                 setLimit(100)
               }}
             />
+            {software && (
+              <select
+                aria-label="软件类型"
+                value={category}
+                onChange={(event) => {
+                  setCategory(event.target.value as SoftwareCategory)
+                  setLimit(100)
+                }}
+              >
+                {softwareCategories.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
             <label>
               <input
                 type="checkbox"
@@ -268,16 +326,18 @@ export function QuickCleanup({
               />{' '}
               只看已选
             </label>
-            <button
-              className="button secondary compact"
-              disabled={!enabled || checking || !recommended.length}
-              onClick={() => {
-                touched.current = true
-                setSelected(recommended)
-              }}
-            >
-              恢复推荐
-            </button>
+            {!software && (
+              <button
+                className="button secondary compact"
+                disabled={!enabled || checking || !recommended.length}
+                onClick={() => {
+                  touched.current = true
+                  setSelected(recommended)
+                }}
+              >
+                恢复推荐
+              </button>
+            )}
             <button
               className="button secondary compact"
               disabled={!selected.length || pending}
@@ -289,28 +349,45 @@ export function QuickCleanup({
               清空选择
             </button>
           </div>
-          {quickGroups.map(([id, label]) => {
-            const all = items.filter(({ item }) => quickGroup(item) === id)
+          {visibleGroups.map(({ id, label, literal, items: groupedItems }) => {
+            const ids = new Set(groupedItems.map((item) => item.id))
+            const all = items.filter(({ item }) => ids.has(item.id))
             const members = all
               .filter(
                 ({ item }) =>
-                  matches(item.path) &&
+                  (matches(item.path) ||
+                    (software && (matches(label) || (!literal && matches(translate(label)))))) &&
                   (!onlySelected || chosen.some((entry) => entry.item.id === item.id)),
               )
               .sort((a, b) => (b.item.size ?? -1) - (a.item.size ?? -1))
             const summary = previewTotal(all.map(({ item }) => item))
+            if (software && (needle || onlySelected) && !members.length) return null
             const eligible = members
               .filter((entry) => entry.supported && !entry.protected)
               .map(({ item }) => item.id)
             return (
-              <details className="card quick-group" key={id} open={id === 'cache' || id === 'logs'}>
+              <details
+                className="card quick-group"
+                key={id}
+                open={software || id === 'cache' || id === 'logs'}
+              >
                 <summary>
-                  <strong>{label}</strong>
+                  <strong data-i18n={literal ? 'off' : undefined}>{label}</strong>
                   <span>
                     {all.length} 项 · {bytes(summary.size)}
                     {summary.unknown ? ` + ${summary.unknown} 项未知` : ''}
                   </span>
                 </summary>
+                {software && id !== 'unclassified' && (
+                  <p className="quick-group-empty">
+                    本次仅包含下列缓存候选；清理后软件可能需要重新生成或下载缓存。选择后将重新检查保护、占用和文件变化。
+                  </p>
+                )}
+                {software && id === 'unclassified' && (
+                  <p className="quick-group-empty">
+                    无法按精确缓存标识归组的候选保留在这里。归组和筛选不会改变原有保护与处理范围。
+                  </p>
+                )}
                 {id === 'orphan' && (
                   <p className="quick-group-empty">
                     来自 Mole
@@ -336,8 +413,12 @@ export function QuickCleanup({
                         }
                       >
                         {eligible.length && eligible.every((value) => selected.includes(value))
-                          ? '取消本类选择'
-                          : '选择本类可处理项'}
+                          ? software
+                            ? '取消本软件选择'
+                            : '取消本类选择'
+                          : software
+                            ? '选择本软件候选'
+                            : '选择本类可处理项'}
                       </button>
                     </div>
                     {members.slice(0, limit).map(({ item, protected: blocked, supported }) => {
@@ -430,134 +511,145 @@ export function QuickCleanup({
               </details>
             )
           })}
-          <details className="card quick-group">
-            <summary>
-              <strong>大文件</strong>
-              <span>
-                {analysis
-                  ? `${largeFiles.length} 项 · ${shortPath(analysis.path, home)}`
-                  : '尚未扫描'}
-              </span>
-            </summary>
-            <p className="quick-group-empty">
-              {analysis
-                ? `来自空间分析${analysis.scan_status !== 'complete' ? '（结果不完整）' : ''}；大小不代表可以删除，个人文件默认保留。`
-                : '扫描后汇总空间分析报告的大文件。'}
+          {software && !visibleGroups.length && (
+            <p className="empty-inline">
+              没有匹配的软件缓存候选，可清除筛选、切换软件类型或重新扫描。
             </p>
-            {!onlySelected &&
-              largeFiles
-                .filter((file) => matches(file.path))
-                .slice(0, limit)
-                .map((file) => (
-                  <div className="quick-item quick-readonly" key={file.path}>
-                    <div>
-                      <strong data-i18n="off">{file.name}</strong>
-                      <span className="mono full-path">{shortPath(file.path, home)}</span>
-                      <small>{protectedPath(file.path) ? '已保护' : '个人文件 · 需自行确认'}</small>
-                    </div>
-                    <span>{bytes(file.size)}</span>
-                    <div className="quick-row-actions">
-                      {onReveal && (
-                        <button
-                          className="button secondary compact"
-                          disabled={!desktop}
-                          onClick={() => onReveal(file.path)}
-                        >
-                          定位
-                        </button>
-                      )}
-                      {onProtect && (
-                        <button
-                          className="button secondary compact"
-                          disabled={!desktop || protectedPath(file.path)}
-                          onClick={() => void protect(file.path)}
-                        >
-                          保护
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            {largeFiles.length > limit && (
-              <button
-                className="button secondary compact"
-                onClick={() => setLimit((value) => value + 100)}
-              >
-                再显示 100 项
-              </button>
-            )}
-            <button className="button secondary compact" onClick={() => onNavigate('analyze')}>
-              查看空间分析
-            </button>
-          </details>
-          <details className="card quick-group">
-            <summary>
-              <strong>大应用</strong>
-              <span>{apps ? `${largeApps.length} 项 · ≥ 500 MB（估算）` : '尚未扫描'}</span>
-            </summary>
-            <p className="quick-group-empty">
-              {appsStale
-                ? '应用清单已过期，请重新扫描。'
-                : '应用默认保留，点击“审阅卸载”核对后处理；包外个人数据继续保留。'}
-            </p>
-            {!onlySelected &&
-              largeApps
-                .filter((app) => matches(`${app.name}\n${app.path}`))
-                .slice(0, limit)
-                .map((app) => (
-                  <div className="quick-item quick-readonly" key={app.path}>
-                    <div>
-                      <strong data-i18n="off">{app.name}</strong>
-                      <span className="mono full-path">{shortPath(app.path, home)}</span>
-                      <small>{protectedPath(app.path) ? '已保护' : '需确认不再使用'}</small>
-                    </div>
-                    <span>{app.size}</span>
-                    <div className="quick-row-actions">
-                      {onUninstall && (
-                        <button
-                          className="button secondary compact"
-                          disabled={
-                            !desktop ||
-                            !enabled ||
-                            appsStale ||
-                            !appsTaskId ||
-                            protectedPath(app.path)
-                          }
-                          onClick={() =>
-                            appsTaskId &&
-                            onUninstall({
-                              taskId: appsTaskId,
-                              index: apps!.indexOf(app),
-                              name: app.name,
-                              path: app.path,
-                              bundleId: app.bundle_id,
-                            })
-                          }
-                        >
-                          审阅卸载
-                        </button>
-                      )}
-                      {onProtect && (
-                        <button
-                          className="button secondary compact"
-                          disabled={!desktop || protectedPath(app.path)}
-                          onClick={() => void protect(app.path)}
-                        >
-                          保护
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            {largeApps.length > limit && (
-              <button
-                className="button secondary compact"
-                onClick={() => setLimit((value) => value + 100)}
-              >
-                再显示 100 项
-              </button>
-            )}
-          </details>
+          )}
+          {!software && (
+            <>
+              <details className="card quick-group">
+                <summary>
+                  <strong>大文件</strong>
+                  <span>
+                    {analysis
+                      ? `${largeFiles.length} 项 · ${shortPath(analysis.path, home)}`
+                      : '尚未扫描'}
+                  </span>
+                </summary>
+                <p className="quick-group-empty">
+                  {analysis
+                    ? `来自空间分析${analysis.scan_status !== 'complete' ? '（结果不完整）' : ''}；大小不代表可以删除，个人文件默认保留。`
+                    : '扫描后汇总空间分析报告的大文件。'}
+                </p>
+                {!onlySelected &&
+                  largeFiles
+                    .filter((file) => matches(file.path))
+                    .slice(0, limit)
+                    .map((file) => (
+                      <div className="quick-item quick-readonly" key={file.path}>
+                        <div>
+                          <strong data-i18n="off">{file.name}</strong>
+                          <span className="mono full-path">{shortPath(file.path, home)}</span>
+                          <small>
+                            {protectedPath(file.path) ? '已保护' : '个人文件 · 需自行确认'}
+                          </small>
+                        </div>
+                        <span>{bytes(file.size)}</span>
+                        <div className="quick-row-actions">
+                          {onReveal && (
+                            <button
+                              className="button secondary compact"
+                              disabled={!desktop}
+                              onClick={() => onReveal(file.path)}
+                            >
+                              定位
+                            </button>
+                          )}
+                          {onProtect && (
+                            <button
+                              className="button secondary compact"
+                              disabled={!desktop || protectedPath(file.path)}
+                              onClick={() => void protect(file.path)}
+                            >
+                              保护
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                {largeFiles.length > limit && (
+                  <button
+                    className="button secondary compact"
+                    onClick={() => setLimit((value) => value + 100)}
+                  >
+                    再显示 100 项
+                  </button>
+                )}
+                <button className="button secondary compact" onClick={() => onNavigate('analyze')}>
+                  查看空间分析
+                </button>
+              </details>
+              <details className="card quick-group">
+                <summary>
+                  <strong>大应用</strong>
+                  <span>{apps ? `${largeApps.length} 项 · ≥ 500 MB（估算）` : '尚未扫描'}</span>
+                </summary>
+                <p className="quick-group-empty">
+                  {appsStale
+                    ? '应用清单已过期，请重新扫描。'
+                    : '应用默认保留，点击“审阅卸载”核对后处理；包外个人数据继续保留。'}
+                </p>
+                {!onlySelected &&
+                  largeApps
+                    .filter((app) => matches(`${app.name}\n${app.path}`))
+                    .slice(0, limit)
+                    .map((app) => (
+                      <div className="quick-item quick-readonly" key={app.path}>
+                        <div>
+                          <strong data-i18n="off">{app.name}</strong>
+                          <span className="mono full-path">{shortPath(app.path, home)}</span>
+                          <small>{protectedPath(app.path) ? '已保护' : '需确认不再使用'}</small>
+                        </div>
+                        <span>{app.size}</span>
+                        <div className="quick-row-actions">
+                          {onUninstall && (
+                            <button
+                              className="button secondary compact"
+                              disabled={
+                                !desktop ||
+                                !enabled ||
+                                appsStale ||
+                                !appsTaskId ||
+                                protectedPath(app.path)
+                              }
+                              onClick={() =>
+                                appsTaskId &&
+                                onUninstall({
+                                  taskId: appsTaskId,
+                                  index: apps!.indexOf(app),
+                                  name: app.name,
+                                  path: app.path,
+                                  bundleId: app.bundle_id,
+                                })
+                              }
+                            >
+                              审阅卸载
+                            </button>
+                          )}
+                          {onProtect && (
+                            <button
+                              className="button secondary compact"
+                              disabled={!desktop || protectedPath(app.path)}
+                              onClick={() => void protect(app.path)}
+                            >
+                              保护
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                {largeApps.length > limit && (
+                  <button
+                    className="button secondary compact"
+                    onClick={() => setLimit((value) => value + 100)}
+                  >
+                    再显示 100 项
+                  </button>
+                )}
+              </details>
+            </>
+          )}
           <p className="quick-intro">
             单批最多 20 项，超过时请分批处理。移入废纸篓不会立即释放空间；恢复需在 Finder
             中核对。未支持的对象和检查未知项保留。

@@ -1,6 +1,7 @@
 export type Page =
   | 'overview'
   | 'quickCleanup'
+  | 'softwareCleanup'
   | 'aiScan'
   | 'analyze'
   | 'cleanup'

@@ -6135,5 +6135,62 @@
   ["分析完成，等待审阅", "Analysis complete; awaiting review", "分析完了・確認待ち"],
   ["扫描已停止", "Scan stopped", "スキャン停止"],
   ["扫描未完成", "Scan incomplete", "スキャン未完了"],
-  ["检查完成", "Check complete", "確認完了"]
+  ["检查完成", "Check complete", "確認完了"],
+  ["软件清理", "Software cleanup", "ソフトウェアのクリーンアップ"],
+  [
+    "软件清理扫描完成。按缓存目录标识归组，未发现不代表没有其他数据。",
+    "Software scan complete. Grouped by cache directory identifiers; other data may exist.",
+    "スキャン完了。キャッシュディレクトリの識別子で分類しています。他のデータがないことを示すものではありません。"
+  ],
+  [
+    "选择不再需要的缓存，确认前将逐项检查。所有软件候选默认不选。",
+    "Select caches you no longer need. Each item is checked before confirmation. All software candidates start unselected.",
+    "不要なキャッシュを選択してください。確認前に各項目を検査します。初期状態では選択されていません。"
+  ],
+  ["清理所选", "Clean selected", "選択した項目をクリーンアップ"],
+  [
+    "按缓存目录标识整理软件候选，可选择后确认清理。目录名匹配不代表数据独占；聊天记录、附件、离线下载和其他应用数据需另行审阅。",
+    "Software candidates are grouped by cache directory identifiers. Select items to review and confirm cleanup. Matching names do not prove exclusive ownership; chat history, attachments, offline downloads and other app data require separate review.",
+    "キャッシュディレクトリの識別子で分類しています。項目を選び、確認してクリーンアップできます。名前の一致は専用データの証明ではありません。チャット履歴、添付ファイル、オフラインダウンロードやその他のアプリデータは個別に確認する必要があります。"
+  ],
+  [
+    "点击顶部“扫描可清理项”，按软件查看缓存候选并选择处理。",
+    "Click “Scan cleanup candidates” above to browse caches by software and select items to clean.",
+    "上部の「クリーンアップ候補をスキャン」でソフトウェア別にキャッシュを確認し、処理する項目を選択できます。"
+  ],
+  ["搜索软件或清理项目", "Search software or cleanup items", "ソフトウェアや項目を検索"],
+  ["搜索软件、名称或路径…", "Search software, name or path…", "ソフトウェア、名前、パスを検索…"],
+  ["软件类型", "Software category", "ソフトウェアの種類"],
+  [
+    "本次仅包含下列缓存候选；清理后软件可能需要重新生成或下载缓存。选择后将重新检查保护、占用和文件变化。",
+    "Only the cache candidates below are included. Software may regenerate or download caches after cleanup. Protection, open handles and file changes are checked again after selection.",
+    "今回の対象は以下のキャッシュ候補のみです。処理後に再生成やダウンロードが必要になる場合があります。選択後に保護、使用中の状態、ファイルの変更を再検査します。"
+  ],
+  [
+    "无法按精确缓存标识归组的候选保留在这里。归组和筛选不会改变原有保护与处理范围。",
+    "Candidates without an exact cache identifier match remain here. Grouping and filtering do not change protection or the supported cleanup scope.",
+    "正確なキャッシュ識別子で分類できない候補をここに表示します。分類や絞り込みによって保護や処理対象の範囲は変わりません。"
+  ],
+  ["取消本软件选择", "Deselect software candidates", "このソフトウェアの選択を解除"],
+  ["选择本软件候选", "Select software candidates", "このソフトウェアの候補を選択"],
+  [
+    "没有匹配的软件缓存候选，可清除筛选、切换软件类型或重新扫描。",
+    "No matching software cache candidates. Clear filters, change the category or scan again.",
+    "一致するキャッシュ候補がありません。絞り込みを解除するか、種類を変更するか、再スキャンしてください。"
+  ],
+  ["全部软件", "All software", "すべてのソフトウェア"],
+  ["浏览器", "Browsers", "ブラウザ"],
+  ["聊天与协作", "Chat and collaboration", "チャットと共同作業"],
+  ["音乐与视频", "Music and video", "音楽と動画"],
+  ["邮件", "Mail", "メール"],
+  ["系统缓存", "System caches", "システムキャッシュ"],
+  ["其他软件", "Other software", "その他のソフトウェア"],
+  ["未归组候选", "Ungrouped candidates", "未分類の候補"],
+  ["微信", "WeChat", "WeChat"],
+  ["企业微信", "WeCom", "WeCom"],
+  ["网易云音乐", "NetEase Cloud Music", "NetEase Cloud Music"],
+  ["音乐", "Music", "ミュージック"],
+  ["系统帮助", "System help", "システムヘルプ"],
+  ["系统图标", "System icons", "システムアイコン"],
+  ["文件预览", "File previews", "ファイルプレビュー"]
 ]

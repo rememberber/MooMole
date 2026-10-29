@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QuickCleanup } from '../../../src/components/QuickCleanup'
 import type { CleanCandidate, CleanPreview, ReviewPlan } from '../../../src/types'
+import { useLanguage } from '../../../src/i18n/locale'
 
 export function mount(mode = 'normal') {
   const host = document.createElement('div')
@@ -70,13 +71,23 @@ export function mount(mode = 'normal') {
       item('protected-cache', '/Users/demo/Library/Caches/Quick Look', 'appCache', true),
     ],
   }
+  if (mode === 'software')
+    preview.items.push(
+      item('chrome', '/Users/demo/Library/Caches/com.google.Chrome', 'appCache', true),
+      item('wechat', '/Users/demo/Library/Caches/com.tencent.xinWeChat', 'appCache', true),
+      item('edge', '/Users/demo/Library/Caches/com.microsoft.edgemac', 'appCache', true),
+      item('custom', '/Users/demo/Library/Caches/example.app', 'appCache', true),
+    )
   function Fixture() {
+    useLanguage()
     const [protectedPaths, setProtectedPaths] = useState([
       '/Users/demo/Library/Logs/protected.log',
+      ...(mode === 'software' ? ['/Users/demo/Library/Caches/com.microsoft.edgemac'] : []),
       ...(mode === 'one-failure' ? [] : ['/Users/demo/Library/Caches/Quick Look']),
     ])
     return (
       <QuickCleanup
+        mode={mode === 'software' ? 'software' : 'quick'}
         preview={preview}
         desktop
         enabled

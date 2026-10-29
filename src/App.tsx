@@ -152,6 +152,7 @@ const StatusDisks = deferredView(async () => ({
 const navigation = [
   ['overview', LayoutGrid, '概览'],
   ['quickCleanup', Zap, '速战速决'],
+  ['softwareCleanup', Sparkles, '软件清理'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
@@ -480,7 +481,7 @@ export default function App() {
     }
   }
 
-  async function scanQuickCleanup() {
+  async function scanQuickCleanup(softwareOnly = false) {
     if (!data || quickScanActive.current || busyRef.current) return
     quickScanActive.current = true
     quickScanCancelled.current = false
@@ -494,6 +495,7 @@ export default function App() {
         ['apps', '应用'],
         ['analyze', '大文件'],
       ] as const) {
+        if (softwareOnly && kind === 'analyze') continue
         if (quickScanCancelled.current || observation.current.signal.aborted) break
         setQuickScanStatus(`正在扫描${label}…`)
         const success = await execute(kind, kind === 'analyze' ? data.home : undefined)
@@ -504,7 +506,9 @@ export default function App() {
           ? '扫描已停止，已取得的结果仍可查看；其余范围未完成。'
           : failures.length
             ? `${failures.join('、')}扫描未完成，请重新扫描；较早结果仅供参考。`
-            : '扫描完成。大文件来自主目录空间分析，应用大小为 Mole 估算；结果可能不完整。',
+            : softwareOnly
+              ? '软件清理扫描完成。按缓存目录标识归组，未发现不代表没有其他数据。'
+              : '扫描完成。大文件来自主目录空间分析，应用大小为 Mole 估算；结果可能不完整。',
       )
     } finally {
       quickScanActive.current = false
@@ -1019,11 +1023,11 @@ export default function App() {
                     )}
                   </>
                 )}
-                {page === 'quickCleanup' && (
+                {(page === 'quickCleanup' || page === 'softwareCleanup') && (
                   <button
                     className="button primary compact"
                     disabled={!canRun || executionActive}
-                    onClick={() => void scanQuickCleanup()}
+                    onClick={() => void scanQuickCleanup(page === 'softwareCleanup')}
                   >
                     <Search size={15} />
                     {quickScanning ? '正在扫描…' : cleanPreview ? '重新扫描' : '扫描可清理项'}
@@ -1263,6 +1267,7 @@ export default function App() {
           <span className="read-only-tag">
             <ShieldCheck size={13} />
             {page === 'quickCleanup' ||
+            page === 'softwareCleanup' ||
             page === 'cleanup' ||
             page === 'apps' ||
             page === 'maintenance'
@@ -1483,7 +1488,7 @@ export default function App() {
             />
           )}
 
-          {page === 'quickCleanup' && (
+          {(page === 'quickCleanup' || page === 'softwareCleanup') && (
             <>
               {quickScanStatus && (
                 <p className="quick-intro motion-scan" data-scanning={quickScanning} role="status">
@@ -1493,6 +1498,8 @@ export default function App() {
                 </p>
               )}
               <QuickCleanup
+                key={page}
+                mode={page === 'softwareCleanup' ? 'software' : 'quick'}
                 preview={cleanPreview}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
