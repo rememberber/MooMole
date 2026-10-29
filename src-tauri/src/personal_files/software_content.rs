@@ -3,6 +3,7 @@
 use super::*;
 use crate::{db, engine::Job, observation::AnchoredPath};
 use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc};
+mod chromium;
 pub(crate) const MODULE: &str = "softwareContent";
 pub(super) const REVISION: &str = "MooMole.software-content.v1";
 const MINIMUM: u64 = 5 * 1024 * 1024;
@@ -20,15 +21,24 @@ fn old_enough(item: &Item, now: i64) -> bool {
 pub(crate) enum Source {
     MailDownloads,
     MailSandboxDownloads,
+    ChromeDownloads,
 }
 impl Source {
     pub(super) fn path(self, home: &Path) -> PathBuf {
+        if self == Self::ChromeDownloads {
+            return home.to_path_buf();
+        }
         home.join(match self {
             Self::MailDownloads => "Library/Mail Downloads",
             Self::MailSandboxDownloads => {
                 "Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
             }
+            Self::ChromeDownloads => unreachable!(),
         })
+    }
+    fn history(self, home: &Path) -> Option<PathBuf> {
+        (self == Self::ChromeDownloads)
+            .then(|| home.join("Library/Application Support/Google/Chrome/Default/History"))
     }
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -38,6 +48,8 @@ pub(crate) struct Binding {
     pub home: String,
     pub directory: Witness,
     pub allocated_at_scan: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history: Option<Witness>,
 }
 impl Binding {
     pub(super) fn root(&self) -> PathBuf {
@@ -45,6 +57,9 @@ impl Binding {
     }
     pub(super) fn allows(&self, path: &Path) -> bool {
         let root = self.root();
+        if self.source == Source::ChromeDownloads {
+            return path.starts_with(&root) && ordinary(path);
+        }
         path == root
             || path.strip_prefix(&root).is_ok_and(|r| {
                 !r.as_os_str().is_empty()
@@ -65,7 +80,14 @@ impl Binding {
                 .nodes
                 .last()
                 .is_none_or(|n| n.path != Path::new(root))
-            || self.allocated_at_scan < MINIMUM
+            || (self.source != Source::ChromeDownloads && self.allocated_at_scan < MINIMUM)
+            || (self.source == Source::ChromeDownloads
+                && self.history.as_ref().is_none_or(|w| {
+                    w.version != crate::observation::VERSION
+                        || w.nodes.last().is_none_or(|n| {
+                            Some(&n.path) != self.source.history(Path::new(&self.home)).as_ref()
+                        })
+                }))
             || items
                 .iter()
                 .any(|i| !self.allows(Path::new(&i.path)) || i.path == root)
@@ -77,7 +99,7 @@ impl Binding {
     pub(super) fn validate(&self, item: &Item, home: &Path, now: i64) -> Result<(), String> {
         if Path::new(&self.home) != home
             || !self.allows(Path::new(&item.path))
-            || !old_enough(item, now)
+            || (self.source != Source::ChromeDownloads && !old_enough(item, now))
         {
             return Err("附件不属于已确认目录或未超过保留期限，本项保留。".into());
         }
@@ -108,6 +130,9 @@ pub(super) fn collect(
     rules: &[String],
     job: Arc<Job>,
 ) -> Result<Scan, String> {
+    if source == Source::ChromeDownloads {
+        return chromium::collect(home, source, rules, job);
+    }
     let path = source.path(home);
     let held = AnchoredPath::open(&path)
         .map_err(|_| "附件目录不存在或无法访问；未检查的范围保持未知，不会请求提升权限。")?;
@@ -116,6 +141,7 @@ pub(super) fn collect(
         home: home.to_str().ok_or("账户目录无法编码。")?.into(),
         directory: held.witness,
         allocated_at_scan: 0,
+        history: None,
     };
     let mut scan = super::scan::collect_scoped(&path, rules, job, Some(binding))?;
     let enough = scan.allocated_bytes >= MINIMUM;
@@ -136,7 +162,10 @@ pub(super) fn collect(
 }
 // Same fixed process predicate as pinned Mole _mail_process_state. Never parses
 // pgrep prose, runs a shell, sends signals to Mail or treats probe errors as idle.
-pub(super) fn execution_gate(job: &Job) -> Result<(), String> {
+pub(super) fn execution_gate(source: Source, job: &Job) -> Result<(), String> {
+    if source == Source::ChromeDownloads {
+        return Ok(());
+    }
     let mut command = Command::new("/usr/bin/pgrep");
     command
         .args(["-x", "Mail"])

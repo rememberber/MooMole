@@ -366,7 +366,7 @@ function ExecutionResults({
       )}
       {detail.origin === 'softwareContent' && (
         <p className="notice">
-          来源：软件附件副本。只处理已明确选择的本地附件文件，邮件正文和数据库保持原样。
+          来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。
         </p>
       )}
       {detail.origin === 'personalFiles' && (

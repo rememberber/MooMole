@@ -1201,7 +1201,7 @@ export default function App() {
                       disabled={!canRun || executionActive}
                       onClick={() => void softwareFiles.start()}
                     >
-                      扫描附件副本
+                      {softwareSource === 'chromeDownloads' ? '扫描下载记录' : '扫描附件副本'}
                     </button>
                   ))}
                 {(page === 'quickCleanup' ||
@@ -1747,7 +1747,7 @@ export default function App() {
                 disabled={quickScanning || softwareFiles.running}
                 onClick={() => setSoftwareTab('attachments')}
               >
-                附件副本
+                附件与下载
               </button>
             </div>
           )}
@@ -1770,7 +1770,7 @@ export default function App() {
               </label>
               <PersonalFiles
                 controller={softwareFiles}
-                mode="software"
+                mode={softwareSource === 'chromeDownloads' ? 'downloads' : 'software'}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}

@@ -6975,5 +6975,28 @@
     "此 Mail 容器位置受到 Mole 核心规则保护，仅供预览；附件与目录保持原样，不提供处理确认。",
     "This Mail container is protected by Mole's core rules. Preview only; attachments and folders are preserved and processing confirmation is unavailable.",
     "この Mail コンテナは Mole の基本ルールで保護されています。プレビューのみ利用でき、添付ファイルとフォルダを保持し、処理の確認は提供しません。"
+  ],
+  ["扫描下载记录", "Scan download records", "ダウンロード履歴をスキャン"],
+  ["附件与下载", "Attachments and downloads", "添付ファイルとダウンロード"],
+  [
+    "来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。",
+    "Source: software content organization. Exact sources and selected files were used; the application's original database is preserved.",
+    "出典：ソフトウェア内容の整理。出典とファイルを照合して選択した項目を処理し、元のアプリのデータベースは保持します。"
+  ],
+  [
+    "确认处理浏览器下载",
+    "Confirm browser download processing",
+    "ブラウザのダウンロードの処理を確認"
+  ],
+  ["下载文件范围", "Downloaded file scope", "ダウンロードしたファイルの範囲"],
+  [
+    "仅根据浏览器默认配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。",
+    "Locates regular files from completed downloads in the browser's default profile without traversing your entire account. Records are source hints, not proof that content is unchanged, downloadable again or disposable. Nothing is selected by default. Only selected local files are processed; browser history and download records are preserved.",
+    "ブラウザの既定プロファイルの完了済みダウンロード履歴から通常ファイルを探し、アカウント全体は走査しません。履歴は出典の手掛かりであり、内容の同一性、再取得や削除可否を保証しません。初期状態では選択しません。選択したローカルファイルのみ処理し、ブラウザ履歴とダウンロード履歴は保持します。"
+  ],
+  [
+    "Chrome 已完成下载（默认配置）",
+    "Chrome completed downloads (default profile)",
+    "Chrome の完了済みダウンロード（既定プロファイル）"
   ]
 ]

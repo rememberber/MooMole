@@ -28,10 +28,11 @@ export function PersonalFiles({
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
-  mode?: 'personal' | 'duplicates' | 'similar' | 'software'
+  mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads'
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const language = useLanguage()
+  const software = mode === 'software' || mode === 'downloads'
   const [query, setQuery] = useState(''),
     [kind, setKind] = useState<FileKind>('all')
   const [minimum, setMinimum] = useState(0),
@@ -78,13 +79,15 @@ export function PersonalFiles({
         .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
     : items
   const title =
-    mode === 'software'
-      ? '确认处理软件附件副本'
-      : mode === 'similar'
-        ? '确认处理相似照片'
-        : mode === 'duplicates'
-          ? '确认处理重复文件'
-          : '确认处理个人文件'
+    mode === 'downloads'
+      ? '确认处理浏览器下载'
+      : mode === 'software'
+        ? '确认处理软件附件副本'
+        : mode === 'similar'
+          ? '确认处理相似照片'
+          : mode === 'duplicates'
+            ? '确认处理重复文件'
+            : '确认处理个人文件'
   useEffect(() => {
     setSelected([])
     setLimit(100)
@@ -137,21 +140,23 @@ export function PersonalFiles({
           <span>整理目录</span>
           <input
             aria-label={
-              mode === 'software'
-                ? '软件附件目录'
-                : mode === 'similar'
-                  ? '相似照片目录'
-                  : mode === 'duplicates'
-                    ? '重复文件目录'
-                    : '个人文件目录'
+              mode === 'downloads'
+                ? '下载文件范围'
+                : mode === 'software'
+                  ? '软件附件目录'
+                  : mode === 'similar'
+                    ? '相似照片目录'
+                    : mode === 'duplicates'
+                      ? '重复文件目录'
+                      : '个人文件目录'
             }
             value={c.root}
             disabled={c.running}
-            readOnly={mode === 'software'}
+            readOnly={software}
             onChange={(event) => c.setRoot(event.target.value)}
           />
         </label>
-        {mode !== 'software' && (
+        {!software && (
           <>
             <button
               type="button"
@@ -177,13 +182,15 @@ export function PersonalFiles({
         )}
       </form>
       <p className="muted">
-        {mode === 'software'
-          ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
-          : mode === 'similar'
-            ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
-            : mode === 'duplicates'
-              ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
-              : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
+        {mode === 'downloads'
+          ? '仅根据浏览器默认配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。'
+          : mode === 'software'
+            ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
+            : mode === 'similar'
+              ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
+              : mode === 'duplicates'
+                ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
+                : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
       {mode === 'similar' && (
         <details>
@@ -338,7 +345,7 @@ export function PersonalFiles({
               {pending ? '正在准备…' : '移入废纸篓…'}
             </button>
           </div>
-          {!grouped && mode !== 'software' && (
+          {!grouped && !software && (
             <>
               <div className="personal-scope">
                 <label className="personal-path">
@@ -475,14 +482,13 @@ export function PersonalFiles({
                       disabled={!enabled || !fresh || blocked(item.path) || c.running || pending}
                       onClick={() =>
                         setPreview({
-                          domain:
-                            mode === 'software'
-                              ? 'softwareContent'
-                              : mode === 'similar'
-                                ? 'similarPhotos'
-                                : mode === 'duplicates'
-                                  ? 'duplicateFiles'
-                                  : 'personalFiles',
+                          domain: software
+                            ? 'softwareContent'
+                            : mode === 'similar'
+                              ? 'similarPhotos'
+                              : mode === 'duplicates'
+                                ? 'duplicateFiles'
+                                : 'personalFiles',
                           scanId: report!.id,
                           itemId: item.id,
                           path: item.path,

@@ -1,6 +1,127 @@
 use super::*;
 
 #[tokio::test]
+#[ignore = "real browser download snapshot, Mole rules and native Trash on self-created files/database only"]
+async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
+    use crate::engine::TaskKind;
+    let temp = tempfile::Builder::new()
+        .prefix("MooMole-browser-native-")
+        .tempdir()
+        .unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let folder = home.join("Downloads");
+    std::fs::create_dir(&folder).unwrap();
+    let chosen = folder.join("chosen.txt");
+    let keep = folder.join("unlisted.txt");
+    std::fs::write(&chosen, "owned completed download").unwrap();
+    std::fs::write(&keep, "unlisted keep").unwrap();
+    let history = home.join("Library/Application Support/Google/Chrome/Default/History");
+    std::fs::create_dir_all(history.parent().unwrap()).unwrap();
+    let browser = rusqlite::Connection::open(&history).unwrap();
+    browser.pragma_update(None, "journal_mode", "WAL").unwrap();
+    browser.execute_batch("CREATE TABLE downloads(id INTEGER PRIMARY KEY,current_path TEXT,target_path TEXT,state INTEGER)").unwrap();
+    browser
+        .execute(
+            "INSERT INTO downloads VALUES(1,?1,?1,1)",
+            [chosen.to_str().unwrap()],
+        )
+        .unwrap();
+    let original = std::fs::read(&history).unwrap();
+    let wal = history.with_file_name("History-wal");
+    let original_wal = std::fs::read(&wal).unwrap();
+    let scan = software_content::collect(
+        &home,
+        software_content::Source::ChromeDownloads,
+        &[],
+        Arc::new(Job::new(TaskKind::PersonalScan)),
+    )
+    .unwrap();
+    assert_eq!(scan.items.len(), 1);
+    let ids = vec![scan.items[0].id.clone()];
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let offer = store.offer(&ids, db::now()).unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(
+        &database,
+        &db::Settings {
+            acknowledged: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let rule_home = home.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalTrash)),
+        move |requested, job| {
+            let root = engine.clone();
+            let home = rule_home.clone();
+            async move { rules::run(&root, &home, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    for item in &result.items {
+        if let Some(r) = &item.receipt {
+            let m = std::fs::symlink_metadata(&r.destination).unwrap();
+            assert_eq!((m.dev(), m.ino()), (r.device, r.inode));
+            assert!(!Path::new(&item.path).exists());
+            objc2::rc::autoreleasepool(|_| {
+                use objc2_foundation::{NSFileManager, NSString, NSURL};
+                NSFileManager::defaultManager()
+                    .moveItemAtURL_toURL_error(
+                        &NSURL::fileURLWithPath(&NSString::from_str(&r.destination)),
+                        &NSURL::fileURLWithPath(&NSString::from_str(&item.path)),
+                    )
+                    .unwrap();
+            });
+        }
+    }
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert_eq!(result.origin, software_content::MODULE);
+    assert_eq!(std::fs::read(&history).unwrap(), original);
+    assert_eq!(std::fs::read(&wal).unwrap(), original_wal);
+    assert_eq!(std::fs::read_to_string(&keep).unwrap(), "unlisted keep");
+    let expected = serde_json::to_value(&result).unwrap();
+    let mut database = database.lock().unwrap();
+    let preview = crate::execution_archive::prepare(&mut database).unwrap();
+    let directory = home.join("archives");
+    let header = crate::execution_archive::archive(
+        &mut database,
+        &directory,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &directory,
+            &header.id,
+            crate::execution_archive::Kind::Cleanup,
+            &result.summary.id
+        )
+        .unwrap(),
+        expected
+    );
+    std::fs::create_dir_all("../.cache").unwrap();
+    std::fs::write("../.cache/browser-downloads-native.json",serde_json::to_vec_pretty(&serde_json::json!({"result":expected,"historyAndWalPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})).unwrap()).unwrap();
+}
+
+#[tokio::test]
 #[ignore = "real Mail-copy scope, fixed Mail process probe, Mole rules and native Trash on owned files only"]
 async fn real_mail_attachment_copy_uses_catalog_scope_and_preserves_mail_database() {
     use crate::engine::TaskKind;

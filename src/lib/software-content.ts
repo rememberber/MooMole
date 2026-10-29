@@ -7,9 +7,11 @@ export const softwareContentSources = [
     relative: 'Library/Containers/com.apple.mail/Data/Library/Mail Downloads',
   },
   { id: 'mailDownloads', label: 'Mail 旧位置附件副本', relative: 'Library/Mail Downloads' },
+  { id: 'chromeDownloads', label: 'Chrome 已完成下载（默认配置）', relative: '' },
 ] as const
 export type SoftwareContentSource = (typeof softwareContentSources)[number]['id']
 export function softwareContentRoot(home: string, source: SoftwareContentSource) {
+  if (source === 'chromeDownloads') return home
   return home ? `${home}/${softwareContentSources.find((s) => s.id === source)!.relative}` : ''
 }
 export function softwareContentTransport(source: SoftwareContentSource): PersonalTransport {

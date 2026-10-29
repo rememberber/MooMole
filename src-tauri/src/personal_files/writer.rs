@@ -279,7 +279,10 @@ where
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
                     validate(&one, &saved, &settings, db::now(), &own_home)?;
                     if saved.software_content.is_some() {
-                        software_content::execution_gate(&control)?;
+                        software_content::execution_gate(
+                            saved.software_content.as_ref().unwrap().source,
+                            &control,
+                        )?;
                     };
                     if saved.duplicates.is_some() {
                         duplicates::verify(&saved, &one, &control)?;
@@ -339,7 +342,10 @@ where
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
                     validate(&one, &saved, &settings, db::now(), &own_home)?;
                     if saved.software_content.is_some() {
-                        software_content::execution_gate(&control)?;
+                        software_content::execution_gate(
+                            saved.software_content.as_ref().unwrap().source,
+                            &control,
+                        )?;
                     };
                     if policy_stamp(&own_home)? != stamp {
                         return Err("保护配置在最终处理前已变化，保留。".into());

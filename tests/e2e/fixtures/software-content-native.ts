@@ -6,9 +6,11 @@ export async function installSoftwareContentMock(page: Page) {
     const native = (window as any).__TAURI_INTERNALS__,
       original = native.invoke
     const root = (source: string) =>
-      source === 'mailDownloads'
-        ? '/Users/demo/Library/Mail Downloads'
-        : '/Users/demo/Library/Containers/com.apple.mail/Data/Library/Mail Downloads'
+      source === 'chromeDownloads'
+        ? '/Users/demo'
+        : source === 'mailDownloads'
+          ? '/Users/demo/Library/Mail Downloads'
+          : '/Users/demo/Library/Containers/com.apple.mail/Data/Library/Mail Downloads'
     const aliases: Record<string, string> = {
       prepare_software_trash: 'prepare_personal_trash',
       discard_software_trash: 'discard_personal_trash',
@@ -31,13 +33,16 @@ export async function installSoftwareContentMock(page: Page) {
         report.root = current
         report.items = report.items
           .filter((i: any) => ['old.zip', 'notes.txt'].includes(i.name))
-          .map((i: any) => ({ ...i, path: `${current}/${i.name}` }))
+          .map((i: any) => ({
+            ...i,
+            path: `${source === 'chromeDownloads' ? '/Users/demo/Downloads' : current}/${i.name}`,
+          }))
         report.softwareContent = {
           source,
-          minimumAgeDays: 31,
-          minimumDirectoryBytes: 5242880,
+          minimumAgeDays: source === 'chromeDownloads' ? 0 : 31,
+          minimumDirectoryBytes: source === 'chromeDownloads' ? 0 : 5242880,
           minimumSizeMet: true,
-          executionSupported: source === 'mailDownloads',
+          executionSupported: source !== 'mailSandboxDownloads',
         }
         sessionStorage.setItem('personal-report', JSON.stringify(report))
         const state = JSON.parse(sessionStorage.getItem('personal-state')!)

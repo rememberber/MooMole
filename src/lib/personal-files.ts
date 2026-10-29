@@ -34,7 +34,7 @@ export interface PersonalReport {
     bytesRead: number
   }
   softwareContent?: {
-    source: 'mailDownloads' | 'mailSandboxDownloads'
+    source: 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads'
     minimumAgeDays: number
     minimumDirectoryBytes: number
     minimumSizeMet: boolean
@@ -196,19 +196,21 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       if (
         r.duplicates !== undefined ||
         r.similarPhotos !== undefined ||
-        !['mailDownloads', 'mailSandboxDownloads'].includes(s.source as string) ||
-        s.minimumAgeDays !== 31 ||
-        s.minimumDirectoryBytes !== 5242880 ||
+        !['mailDownloads', 'mailSandboxDownloads', 'chromeDownloads'].includes(
+          s.source as string,
+        ) ||
+        s.minimumAgeDays !== (s.source === 'chromeDownloads' ? 0 : 31) ||
+        s.minimumDirectoryBytes !== (s.source === 'chromeDownloads' ? 0 : 5242880) ||
         typeof s.minimumSizeMet !== 'boolean' ||
         typeof s.executionSupported !== 'boolean' ||
-        s.executionSupported !== (s.source === 'mailDownloads') ||
+        s.executionSupported !== (s.source !== 'mailSandboxDownloads') ||
         (!s.minimumSizeMet && report.items.length)
       )
         fail()
       report.softwareContent = {
-        source: s.source as 'mailDownloads' | 'mailSandboxDownloads',
-        minimumAgeDays: 31,
-        minimumDirectoryBytes: 5242880,
+        source: s.source as 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads',
+        minimumAgeDays: s.minimumAgeDays as number,
+        minimumDirectoryBytes: s.minimumDirectoryBytes as number,
         minimumSizeMet: s.minimumSizeMet as boolean,
         executionSupported: s.executionSupported as boolean,
       }
