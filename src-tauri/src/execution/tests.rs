@@ -9,6 +9,104 @@ mod controlled;
 mod crash;
 
 #[test]
+fn v7_upgrade_preserves_receipts_events_reviews_and_space_then_reopens() {
+    let mut f = Fixture::new();
+    let run = f.begin();
+    crate::cleanup_space::begin(&f.db, &run, None).unwrap();
+    f.move_fixture(&run, 0);
+    let second = f.item(1);
+    intent(&mut f.db, &run, &second, f.at + 3).unwrap();
+    stop(&mut f.db, &run, f.at + 4).unwrap();
+    let digest = detail(&f.db, &run).unwrap().snapshot_sha256;
+    crate::execution_review::acknowledge(
+        &mut f.db,
+        crate::execution_review::Kind::Cleanup,
+        &run,
+        &digest,
+        f.at + 5,
+    )
+    .unwrap();
+    let expected = serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap();
+    // Rebuild only the parent with the actual historical v3/v7 constraint.
+    f.db.execute_batch(
+        "PRAGMA foreign_keys=OFF; BEGIN;
+        CREATE TABLE legacy_runs AS SELECT * FROM execution_runs;
+        DROP TABLE execution_runs;",
+    )
+    .unwrap();
+    let schema = SCHEMA.split("CREATE TABLE execution_items").next().unwrap();
+    f.db.execute_batch(schema).unwrap();
+    f.db.execute_batch("INSERT INTO execution_runs SELECT * FROM legacy_runs; DROP TABLE legacy_runs; PRAGMA user_version=7; COMMIT; PRAGMA foreign_keys=ON;").unwrap();
+    let path = f.root.join("app.sqlite");
+    drop(f.db);
+    for _ in 0..2 {
+        let db = db::open_fixture(&path).unwrap();
+        assert_eq!(
+            serde_json::to_value(detail(&db, &run).unwrap()).unwrap(),
+            expected
+        );
+        assert_eq!(
+            db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+                .unwrap(),
+            8
+        );
+        assert!(db
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none());
+    }
+    let backups: Vec<_> = std::fs::read_dir(&f.root)
+        .unwrap()
+        .map(|r| r.unwrap().path())
+        .filter(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("moomole-before-v8-")
+        })
+        .collect();
+    assert_eq!(backups.len(), 1);
+    let backup = Connection::open(&backups[0]).unwrap();
+    assert_eq!(
+        backup
+            .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        serde_json::to_value(detail(&backup, &run).unwrap()).unwrap(),
+        expected
+    );
+}
+
+#[test]
+fn v8_upgrade_refuses_custom_parent_triggers_without_losing_original_rows() {
+    let mut f = Fixture::new();
+    let run = f.begin();
+    finish(&mut f.db, &run, true, f.at + 1).unwrap();
+    let expected = serde_json::to_value(detail(&f.db, &run).unwrap()).unwrap();
+    f.db.execute_batch("CREATE TRIGGER custom_guard BEFORE DELETE ON execution_runs BEGIN SELECT RAISE(ABORT,'preserve'); END; PRAGMA user_version=7;").unwrap();
+    let path = f.root.join("app.sqlite");
+    drop(f.db);
+    assert!(db::open_fixture(&path).unwrap_err().contains("触发器"));
+    let original = Connection::open(&path).unwrap();
+    assert_eq!(
+        original
+            .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        serde_json::to_value(detail(&original, &run).unwrap()).unwrap(),
+        expected
+    );
+}
+
+#[test]
 fn scan_sizes_and_supplemental_space_survive_restart_without_changing_receipts() {
     let mut f = Fixture::new();
     let run = f.begin();

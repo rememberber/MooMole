@@ -75,7 +75,7 @@ pub(crate) fn acknowledge(
     let version: u32 = db
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .map_err(|e| e.to_string())?;
-    if version != 7 || sync < 2 || at < 0 {
+    if version != 8 || sync < 2 || at < 0 {
         return Err("人工核查需要可靠的时间和 SQLite FULL 同步模式。".into());
     }
     let transaction = db

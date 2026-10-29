@@ -135,6 +135,7 @@ fn memory() -> Result<Connection, String> {
     ] {
         db.execute_batch(schema).map_err(err)?;
     }
+    crate::execution_schema::upgrade(&db)?;
     Ok(db)
 }
 fn ids(db: &Connection, table: &str) -> Result<Vec<String>, String> {
@@ -511,8 +512,8 @@ fn archive_with(
     let fk: bool = db
         .pragma_query_value(None, "foreign_keys", |r| r.get(0))
         .map_err(err)?;
-    if sync < 2 || version != 7 || !fk || at < 0 {
-        return Err("归档需要 v7、外键和 FULL 同步模式。".into());
+    if sync < 2 || version != 8 || !fk || at < 0 {
+        return Err("归档需要 v8、外键和 FULL 同步模式。".into());
     }
     let t = db
         .transaction_with_behavior(TransactionBehavior::Immediate)

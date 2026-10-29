@@ -110,7 +110,7 @@ fn copied_v6_snapshot_preserves_all_execution_facts_and_original_backup() {
         migrated
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(hashes(&migrated), expected);
     assert_eq!(migrated.query_row::<i64,_,_>("SELECT (SELECT count(*) FROM execution_reviews)+(SELECT count(*) FROM uninstall_reviews)",[],|r|r.get(0)).unwrap(),0);
@@ -122,7 +122,7 @@ fn copied_v6_snapshot_preserves_all_execution_facts_and_original_backup() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .collect::<Vec<_>>();
     assert_eq!(backups.len(), 1);
@@ -139,5 +139,5 @@ fn copied_v6_snapshot_preserves_all_execution_facts_and_original_backup() {
         Sha256::digest(std::fs::read(&source).unwrap()),
         Sha256::digest(&bytes)
     );
-    println!("Owned snapshot SHA-256 {:x}; v6 -> v7 and restart preserve ten table hashes; backup stays v6; source unchanged",Sha256::digest(bytes));
+    println!("Owned snapshot SHA-256 {:x}; v6 -> v8 and restart preserve ten table hashes; backup stays v6; source unchanged",Sha256::digest(bytes));
 }

@@ -29,6 +29,7 @@ mod execution_location;
 mod execution_review;
 #[cfg(test)]
 mod execution_sandbox;
+mod execution_schema;
 mod impact;
 mod installers;
 mod instance;

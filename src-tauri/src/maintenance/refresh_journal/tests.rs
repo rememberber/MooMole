@@ -455,7 +455,7 @@ fn v4_schema_conflict_rolls_back_new_tables_and_preserves_backup() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -566,7 +566,7 @@ fn v5_wal_backup_precedes_review_upgrade_and_intent_reconciliation() {
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         detail(&upgraded, s.id()).unwrap().items[0].state,
@@ -579,7 +579,7 @@ fn v5_wal_backup_precedes_review_upgrade_and_intent_reconciliation() {
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .unwrap();
     let old = Connection::open(backup).unwrap();
