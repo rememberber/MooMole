@@ -588,7 +588,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         execution::detail(&upgraded, &run).unwrap().items[0].state,
@@ -603,7 +603,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .to_str()
                 .unwrap()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .unwrap();
     let before = Connection::open(&backup).unwrap();
@@ -629,7 +629,7 @@ fn v3_wal_migration_backs_up_before_reconciling_old_cleanup_intent() {
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-"))
+                .starts_with("moomole-before-v8-"))
             .count(),
         1
     );
@@ -672,7 +672,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
         upgraded
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         detail(&upgraded, run.id()).unwrap().summary.item_state,
@@ -692,7 +692,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .collect();
     assert_eq!(backups.len(), 1);
@@ -718,7 +718,7 @@ fn v4_wal_backup_keeps_settings_and_uninstall_intent_before_maintenance_upgrade(
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-"))
+                .starts_with("moomole-before-v8-"))
             .count(),
         1
     );
@@ -817,7 +817,7 @@ fn v6_migration_preserves_uninstall_unknown_and_backs_up_original_without_review
     assert_eq!(
         f.db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         serde_json::to_value(detail(&f.db, session.id()).unwrap()).unwrap(),
@@ -830,7 +830,7 @@ fn v6_migration_preserves_uninstall_unknown_and_backs_up_original_without_review
             p.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("moomole-before-v7-")
+                .starts_with("moomole-before-v8-")
         })
         .collect::<Vec<_>>();
     assert_eq!(backups.len(), 1);

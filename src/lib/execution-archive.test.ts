@@ -29,8 +29,9 @@ describe('portable evidence boundaries', () => {
   it('accepts only a supported bounded header and scope, never a zero or malformed capacity', () => {
     expect(archiveHeader(header).counts.uninstall).toBe(1)
     expect(archiveHeader({ ...header, version: 2 }).counts.uninstall).toBe(1)
+    expect(archiveHeader({ ...header, version: 3 }).version).toBe(3)
     for (const patch of [
-      { version: 3 },
+      { version: 4 },
       { payloadBytes: 128 * 1024 * 1024 + 1 },
       { payloadBytes: 0 },
       { counts: { cleanup: 0, uninstall: 0, maintenance: 0 } },
@@ -83,5 +84,26 @@ describe('portable evidence boundaries', () => {
       { snapshotSha256: 'invalid' },
     ])
       expect(() => archiveDetail({ ...f.detail, ...patch }, entry)).toThrow()
+  })
+  it('reads distinct move records only in v3 archives', () => {
+    const summary = {
+      id: requestId,
+      planId: archiveId,
+      method: 'move',
+      state: 'completed',
+      createdAt: at,
+      finishedAt: at + 1,
+      itemCount: 1,
+      movedCount: 1,
+      uncertainCount: 0,
+      reviewedAt: null,
+    }
+    const raw = {
+      header: { ...header, version: 3, counts: { cleanup: 1, uninstall: 0, maintenance: 0 } },
+      entries: [{ kind: 'cleanup', id: requestId, summary }],
+    }
+    expect(archiveView(raw, archiveId).entries[0].summary).toEqual(summary)
+    for (const version of [1, 2])
+      expect(() => archiveView({ ...raw, header: { ...raw.header, version } }, archiveId)).toThrow()
   })
 })

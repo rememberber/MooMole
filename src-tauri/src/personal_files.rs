@@ -9,6 +9,7 @@ use std::{
 };
 
 pub(crate) mod commands;
+mod movement;
 mod scan;
 mod writer;
 pub(crate) const MODULE: &str = "personalFiles";
@@ -73,6 +74,8 @@ pub(crate) struct Plan {
     pub created_at: i64,
     pub expires_at: i64,
     pub items: Vec<Item>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub movement: Option<movement::Movement>,
 }
 impl Plan {
     pub(crate) fn validate_record(&self) -> Result<(), String> {
@@ -80,7 +83,12 @@ impl Plan {
         let mut paths = HashSet::new();
         if self.module != MODULE
             || self.protocol != 1
-            || self.revision != REVISION
+            || self.revision
+                != if self.movement.is_some() {
+                    movement::REVISION
+                } else {
+                    REVISION
+                }
             || uuid::Uuid::parse_str(&self.id).is_err()
             || uuid::Uuid::parse_str(&self.scan_id).is_err()
             || self.created_at < 0
@@ -106,6 +114,9 @@ impl Plan {
         {
             return Err("个人文件计划无法核对，请重新扫描。".into());
         }
+        if let Some(movement) = &self.movement {
+            movement.validate_record(&self.items)?;
+        }
         Ok(())
     }
 }
@@ -122,6 +133,8 @@ pub(crate) struct Confirmation {
     created_at: i64,
     expires_at: i64,
     items: Vec<FileRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    movement: Option<movement::Confirmation>,
 }
 #[derive(Default)]
 pub(crate) struct Store {
@@ -190,6 +203,7 @@ impl Store {
             created_at: now,
             expires_at: scan.expires_at,
             items,
+            movement: None,
         };
         plan.validate_record()?;
         let confirmation = Confirmation {
@@ -198,6 +212,7 @@ impl Store {
             created_at: now,
             expires_at,
             items: plan.items.iter().map(row).collect(),
+            movement: None,
         };
         self.offers.insert(
             id,
@@ -221,6 +236,24 @@ impl Store {
             return Err("个人文件确认已过期，请重新检查。".into());
         }
         Ok(offered.plan)
+    }
+    fn offer_move(
+        &mut self,
+        ids: &[String],
+        directory: &str,
+        conflict: movement::Conflict,
+        settings: &crate::db::Settings,
+        now: i64,
+    ) -> Result<Confirmation, String> {
+        let mut confirmation = self.offer(ids, now)?;
+        let mut offered = self.offers.remove(&confirmation.id).ok_or("确认已撤销。")?;
+        let movement = movement::prepare(&offered.plan.items, directory, conflict, settings)?;
+        confirmation.movement = Some(movement.confirmation());
+        offered.plan.movement = Some(movement);
+        offered.plan.revision = movement::REVISION.into();
+        offered.plan.validate_record()?;
+        self.offers.insert(confirmation.id.clone(), offered);
+        Ok(confirmation)
     }
 }
 fn row(item: &Item) -> FileRow {

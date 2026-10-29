@@ -865,6 +865,7 @@ fn start_task(
             | TaskKind::AiScan
             | TaskKind::PersonalScan
             | TaskKind::PersonalTrash
+            | TaskKind::PersonalMove
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -892,7 +893,10 @@ fn start_task(
             job.kind == kind
                 || matches!(
                     job.kind,
-                    TaskKind::AiScan | TaskKind::PersonalScan | TaskKind::PersonalTrash
+                    TaskKind::AiScan
+                        | TaskKind::PersonalScan
+                        | TaskKind::PersonalTrash
+                        | TaskKind::PersonalMove
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -1779,8 +1783,10 @@ fn cancel_log_cleanup(run_id: String, state: tauri::State<'_, AppState>) -> Resu
     // LogTrash job alone: a late click must not cancel a newer batch.
     let jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     for job in jobs.values() {
-        if matches!(job.kind, TaskKind::LogTrash | TaskKind::PersonalTrash)
-            && job.cancel_execution(&run_id)
+        if matches!(
+            job.kind,
+            TaskKind::LogTrash | TaskKind::PersonalTrash | TaskKind::PersonalMove
+        ) && job.cancel_execution(&run_id)
         {
             return Ok(());
         }
@@ -2310,8 +2316,10 @@ pub fn run() {
             personal_files::commands::get_personal_files,
             personal_files::commands::start_personal_scan,
             personal_files::commands::prepare_personal_trash,
+            personal_files::commands::prepare_personal_move,
             personal_files::commands::discard_personal_trash,
             personal_files::commands::execute_personal_trash,
+            personal_files::commands::execute_personal_move,
             ai_scan::detect_ai_agents,
             ai_scan::ai_scan_skill,
             ai_scan::start_ai_scan,

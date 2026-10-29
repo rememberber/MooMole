@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 export function ExecutionReview({
   reviewedAt,
   onAcknowledge,
+  method = 'trash',
 }: {
   reviewedAt: number | null
   onAcknowledge: () => Promise<void>
+  method?: string
 }) {
   const [confirmed, setConfirmed] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -37,8 +39,14 @@ export function ExecutionReview({
   return (
     <div className="execution-review">
       <p className="notice warning">
-        请先在 Finder
-        核对原对象、废纸篓和逐项结果。不要按原路径重复执行或覆盖已有对象；核查只记录确认，不代表操作成功或已恢复。
+        {method === 'move' ? (
+          '请先在 Finder 核对源文件、确认目标与逐项结果。不要按原路径重复移动或覆盖已有对象；核查只记录确认，不代表操作成功或已恢复。'
+        ) : (
+          <>
+            请先在 Finder
+            核对原对象、废纸篓和逐项结果。不要按原路径重复执行或覆盖已有对象；核查只记录确认，不代表操作成功或已恢复。
+          </>
+        )}
       </p>
       <label className="uninstall-ack">
         <input
@@ -47,7 +55,9 @@ export function ExecutionReview({
           disabled={saving}
           onChange={(event) => setConfirmed(event.target.checked)}
         />
-        我已核查原对象、废纸篓和逐项结果，了解未知结果保持且不会自动重试。
+        {method === 'move'
+          ? '我已核查源文件、确认目标与逐项结果，了解未知结果保持且不会自动重试。'
+          : '我已核查原对象、废纸篓和逐项结果，了解未知结果保持且不会自动重试。'}
       </label>
       <button
         className="button secondary"

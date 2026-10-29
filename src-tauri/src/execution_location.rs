@@ -93,8 +93,8 @@ pub(crate) struct Location {
 }
 impl Location {
     pub fn prepare(detail: &execution::Detail, item_id: &str) -> Result<Self, String> {
-        if detail.summary.method != "trash" {
-            return Err("此记录不是废纸篓处理，无法定位。".into());
+        if !matches!(detail.summary.method.as_str(), "trash" | "move") {
+            return Err("此记录的处理方式尚不支持定位。".into());
         }
         let item = detail
             .items

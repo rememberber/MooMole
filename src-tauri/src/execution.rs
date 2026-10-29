@@ -90,6 +90,7 @@ pub struct Item {
     pub reason: String,
     pub receipt: Option<Receipt>,
     pub scan_size_bytes: Option<u64>,
+    pub target_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -120,12 +121,14 @@ struct SavedItem {
     id: String,
     path: String,
     size: Option<u64>,
+    target_path: Option<String>,
 }
 struct SavedPlan {
     id: String,
     revision: String,
     protocol: u64,
     origin: &'static str,
+    method: &'static str,
     items: Vec<SavedItem>,
 }
 impl From<&Plan> for SavedPlan {
@@ -135,6 +138,7 @@ impl From<&Plan> for SavedPlan {
             revision: plan.revision.clone(),
             protocol: plan.protocol,
             origin: "mole",
+            method: "trash",
             items: plan
                 .items
                 .iter()
@@ -142,6 +146,7 @@ impl From<&Plan> for SavedPlan {
                     id: i.candidate.id.clone(),
                     path: i.candidate.path.clone(),
                     size: i.candidate.size,
+                    target_path: None,
                 })
                 .collect(),
         }
@@ -154,6 +159,11 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
             revision: plan.revision.clone(),
             protocol: plan.protocol,
             origin: crate::personal_files::MODULE,
+            method: if plan.movement.is_some() {
+                "move"
+            } else {
+                "trash"
+            },
             items: plan
                 .items
                 .iter()
@@ -161,6 +171,11 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
                     id: i.id.clone(),
                     path: i.path.clone(),
                     size: Some(i.size),
+                    target_path: plan
+                        .movement
+                        .as_ref()
+                        .and_then(|m| m.targets.iter().find(|t| t.id == i.id))
+                        .and_then(|t| t.destination.clone()),
                 })
                 .collect(),
         }
@@ -310,8 +325,8 @@ fn begin_saved(
     let id = uuid::Uuid::new_v4().to_string();
     let digest = format!("{:x}", Sha256::digest(body.as_bytes()));
     tx.execute(
-        "INSERT INTO execution_runs VALUES (?1,?2,'trash','running',?3,NULL,?4,?5,?6)",
-        params![id, plan.id, at, body, digest, reserved],
+        "INSERT INTO execution_runs VALUES (?1,?2,?7,'running',?3,NULL,?4,?5,?6)",
+        params![id, plan.id, at, body, digest, reserved, plan.method],
     )
     .map_err(sql)?;
     for (ordinal, item) in plan.items.iter().enumerate() {
@@ -623,11 +638,13 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
                 reason,
                 receipt: decode_receipt(receipt)?,
                 scan_size_bytes: None,
+                target_path: None,
             })
         })
         .collect::<Result<Vec<_>, String>>()?
     };
     if plan.id != summary.plan_id
+        || plan.method != summary.method
         || items.len() != plan.items.len()
         || items
             .iter()
@@ -638,6 +655,15 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
     }
     for (item, expected) in items.iter_mut().zip(&plan.items) {
         item.scan_size_bytes = expected.size.filter(|size| *size <= 9_007_199_254_740_991);
+        item.target_path = expected.target_path.clone();
+        if plan.method == "move"
+            && item
+                .receipt
+                .as_ref()
+                .is_some_and(|r| Some(&r.destination) != expected.target_path.as_ref())
+        {
+            return Err("移动收据与确认目标不一致，保留原始记录供核查。".into());
+        }
     }
     let events = {
         let mut s = db.prepare("SELECT item_id,state,created_at,reason,receipt FROM execution_events WHERE run_id=?1 ORDER BY seq").map_err(sql)?;

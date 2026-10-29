@@ -15,6 +15,7 @@ import {
 export type ArchiveKind = 'cleanup' | 'uninstall' | 'maintenance'
 export type ArchiveCounts = { cleanup: number; uninstall: number; maintenance: number }
 export type ArchiveHeader = {
+  version: 1 | 2 | 3
   id: string
   createdAt: number
   counts: ArchiveCounts
@@ -75,12 +76,13 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    ![1, 2].includes(v.version as number) ||
+    ![1, 2, 3].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )
     fail()
   return {
+    version: v.version as ArchiveHeader['version'],
     id: id(v.id),
     createdAt: integer(v.createdAt),
     counts: counts(v.counts),
@@ -109,7 +111,7 @@ export function archiveList(raw: unknown): {
 function cleanupSummary(raw: unknown): ExecutionSummary {
   const v = object(raw)
   if (
-    v.method !== 'trash' ||
+    !['trash', 'move'].includes(String(v.method)) ||
     !['completed', 'partial', 'noChanges', 'cancelled', 'interrupted'].includes(String(v.state))
   )
     fail()
@@ -140,6 +142,13 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
         : kind === 'uninstall'
           ? parseUninstallSummary(row.summary)
           : readRefreshSummary(row.summary)
+    if (
+      kind === 'cleanup' &&
+      'method' in summary &&
+      summary.method === 'move' &&
+      header.version < 3
+    )
+      fail()
     if (
       summary.id !== id(row.id) ||
       summary.state === 'running' ||
@@ -184,20 +193,22 @@ export const archiveKindName: Record<ArchiveKind, string> = {
   uninstall: '卸载',
   maintenance: '维护',
 }
-export const archiveStateName = (state: string) =>
-  ({
-    completed: '已完成',
-    partial: '部分完成',
-    noChanges: '未作修改',
-    cancelled: '已取消',
-    interrupted: '已中断',
-    needsReview: '结果待核实',
-    moved: '已移入废纸篓',
-    uncertain: '结果待核实',
-    commandSucceeded: '命令完成',
-    notStarted: '未开始',
-    failed: '失败，未作修改',
-    skipped: '已保留',
-    pending: '未开始',
-    intent: '等待完成证据',
-  })[state] ?? '状态待核实'
+export const archiveStateName = (state: string, method?: string) =>
+  method === 'move' && state === 'moved'
+    ? '已移动到目标目录'
+    : ({
+        completed: '已完成',
+        partial: '部分完成',
+        noChanges: '未作修改',
+        cancelled: '已取消',
+        interrupted: '已中断',
+        needsReview: '结果待核实',
+        moved: '已移入废纸篓',
+        uncertain: '结果待核实',
+        commandSucceeded: '命令完成',
+        notStarted: '未开始',
+        failed: '失败，未作修改',
+        skipped: '已保留',
+        pending: '未开始',
+        intent: '等待完成证据',
+      }[state] ?? '状态待核实')

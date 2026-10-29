@@ -6,6 +6,7 @@ import {
   readPersonalSnapshot,
   type PersonalSnapshot,
   type PersonalTransport,
+  type PersonalMovement,
 } from './personal-files'
 import type { ExecutionDetail } from '../types'
 
@@ -101,11 +102,11 @@ export function usePersonalFiles(
       setStarting(false)
     }
   }
-  async function prepare(ids: string[]) {
+  async function prepare(ids: string[], movement?: PersonalMovement) {
     const report = snapshot.report
     if (!report || running) throw Error('请等待扫描结束后重新选择。')
-    const raw = await transport.prepare(report.id, ids)
-    return readPersonalConfirmation(raw, report, ids, Date.now())
+    const raw = await transport.prepare(report.id, ids, movement)
+    return readPersonalConfirmation(raw, report, ids, Date.now(), movement)
   }
   async function cancel() {
     if (!snapshot.requestId || stopping) return
@@ -128,8 +129,8 @@ export function usePersonalFiles(
     stopping,
     error: error || trackingError || snapshot.error || '',
     start: () => dispatch('scanning', (id) => transport.start(root.trim(), id)),
-    execute: (confirmationId: string) =>
-      dispatch('processing', (id) => transport.execute(confirmationId, id)),
+    execute: (confirmationId: string, moving = false) =>
+      dispatch('processing', (id) => transport.execute(confirmationId, id, moving)),
     prepare,
     discard: transport.discard,
     cancel,

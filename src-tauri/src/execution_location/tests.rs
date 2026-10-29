@@ -49,6 +49,7 @@ impl Fixture {
                     device: m.dev(),
                     inode: m.ino(),
                 }),
+                target_path: None,
                 scan_size_bytes: None,
             }],
             events: vec![],

@@ -49,9 +49,39 @@ fn validate(item: &Item, plan: &Plan, settings: &db::Settings, now: i64) -> Resu
     {
         return Err("个人文件的身份、内容或本地状态已变化，请重新扫描。".into());
     }
+    if let Some(movement) = &plan.movement {
+        movement.validate_directory(settings)?;
+        if movement
+            .targets
+            .iter()
+            .find(|t| t.id == item.id)
+            .and_then(|t| t.destination.as_ref())
+            .is_some_and(|p| protected(Path::new(p), &settings.protected_paths).unwrap_or(true))
+        {
+            return Err("移动目标已受保护，本项保留。".into());
+        }
+    }
     Ok(())
 }
 use std::os::unix::fs::MetadataExt;
+
+enum PreparedMutation {
+    Trash(crate::cleanup_target::PreparedFile),
+    Move(movement::Prepared),
+}
+impl PreparedMutation {
+    fn perform(
+        self,
+        gate: impl FnOnce() -> Result<(), String>,
+    ) -> Result<(execution::Outcome, String), String> {
+        match self {
+            Self::Trash(target) => target
+                .move_to_trash_checked(gate)
+                .map(|v| (v.outcome, v.reason)),
+            Self::Move(target) => target.move_checked(gate),
+        }
+    }
+}
 
 pub(super) async fn run(
     state: crate::AppState,
@@ -110,6 +140,21 @@ where
             if began.elapsed() > Duration::from_secs(120) {
                 return Err("个人文件处理超时，请在历史中核对已完成项目。".into());
             }
+            if plan.movement.as_ref().is_some_and(|m| {
+                m.targets
+                    .iter()
+                    .find(|t| t.id == item.id)
+                    .is_none_or(|t| t.destination.is_none())
+            }) {
+                execution::skip(
+                    &mut *database.lock().map_err(|e| e.to_string())?,
+                    &run,
+                    &item.id,
+                    "目标已有同名项目或文件已在目标目录；按确认计划保留源文件。",
+                    db::now(),
+                )?;
+                continue;
+            }
             let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
             let preliminary =
                 validate(item, &plan, &settings, db::now()).and_then(|_| policy_stamp(&home));
@@ -128,7 +173,20 @@ where
             };
             // Only path-level Mole protection is applicable to manual personal
             // selection. Cache module/activity eligibility is never fabricated.
-            let requested = vec![(item.id.clone(), item.path.clone(), "unsupported".into())];
+            let mut requested = vec![(item.id.clone(), item.path.clone(), "unsupported".into())];
+            if let Some(target) = plan
+                .movement
+                .as_ref()
+                .and_then(|m| m.targets.iter().find(|t| t.id == item.id))
+                .and_then(|t| t.destination.as_ref())
+            {
+                requested.push((
+                    format!("{}-destination", item.id),
+                    target.clone(),
+                    "unsupported".into(),
+                ));
+            }
+            let expected_ids: Vec<_> = requested.iter().map(|r| r.0.clone()).collect();
             let mut checks = check(requested.clone(), job.clone()).await;
             if job.cancelled.load(Ordering::SeqCst) {
                 break;
@@ -148,9 +206,15 @@ where
                 break;
             }
             let rule = checks.and_then(|mut values| {
-                values
-                    .remove(&item.id)
-                    .ok_or("缺少本项路径保护结果。".into())
+                let mut result = None;
+                for id in &expected_ids {
+                    let rule = values.remove(id).ok_or("缺少源或目标路径保护结果。")?;
+                    if rule.code != "passed" {
+                        return Ok(rule);
+                    }
+                    result = Some(rule);
+                }
+                result.ok_or("缺少本项路径保护结果。".into())
             });
             let rule = match rule {
                 Ok(rule) if rule.code == "passed" => rule,
@@ -183,7 +247,7 @@ where
             let bound_run = run.clone();
             let control = job.clone();
             let unknown = tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
-                let prepare = || {
+                let prepare = || -> Result<PreparedMutation, String> {
                     if began.elapsed() > Duration::from_secs(120) {
                         return Err("本批个人文件处理已超时，本项保留。".into());
                     }
@@ -192,7 +256,22 @@ where
                     if policy_stamp(&own_home)? != stamp {
                         return Err("Mole 保护配置已变化，请重新检查。".into());
                     }
-                    crate::cleanup_target::PreparedFile::prepare(&one.target())
+                    match &saved.movement {
+                        Some(m) => {
+                            let target = m
+                                .targets
+                                .iter()
+                                .find(|t| t.id == one.id)
+                                .and_then(|t| t.destination.as_ref())
+                                .ok_or("移动目标缺失。")?;
+                            Ok(PreparedMutation::Move(movement::Prepared::new(
+                                &one, m, target, &settings,
+                            )?))
+                        }
+                        None => Ok(PreparedMutation::Trash(
+                            crate::cleanup_target::PreparedFile::prepare(&one.target())?,
+                        )),
+                    }
                 };
                 if control.cancelled.load(Ordering::SeqCst) {
                     return Ok(false);
@@ -219,7 +298,7 @@ where
                     &one.id,
                     db::now(),
                 )?;
-                let attempt = target.move_to_trash_checked(|| {
+                let attempt = target.perform(|| {
                     if control.cancelled.load(Ordering::SeqCst) {
                         return Err("系统处理开始前已取消。".into());
                     }
@@ -231,7 +310,7 @@ where
                     Ok(())
                 });
                 let (outcome, reason) = match attempt {
-                    Ok(value) => (value.outcome, value.reason),
+                    Ok(value) => value,
                     Err(reason) => (execution::Outcome::Failed, reason),
                 };
                 let unknown = matches!(outcome, execution::Outcome::Uncertain(_));

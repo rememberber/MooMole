@@ -62,21 +62,28 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
       const result = () => {
         const state = read(),
           items = JSON.parse(sessionStorage.getItem('personal-selected') || '[]')
-        const terminal = state.phase === 'completed'
+        const movement = JSON.parse(sessionStorage.getItem('personal-movement') || 'null')
+        const interrupted = !!sessionStorage.getItem('personal-interrupted')
+        const terminal = state.phase === 'completed' || interrupted
         return {
           id: uuid(7),
           planId: uuid(6),
-          method: 'trash',
-          state: terminal
-            ? sessionStorage.getItem('personal-cancelled')
-              ? 'cancelled'
-              : 'completed'
-            : 'running',
+          method: movement ? 'move' : 'trash',
+          state: interrupted
+            ? 'interrupted'
+            : terminal
+              ? sessionStorage.getItem('personal-cancelled')
+                ? 'cancelled'
+                : 'completed'
+              : 'running',
           createdAt: now,
           finishedAt: terminal ? now + 1 : null,
           itemCount: items.length,
-          movedCount: terminal && !sessionStorage.getItem('personal-cancelled') ? items.length : 1,
-          uncertainCount: 0,
+          movedCount:
+            terminal && !interrupted && !sessionStorage.getItem('personal-cancelled')
+              ? items.length
+              : 1,
+          uncertainCount: interrupted ? 1 : 0,
           retainedForReview: true,
           reviewedAt: null,
           revision: 'MooMole.personal-files.v1',
@@ -89,21 +96,29 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
             id: item.id,
             path: item.path,
             scanSizeBytes: item.size,
+            targetPath:
+              movement?.targets.find((t: { id: string }) => t.id === item.id)?.destination ?? null,
             state:
-              index === 0 || (terminal && !sessionStorage.getItem('personal-cancelled'))
-                ? 'moved'
-                : terminal
-                  ? 'cancelled'
-                  : 'pending',
+              interrupted && index === 1
+                ? 'uncertain'
+                : index === 0 || (terminal && !sessionStorage.getItem('personal-cancelled'))
+                  ? 'moved'
+                  : terminal
+                    ? 'cancelled'
+                    : 'pending',
             reason: 'fixture result',
             receipt:
-              index === 0 || (terminal && !sessionStorage.getItem('personal-cancelled'))
-                ? {
-                    destination: `/Users/demo/.Trash/${item.path.split('/').at(-1)}`,
-                    device: '1',
-                    inode: String(index + 2),
-                  }
-                : null,
+              interrupted && index === 1
+                ? null
+                : index === 0 || (terminal && !sessionStorage.getItem('personal-cancelled'))
+                  ? {
+                      destination: movement
+                        ? movement.targets.find((t: { id: string }) => t.id === item.id).destination
+                        : `/Users/demo/.Trash/${item.path.split('/').at(-1)}`,
+                      device: '1',
+                      inode: String(index + 2),
+                    }
+                  : null,
           })),
         }
       }
@@ -156,6 +171,9 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
             }
             if (command === 'start_personal_scan') {
               if (args.root !== root) throw Error('unexpected root')
+              sessionStorage.removeItem('personal-movement')
+              sessionStorage.removeItem('personal-executed')
+              sessionStorage.removeItem('personal-cancelled')
               sessionStorage.setItem('personal-report', JSON.stringify(original))
               save({
                 phase: pendingScan ? 'scanning' : 'ready',
@@ -166,23 +184,40 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
               })
               return
             }
-            if (command === 'prepare_personal_trash') {
+            if (command === 'prepare_personal_trash' || command === 'prepare_personal_move') {
               const source = scan()
               if (args.scanId !== source.id) throw Error('wrong source scan')
               const ids = args.selectedIds as string[]
               const items = source.items.filter((item: { id: string }) => ids.includes(item.id))
               if (items.length !== ids.length || !items.length) throw Error('wrong exact IDs')
               sessionStorage.setItem('personal-selected', JSON.stringify(items))
+              const movement =
+                command === 'prepare_personal_move'
+                  ? {
+                      directory: args.destination,
+                      conflict: args.conflict,
+                      targets: items.map((item: { id: string; name: string }) => ({
+                        id: item.id,
+                        destination:
+                          item.name === 'old.zip' && args.conflict === 'skip'
+                            ? null
+                            : `${args.destination}/${item.name === 'old.zip' ? 'old (1).zip' : item.name}`,
+                      })),
+                    }
+                  : undefined
+              if (movement) sessionStorage.setItem('personal-movement', JSON.stringify(movement))
+              else sessionStorage.removeItem('personal-movement')
               return {
                 id: uuid(6),
                 root,
                 createdAt: Date.now(),
                 expiresAt: Date.now() + 30000,
                 items,
+                ...(movement ? { movement } : {}),
               }
             }
             if (command === 'discard_personal_trash') return
-            if (command === 'execute_personal_trash') {
+            if (command === 'execute_personal_trash' || command === 'execute_personal_move') {
               if (
                 args.confirmationId !== uuid(6) ||
                 args.personalFilesConfirmed !== true ||

@@ -7,10 +7,12 @@ export function ExecutionLocation({
   runId,
   itemId,
   onReveal,
+  method = 'trash',
 }: {
   runId: string
   itemId: string
   onReveal: RevealExecutionItem
+  method?: string
 }) {
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState('')
@@ -39,8 +41,9 @@ export function ExecutionLocation({
         {pending ? '正在核对位置…' : '在 Finder 中查看'}
       </button>
       <p className="muted">
-        需要取回时，先核对 Finder 的“放回原处”；若无此项，可拷贝确切文件，前往原目录后按 ⌥⌘V
-        移回。同名冲突请取消，勿覆盖已有文件。当前没有应用内恢复。
+        {method === 'move'
+          ? '需要取回时，在 Finder 核对确切文件与原位置，再手动移回。同名冲突请取消，勿覆盖已有文件。当前没有应用内恢复。'
+          : '需要取回时，先核对 Finder 的“放回原处”；若无此项，可拷贝确切文件，前往原目录后按 ⌥⌘V 移回。同名冲突请取消，勿覆盖已有文件。当前没有应用内恢复。'}
       </p>
       {message && <p role="status">{message}</p>}
       {error && (

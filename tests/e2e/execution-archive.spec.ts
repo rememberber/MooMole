@@ -22,7 +22,7 @@ test('archive requires exact scope and explicit confirmation, retires live capac
   await mount(page)
   await page.getByRole('button', { name: '检查当前执行记录' }).click()
   const confirm = page.getByRole('dialog', { name: '确认归档' })
-  await expect(confirm).toContainText('清理 1 批 · 卸载 1 批 · 维护 1 批')
+  await expect(confirm).toContainText('清理与移动 1 批 · 卸载 1 批 · 维护 1 批')
   await expect(confirm.getByRole('button', { name: '保存归档并释放容量' })).toBeDisabled()
   await expect.poll(async () => (await calls(page, 'prepare')).length).toBe(1)
   expect(await calls(page, 'archive')).toHaveLength(0)
@@ -59,7 +59,7 @@ test('opening an existing archive is read-only and rejects mismatched archive id
 }) => {
   const d = await mount(page, 'existing')
   await d.getByRole('button', { name: '只读查看' }).click()
-  await expect(d).toContainText('清理 1 批 · 卸载 1 批 · 维护 1 批')
+  await expect(d).toContainText('清理与移动 1 批 · 卸载 1 批 · 维护 1 批')
   await expect(d.getByRole('button', { name: /查看记录/ })).toHaveCount(3)
   await expect(d.getByRole('alert')).toHaveCount(0)
   expect(await calls(page, 'prepare')).toHaveLength(0)

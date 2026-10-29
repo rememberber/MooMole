@@ -31,6 +31,7 @@ pub enum TaskKind {
     AiScan,
     PersonalScan,
     PersonalTrash,
+    PersonalMove,
 }
 
 impl TaskKind {
@@ -51,6 +52,7 @@ impl TaskKind {
             Self::AiScan => "aiscan",
             Self::PersonalScan => "personalscan",
             Self::PersonalTrash => "personaltrash",
+            Self::PersonalMove => "personalmove",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -63,6 +65,7 @@ impl TaskKind {
                 | Self::AiScan
                 | Self::PersonalScan
                 | Self::PersonalTrash
+                | Self::PersonalMove
         )
     }
 }
@@ -97,6 +100,7 @@ impl Job {
                 | TaskKind::AppTrash
                 | TaskKind::MaintenanceRefresh
                 | TaskKind::PersonalTrash
+                | TaskKind::PersonalMove
         ) {
             return Err("此任务不能绑定修改执行批次。".into());
         }
@@ -381,7 +385,8 @@ async fn run_kind(
         | TaskKind::VisibilityProbe
         | TaskKind::AiScan
         | TaskKind::PersonalScan
-        | TaskKind::PersonalTrash => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::PersonalTrash
+        | TaskKind::PersonalMove => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -442,7 +447,8 @@ async fn run_kind(
         | TaskKind::VisibilityProbe
         | TaskKind::AiScan
         | TaskKind::PersonalScan
-        | TaskKind::PersonalTrash => false,
+        | TaskKind::PersonalTrash
+        | TaskKind::PersonalMove => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

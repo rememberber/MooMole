@@ -6385,5 +6385,147 @@
     "The scan expired or the target folder changed. Scan again before selecting files.",
     "スキャンが期限切れ、または対象フォルダが変わりました。再スキャンしてから選択してください。"
   ],
-  ["文件整理", "Files", "ファイル整理"]
+  ["文件整理", "Files", "ファイル整理"],
+  ["文件移动大小", "File move size", "移動するファイルのサイズ"],
+  ["确认移动大小", "Confirmed moved size", "移動確認済みサイズ"],
+  [
+    "大小沿用扫描时的估算。同卷移动改变文件位置，不计为空间释放；取消不会移回已经完成的项目。",
+    "Sizes use scan estimates. Moving within a volume changes location without freeing space. Canceling does not move completed items back.",
+    "サイズはスキャン時の推定値です。同一ボリューム内の移動では空き容量は増えません。キャンセルしても移動済みの項目は戻りません。"
+  ],
+  ["全部移动完成", "All moves completed", "すべて移動完了"],
+  ["已移动到目标目录", "Moved to destination", "移動先に移動済み"],
+  [
+    "取消与中断不会移回已经完成的项目。同卷移动不会释放空间。",
+    "Canceling or interruption does not move completed items back. Moving within a volume does not free space.",
+    "キャンセルや中断でも移動済みの項目は戻りません。同一ボリューム内の移動では空き容量は増えません。"
+  ],
+  ["移动到所选目录", "Move to selected folder", "選択したフォルダに移動"],
+  [
+    "需要取回时，在 Finder 核对确切文件与原位置，再手动移回。同名冲突请取消，勿覆盖已有文件。当前没有应用内恢复。",
+    "To retrieve a file, verify the exact file and original location in Finder, then move it back manually. Cancel name conflicts without overwriting. In-app restore is not available yet.",
+    "戻す場合は Finder で対象ファイルと元の場所を確認し、手動で移動してください。同名のファイルがあれば上書きせずキャンセルしてください。アプリ内での復元は現在未対応です。"
+  ],
+  ["移动到目录…", "Move to folder…", "フォルダに移動…"],
+  ["移动到", "Move to", "移動先"],
+  ["个人文件移动目标", "Personal file destination", "個人ファイルの移動先"],
+  [
+    "选择目标目录后审阅移动计划",
+    "Choose a destination to review the moves",
+    "移動先を選択して移動内容を確認"
+  ],
+  ["选择个人文件移动目标", "Choose a destination for personal files", "個人ファイルの移動先を選択"],
+  ["选择目标目录", "Choose destination", "移動先を選択"],
+  ["移动重名处理", "Move name conflicts", "移動時の同名処理"],
+  ["重名时跳过", "Skip name conflicts", "同名の場合はスキップ"],
+  ["保留两份并编号", "Keep both with numbered names", "両方を残して連番を付ける"],
+  [
+    "请选择同一磁盘卷的目录；跨卷移动暂不可用。目标被占用时不覆盖、不重新编号。",
+    "Choose a folder on the same disk volume. Cross-volume moves are not available yet. Occupied destinations are never overwritten or renumbered during execution.",
+    "同じディスクボリューム内のフォルダを選択してください。別ボリュームへの移動は現在未対応です。実行時に移動先が使われていても、上書きや再採番はしません。"
+  ],
+  [
+    "只移动到下面确认的位置，不覆盖文件。重名时{0}；确认后若名称被占用，本项失败并保留源文件。取消不会撤销已移动项。当前可从历史定位后在 Finder 手动移回，应用内恢复尚不可用。",
+    "Move only to the destinations below without overwriting. For name conflicts: {0}. If a destination becomes occupied after confirmation, the item fails and its source stays. Canceling does not undo completed moves. Use history to locate files in Finder and move them back manually; in-app restore is not available yet.",
+    "以下の確認した場所にのみ移動し、上書きしません。同名の場合：{0}。確認後に移動先が使われた場合、その項目は失敗し元のファイルを残します。キャンセルしても移動済みの項目は戻りません。履歴から Finder で場所を確認して手動で戻せます。アプリ内での復元は現在未対応です。"
+  ],
+  [
+    "只移动到下面确认的位置，不覆盖文件。重名时",
+    "Move only to the destinations below without overwriting. For name conflicts: ",
+    "以下の確認した場所にのみ移動し、上書きしません。同名の場合："
+  ],
+  ["跳过", "Skip", "スキップ"],
+  [
+    "；确认后若名称被占用，本项失败并保留源文件。取消不会撤销已移动项。当前可从历史定位后在 Finder 手动移回，应用内恢复尚不可用。",
+    ". If a destination becomes occupied after confirmation, the item fails and its source stays. Canceling does not undo completed moves. Locate files through history and move them back in Finder; in-app restore is not available yet.",
+    "。確認後に移動先が使われた場合は失敗とし元のファイルを残します。キャンセルしても移動済みの項目は戻りません。履歴から Finder で場所を確認し手動で戻せます。アプリ内での復元は現在未対応です。"
+  ],
+  [
+    "跳过：目标重名或已在目标目录",
+    "Skip: name conflict or already in destination",
+    "スキップ：同名あり、または移動先に配置済み"
+  ],
+  [
+    "我已核对源文件、目标路径和重名处理，并了解占用与恢复边界。",
+    "I reviewed the source files, destinations and name conflicts, and understand the limitations on open files and recovery.",
+    "元のファイル、移動先、同名処理を確認し、使用中のファイルと復元の制限を理解しました。"
+  ],
+  ["确认移动文件", "Confirm file moves", "ファイルの移動を確定"],
+  ["文件移动", "File moves", "ファイル移動"],
+  ["文件移动状态", "File move status", "ファイル移動の状態"],
+  ["文件移动状态待确认", "File move status unconfirmed", "ファイル移動の状態は未確認"],
+  ["文件移动进行中", "Moving files", "ファイルを移動中"],
+  [
+    "移动结果逐项保存在历史中。停止后续项目不会移回已经完成的文件；离开页面后可从历史继续查看。",
+    "Move results are saved per item in history. Stopping does not move completed files back. You can leave this page and follow the results in history.",
+    "移動結果は項目ごとに履歴に保存されます。停止しても移動済みのファイルは戻りません。このページを離れても履歴で結果を確認できます。"
+  ],
+  [
+    "{0} · {1} {2} 项 · 待核实 {3} 项{4}",
+    "{0} · {1} {2} items · {3} to verify{4}",
+    "{0} · {1} {2} 項目 · 要確認 {3} 項目{4}"
+  ],
+  ["已移动", "Moved", "移動済み"],
+  [
+    "{0} · {1} {2} / {3} 项 · 待核实 {4} 项",
+    "{0} · {1} {2} / {3} items · {4} to verify",
+    "{0} · {1} {2} / {3} 項目 · 要確認 {4} 項目"
+  ],
+  ["来源修订 / 协议", "Source revision / protocol", "ソースリビジョン / プロトコル"],
+  [
+    "{0} {1} / {2} 项 · 待核实 {3} 项",
+    "{0} {1} / {2} items · {3} to verify",
+    "{0} {1} / {2} 項目 · 要確認 {3} 項目"
+  ],
+  ["本项尚未确认移动", "Move not confirmed for this item", "この項目の移動は未確認"],
+  [
+    "清理与移动 {0} 批 · 卸载 {1} 批 · 维护 {2} 批",
+    "Cleanup and moves: {0} · Uninstall: {1} · Maintenance: {2}",
+    "クリーンアップ・移動 {0} 件 · アンインストール {1} 件 · メンテナンス {2} 件"
+  ],
+  [
+    "文件处理中断与待核实结果",
+    "Interrupted file operations and results to verify",
+    "中断したファイル操作と要確認の結果"
+  ],
+  [
+    "有 {0} 项文件处理结果待核实",
+    "{0} file operation results need verification",
+    "{0} 件のファイル操作結果を確認してください"
+  ],
+  [
+    "有 {0} 个文件处理批次中断",
+    "{0} file operation batches were interrupted",
+    "{0} 件のファイル操作バッチが中断されました"
+  ],
+  [
+    "{0}已完成的结果会保留，未开始的项目不会自动继续。{1}",
+    "{0} Completed results are retained; items not started will not resume automatically. {1}",
+    "{0} 完了した結果は保持され、未開始の項目は自動再開しません。{1}"
+  ],
+  [
+    "涉及 {0} 个批次，已记录移动 {1} 项、移入废纸篓 {2} 项。",
+    "Across {0} batches, {1} moves and {2} items moved to Trash are recorded.",
+    "{0} 件のバッチで、移動 {1} 項目、ゴミ箱への移動 {2} 項目が記録されています。"
+  ],
+  [
+    "涉及 {0} 个批次，已记录移入废纸篓 {1} 项。",
+    "Across {0} batches, {1} items moved to Trash are recorded.",
+    "{0} 件のバッチで、ゴミ箱への移動 {1} 項目が記録されています。"
+  ],
+  [
+    "已完成的结果会保留，未开始的项目不会自动继续。",
+    "Completed results are retained; items not started will not resume automatically.",
+    "完了した結果は保持され、未開始の項目は自動再開しません。"
+  ],
+  [
+    "请先在 Finder 核对源文件、确认目标与逐项结果。不要按原路径重复移动或覆盖已有对象；核查只记录确认，不代表操作成功或已恢复。",
+    "First verify the source files, confirmed destinations and item results in Finder. Do not repeat moves at their original paths or overwrite existing objects. Verification records acknowledgement only; it does not prove success or restoration.",
+    "まず Finder で元のファイル、確認した移動先、項目ごとの結果を確認してください。元のパスで移動を繰り返したり、既存の項目を上書きしたりしないでください。確認の記録は成功や復元を証明しません。"
+  ],
+  [
+    "我已核查源文件、确认目标与逐项结果，了解未知结果保持且不会自动重试。",
+    "I verified the source files, confirmed destinations and item results, and understand that unknown results remain unknown without automatic retries.",
+    "元のファイル、確認した移動先、項目ごとの結果を確認し、不明な結果は不明なまま保持され自動再試行しないことを理解しました。"
+  ]
 ]

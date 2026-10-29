@@ -34,23 +34,40 @@ export interface PersonalConfirmation {
   createdAt: number
   expiresAt: number
   items: PersonalFile[]
+  movement?: PersonalMovement & { targets: { id: string; destination: string | null }[] }
+}
+export interface PersonalMovement {
+  directory: string
+  conflict: 'skip' | 'keepBoth'
 }
 export interface PersonalTransport {
   read: () => Promise<unknown>
   start: (root: string, requestId: string) => Promise<void>
-  prepare: (scanId: string, selectedIds: string[]) => Promise<unknown>
+  prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
   discard: (confirmationId: string) => Promise<void>
-  execute: (confirmationId: string, requestId: string) => Promise<void>
+  execute: (confirmationId: string, requestId: string, moving?: boolean) => Promise<void>
   cancel: (requestId: string) => Promise<void>
   detail: (runId: string) => Promise<ExecutionDetail>
 }
 export const personalTransport: PersonalTransport = {
   read: () => invoke('get_personal_files'),
   start: (root, requestId) => invoke('start_personal_scan', { root, requestId }),
-  prepare: (scanId, selectedIds) => invoke('prepare_personal_trash', { scanId, selectedIds }),
+  prepare: (scanId, selectedIds, movement) =>
+    movement
+      ? invoke('prepare_personal_move', {
+          scanId,
+          selectedIds,
+          destination: movement.directory,
+          conflict: movement.conflict,
+        })
+      : invoke('prepare_personal_trash', { scanId, selectedIds }),
   discard: (confirmationId) => invoke('discard_personal_trash', { confirmationId }),
-  execute: (confirmationId, requestId) =>
-    invoke('execute_personal_trash', { confirmationId, requestId, personalFilesConfirmed: true }),
+  execute: (confirmationId, requestId, moving = false) =>
+    invoke(moving ? 'execute_personal_move' : 'execute_personal_trash', {
+      confirmationId,
+      requestId,
+      personalFilesConfirmed: true,
+    }),
   cancel: (taskId) => invoke('cancel_task', { taskId }),
   detail: (runId) => invoke('get_execution', { runId }),
 }
@@ -146,6 +163,7 @@ export function readPersonalConfirmation(
   report: PersonalReport,
   selected: string[],
   now: number,
+  expectedMovement?: PersonalMovement,
 ): PersonalConfirmation {
   const v = object(raw),
     root = path(v.root),
@@ -174,7 +192,43 @@ export function readPersonalConfirmation(
     )
   )
     fail()
-  return { id: id(v.id), root, createdAt, expiresAt, items: rows }
+  let movement: PersonalConfirmation['movement']
+  if (expectedMovement) {
+    const m = object(v.movement),
+      directory = path(m.directory)
+    if (
+      directory !== expectedMovement.directory ||
+      m.conflict !== expectedMovement.conflict ||
+      !Array.isArray(m.targets) ||
+      m.targets.length !== rows.length
+    )
+      fail()
+    const targets = (m.targets as unknown[]).map((raw, index) => {
+      const t = object(raw),
+        destination = t.destination === null ? null : path(t.destination)
+      if (
+        id(t.id) !== rows[index].id ||
+        (destination !== null &&
+          (destination.slice(0, destination.lastIndexOf('/')) !== directory ||
+            destination === rows[index].path))
+      )
+        fail()
+      return { id: t.id as string, destination }
+    })
+    const paths = targets.flatMap((t) =>
+      t.destination === null ? [] : [t.destination.toLowerCase()],
+    )
+    if (new Set(paths).size !== paths.length) fail()
+    movement = { directory, conflict: m.conflict as PersonalMovement['conflict'], targets }
+  } else if (v.movement !== undefined) fail()
+  return {
+    id: id(v.id),
+    root,
+    createdAt,
+    expiresAt,
+    items: rows,
+    ...(movement ? { movement } : {}),
+  }
 }
 export function filterPersonalFiles(
   items: PersonalFile[],

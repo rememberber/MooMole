@@ -21,7 +21,7 @@ import {
 } from '../lib/execution-archive'
 const message = (e: unknown) => String(e).replace(/^Error: /, '')
 const scope = (v: ArchiveHeader['counts']) =>
-  `清理 ${v.cleanup} 批 · 卸载 ${v.uninstall} 批 · 维护 ${v.maintenance} 批`
+  `清理与移动 ${v.cleanup} 批 · 卸载 ${v.uninstall} 批 · 维护 ${v.maintenance} 批`
 export function ExecutionArchiveCenter({
   openSignal,
   enabled,
@@ -235,7 +235,12 @@ export function ExecutionArchiveCenter({
         ) : selected ? (
           <>
             <strong>
-              {archiveKindName[selected.kind]} · {archiveStateName(selected.summary.state)}
+              {selected.kind === 'cleanup' &&
+              'method' in selected.summary &&
+              selected.summary.method === 'move'
+                ? '文件移动'
+                : archiveKindName[selected.kind]}{' '}
+              · {archiveStateName(selected.summary.state)}
             </strong>
             {detail && (
               <>
@@ -257,11 +262,18 @@ export function ExecutionArchiveCenter({
                             : item.step === 'generators'
                               ? 'Quick Look 生成器列表'
                               : '缩略图缓存'}{' '}
-                          · {archiveStateName(item.state)}
+                          ·{' '}
+                          {archiveStateName(
+                            item.state,
+                            'method' in detail ? detail.method : undefined,
+                          )}
                         </strong>
                         <p>
                           {'step' in item ? refreshReason(item.reason, item.stop) : item.reason}
                         </p>
+                        {'targetPath' in item && item.targetPath && (
+                          <p className="mono full-path">→ {item.targetPath}</p>
+                        )}
                         {'receipt' in item && item.receipt && (
                           <p className="mono full-path">当时移入位置：{item.receipt.destination}</p>
                         )}
@@ -316,8 +328,10 @@ export function ExecutionArchiveCenter({
               >
                 <span>
                   <strong>
-                    {archiveKindName[e.kind]} ·{' '}
-                    {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
+                    {e.kind === 'cleanup' && 'method' in e.summary && e.summary.method === 'move'
+                      ? '文件移动'
+                      : archiveKindName[e.kind]}{' '}
+                    · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
                   </strong>
                   <small>
                     {archiveStateName(e.summary.state)}

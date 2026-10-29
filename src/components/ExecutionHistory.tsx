@@ -26,7 +26,12 @@ const stateNames: Record<string, string> = {
   notStarted: '中断后未开始',
   uncertain: '结果待核实',
 }
-const stateName = (state: string) => stateNames[state] ?? `未知状态（${state}）`
+const stateName = (state: string, method = 'trash') =>
+  method === 'move' && state === 'completed'
+    ? '全部移动完成'
+    : method === 'move' && state === 'moved'
+      ? '已移动到目标目录'
+      : (stateNames[state] ?? `未知状态（${state}）`)
 const errorText = (error: unknown) => String(error).replace(/^Error: /, '')
 
 export function ExecutionHistory({
@@ -211,11 +216,12 @@ export function ExecutionHistory({
               >
                 <span>
                   <strong>
-                    {stateName(record.state)} · {record.itemCount} 项
+                    {stateName(record.state, record.method)} · {record.itemCount} 项
                   </strong>
                   <small>
-                    {dateTime(record.createdAt)} · 已移入 {record.movedCount} 项 · 待核实{' '}
-                    {record.uncertainCount} 项{record.reviewedAt !== null ? ' · 已人工核查' : ''}
+                    {dateTime(record.createdAt)} · {record.method === 'move' ? '已移动' : '已移入'}{' '}
+                    {record.movedCount} 项 · 待核实 {record.uncertainCount} 项
+                    {record.reviewedAt !== null ? ' · 已人工核查' : ''}
                   </small>
                 </span>
                 <span>查看逐项结果</span>
@@ -279,6 +285,7 @@ export function ExecutionHistory({
             <ExecutionReview
               key={`${detail.id}:${detail.snapshotSha256}`}
               reviewedAt={detail.reviewedAt}
+              method={detail.method}
               onAcknowledge={async () => {
                 const before = detail,
                   request = detailRequest.current
@@ -334,15 +341,17 @@ function ExecutionResults({
         <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
       )}
       <p className="muted">
-        {stateName(detail.state)} · 已移入 {detail.movedCount} / {detail.itemCount} 项 · 待核实{' '}
-        {detail.uncertainCount} 项
+        {stateName(detail.state, detail.method)} · {detail.method === 'move' ? '已移动' : '已移入'}{' '}
+        {detail.movedCount} / {detail.itemCount} 项 · 待核实 {detail.uncertainCount} 项
       </p>
       <div className={`notice ${detail.uncertainCount ? 'warning' : ''}`}>
         {detail.uncertainCount > 0
           ? detail.reviewedAt !== null
             ? '未知结果已人工核查，原记录保持；实际文件状态以核查为准，不会自动重试或恢复。'
             : '存在只有意图、没有可靠完成记录的项目。不要据此自动重试或恢复；需要核查实际结果。'
-          : '取消与中断不会撤销已经完成的项目。移入废纸篓不等于释放磁盘空间。'}{' '}
+          : detail.method === 'move'
+            ? '取消与中断不会移回已经完成的项目。同卷移动不会释放空间。'
+            : '取消与中断不会撤销已经完成的项目。移入废纸篓不等于释放磁盘空间。'}{' '}
         这里仅查看记录，收据本身不能授权恢复操作。
       </div>
       <CleanupResultSummary detail={detail} />
@@ -355,14 +364,18 @@ function ExecutionResults({
           <dd>{detail.planId}</dd>
           <dt>处理方式</dt>
           <dd>
-            {detail.method === 'trash' ? '移入 macOS 废纸篓' : `未知方式（${detail.method}）`}
+            {detail.method === 'trash'
+              ? '移入 macOS 废纸篓'
+              : detail.method === 'move'
+                ? '移动到所选目录'
+                : `未知方式（${detail.method}）`}
           </dd>
           <dt>开始 / 结束</dt>
           <dd>
             {dateTime(detail.createdAt)} /{' '}
             {detail.finishedAt == null ? '未结束' : dateTime(detail.finishedAt)}
           </dd>
-          <dt>Mole 源码 / 协议</dt>
+          <dt>来源修订 / 协议</dt>
           <dd>
             {detail.revision} / {detail.protocol}
           </dd>
@@ -404,9 +417,10 @@ function ExecutionResults({
               <span
                 className={`state-tag ${item.state === 'moved' ? 'succeeded' : item.state === 'uncertain' ? 'failed' : ''}`}
               >
-                {stateName(item.state)}
+                {stateName(item.state, detail.method)}
               </span>
             </summary>
+            {item.targetPath && <p className="mono full-path">→ {item.targetPath}</p>}
             <ExecutionReason reason={item.reason} />
             {item.receipt && (
               <div className="execution-receipt">
@@ -420,6 +434,7 @@ function ExecutionResults({
                     runId={detail.id}
                     itemId={item.id}
                     onReveal={onRevealReceipt}
+                    method={detail.method}
                   />
                 )}
               </div>
@@ -427,7 +442,7 @@ function ExecutionResults({
             <ol className="execution-events" aria-label="项目记录顺序">
               {(events.get(item.id) ?? []).map((event, index) => (
                 <li key={index}>
-                  <time>{dateTime(event.createdAt)}</time> · {stateName(event.state)}
+                  <time>{dateTime(event.createdAt)}</time> · {stateName(event.state, detail.method)}
                   <ExecutionReason reason={event.reason} />
                 </li>
               ))}

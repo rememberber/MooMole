@@ -6,6 +6,30 @@ import { getLocale } from '../i18n/locale'
 export function CleanupResultSummary({ detail }: { detail: ExecutionDetail }) {
   const { selected, moved } = cleanupResultSizes(detail)
   const space = cleanupSpaceChange(detail)
+  if (detail.method === 'move')
+    return (
+      <section className="cleanup-result-summary" aria-label="文件移动大小">
+        <dl>
+          <div>
+            <dt>本批所选大小</dt>
+            <dd>
+              {bytes(selected.knownBytes)}
+              {selected.unknownCount ? ` + ${selected.unknownCount} 项大小未知` : ''}
+            </dd>
+          </div>
+          <div>
+            <dt>确认移动大小</dt>
+            <dd>
+              {bytes(moved.knownBytes)}
+              {moved.unknownCount ? ` + ${moved.unknownCount} 项大小未知` : ''}
+            </dd>
+          </div>
+        </dl>
+        <p className="muted">
+          大小沿用扫描时的估算。同卷移动改变文件位置，不计为空间释放；取消不会移回已经完成的项目。
+        </p>
+      </section>
+    )
   return (
     <section className="cleanup-result-summary" aria-label="清理容量结果">
       <dl>

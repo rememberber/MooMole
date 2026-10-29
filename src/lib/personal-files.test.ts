@@ -92,4 +92,56 @@ describe('personal file boundaries', () => {
     )
     expect(source).toEqual(original)
   })
+  it('binds movement mode, exact destinations, conflict choice and skipped targets', () => {
+    const source = report(),
+      expected = { directory: '/Users/demo/Organized', conflict: 'keepBoth' as const }
+    const raw = {
+      id: second,
+      root: source.root,
+      createdAt: at + 1,
+      expiresAt: at + 30000,
+      items: source.items,
+      movement: {
+        ...expected,
+        targets: [
+          { id: first, destination: '/Users/demo/Organized/old (1).zip' },
+          { id: second, destination: null },
+        ],
+      },
+    }
+    expect(
+      readPersonalConfirmation(raw, source, [first, second], at + 2, expected).movement?.targets[1]
+        .destination,
+    ).toBeNull()
+    expect(() => readPersonalConfirmation(raw, source, [first, second], at + 2)).toThrow()
+    for (const movement of [
+      undefined,
+      { ...raw.movement, conflict: 'skip' },
+      { ...raw.movement, directory: '/other' },
+      {
+        ...raw.movement,
+        targets: [
+          { id: first, destination: '/Users/demo/Other/old.zip' },
+          { id: second, destination: null },
+        ],
+      },
+      {
+        ...raw.movement,
+        targets: [
+          { id: first, destination: '/Users/demo/Organized/OLD.zip' },
+          { id: second, destination: '/Users/demo/Organized/old.zip' },
+        ],
+      },
+      {
+        ...raw.movement,
+        targets: [
+          { id: second, destination: '/Users/demo/Organized/old.zip' },
+          { id: first, destination: null },
+        ],
+      },
+    ])
+      expect(() =>
+        readPersonalConfirmation({ ...raw, movement }, source, [first, second], at + 2, expected),
+      ).toThrow()
+  })
 })

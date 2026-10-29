@@ -321,6 +321,9 @@ export default function App() {
   const [historyEpoch, setHistoryEpoch] = useState(0)
   const [executionPending, setExecutionPending] = useState(false)
   const [executionTrackingError, setExecutionTrackingError] = useState('')
+  const movingExecution = data?.executions.some(
+    (item) => item.state === 'running' && item.method === 'move',
+  )
   const executionActive =
     api.desktop && (executionPending || !!data?.executions.some((item) => item.state === 'running'))
   function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
@@ -1358,12 +1361,25 @@ export default function App() {
             onOutcome={() => setAppsStale(true)}
           />
           {(executionActive || executionTrackingError) && (
-            <section className="notice execution-recovery" aria-label="清理状态">
+            <section
+              className="notice execution-recovery"
+              aria-label={movingExecution ? '文件移动状态' : '清理状态'}
+            >
               <div>
-                <strong>{executionTrackingError ? '清理状态待确认' : '清理进行中'}</strong>
+                <strong>
+                  {movingExecution
+                    ? executionTrackingError
+                      ? '文件移动状态待确认'
+                      : '文件移动进行中'
+                    : executionTrackingError
+                      ? '清理状态待确认'
+                      : '清理进行中'}
+                </strong>
                 <p>
                   {executionTrackingError ||
-                    '逐项结果持续保存在历史中；关闭审阅框会请求停止后续项目，已发生的结果会保留。'}
+                    (movingExecution
+                      ? '移动结果逐项保存在历史中。停止后续项目不会移回已经完成的文件；离开页面后可从历史继续查看。'
+                      : '逐项结果持续保存在历史中；关闭审阅框会请求停止后续项目，已发生的结果会保留。')}
                 </p>
               </div>
               <button

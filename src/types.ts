@@ -566,6 +566,7 @@ export interface ExecutionDetail extends ExecutionSummary {
     state: string
     reason: string
     receipt: ExecutionReceipt | null
+    targetPath?: string | null
     scanSizeBytes?: number | null
   }[]
   events: {
