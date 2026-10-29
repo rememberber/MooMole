@@ -3923,7 +3923,7 @@ input[type='checkbox'] {
 }
 .personal-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   gap: 12px;
   padding: 12px;
   align-items: center;
@@ -4355,4 +4355,38 @@ input[type='checkbox'] {
   color: var(--muted);
   font-size: 12px;
   margin-top: 6px;
+}
+
+.file-preview-modal {
+  width: min(880px, calc(100vw - 48px));
+}
+.file-preview-image {
+  margin: 12px 0;
+  text-align: center;
+}
+.file-preview-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 58vh;
+  object-fit: contain;
+  margin: auto;
+}
+.file-preview-image figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.file-preview-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+.file-preview-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }

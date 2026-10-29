@@ -12,6 +12,8 @@ import { Modal } from './Modal'
 import { CleanupResultSummary } from './CleanupResultSummary'
 import { ExecutionReason } from './ExecutionReason'
 import { ExecutionLocation } from './ExecutionLocation'
+import { FilePreview } from './FilePreview'
+import type { PreviewTarget } from '../lib/file-preview'
 
 export function PersonalFiles({
   controller: c,
@@ -28,6 +30,7 @@ export function PersonalFiles({
   onHistory: () => void
   mode?: 'personal' | 'duplicates'
 }) {
+  const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const language = useLanguage()
   const [query, setQuery] = useState(''),
     [kind, setKind] = useState<FileKind>('all')
@@ -70,6 +73,7 @@ export function PersonalFiles({
   useEffect(() => {
     setSelected([])
     setLimit(100)
+    setPreview(null)
   }, [report?.id])
   useEffect(() => setSelected([]), [c.root])
   useEffect(() => {
@@ -105,6 +109,7 @@ export function PersonalFiles({
   }
   return (
     <div className="personal-files">
+      <FilePreview target={preview} onClose={() => setPreview(null)} />
       <form
         id="personal-files-form"
         className="personal-scope"
@@ -371,6 +376,20 @@ export function PersonalFiles({
                       </small>
                     </div>
                     <span>{bytes(item.size)}</span>
+                    <button
+                      className="button secondary compact"
+                      disabled={!enabled || !fresh || blocked(item.path) || c.running || pending}
+                      onClick={() =>
+                        setPreview({
+                          domain: mode === 'duplicates' ? 'duplicateFiles' : 'personalFiles',
+                          scanId: report!.id,
+                          itemId: item.id,
+                          path: item.path,
+                        })
+                      }
+                    >
+                      预览内容
+                    </button>
                     <button
                       className="button secondary compact"
                       disabled={!api.desktop}

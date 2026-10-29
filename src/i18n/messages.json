@@ -6857,5 +6857,32 @@
     "空间观察数据无法核对，请刷新；不会用缺失数据推断可用空间。",
     "Cannot verify storage observations. Refresh; missing data will not be used to infer available space.",
     "容量の観測データを照合できません。更新してください。欠測値から空き容量を推定しません。"
+  ],
+  ["文件内容预览", "File content preview", "ファイル内容のプレビュー"],
+  ["正在读取预览…", "Loading preview…", "プレビューを読み込み中…"],
+  [
+    "仅显示前 64 KiB 文本，后续内容尚未显示。",
+    "Only the first 64 KiB of text is shown. Remaining content is not displayed.",
+    "先頭の 64 KiB のテキストのみ表示します。続きは表示されていません。"
+  ],
+  ["{0} × {1} 像素{2}", "{0} × {1} pixels{2}", "{0} × {1} ピクセル{2}"],
+  ["像素", "pixels", "ピクセル"],
+  [
+    "· 多帧图片，仅显示第一帧",
+    "· Multi-frame image; first frame only",
+    "· 複数フレーム画像、最初のフレームのみ"
+  ],
+  ["第 {0} / {1} 页", "Page {0} / {1}", "{0} / {1} ページ"],
+  [
+    "预览只读取当前扫描中的文件，不改变选择或授权处理。图片和 PDF 显示缩略内容，实际文件请按需在对应应用中检查。",
+    "Preview reads a file from the current scan without changing selection or authorizing processing. Images and PDFs are reduced previews; inspect the full file in its application as needed.",
+    "現在のスキャンのファイルを読み取るだけで、選択や処理の許可は変更しません。画像と PDF は縮小表示です。必要に応じて対応アプリで元のファイルを確認してください。"
+  ],
+  ["返回文件列表", "Back to files", "ファイル一覧に戻る"],
+  ["预览内容", "Preview content", "内容をプレビュー"],
+  [
+    "预览结果与所选文件不一致，已停止显示，请重新扫描。",
+    "Preview does not match the selected file. Display stopped; scan again.",
+    "プレビューが選択したファイルと一致しません。表示を停止しました。再スキャンしてください。"
   ]
 ]

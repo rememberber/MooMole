@@ -10,7 +10,9 @@ use std::{
 
 pub(crate) mod commands;
 pub(crate) mod duplicates;
+mod media;
 pub(crate) mod movement;
+pub(crate) mod preview;
 mod scan;
 mod writer;
 pub(crate) const MODULE: &str = "personalFiles";
