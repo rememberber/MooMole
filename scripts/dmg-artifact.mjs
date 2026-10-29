@@ -25,16 +25,42 @@ export function installationGuide(expected) {
 升级前先正常退出旧版本，再由你确认替换；设置和历史保存在应用数据目录。
 请勿直接从此磁盘映像运行应用。安装完成后可推出此映像。
 
+Drag MooMole.app into Applications, then launch it from there.
+Quit the old version normally before replacing it. Settings and history stay in the app's data directory.
+Do not run the app from this disk image. Eject the image after installation.
+
+MooMole.app を「アプリケーション」にコピーし、インストール先から起動してください。
+置き換え前に旧版を通常終了してください。設定と履歴はアプリのデータフォルダに保持されます。
+このディスクイメージから直接起動せず、インストール後は取り出してください。
+
 本包使用免费的 ad-hoc 签名，未获 Apple 开发者身份认证或公证。
 若 macOS 阻止打开，请阅读系统提示并按 Apple 官方说明自行确认：
 https://support.apple.com/zh-cn/102445
 本应用不会关闭 Gatekeeper 或移除系统安全属性；组织策略可能限制打开。
 
-当前为本地验收包，安装、升级和下载后的首次打开仍待验证，不是正式发布。
+Free ad-hoc signing; no Apple Developer ID signing or notarization.
+If macOS blocks opening, review its message and Apple's guidance:
+https://support.apple.com/102445
+The app does not disable Gatekeeper or remove security attributes. Organization policies may restrict opening.
+
+無料の ad-hoc 署名を使用し、Apple Developer ID 署名や公証はありません。
+macOS が起動を制限した場合は、システムの説明と Apple の案内を確認してください：
+https://support.apple.com/ja-jp/102445
+Gatekeeper の無効化や安全属性の削除は行いません。組織のポリシーにより起動できない場合があります。
+
+安装、升级与各支持环境的验收范围和已知限制请查阅对应版本的发布说明：
+Installation/upgrade validation scope and known limits / 検証範囲と既知の制限：
+https://github.com/rememberber/MooMole/releases/tag/v${expected.version}
+
 仅供学习研究，使用前请备份重要数据；清理可能造成文件丢失。
 感谢 Mole 上游。MooMole 是非官方客户端，以 Mole CLI 可视化和简单直观为宗旨。
+For learning and research. Back up important data; cleanup can cause data loss.
+Thanks to Mole's contributors. MooMole is an independent, unofficial graphical client for Mole CLI.
+学習・研究向けです。重要なデータをバックアップしてください。クリーンアップでデータを失う可能性があります。
+Mole の貢献者に感謝します。MooMole は独立した非公式の Mole CLI GUI クライアントです。
 Mole 官方项目：https://github.com/tw93/Mole
 日常使用建议选择 Mole 官方产品：https://mole.fit/zh/
+Official Mole product / Mole 公式製品：https://mole.fit/
 `
 }
 
