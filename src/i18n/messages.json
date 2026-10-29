@@ -6839,9 +6839,9 @@
     "同じボリュームで時刻が増加する記録が 2 件以上ある場合に推移を表示します。ボリューム変更や時計の巻き戻りを合算して推定しません。"
   ],
   [
-    "可用空间以系统当前向本账户报告的数值为准。APFS 共享容量、缓存、快照与其他应用活动可能导致波动，变化不等于本次清理效果。低空间提示仅在此页面显示。",
-    "Available space is reported by the system for this account. Shared APFS capacity, caches, snapshots and other apps may cause changes; changes do not measure cleanup results. Low storage hints appear on this page only.",
-    "空き容量はシステムがこのアカウントに報告する値です。APFS の共有容量、キャッシュ、スナップショット、他のアプリの動作で変動します。変化は今回のクリーンアップの効果を示しません。容量不足の表示はこのページのみです。"
+    "可用空间以系统当前向本账户报告的数值为准。APFS 共享容量、缓存、快照与其他应用活动可能导致波动，变化不等于本次清理效果。开启菜单栏后，也可在那里查看最近的低空间提示。",
+    "Available space is reported by the system for this account. Shared APFS capacity, caches, snapshots and other apps may cause changes; changes do not measure cleanup results. When enabled, the menu bar also shows recent low space hints.",
+    "空き容量はシステムがこのアカウントに報告する値です。APFS の共有容量、キャッシュ、スナップショット、他のアプリの動作で変動します。変化は今回のクリーンアップの効果を示しません。メニューバーを有効にすると、直近の容量不足も表示されます。"
   ],
   [
     "尚无空间记录。可先记录一次，再开启定期观察。",
@@ -7308,5 +7308,32 @@
   ["按计划保留", "Kept as planned", "計画どおり保持"],
   ["未继续处理", "Not continued", "後続の処理は未実行"],
   ["查看副本记录位置", "Show recorded copy location", "コピーの記録場所を表示"],
-  ["查看原件记录位置", "Show recorded original location", "元ファイルの記録場所を表示"]
+  ["查看原件记录位置", "Show recorded original location", "元ファイルの記録場所を表示"],
+  ["菜单栏持续管理", "Menu bar management", "メニューバーの継続管理"],
+  [
+    "在菜单栏保留 MooMole，关闭窗口后继续运行",
+    "Keep MooMole in the menu bar and running after closing the window",
+    "メニューバーに MooMole を表示し、ウインドウを閉じても実行を続ける"
+  ],
+  [
+    "菜单栏可查看容量、打开空间趋势或单次记录。是否定期记录仍由观察设置决定；退出 MooMole 后停止，不添加登录启动项、不自动处理文件。",
+    "Use the menu bar to view capacity, open trends or record once. Observation settings still control periodic recording. Quitting stops it; no login item or automatic file processing is added.",
+    "メニューバーから容量確認、推移の表示、単発の記録ができます。定期記録は観測設定に従います。終了すると停止し、ログイン項目の追加やファイルの自動処理は行いません。"
+  ],
+  ["保存菜单栏设置", "Save menu bar settings", "メニューバー設定を保存"],
+  [
+    "菜单栏已显示，关闭窗口后继续运行；可从菜单栏退出。",
+    "Menu bar shown. MooMole keeps running after closing the window; quit from the menu bar.",
+    "メニューバーを表示中です。ウインドウを閉じても実行を続け、メニューバーから終了できます。"
+  ],
+  [
+    "菜单栏未显示，关闭窗口按普通应用行为处理。",
+    "Menu bar hidden. Closing the window follows normal app behavior.",
+    "メニューバーは非表示です。ウインドウを閉じると通常のアプリ動作に従います。"
+  ],
+  [
+    "菜单栏状态无法核对，请刷新。",
+    "Menu bar state could not be verified. Refresh to try again.",
+    "メニューバーの状態を確認できません。更新してください。"
+  ]
 ]

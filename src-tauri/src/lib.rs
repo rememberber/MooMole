@@ -38,6 +38,7 @@ mod instance;
 mod language;
 mod log_cleanup;
 mod maintenance;
+mod menu_bar;
 mod mole_history;
 #[cfg(test)]
 mod native_trash_tests;
@@ -2204,7 +2205,34 @@ async fn open_update_releases() -> Result<(), String> {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .on_menu_event(menu_bar::event)
         .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    if window
+                        .try_state::<menu_bar::Controller>()
+                        .is_some_and(|c| c.keeps_running())
+                        && window
+                            .try_state::<AppState>()
+                            .is_some_and(|s| !s.shutdown.closing())
+                    {
+                        // Only an actually visible, explicitly enabled tray
+                        // changes close into hide. Quit still drains tasks.
+                        if window.hide().is_ok() {
+                            api.prevent_close();
+                            if let Some(state) = window.try_state::<AppState>() {
+                                if let Ok(jobs) = state.jobs.lock() {
+                                    for job in
+                                        jobs.values().filter(|j| j.kind == TaskKind::StatusWatch)
+                                    {
+                                        job.cancel();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if window.label() == "main"
                 && matches!(
                     event,
@@ -2342,6 +2370,7 @@ pub fn run() {
                 window_placement: window_placement.clone(),
             });
             storage_monitor::start(app.state::<AppState>().inner().clone());
+            menu_bar::start(app.handle());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
             // Restore only after database ownership, without holding a mutex
@@ -2358,6 +2387,8 @@ pub fn run() {
             storage_monitor::get_storage_monitor,
             storage_monitor::configure_storage_monitor,
             storage_monitor::sample_storage_monitor,
+            menu_bar::get_menu_bar,
+            menu_bar::configure_menu_bar,
             personal_files::preview::preview_personal_file,
             personal_files::commands::get_personal_files,
             personal_files::commands::get_duplicate_files,
@@ -2487,6 +2518,15 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("无法启动 MooMole");
     app.run(|app, event| {
+        #[cfg(target_os = "macos")]
+        if matches!(event, tauri::RunEvent::Reopen { .. }) {
+            if app
+                .try_state::<AppState>()
+                .is_some_and(|s| !s.shutdown.closing())
+            {
+                menu_bar::show(app, None);
+            }
+        }
         if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
             if let Some(state) = app.try_state::<AppState>() {
                 if !state.shutdown.closing() {

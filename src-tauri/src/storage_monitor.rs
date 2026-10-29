@@ -15,9 +15,9 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS storage_monitor_preferences (id
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Config {
-    enabled: bool,
-    interval_minutes: u32,
-    warn_below_bytes: u64,
+    pub(crate) enabled: bool,
+    pub(crate) interval_minutes: u32,
+    pub(crate) warn_below_bytes: u64,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -47,10 +47,10 @@ struct Saved {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct View {
-    config: Config,
-    samples: Vec<Sample>,
-    collecting: bool,
-    error: Option<String>,
+    pub(crate) config: Config,
+    pub(crate) samples: Vec<Sample>,
+    pub(crate) collecting: bool,
+    pub(crate) error: Option<String>,
 }
 #[derive(Default)]
 pub(crate) struct Controller {
@@ -148,7 +148,7 @@ fn due(saved: &Saved, latest: Option<&Sample>, now: i64) -> bool {
         })
 }
 impl Controller {
-    fn view(&self, db: &db::Database) -> Result<View, String> {
+    pub(crate) fn view(&self, db: &db::Database) -> Result<View, String> {
         Ok(View {
             config: load(db)?.config,
             samples: samples(db)?,
@@ -156,7 +156,7 @@ impl Controller {
             error: self.error.lock().map_err(|e| e.to_string())?.clone(),
         })
     }
-    async fn collect(
+    pub(crate) async fn collect(
         &self,
         database: &Arc<Mutex<db::Database>>,
         home: PathBuf,

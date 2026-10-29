@@ -59,6 +59,8 @@ import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import { storageMonitorTransport } from './lib/storage-monitor'
+import { menuBarTransport, listenMenuBar } from './lib/menu-bar'
+import { MenuBarSettings } from './components/MenuBarSettings'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -260,6 +262,18 @@ export default function App() {
   }, [language])
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
+  useEffect(() => {
+    if (!api.desktop) return
+    let live = true
+    const listening = listenMenuBar(() => {
+      if (live) changePage('storageMonitor')
+    })
+    void listening.catch(() => {})
+    return () => {
+      live = false
+      void listening.then((stop) => stop()).catch(() => {})
+    }
+  }, [])
   const [softwareTab, setSoftwareTab] = useState<'cache' | 'attachments'>('cache')
   const [softwareSource, setSoftwareSource] =
     useState<SoftwareContentSource>('mailSandboxDownloads')
@@ -2255,11 +2269,14 @@ export default function App() {
           )}
 
           {page === 'storageMonitor' && (
-            <StorageMonitor
-              enabled={api.desktop}
-              transport={storageMonitorTransport}
-              onAnalyze={() => changePage('analyze')}
-            />
+            <>
+              <StorageMonitor
+                enabled={api.desktop}
+                transport={storageMonitorTransport}
+                onAnalyze={() => changePage('analyze')}
+              />
+              <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
+            </>
           )}
           {page === 'installers' && (
             <Installers
