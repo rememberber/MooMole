@@ -51,6 +51,7 @@ pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Sc
         visited: walker.visited,
         items: walker.items.iter().map(row).collect(),
         duplicates: None,
+        similar_photos: None,
     };
     Ok(Scan {
         id: report.id.clone(),

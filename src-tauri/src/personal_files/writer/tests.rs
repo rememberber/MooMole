@@ -1,6 +1,120 @@
 use super::*;
 
 #[tokio::test]
+#[ignore = "real Vision, Mole protection and native Trash on locally generated owned photos only"]
+async fn real_similar_photos_select_trash_and_archive_without_claiming_identical_content() {
+    use crate::engine::TaskKind;
+    let temp = tempfile::Builder::new()
+        .prefix("MooMole-similar-native-")
+        .tempdir()
+        .unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let root = home.join("Pictures");
+    std::fs::create_dir(&root).unwrap();
+    for (name, w, h) in [
+        ("first.png", 128, 96),
+        ("resized.png", 256, 192),
+        ("keep.png", 320, 240),
+    ] {
+        std::fs::write(root.join(name), super::super::media::fixture_png(w, h)).unwrap();
+    }
+    let job = Arc::new(Job::new(TaskKind::PersonalScan));
+    let scan = super::super::scan::collect(&root, &[], job.clone()).unwrap();
+    let scan = objc2::rc::autoreleasepool(|_| similar_photos::collect(scan, job, &[])).unwrap();
+    assert_eq!(scan.report.similar_photos.as_ref().unwrap().groups.len(), 1);
+    let chosen = scan
+        .items
+        .iter()
+        .find(|i| i.path.ends_with("/first.png"))
+        .unwrap()
+        .id
+        .clone();
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let offer = store.offer(&[chosen], db::now()).unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let keeper = plan.similar_photos.as_ref().unwrap()[0].keeper.clone();
+    let original = std::fs::read(&keeper.path).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(
+        &database,
+        &db::Settings {
+            acknowledged: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let rule_home = home.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalTrash)),
+        move |requested, job| {
+            let engine = engine.clone();
+            let home = rule_home.clone();
+            async move { rules::run(&engine, &home, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    // Retrieve only actual returned receipts before assertions, including a
+    // partial/uncertain native return. This cleanup is not product restoration.
+    for item in &result.items {
+        if let Some(r) = &item.receipt {
+            let m = std::fs::symlink_metadata(&r.destination).unwrap();
+            assert_eq!((m.dev(), m.ino()), (r.device, r.inode));
+            assert!(!Path::new(&item.path).exists());
+            objc2::rc::autoreleasepool(|_| {
+                use objc2_foundation::{NSFileManager, NSString, NSURL};
+                NSFileManager::defaultManager()
+                    .moveItemAtURL_toURL_error(
+                        &NSURL::fileURLWithPath(&NSString::from_str(&r.destination)),
+                        &NSURL::fileURLWithPath(&NSString::from_str(&item.path)),
+                    )
+                    .unwrap();
+            });
+        }
+    }
+    assert_eq!(result.origin, similar_photos::MODULE);
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert_eq!(std::fs::read(&keeper.path).unwrap(), original);
+    let expected = serde_json::to_value(&result).unwrap();
+    let mut database = database.lock().unwrap();
+    let preview = crate::execution_archive::prepare(&mut database).unwrap();
+    let directory = home.join("archives");
+    let header = crate::execution_archive::archive(
+        &mut database,
+        &directory,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &directory,
+            &header.id,
+            crate::execution_archive::Kind::Cleanup,
+            &result.summary.id
+        )
+        .unwrap(),
+        expected
+    );
+    std::fs::create_dir_all("../.cache").unwrap();
+    std::fs::write("../.cache/similar-photos-native-trash.json",serde_json::to_vec_pretty(&serde_json::json!({"result":expected,"keeperContentVerified":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})).unwrap()).unwrap();
+}
+
+#[tokio::test]
 #[ignore = "Real duplicate content checks, Mole protections and native Trash on owned files only; retrieves exact receipts"]
 async fn real_duplicates_keep_one_copy_and_record_native_trash() {
     use crate::engine::TaskKind;

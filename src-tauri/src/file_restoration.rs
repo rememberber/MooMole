@@ -136,7 +136,10 @@ impl Plan {
 }
 fn source(detail: &execution::Detail, item_id: &str) -> Result<Source, String> {
     if detail.summary.state == "running"
-        || !matches!(detail.origin, "personalFiles" | "duplicateFiles")
+        || !matches!(
+            detail.origin,
+            "personalFiles" | "duplicateFiles" | "similarPhotos"
+        )
         || !matches!(detail.summary.method.as_str(), "trash" | "move")
     {
         return Err(

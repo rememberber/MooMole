@@ -37,6 +37,56 @@ function report(): PersonalReport {
   }
 }
 describe('personal file boundaries', () => {
+  it('similar groups allow different content sizes but bind thumbnails and the retained original', () => {
+    const source = report()
+    source.items = source.items.map((i, index) => ({
+      ...i,
+      path: `${source.root}/${index}.png`,
+      name: `${index}.png`,
+      size: 10000 + index * 10000,
+    }))
+    source.similarPhotos = {
+      method: 'visionFeaturePrintV2',
+      groups: [{ id: first, itemIds: [first, second] }],
+      images: source.items.map((i) => ({
+        id: i.id,
+        width: 640,
+        height: 480,
+        thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAA=',
+      })),
+      checkedFiles: 2,
+      bytesRead: 30000,
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.similarPhotos?.groups).toHaveLength(1)
+    const raw = {
+      id: second,
+      root: source.root,
+      createdAt: at + 1,
+      expiresAt: at + 30000,
+      items: [source.items[0]],
+      keptFiles: [source.items[1]],
+    }
+    expect(readPersonalConfirmation(raw, source, [first], at + 2).keptFiles?.[0].size).toBe(20000)
+    expect(() =>
+      readPersonalConfirmation({ ...raw, keptFiles: [source.items[0]] }, source, [first], at + 2),
+    ).toThrow()
+    for (const mutate of [
+      (s: any) => {
+        s.report.similarPhotos.method = 'guessed'
+      },
+      (s: any) => {
+        s.report.similarPhotos.images[0].thumbnail = 'data:image/svg+xml,<svg/>'
+      },
+      (s: any) => {
+        s.report.similarPhotos.groups[0].itemIds = [first, first]
+      },
+    ]) {
+      const changed = structuredClone(snapshot)
+      mutate(changed)
+      expect(() => readPersonalSnapshot(changed)).toThrow()
+    }
+  })
   it('requires duplicate groups and confirmation to retain a distinct known copy', () => {
     const source = report()
     source.items[1].size = source.items[0].size

@@ -6884,5 +6884,62 @@
     "预览结果与所选文件不一致，已停止显示，请重新扫描。",
     "Preview does not match the selected file. Display stopped; scan again.",
     "プレビューが選択したファイルと一致しません。表示を停止しました。再スキャンしてください。"
+  ],
+  ["相似照片", "Similar photos", "類似写真"],
+  ["查找相似照片", "Find similar photos", "類似写真を検索"],
+  [
+    "来源：相似照片。依据视觉特征推荐比较，内容可能不同；逐项选择并保留原件后处理。",
+    "Source: similar photos. Visual features suggest candidates for comparison; content may differ. Items were selected individually with an original retained.",
+    "出典：類似写真。視覚的な特徴による比較候補で、内容が異なる場合があります。原本を保持し、個別に選択して処理しました。"
+  ],
+  ["确认处理相似照片", "Confirm similar photo processing", "類似写真の処理を確認"],
+  ["相似照片目录", "Similar photo folder", "類似写真のフォルダ"],
+  [
+    "按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。",
+    "Finds similar photos using on-device visual features, with nothing selected by default. Photos may contain different expressions, details or unique content. Compare and choose manually, keeping at least one per group. Supports still images in ordinary folders; Photos libraries, burst relationships and video are not included.",
+    "この Mac 上の視覚的な特徴で類似写真を探します。初期状態では選択しません。表情、細部、固有の内容が異なる場合があります。並べて比較して手動で選択し、各グループに最低 1 枚を残してください。通常フォルダの静止画が対象です。写真ライブラリ、連写の関連情報、動画は対象外です。"
+  ],
+  [
+    "已核对 {0} 张静态图片，找到 {1} 组视觉相似候选。结果仅供人工比较，不自动挑选或认定可删除；本轮最多核对 200 张。",
+    "Checked {0} still images; found {1} visually similar groups. Compare manually. Nothing is automatically selected or judged disposable. Up to 200 images per scan.",
+    "静止画 {0} 枚を確認し、視覚的に似た候補 {1} グループを検出しました。手動比較用で、自動選択や削除可否の判定は行いません。1 回に最大 200 枚を確認します。"
+  ],
+  ["张静态图片，找到", "still images; found", "枚の静止画を確認、検出数"],
+  [
+    "组视觉相似候选。结果仅供人工比较，不自动挑选或认定可删除；本轮最多核对 200 张。",
+    "visually similar groups. Compare manually; no automatic selection or deletion judgement. Up to 200 images per scan.",
+    "グループの類似候補。手動比較用で、自動選択や削除判定は行いません。1 回に最大 200 枚です。"
+  ],
+  ["视觉相似 · {0} 张", "Visually similar · {0} photos", "視覚的に類似 · {0} 枚"],
+  [
+    "每组至少保留一张，内容可能不同",
+    "Keep at least one per group; content may differ",
+    "各グループに最低 1 枚を保持、内容は異なる場合があります"
+  ],
+  [
+    "只移动到下面确认的位置，不覆盖文件。重名时{0}；确认后若名称被占用，本项失败并保留源文件。取消不会撤销已移动项。当前可从历史定位后在 Finder 手动移回；也可在操作历史重新检查恢复原位置，不符合条件时保留。",
+    "Moves only to the confirmed location without overwriting. Name conflicts: {0}. If a name becomes occupied, the source is kept. Cancel does not undo completed moves. Locate files from history and move them back in Finder, or check restoration in history; unsupported items are kept.",
+    "確認した場所へのみ移動し、上書きしません。同名時は{0}。確認後に同名の項目ができた場合は元のファイルを保持します。キャンセルしても移動済み項目は戻りません。履歴から Finder で戻すか、履歴の復元機能で再確認できます。条件に合わない場合は保持します。"
+  ],
+  [
+    "；确认后若名称被占用，本项失败并保留源文件。取消不会撤销已移动项。当前可从历史定位后在 Finder 手动移回；也可在操作历史重新检查恢复原位置，不符合条件时保留。",
+    "; if the name becomes occupied, the source is kept. Cancel does not undo completed moves. Use Finder or check restoration in history; unsupported items are kept.",
+    "。確認後に同名の項目ができた場合は元のファイルを保持します。キャンセルしても移動済み項目は戻りません。Finder または履歴の復元機能で確認し、条件に合わない場合は保持します。"
+  ],
+  ["本批保留的照片", "Photos retained in this batch", "この処理で保持する写真"],
+  [
+    "每张照片的内容单独核验，视觉相似不代表内容可以互相替代。保留照片变化或缺失时，本项不处理。",
+    "Each photo's content is checked separately. Visual similarity does not make photos interchangeable. A changed or missing retained photo prevents processing.",
+    "各写真の内容を個別に照合します。視覚的に似ていても互いに代替できるとは限りません。保持する写真が変化・消失した場合は処理しません。"
+  ],
+  ["所选照片", "Selected photo", "選択した写真"],
+  ["{0} × {1} 像素 · {2}", "{0} × {1} pixels · {2}", "{0} × {1} ピクセル · {2}"],
+  ["{0} × {1} 像素 ·", "{0} × {1} pixels ·", "{0} × {1} ピクセル ·"],
+  ["像素 ·", "pixels ·", "ピクセル ·"],
+  ["相似照片扫描范围", "Similar photo scan scope", "類似写真のスキャン範囲"],
+  [
+    "支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32 MiB、八千万像素。照片图库、RAW、动态图、连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。",
+    "Supports still JPEG, PNG, HEIC/HEIF, WebP, TIFF and BMP files, up to 32 MiB and 80 million pixels each. Photos libraries, RAW, animation, burst relationships and video are kept. Results are marked incomplete when file count, read or time limits are reached.",
+    "JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP の静止画に対応し、1 枚あたり最大 32 MiB・8000 万画素です。写真ライブラリ、RAW、動画、アニメーション、連写の関連情報は保持します。件数、読み取り量、時間の上限に達した結果は未完了と表示します。"
   ]
 ]

@@ -52,6 +52,9 @@ fn validate(item: &Item, plan: &Plan, settings: &db::Settings, now: i64) -> Resu
     if plan.duplicates.is_some() {
         duplicates::validate_keeper(plan, item)?;
     }
+    if plan.similar_photos.is_some() {
+        similar_photos::validate_keeper(plan, item)?;
+    }
     if let Some(movement) = &plan.movement {
         movement.validate_directory(settings)?;
         if movement
@@ -92,7 +95,7 @@ pub(super) async fn run(
     job: Arc<Job>,
     request: String,
 ) -> Result<execution::Detail, String> {
-    let duplicates = plan.duplicates.is_some();
+    let domain = plan.origin();
     run_with(
         state.db.clone(),
         state.home.clone(),
@@ -104,7 +107,9 @@ pub(super) async fn run(
             async move { rules::run(&root, &home, &requested, job).await }
         },
         move |run| {
-            let store = if duplicates {
+            let store = if domain == similar_photos::MODULE {
+                &state.similar_photos
+            } else if domain == duplicates::MODULE {
                 &state.duplicate_files
             } else {
                 &state.personal_files
@@ -264,6 +269,9 @@ where
                     validate(&one, &saved, &settings, db::now())?;
                     if saved.duplicates.is_some() {
                         duplicates::verify(&saved, &one, &control)?;
+                    }
+                    if saved.similar_photos.is_some() {
+                        similar_photos::verify(&saved, &one, &control, &settings.protected_paths)?;
                     }
                     if policy_stamp(&own_home)? != stamp {
                         return Err("Mole 保护配置已变化，请重新检查。".into());

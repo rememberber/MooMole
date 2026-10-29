@@ -14,6 +14,7 @@ mod media;
 pub(crate) mod movement;
 pub(crate) mod preview;
 mod scan;
+pub(crate) mod similar_photos;
 mod writer;
 pub(crate) const MODULE: &str = "personalFiles";
 pub(crate) const REVISION: &str = "MooMole.personal-files.v1";
@@ -66,6 +67,8 @@ pub(crate) struct Report {
     items: Vec<FileRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     duplicates: Option<duplicates::Report>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    similar_photos: Option<similar_photos::Report>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -83,20 +86,35 @@ pub(crate) struct Plan {
     pub movement: Option<movement::Movement>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duplicates: Option<Vec<duplicates::Keep>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub similar_photos: Option<Vec<similar_photos::Keep>>,
 }
 impl Plan {
+    pub(crate) fn origin(&self) -> &'static str {
+        if self.similar_photos.is_some() {
+            similar_photos::MODULE
+        } else if self.duplicates.is_some() {
+            duplicates::MODULE
+        } else {
+            MODULE
+        }
+    }
     pub(crate) fn validate_record(&self) -> Result<(), String> {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
         if self.module
-            != if self.duplicates.is_some() {
+            != if self.similar_photos.is_some() {
+                similar_photos::MODULE
+            } else if self.duplicates.is_some() {
                 duplicates::MODULE
             } else {
                 MODULE
             }
             || self.protocol != 1
             || self.revision
-                != if self.duplicates.is_some() {
+                != if self.similar_photos.is_some() {
+                    similar_photos::REVISION
+                } else if self.duplicates.is_some() {
                     duplicates::REVISION
                 } else if self.movement.is_some() {
                     movement::REVISION
@@ -130,6 +148,12 @@ impl Plan {
         }
         if let Some(movement) = &self.movement {
             movement.validate_record(&self.items)?;
+        }
+        if let Some(proof) = &self.similar_photos {
+            if self.movement.is_some() || self.duplicates.is_some() {
+                return Err("相似照片计划只支持独立的选择处理。".into());
+            }
+            similar_photos::validate_record(proof, &self.items, &self.root)?;
         }
         if let Some(proof) = &self.duplicates {
             if self.movement.is_some() {
@@ -221,15 +245,25 @@ impl Store {
             .as_ref()
             .map(|r| duplicates::selection(r, &scan.items, &items))
             .transpose()?;
+        let similar = scan
+            .report
+            .similar_photos
+            .as_ref()
+            .map(|r| similar_photos::selection(r, &scan.items, &items))
+            .transpose()?;
         let plan = Plan {
-            module: if proof.is_some() {
+            module: if similar.is_some() {
+                similar_photos::MODULE
+            } else if proof.is_some() {
                 duplicates::MODULE
             } else {
                 MODULE
             }
             .into(),
             protocol: 1,
-            revision: if proof.is_some() {
+            revision: if similar.is_some() {
+                similar_photos::REVISION
+            } else if proof.is_some() {
                 duplicates::REVISION
             } else {
                 REVISION
@@ -243,6 +277,7 @@ impl Store {
             items,
             movement: None,
             duplicates: proof,
+            similar_photos: similar,
         };
         plan.validate_record()?;
         let confirmation = Confirmation {
@@ -252,10 +287,13 @@ impl Store {
             expires_at,
             items: plan.items.iter().map(row).collect(),
             movement: None,
-            kept_files: plan
-                .duplicates
-                .as_ref()
-                .map(|p| p.iter().map(|k| row(&k.keeper)).collect()),
+            kept_files: if let Some(proof) = &plan.similar_photos {
+                Some(proof.iter().map(|p| row(&p.keeper)).collect())
+            } else {
+                plan.duplicates
+                    .as_ref()
+                    .map(|p| p.iter().map(|k| row(&k.keeper)).collect())
+            },
         };
         self.offers.insert(
             id,

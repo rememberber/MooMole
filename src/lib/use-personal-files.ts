@@ -21,6 +21,7 @@ export function usePersonalFiles(
   enabled: boolean,
   home: string,
   transport: PersonalTransport = personalTransport,
+  initialDirectory = 'Downloads',
 ) {
   const [awake, setAwake] = useState(false),
     [epoch, setEpoch] = useState(0)
@@ -37,8 +38,8 @@ export function usePersonalFiles(
     if (enabled) setAwake(true)
   }, [enabled])
   useEffect(() => {
-    setRoot((value) => value || (home ? `${home}/Downloads` : ''))
-  }, [home])
+    setRoot((value) => value || (home ? `${home}/${initialDirectory}` : ''))
+  }, [home, initialDirectory])
   useEffect(() => {
     if (!api.desktop || !awake) return
     let closed = false,

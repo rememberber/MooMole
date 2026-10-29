@@ -33,7 +33,7 @@ import {
 import * as api from './lib/api'
 import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
-import { duplicateTransport } from './lib/personal-files'
+import { duplicateTransport, similarTransport } from './lib/personal-files'
 import { usePersonalFiles } from './lib/use-personal-files'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -173,6 +173,7 @@ const navigation = [
   ['softwareCleanup', Sparkles, '软件清理'],
   ['personalFiles', FolderOpen, '文件整理'],
   ['duplicateFiles', Copy, '重复文件'],
+  ['similarPhotos', Copy, '相似照片'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
@@ -255,7 +256,14 @@ export default function App() {
     data?.home ?? '',
     duplicateTransport,
   )
-  const activeFiles = page === 'duplicateFiles' ? duplicates : personalFiles
+  const similar = usePersonalFiles(
+    page === 'similarPhotos',
+    data?.home ?? '',
+    similarTransport,
+    'Pictures',
+  )
+  const activeFiles =
+    page === 'similarPhotos' ? similar : page === 'duplicateFiles' ? duplicates : personalFiles
   useEffect(() => {
     const detail = personalFiles.result
     if (!detail) return
@@ -286,6 +294,21 @@ export default function App() {
         : current,
     )
   }, [duplicates.result])
+  useEffect(() => {
+    const detail = similar.result
+    if (!detail) return
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            executions: preserveExecutionProgress(
+              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
+              current.executions,
+            ),
+          }
+        : current,
+    )
+  }, [similar.result])
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -825,6 +848,7 @@ export default function App() {
     !aiScan.running &&
     !personalFiles.running &&
     !duplicates.running &&
+    !similar.running &&
     !uninstallActive &&
     !appControlActive &&
     !searchRepairActive &&
@@ -1058,7 +1082,9 @@ export default function App() {
                     </button>
                   </>
                 )}
-                {(page === 'personalFiles' || page === 'duplicateFiles') &&
+                {(page === 'personalFiles' ||
+                  page === 'duplicateFiles' ||
+                  page === 'similarPhotos') &&
                   (activeFiles.running ? (
                     <button
                       className="button secondary compact"
@@ -1080,7 +1106,11 @@ export default function App() {
                       disabled={!canRun || executionActive || !activeFiles.root.trim()}
                     >
                       <Search size={15} />
-                      {page === 'duplicateFiles' ? '查找重复文件' : '扫描文件'}
+                      {page === 'similarPhotos'
+                        ? '查找相似照片'
+                        : page === 'duplicateFiles'
+                          ? '查找重复文件'
+                          : '扫描文件'}
                     </button>
                   ))}
                 {page === 'aiScan' && (
@@ -1368,6 +1398,7 @@ export default function App() {
             page === 'softwareCleanup' ||
             page === 'personalFiles' ||
             page === 'duplicateFiles' ||
+            page === 'similarPhotos' ||
             page === 'cleanup' ||
             page === 'apps' ||
             page === 'maintenance'
@@ -1616,10 +1647,16 @@ export default function App() {
             </>
           )}
 
-          {(page === 'personalFiles' || page === 'duplicateFiles') && (
+          {(page === 'personalFiles' || page === 'duplicateFiles' || page === 'similarPhotos') && (
             <PersonalFiles
               key={page}
-              mode={page === 'duplicateFiles' ? 'duplicates' : 'personal'}
+              mode={
+                page === 'similarPhotos'
+                  ? 'similar'
+                  : page === 'duplicateFiles'
+                    ? 'duplicates'
+                    : 'personal'
+              }
               controller={activeFiles}
               home={data.home}
               protectedPaths={data.settings.protectedPaths}

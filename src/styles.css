@@ -4390,3 +4390,34 @@ input[type='checkbox'] {
   justify-content: center;
   gap: 12px;
 }
+
+.similar-photo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+.similar-photo-list .duplicate-group {
+  grid-column: 1 / -1;
+}
+.personal-row.similar-photo-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.similar-photo-row > input {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 16px;
+  height: 16px;
+}
+.similar-photo-thumbnail {
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background: var(--background);
+}

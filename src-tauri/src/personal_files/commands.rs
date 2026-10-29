@@ -1,3 +1,4 @@
+use super::preview::Domain;
 use super::*;
 use crate::{
     db,
@@ -24,7 +25,11 @@ fn register(state: &AppState, request: &str, kind: TaskKind) -> Result<Arc<Job>,
     Ok(job)
 }
 fn finish(state: &AppState, request: &str, phase: &'static str, error: Option<String>) {
-    for store in [&state.personal_files, &state.duplicate_files] {
+    for store in [
+        &state.personal_files,
+        &state.duplicate_files,
+        &state.similar_photos,
+    ] {
         if let Ok(mut store) = store.lock() {
             if store.request_id.as_deref() == Some(request) {
                 store.phase = phase;
@@ -36,28 +41,28 @@ fn finish(state: &AppState, request: &str, phase: &'static str, error: Option<St
         jobs.remove(request);
     }
 }
-fn store(state: &AppState, duplicates: bool) -> &std::sync::Mutex<Store> {
-    if duplicates {
-        &state.duplicate_files
-    } else {
-        &state.personal_files
+fn store(state: &AppState, domain: Domain) -> &std::sync::Mutex<Store> {
+    match domain {
+        Domain::PersonalFiles => &state.personal_files,
+        Domain::DuplicateFiles => &state.duplicate_files,
+        Domain::SimilarPhotos => &state.similar_photos,
     }
 }
 #[tauri::command]
 pub(crate) fn get_personal_files(
     state: tauri::State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
-    read(&state, false)
+    read(&state, Domain::PersonalFiles)
 }
 #[tauri::command]
 pub(crate) fn get_duplicate_files(
     state: tauri::State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
-    read(&state, true)
+    read(&state, Domain::DuplicateFiles)
 }
-fn read(state: &AppState, duplicates: bool) -> Result<serde_json::Value, String> {
+fn read(state: &AppState, domain: Domain) -> Result<serde_json::Value, String> {
     serde_json::to_value(
-        store(state, duplicates)
+        store(state, domain)
             .lock()
             .map_err(|e| e.to_string())?
             .snapshot(),
@@ -70,7 +75,7 @@ pub(crate) fn start_personal_scan(
     request_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start(root, request_id, false, state)
+    start(root, request_id, Domain::PersonalFiles, state)
 }
 #[tauri::command]
 pub(crate) fn start_duplicate_scan(
@@ -78,12 +83,12 @@ pub(crate) fn start_duplicate_scan(
     request_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start(root, request_id, true, state)
+    start(root, request_id, Domain::DuplicateFiles, state)
 }
 fn start(
     root: String,
     request_id: String,
-    duplicates: bool,
+    domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
@@ -95,9 +100,7 @@ fn start(
     let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
     let job = register(&state, &request_id, TaskKind::PersonalScan)?;
     {
-        let mut store = store(&state, duplicates)
-            .lock()
-            .map_err(|e| e.to_string())?;
+        let mut store = store(&state, domain).lock().map_err(|e| e.to_string())?;
         *store = Store {
             phase: "scanning",
             request_id: Some(request_id.clone()),
@@ -108,16 +111,16 @@ fn start(
     tauri::async_runtime::spawn_blocking(move || {
         let _ownership = (operation, slot);
         let result = scan::collect(&PathBuf::from(root), &settings.protected_paths, job.clone())
-            .and_then(|scan| {
-                if duplicates {
-                    duplicates::collect(scan, job)
-                } else {
-                    Ok(scan)
-                }
+            .and_then(|scan| match domain {
+                Domain::DuplicateFiles => duplicates::collect(scan, job),
+                Domain::SimilarPhotos => objc2::rc::autoreleasepool(|_| {
+                    similar_photos::collect(scan, job, &settings.protected_paths)
+                }),
+                Domain::PersonalFiles => Ok(scan),
             });
         match result {
             Ok(scan) => {
-                if let Ok(mut store) = store(&state, duplicates).lock() {
+                if let Ok(mut store) = store(&state, domain).lock() {
                     if store.request_id.as_deref() == Some(&request_id) {
                         store.scan = Some(scan);
                     }
@@ -135,7 +138,7 @@ pub(crate) fn prepare_personal_trash(
     selected_ids: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Confirmation, String> {
-    prepare(scan_id, selected_ids, false, state)
+    prepare(scan_id, selected_ids, Domain::PersonalFiles, state)
 }
 #[tauri::command]
 pub(crate) fn prepare_duplicate_trash(
@@ -143,12 +146,12 @@ pub(crate) fn prepare_duplicate_trash(
     selected_ids: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Confirmation, String> {
-    prepare(scan_id, selected_ids, true, state)
+    prepare(scan_id, selected_ids, Domain::DuplicateFiles, state)
 }
 fn prepare(
     scan_id: String,
     selected_ids: Vec<String>,
-    duplicates: bool,
+    domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<Confirmation, String> {
     let _operation = state.updates.installation.enter()?;
@@ -162,9 +165,7 @@ fn prepare(
     {
         return Err("请等待当前任务结束后再确认个人文件。".into());
     }
-    let mut store = store(&state, duplicates)
-        .lock()
-        .map_err(|e| e.to_string())?;
+    let mut store = store(&state, domain).lock().map_err(|e| e.to_string())?;
     if store.scan.as_ref().is_none_or(|scan| scan.id != scan_id) {
         return Err("个人文件扫描已变化，请重新选择。".into());
     }
@@ -234,7 +235,7 @@ pub(crate) fn execute_duplicate_trash(
         request_id,
         personal_files_confirmed,
         false,
-        true,
+        Domain::DuplicateFiles,
         state,
     )
 }
@@ -250,7 +251,7 @@ pub(crate) fn execute_personal_trash(
         request_id,
         personal_files_confirmed,
         false,
-        false,
+        Domain::PersonalFiles,
         state,
     )
 }
@@ -266,7 +267,7 @@ pub(crate) fn execute_personal_move(
         request_id,
         personal_files_confirmed,
         true,
-        false,
+        Domain::PersonalFiles,
         state,
     )
 }
@@ -275,7 +276,7 @@ fn execute(
     request_id: String,
     personal_files_confirmed: bool,
     moving: bool,
-    duplicates: bool,
+    domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     if !personal_files_confirmed {
@@ -292,14 +293,20 @@ fn execute(
         },
     )?;
     let taken = {
-        store(&state, duplicates)
+        store(&state, domain)
             .lock()
             .map_err(|e| e.to_string())?
             .take(&confirmation_id, db::now())
     };
     let plan = match taken {
         Ok(plan)
-            if plan.movement.is_some() == moving && plan.duplicates.is_some() == duplicates =>
+            if plan.movement.is_some() == moving
+                && plan.origin()
+                    == match domain {
+                        Domain::PersonalFiles => MODULE,
+                        Domain::DuplicateFiles => duplicates::MODULE,
+                        Domain::SimilarPhotos => similar_photos::MODULE,
+                    } =>
         {
             plan
         }
@@ -313,9 +320,7 @@ fn execute(
         }
     };
     {
-        let mut store = store(&state, duplicates)
-            .lock()
-            .map_err(|e| e.to_string())?;
+        let mut store = store(&state, domain).lock().map_err(|e| e.to_string())?;
         store.phase = "processing";
         store.request_id = Some(request_id.clone());
         store.run_id = None;
@@ -333,4 +338,55 @@ fn execute(
         }
     });
     Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn get_similar_photos(
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    read(&state, Domain::SimilarPhotos)
+}
+#[tauri::command]
+pub(crate) fn start_similar_scan(
+    root: String,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    start(root, request_id, Domain::SimilarPhotos, state)
+}
+#[tauri::command]
+pub(crate) fn prepare_similar_trash(
+    scan_id: String,
+    selected_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Confirmation, String> {
+    prepare(scan_id, selected_ids, Domain::SimilarPhotos, state)
+}
+#[tauri::command]
+pub(crate) fn discard_similar_trash(
+    confirmation_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    store(&state, Domain::SimilarPhotos)
+        .lock()
+        .map_err(|e| e.to_string())?
+        .offers
+        .remove(&confirmation_id);
+    Ok(())
+}
+#[tauri::command]
+pub(crate) fn execute_similar_trash(
+    confirmation_id: String,
+    request_id: String,
+    personal_files_confirmed: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    execute(
+        confirmation_id,
+        request_id,
+        personal_files_confirmed,
+        false,
+        Domain::SimilarPhotos,
+        state,
+    )
 }

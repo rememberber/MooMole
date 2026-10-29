@@ -26,6 +26,13 @@ export interface PersonalReport {
     checkedFiles: number
     extraBytes: number
   }
+  similarPhotos?: {
+    method: 'visionFeaturePrintV2'
+    groups: { id: string; itemIds: string[] }[]
+    images: { id: string; width: number; height: number; thumbnail: string }[]
+    checkedFiles: number
+    bytesRead: number
+  }
 }
 export interface PersonalSnapshot {
   phase: 'idle' | 'scanning' | 'ready' | 'processing' | 'completed' | 'failed'
@@ -48,7 +55,7 @@ export interface PersonalMovement {
   conflict: 'skip' | 'keepBoth'
 }
 export interface PersonalTransport {
-  origin?: 'personalFiles' | 'duplicateFiles'
+  origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos'
   read: () => Promise<unknown>
   start: (root: string, requestId: string) => Promise<void>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
@@ -88,6 +95,16 @@ export const duplicateTransport: PersonalTransport = {
   discard: (confirmationId) => invoke('discard_duplicate_trash', { confirmationId }),
   execute: (confirmationId, requestId) =>
     invoke('execute_duplicate_trash', { confirmationId, requestId, personalFilesConfirmed: true }),
+}
+export const similarTransport: PersonalTransport = {
+  ...personalTransport,
+  origin: 'similarPhotos',
+  read: () => invoke('get_similar_photos'),
+  start: (root, requestId) => invoke('start_similar_scan', { root, requestId }),
+  prepare: (scanId, selectedIds) => invoke('prepare_similar_trash', { scanId, selectedIds }),
+  discard: (confirmationId) => invoke('discard_similar_trash', { confirmationId }),
+  execute: (confirmationId, requestId) =>
+    invoke('execute_similar_trash', { confirmationId, requestId, personalFilesConfirmed: true }),
 }
 const fail = (): never => {
   throw Error('个人文件数据无法核对，请重新读取；不会重复处理。')
@@ -166,6 +183,69 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       skipped: number(r.skipped),
       visited: number(r.visited),
       items: files(r.items, root, 2000),
+    }
+    if (r.similarPhotos !== undefined) {
+      const s = object(r.similarPhotos)
+      if (
+        r.duplicates !== undefined ||
+        s.method !== 'visionFeaturePrintV2' ||
+        !Array.isArray(s.groups) ||
+        s.groups.length > 100 ||
+        !Array.isArray(s.images) ||
+        s.images.length > 200
+      )
+        fail()
+      const covered = new Set<string>(),
+        groupIds = new Set<string>()
+      const groups = (s.groups as unknown[]).map((raw) => {
+        const g = object(raw),
+          key = id(g.id)
+        if (
+          groupIds.has(key) ||
+          !Array.isArray(g.itemIds) ||
+          g.itemIds.length < 2 ||
+          g.itemIds.length > 200
+        )
+          fail()
+        groupIds.add(key)
+        const itemIds = (g.itemIds as unknown[]).map((raw) => {
+          const value = id(raw)
+          if (covered.has(value) || !report!.items.some((i) => i.id === value)) fail()
+          covered.add(value)
+          return value
+        })
+        return { id: key, itemIds }
+      })
+      const imageIds = new Set<string>()
+      const images = (s.images as unknown[]).map((raw) => {
+        const p = object(raw),
+          key = id(p.id),
+          width = number(p.width),
+          height = number(p.height)
+        if (
+          !covered.has(key) ||
+          imageIds.has(key) ||
+          !width ||
+          !height ||
+          width > 60000 ||
+          height > 60000 ||
+          width * height > 80_000_000 ||
+          typeof p.thumbnail !== 'string' ||
+          p.thumbnail.length > 150000 ||
+          !/^data:image\/png;base64,iVBOR[A-Za-z0-9+/=]+$/.test(p.thumbnail)
+        )
+          fail()
+        imageIds.add(key)
+        return { id: key, width, height, thumbnail: p.thumbnail as string }
+      })
+      if (covered.size !== report.items.length || imageIds.size !== covered.size) fail()
+      report.similarPhotos = {
+        method: 'visionFeaturePrintV2',
+        groups,
+        images,
+        checkedFiles: number(s.checkedFiles),
+        bytesRead: number(s.bytesRead),
+      }
     }
     if (r.duplicates !== undefined) {
       const d = object(r.duplicates)
@@ -278,9 +358,9 @@ export function readPersonalConfirmation(
     movement = { directory, conflict: m.conflict as PersonalMovement['conflict'], targets }
   } else if (v.movement !== undefined) fail()
   let keptFiles: PersonalFile[] | undefined
-  if (report.duplicates) {
+  if (report.duplicates || report.similarPhotos) {
     keptFiles = files(v.keptFiles, root, 20)
-    const expected = report.duplicates.groups.filter((g) =>
+    const expected = (report.duplicates?.groups ?? report.similarPhotos!.groups).filter((g) =>
       g.itemIds.some((value) => selected.includes(value)),
     )
     if (

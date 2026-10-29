@@ -28,7 +28,7 @@ export function PersonalFiles({
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
-  mode?: 'personal' | 'duplicates'
+  mode?: 'personal' | 'duplicates' | 'similar'
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const language = useLanguage()
@@ -62,14 +62,24 @@ export function PersonalFiles({
     () => filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort),
     [report, query, kind, minimum, older, now, sort, language],
   )
-  const groups = mode === 'duplicates' ? (report?.duplicates?.groups ?? []) : []
-  const displayItems =
-    mode === 'duplicates'
-      ? groups
-          .filter((g) => g.itemIds.some((id) => items.some((i) => i.id === id)))
-          .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
-      : items
-  const title = mode === 'duplicates' ? '确认处理重复文件' : '确认处理个人文件'
+  const grouped = mode !== 'personal'
+  const groups =
+    mode === 'similar'
+      ? (report?.similarPhotos?.groups ?? [])
+      : mode === 'duplicates'
+        ? (report?.duplicates?.groups ?? [])
+        : []
+  const displayItems = grouped
+    ? groups
+        .filter((g) => g.itemIds.some((id) => items.some((i) => i.id === id)))
+        .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
+    : items
+  const title =
+    mode === 'similar'
+      ? '确认处理相似照片'
+      : mode === 'duplicates'
+        ? '确认处理重复文件'
+        : '确认处理个人文件'
   useEffect(() => {
     setSelected([])
     setLimit(100)
@@ -121,7 +131,13 @@ export function PersonalFiles({
         <label className="personal-path">
           <span>整理目录</span>
           <input
-            aria-label={mode === 'duplicates' ? '重复文件目录' : '个人文件目录'}
+            aria-label={
+              mode === 'similar'
+                ? '相似照片目录'
+                : mode === 'duplicates'
+                  ? '重复文件目录'
+                  : '个人文件目录'
+            }
             value={c.root}
             disabled={c.running}
             onChange={(event) => c.setRoot(event.target.value)}
@@ -149,10 +165,21 @@ export function PersonalFiles({
         </button>
       </form>
       <p className="muted">
-        {mode === 'duplicates'
-          ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
-          : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
+        {mode === 'similar'
+          ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
+          : mode === 'duplicates'
+            ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
+            : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
+      {mode === 'similar' && (
+        <details>
+          <summary>相似照片扫描范围</summary>
+          <p className="muted">
+            支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32
+            MiB、八千万像素。照片图库、RAW、动态图、连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
+          </p>
+        </details>
+      )}
       {c.error && (
         <p className="notice warning" role="alert">
           {c.error}
@@ -180,6 +207,12 @@ export function PersonalFiles({
               {dateTime(report.createdAt)}
             </span>
           </div>
+          {report.similarPhotos && (
+            <p className="notice">
+              已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
+              组视觉相似候选。结果仅供人工比较，不自动挑选或认定可删除；本轮最多核对 200 张。
+            </p>
+          )}
           {report.duplicates && (
             <p className="notice">
               已核对 {report.duplicates.checkedFiles} 个文件，找到 {groups.length}{' '}
@@ -249,7 +282,7 @@ export function PersonalFiles({
               已选 {chosen.length} 项 · {bytes(chosen.reduce((sum, item) => sum + item.size, 0))}
             </strong>
             <span>每批最多 20 项</span>
-            {mode !== 'duplicates' && (
+            {!grouped && (
               <button
                 className="button secondary compact"
                 disabled={
@@ -280,7 +313,7 @@ export function PersonalFiles({
               {pending ? '正在准备…' : '移入废纸篓…'}
             </button>
           </div>
-          {mode !== 'duplicates' && (
+          {!grouped && (
             <>
               <div className="personal-scope">
                 <label className="personal-path">
@@ -320,9 +353,14 @@ export function PersonalFiles({
               </p>
             </>
           )}
-          <div className="card personal-list" role="region" aria-label="个人文件列表">
+          <div
+            className={`card personal-list ${mode === 'similar' ? 'similar-photo-list' : ''}`}
+            role="region"
+            aria-label="个人文件列表"
+          >
             {displayItems.slice(0, limit).map((item, index) => {
               const group = groups.find((g) => g.itemIds.includes(item.id))
+              const photo = report?.similarPhotos?.images.find((p) => p.id === item.id)
               const lastCopy =
                 !!group &&
                 group.itemIds.filter((id) => !chosen.some((i) => i.id === id)).length <= 1 &&
@@ -334,12 +372,25 @@ export function PersonalFiles({
                   {first && (
                     <header className="duplicate-group">
                       <strong>
-                        相同内容 · {group.itemIds.length} 份 · 每份 {bytes(group.size)}
+                        {mode === 'similar' ? (
+                          `视觉相似 · ${group.itemIds.length} 张`
+                        ) : (
+                          <>
+                            相同内容 · {group.itemIds.length} 份 · 每份{' '}
+                            {bytes(
+                              'size' in group && typeof group.size === 'number' ? group.size : 0,
+                            )}
+                          </>
+                        )}
                       </strong>
-                      <span>每组至少保留一份</span>
+                      <span>
+                        {mode === 'similar' ? '每组至少保留一张，内容可能不同' : '每组至少保留一份'}
+                      </span>
                     </header>
                   )}
-                  <article className="personal-row">
+                  <article
+                    className={`personal-row ${mode === 'similar' ? 'similar-photo-row' : ''}`}
+                  >
                     <input
                       type="checkbox"
                       aria-label={`选择 ${item.path}`}
@@ -361,27 +412,49 @@ export function PersonalFiles({
                         )
                       }
                     />
+                    {mode === 'similar' && photo && (
+                      <img
+                        className="similar-photo-thumbnail"
+                        src={photo.thumbnail}
+                        alt={item.name}
+                        data-i18n="off"
+                      />
+                    )}
                     <div>
                       <strong data-i18n="off">{item.name}</strong>
                       <p className="mono full-path">{shortPath(item.path, home)}</p>
                       <small>
                         {blocked(item.path)
                           ? '已保护'
-                          : mode === 'duplicates'
+                          : grouped
                             ? chosen.some((i) => i.id === item.id)
-                              ? '所选副本'
+                              ? mode === 'similar'
+                                ? '所选照片'
+                                : '所选副本'
                               : '将保留'
                             : '个人文件 · 需自行确认'}{' '}
                         · {dateTime(item.modifiedAt)}
                       </small>
                     </div>
-                    <span>{bytes(item.size)}</span>
+                    <span>
+                      {photo && (
+                        <>
+                          {photo.width} × {photo.height} 像素 ·{' '}
+                        </>
+                      )}
+                      {bytes(item.size)}
+                    </span>
                     <button
                       className="button secondary compact"
                       disabled={!enabled || !fresh || blocked(item.path) || c.running || pending}
                       onClick={() =>
                         setPreview({
-                          domain: mode === 'duplicates' ? 'duplicateFiles' : 'personalFiles',
+                          domain:
+                            mode === 'similar'
+                              ? 'similarPhotos'
+                              : mode === 'duplicates'
+                                ? 'duplicateFiles'
+                                : 'personalFiles',
                           scanId: report!.id,
                           itemId: item.id,
                           path: item.path,
@@ -486,7 +559,7 @@ export function PersonalFiles({
               只移动到下面确认的位置，不覆盖文件。重名时
               {confirmation.movement.conflict === 'keepBoth' ? '保留两份并编号' : '跳过'}
               ；确认后若名称被占用，本项失败并保留源文件。取消不会撤销已移动项。当前可从历史定位后在
-              Finder 手动移回，应用内恢复尚不可用。
+              Finder 手动移回；也可在操作历史重新检查恢复原位置，不符合条件时保留。
             </p>
           ) : (
             <p>
@@ -513,13 +586,17 @@ export function PersonalFiles({
           </div>
           {confirmation.keptFiles && (
             <section className="notice">
-              <strong>这批保留的副本</strong>
+              <strong>{mode === 'similar' ? '本批保留的照片' : '这批保留的副本'}</strong>
               {confirmation.keptFiles.map((item) => (
                 <p className="mono full-path" key={item.id}>
                   {item.path}
                 </p>
               ))}
-              <p>执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。</p>
+              <p>
+                {mode === 'similar'
+                  ? '每张照片的内容单独核验，视觉相似不代表内容可以互相替代。保留照片变化或缺失时，本项不处理。'
+                  : '执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。'}
+              </p>
             </section>
           )}
           <label className="uninstall-ack">

@@ -303,6 +303,14 @@ pub(super) fn pdf(bytes: &[u8], page: u32) -> Result<(String, u32), String> {
 
 #[cfg(test)]
 pub(super) fn fixture_png(width: usize, height: usize) -> Vec<u8> {
+    fixture_scene(width, height, false)
+}
+#[cfg(test)]
+pub(super) fn fixture_other_png(width: usize, height: usize) -> Vec<u8> {
+    fixture_scene(width, height, true)
+}
+#[cfg(test)]
+fn fixture_scene(width: usize, height: usize, other: bool) -> Vec<u8> {
     unsafe {
         let mut pixels = vec![255u8; width * height * 4];
         for y in 0..height {
@@ -311,6 +319,10 @@ pub(super) fn fixture_png(width: usize, height: usize) -> Vec<u8> {
                 pixels[at] = (x * 255 / width) as u8;
                 pixels[at + 1] = (y * 255 / height) as u8;
                 pixels[at + 2] = 80;
+                if other {
+                    let v = if (x / 12 + y / 12) % 2 == 0 { 0 } else { 255 };
+                    pixels[at..at + 3].fill(v);
+                }
             }
         }
         let space = Owned::new(CGColorSpaceCreateDeviceRGB(), CGColorSpaceRelease).unwrap();

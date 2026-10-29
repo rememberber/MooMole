@@ -359,6 +359,11 @@ function ExecutionResults({
           来源：重复文件。按内容核对分组，处理前再次验证保留副本；同样内容不表示不同位置没有用途。
         </p>
       )}
+      {detail.origin === 'similarPhotos' && (
+        <p className="notice">
+          来源：相似照片。依据视觉特征推荐比较，内容可能不同；逐项选择并保留原件后处理。
+        </p>
+      )}
       {detail.origin === 'personalFiles' && (
         <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
       )}
@@ -466,14 +471,18 @@ function ExecutionResults({
                       !!onRestore &&
                       item.state === 'moved' &&
                       detail.state !== 'running' &&
-                      ['personalFiles', 'duplicateFiles'].includes(detail.origin ?? '')
+                      ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(
+                        detail.origin ?? '',
+                      )
                     }
                   />
                 )}
                 {onRestore &&
                   item.state === 'moved' &&
                   detail.state !== 'running' &&
-                  ['personalFiles', 'duplicateFiles'].includes(detail.origin ?? '') && (
+                  ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(
+                    detail.origin ?? '',
+                  ) && (
                     <button
                       className="button secondary compact"
                       onClick={() =>

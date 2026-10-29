@@ -43,6 +43,7 @@ pub(crate) struct Preview {
 pub(crate) enum Domain {
     PersonalFiles,
     DuplicateFiles,
+    SimilarPhotos,
 }
 pub(super) fn read(
     item: &Item,
@@ -155,6 +156,7 @@ fn selected(
     let store = match domain {
         Domain::PersonalFiles => &state.personal_files,
         Domain::DuplicateFiles => &state.duplicate_files,
+        Domain::SimilarPhotos => &state.similar_photos,
     };
     let store = store.lock().map_err(|e| e.to_string())?;
     let scan = store.scan.as_ref().ok_or("请先完成文件扫描。")?;
