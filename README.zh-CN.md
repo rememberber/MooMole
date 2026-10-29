@@ -32,12 +32,14 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 ## 当前状态
 
-当前为开发版本，**尚未完成首个对外可用版本的发布验收**。清理、卸载和维护均已接入真实执行并有实际 App 的正面验收；剩余权限/故障、分发和许可关口见 [首发执行验收](docs/first-release-execution.md)。不能将本仓库的构建包视为已验证的正式发行版。
+最新公开版本为 **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)**（2026-10-29），内置 **Mole CLI 1.65.0**。这是学习研究版本，已提供下表限定范围内的真实清理、应用卸载和 Quick Look 维护。完整权限/故障、安装升级及对应源码/许可验收仍未完成，具体见 [执行验收](docs/first-release-execution.md) 和发布说明。
+
+0.2.0 新增速战速决与经过验证的用户缓存处理、本机 Agent 驱动的 AI 深度扫描、中英日免重启切换、窗口拖动修复及克制的任务动效。[发布说明](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) 提供英、中、日三语。
 
 | 功能             | 现在可以做什么                                                                                                              | 当前限制                                                                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 速战速决 / 清理  | 分类汇总缓存、日志、卸载残留、大文件和大应用；检查通过的帮助/图标缓存默认勾选，符合条件的用户缓存和普通日志可确认移入废纸篓 | 仅支持来源明确的用户缓存普通文件/严格目录和普通日志；残留与个人大文件执行未开放，未知、变化或过期保留；见 [速战速决](docs/quick-cleanup.md) |
-| AI 深度扫描      | 检测本机 Agent，使用内置 Skill 结合 Mole 候选、所选目录元数据和模型知识给出逐项建议，再进入原有清理审阅                     | 首批适配 Codex CLI / Claude Code（Claude 尚未本机实测）；需确认模型数据使用及额度，扩展线索仅供核实；见 [AI 扫描](docs/ai-deep-scan.md)     |
+| AI 深度扫描      | 检测本机 Agent，使用内置 Skill 结合 Mole 候选、所选目录元数据和模型知识给出逐项建议，再进入原有清理审阅                     | 首批适配 Codex CLI / Claude Code（Claude 需 API/云服务凭据，尚未实测）；需确认模型数据使用及额度，扩展线索仅供核实；见 [AI 扫描](docs/ai-deep-scan.md)     |
 | 应用列表         | 搜索和查看应用、运行/关联线索；单个受支持普通 App 包可确认移入废纸篓                                                        | 包外设置、缓存和个人数据保留；运行、受保护、受管理或条件未知时保留，不承诺清除全部残留                                                      |
 | 系统维护         | 查阅固定 Mole 的 19 项说明；明确选择并执行 Quick Look 缩略图缓存、生成器列表两步刷新                                        | 其余维护只读；无原缓存备份或一键撤销，不承诺修复或提速                                                                                      |
 | 空间分析         | 选择目录、空间图/列表、目录下钻、可点击路径、大文件筛选和 Finder 定位                                                       | 不删除文件；测量大小不代表可释放空间，部分结果保留不完整提示                                                                                |
@@ -51,13 +53,18 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 ## 安装与更新
 
-正式分发采用架构匹配的 DMG、免费 ad-hoc 签名和 GitHub Releases；目前尚未发布经过完整验收的正式版本。不会要求购买 Apple 开发者账户，也不声称具有 Developer ID 或 Apple 公证。
+可从下方下载与本机架构匹配的 **0.2.0** DMG。安装包采用免费 ad-hoc 签名，没有 Apple Developer ID 签名或公证，不要求购买 Apple 开发者账户。
 
-发布后，Apple 芯片的 Mac 选择 `arm64`，Intel Mac 选择 `x64`；可在[关于本机](https://support.apple.com/zh-cn/guide/mac-help/mchlea7173f3/mac)查看芯片或处理器。核对发布页的文件大小和 SHA-512，再打开 DMG，将应用复制到“应用程序”并从安装位置启动。
+| Mac 类型 | 下载 |
+| --- | --- |
+| Apple 芯片（`arm64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-arm64.dmg) |
+| Intel（`x64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
+
+可在[关于本机](https://support.apple.com/zh-cn/guide/mac-help/mchlea7173f3/mac)查看芯片或处理器。核对[发布页](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)或 [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS) 中的大小和 SHA-512，再打开 DMG，将应用复制到“应用程序”并从安装位置启动。对应架构的 `materials.zip` 包含匹配的源码、依赖材料和校验清单。
 
 首次打开时，macOS 可能提示无法验证开发者或检查恶意软件；请先确认来源和文件完整性，再根据 [Apple 的安全说明](https://support.apple.com/zh-cn/102445)自行判断。应用不会关闭 Gatekeeper 或移除系统安全属性。更新采用“设置 → 关于 → 检查更新 → 下载并校验大小/SHA-512 → 打开 DMG → 正常退出后手动替换”的流程，不静默覆盖运行中的 App。没有已发布新版时，更新检查不会生成安装包。
 
-两种架构的候选构建及本机安装/替换已有验证记录；公开下载后的 Gatekeeper、跨 SemVer 更新、Intel 原生使用及完整支持环境验收仍待完成。具体证据和限制见 [安装升级方案](docs/distribution.md) 与 [候选构建](docs/candidate-build.md)。
+0.2.0 安装包已通过 macOS arm64/x64 自动化检查、嵌套签名与资源校验、DMG 挂载及公开下载摘要复核，见 [本版发布验证记录](docs/releases/0.2.0.md)。Intel 原生交互、公开隔离下载后的首次打开、跨版本安装/权限行为及完整支持环境验收仍待完成，见 [安装升级方案](docs/distribution.md)。
 
 ## 本地开发
 
@@ -113,6 +120,6 @@ npm run test:e2e
 
 ## 来源与许可证
 
-内置 Mole CLI 基线为 **1.65.0** / [`308bf9911179ddfa40e5df9fdc42095a18ba5cfc`](https://github.com/tw93/Mole/commit/308bf9911179ddfa40e5df9fdc42095a18ba5cfc)，上游源码未修改。客户端适配层和界面源码在本仓库。构建/候选提供绑定同一 App 的客户端、Mole、依赖分发物及 npm 源码输入，完整对应源码与发行许可审阅仍待完成，见 [源码包](docs/source-bundle.md) 和 [依赖材料](docs/dependency-materials.md)。
+内置 Mole CLI 基线为 **1.65.0** / [`308bf9911179ddfa40e5df9fdc42095a18ba5cfc`](https://github.com/tw93/Mole/commit/308bf9911179ddfa40e5df9fdc42095a18ba5cfc)，上游源码未修改。客户端适配层和界面源码在本仓库。发布材料提供绑定同一 App 的客户端、Mole、依赖分发物及 npm 源码输入，完整对应源码与发行许可审阅仍待完成，见 [源码包](docs/source-bundle.md) 和 [依赖材料](docs/dependency-materials.md)。
 
 本项目按 [GPL-3.0-only](LICENSE) 提供。上游许可证见 [Mole-LICENSE](third-party/Mole-LICENSE)，来源和构建说明见 [第三方说明](third-party/NOTICE.md)。Mole 名称及品牌资产属于原项目，本项目不代表官方或获得官方背书；公开名称仍须按上游品牌政策确认。

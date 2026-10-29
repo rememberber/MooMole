@@ -3,6 +3,31 @@
   "productId": "io.github.rememberber.moomole",
   "releases": [
     {
+      "version": "0.2.0",
+      "notes": "English: Quick cleanup with verified user caches, AI deep scan through local agents, Chinese/English/Japanese UI, restored window dragging, task animations and bundled Mole CLI 1.65.0. AI metadata sharing requires consent and your own model quota. Cleanup/uninstall/Quick Look execution remains limited; see the release page for known gaps. Download, verify and manually install the DMG.\n\n简体中文：新增速战速决与经验证的用户缓存处理、本机 Agent AI 深度扫描、中英日界面、窗口拖动修复和任务动效；内置 Mole CLI 1.65.0。AI 元数据发送需同意并使用自己的额度。清理、卸载和 Quick Look 执行仍有限定范围，未完成验证见发布页。下载并校验 DMG 后手动安装。\n\n日本語：検証済みユーザーキャッシュのクイッククリーン、ローカル Agent による AI 詳細スキャン、中英日の画面、ウィンドウドラッグ修正、タスクアニメーションを追加。Mole CLI 1.65.0 を内蔵します。AI へのメタデータ送信は同意と自身の利用枠が必要です。実行範囲と未完了の検証はリリースページをご覧ください。DMG をダウンロード・検証し、手動でインストールしてください。",
+      "releaseUrl": "https://github.com/rememberber/MooMole/releases/tag/v0.2.0",
+      "assets": [
+        {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "packageType": "dmg",
+          "fileName": "MooMole-0.2.0-mac-arm64.dmg",
+          "url": "https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-arm64.dmg",
+          "size": 16537127,
+          "sha512": "8df9b196c7aa100ba7cd40320bbe65238b8ca35d8dc361a31e9a38469d66f7f50829a991845d03dc68dc99b6629de08163163bfc1da47adea32f242e64436365"
+        },
+        {
+          "platform": "darwin",
+          "architecture": "x64",
+          "packageType": "dmg",
+          "fileName": "MooMole-0.2.0-mac-x64.dmg",
+          "url": "https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg",
+          "size": 17511687,
+          "sha512": "57981ce29fe7a05984a1a4ea4847cdf4c0a04215ad8626e8dc2cbb07ac90f4aa2283707224b328be91840fd3bcc8a7509d21ea186846269bf5db82cde2c02724"
+        }
+      ]
+    },
+    {
       "version": "0.1.0",
       "notes": "首个可用版本：支持限定范围的日志清理、普通应用卸载和 Quick Look 刷新。详情及限制见发布页。",
       "releaseUrl": "https://github.com/rememberber/MooMole/releases/tag/v0.1.0",
