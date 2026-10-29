@@ -243,6 +243,7 @@ fn cases(source: &str) -> Vec<&str> {
 }
 pub(super) struct Policy {
     shared: Case,
+    steam: Case,
     runtime: Case,
     system: Vec<Case>,
     critical_data: Case,
@@ -251,9 +252,10 @@ pub(super) struct Policy {
 impl Policy {
     pub(super) fn parse(logic: &str, data: &str) -> Result<Self, String> {
         let shared = cases(function(logic, "_mole_is_shared_home_state_root")?);
+        let steam = cases(function(logic, "_mole_is_steam_library_path")?);
         let runtime = cases(function(logic, "is_orbstack_runtime_path")?);
         let path = cases(function(logic, "should_protect_path")?);
-        if shared.len() != 1 || runtime.len() != 1 || path.len() != 6 {
+        if shared.len() != 1 || steam.len() != 1 || runtime.len() != 1 || path.len() != 6 {
             return Err("路径规则结构不受支持。".into());
         }
         let endpoints = patterns(data, "ENDPOINT_SECURITY_BUNDLE_PREFIXES")?;
@@ -264,6 +266,7 @@ impl Policy {
         runtime.ascii_lowercase();
         Ok(Self {
             shared: Case::parse(shared[0])?,
+            steam: Case::parse(steam[0])?,
             runtime,
             system: path[2..5]
                 .iter()
@@ -279,6 +282,12 @@ impl Policy {
             home.as_bytes(),
         ) {
             return Some("sharedRoot");
+        }
+        if self.steam.protected(
+            path.strip_suffix('/').unwrap_or(path).as_bytes(),
+            home.as_bytes(),
+        ) {
+            return Some("criticalData");
         }
         if self.runtime.protected(
             path.to_ascii_lowercase().as_bytes(),
@@ -438,6 +447,7 @@ mod tests {
         runtime.ascii_lowercase();
         Policy {
             shared:Case::parse(r#""$HOME"/.[Cc][Oo][Nn][Ff][Ii][Gg]) return 0 ;;"#).unwrap(),
+            steam:Case::parse(r#""$HOME"/Library/Application\ Support/[Ss][Tt][Ee][Aa][Mm] | "$HOME"/Library/Application\ Support/[Ss][Tt][Ee][Aa][Mm]/*) return 0 ;;"#).unwrap(),
             runtime,
             system:vec![Case::parse(r#"*[Ss]ystem[Ss]ettings* | *com.apple.finder*) return 0 ;;"#).unwrap()],
             critical_data:Case::parse(r#"*/Codex/pending/*/*) return 0 ;; */Codex/pending/?*) ;; */Codex | */Codex/* | */Library/Preferences/plugin.[0-9][0-9].plist) return 0 ;;"#).unwrap(),
@@ -450,6 +460,18 @@ mod tests {
         let home = "/Users/name[*]?";
         for (path, reason) in [
             (format!("{home}/.Config/"), "sharedRoot"),
+            (
+                format!("{home}/Library/Application Support/Steam/"),
+                "criticalData",
+            ),
+            (
+                format!("{home}/Library/Application Support/steam/steamapps/common/game"),
+                "criticalData",
+            ),
+            (
+                format!("{home}/Library/Application Support/STEAM/userdata/save"),
+                "criticalData",
+            ),
             (
                 format!("{home}/Library/Group Containers/TEAM.DEV.ORBSTACK/data"),
                 "containerRuntime",
@@ -474,6 +496,7 @@ mod tests {
         }
         for path in [
             format!("{home}/.config/child"),
+            format!("{home}/Library/Application Support/SteamVR/data"),
             format!("{home}/Codex/pending/a"),
             format!("{home}/Library/Caches/com.jetbrains.PyCharm"),
             format!("{home}/Library/Preferences/plugin.1.plist"),
@@ -717,6 +740,7 @@ mod tests {
         let home = home.to_str().unwrap();
         let mut paths = vec![];
         for case in std::iter::once(&policy.shared)
+            .chain(std::iter::once(&policy.steam))
             .chain(std::iter::once(&policy.runtime))
             .chain(policy.system.iter())
             .chain(std::iter::once(&policy.critical_data))
@@ -787,6 +811,7 @@ mod tests {
         }
         for name in [
             "_mole_is_shared_home_state_root",
+            "_mole_is_steam_library_path",
             "is_orbstack_runtime_path",
             "is_endpoint_security_cache_path",
             "should_protect_path",

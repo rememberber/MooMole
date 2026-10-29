@@ -56,7 +56,7 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
     }
     if (name === '概览') {
       const engine = page.getByRole('region', { name: 'Mole CLI 版本' })
-      await expect(engine).toContainText('v1.59.1')
+      await expect(engine).toContainText('v1.65.0')
       expect((await engine.boundingBox())!.y).toBeLessThan(100)
     }
     for (const theme of ['light', 'dark']) {

@@ -1,6 +1,6 @@
 import type { ApplicationInspection } from '../types'
 
-export const moleUninstallRevision = 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f'
+export const moleUninstallRevision = '308bf9911179ddfa40e5df9fdc42095a18ba5cfc'
 const officialVendors = [
   'ESET',
   'Jamf',

@@ -55,7 +55,7 @@ export async function installTaskMock(
               return {
                 ...initial,
                 history: history(),
-                engine: { ...initial.engine, available: true, version: '1.59.1' },
+                engine: { ...initial.engine, available: true, version: '1.65.0' },
               }
             if (command === 'get_history') return history()
             if (command === 'get_ai_scan') return null

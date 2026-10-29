@@ -1,6 +1,6 @@
 # 1.0 功能边界与 Mole CLI 能力映射
 
-2026-10-16。源码基线固定为 Mole `1.59.1` / `ba3a0f57f78e4c22818fda701219cc3dd4d6953f`。本表核对该提交的实际解析代码，不代表其他版本，也不把规划标成已实现。
+2026-10-29 更新。源码基线固定为 Mole `1.65.0` / `308bf9911179ddfa40e5df9fdc42095a18ba5cfc`。本表核对该提交的实际解析代码，不代表其他版本，也不把规划标成已实现。
 
 ## 1.0 范围基线
 
@@ -36,8 +36,8 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `help`、`--help`、`-h` | GUI 使用说明替代；具体错误与模块说明继续补齐 | `mole:main` |
 | `version`、`--version`、`-V` | 已在首页/关于显示内置版本与源码基线，不依赖启动 CLI 取版本 | `mole:VERSION/show_version/main` |
 | 全局 `--debug` | 不透传任意参数；原始清理预览可查看，脱敏诊断预览/导出待做 | `mole:mole_collect_cli_args` |
-| `update [--force|-f] [--nightly]` | 内置 CLI 自更新不适用；App 与引擎成套升级，客户端手动 DMG 更新另行实现 | `mole:main` |
-| `remove [--dry-run|-n]` | 内置 CLI 自删除不适用；应用卸载/本地数据保留说明另行提供 | `mole:main` |
+| `update [--force|-f] [--nightly] [--help|-h]` | 内置 CLI 自更新不适用；App 与引擎成套升级，客户端手动 DMG 更新另行实现 | `mole:main` |
+| `remove [--dry-run|-n] [--help|-h]` | 内置 CLI 自删除不适用；应用卸载/本地数据保留说明另行提供 | `mole:main` |
 | `completion` 无参数、`bash` / `zsh` / `fish`、`--dry-run|-n` | 终端补全安装/生成不适用，不修改 shell 配置 | `bin/completion.sh` 参数归一化与末尾 `case` |
 | `touchid [enable|disable|status] [--dry-run|-n] [--help|-h]` | PAM/Touch ID 配置不进入默认首发，单独评估；不作为清理授权前置条件 | `bin/touchid.sh:main` |
 
@@ -54,12 +54,13 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `uninstall --list` | 已接入只读 JSON 应用清单；不执行卸载 | `bin/uninstall.sh:main` 的 list 短路分支 |
 | `uninstall [APP_NAME…]` | 待接入应用身份选择；不以模糊名字作为关联文件删除依据 | `bin/uninstall.sh:main` |
 | `uninstall --dry-run|-n` | 关联文件结构化预览待适配；当前仅应用清单不等于卸载计划 | 同上 |
+| `uninstall --with-data` | 上游可预选个人数据（游戏库仍不预选）；客户端不透传此参数，包外关联数据继续保留，新残留识别规则尚未全部接入 | `bin/uninstall.sh:main`；`lib/uninstall/review.sh` |
 | `uninstall --permanent` | 不开放直接透传；永久删除另需明确协议、确认和结果记录 | 同上；默认删除方式为 trash 的设置 |
 | `uninstall --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上 |
 | `uninstall --whitelist` | 此提交不支持；不能在 GUI 暗中调用或声称具备该能力 | 同上明确拒绝分支 |
-| `optimize` / `optimise`、`--dry-run` | 已提供 19 项作用/影响说明，两项设置/项目与文件保护的只读观察、选择及限时条件审阅；不运行入口或 dry-run，不开放执行。其余条件及执行待适配 | `mole:main`；`bin/optimize.sh:main`；`lib/optimize/catalog.sh` 与处理函数；[维护边界](system-maintenance.md)、[审阅协议](maintenance-review.md) |
+| `optimize` / `optimise`、`--dry-run|-n` | 已提供 19 项作用/影响说明，两项设置/项目与文件保护的只读观察、选择及限时条件审阅；不运行入口或 dry-run，不开放执行。其余条件及执行待适配 | `mole:main`；`bin/optimize.sh:main`；`lib/optimize/catalog.sh` 与处理函数；[维护边界](system-maintenance.md)、[审阅协议](maintenance-review.md) |
 | `optimize --whitelist` | 待适配维护保护规则；和 clean 的规则用途区分 | `bin/optimize.sh:main` |
-| `optimize --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上；该分支没有 `-n` 别名 |
+| `optimize --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上 |
 
 ## 分析、状态、工程产物、安装包和历史
 
@@ -74,9 +75,10 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | `purge --paths` | 已支持按需只读配置并逐处选择，不自动发现/扫描或改配置；编辑/保存待接入，不直接启动交互式编辑器 | `bin/purge.sh:main` |
 | `purge --dry-run|-n`、`--include-empty` | 已有不运行入口的固定名称只读发现，可逐项测量文件分配块，未知不当作零；完整候选/归属与规则待接入，见 [工程产物](project-artifacts.md) | 同上 |
 | `purge --yes` | 无人值守确认不适用；GUI 以具体选中计划及用户确认替代 | 同上 |
-| `purge --debug`、`--help` | 全局诊断/模块说明替代；该解析分支没有 `-h` 别名 | 同上 |
+| `purge --debug`、`--help|-h` | 全局诊断/模块说明替代 | 同上 |
 | `installer --dry-run|-n` | 已有不运行入口的指定范围只读文件线索；ZIP 已有手动、有界、只读的前 50 条名称线索检查及另行手动数据/CRC 测试，以及 DMG 内部 CRC32 核对；DMG/ISO 已有手动系统连接路径观察，可见进程占用线索另有逐项检查；映像身份/完整占用与完整结构化候选仍待接入，见 [安装包](installers.md) | `bin/installer.sh:main` |
 | `installer --debug`、`--help|-h` | 全局诊断/模块说明替代；实际处理待受限执行协议 | 同上 |
+| `slim [--dry-run|-n] [--debug] [--help|-h]` | 新增的 Apple Silicon 通用 App 瘦身入口；CLI 资源随包包含，客户端暂不提供选择或执行入口 | `mole:main`；`bin/slim.sh:main` |
 | `history --json --limit N`（1–200） | 已接入原版 JSON，固定每类最多 200 条，分批展示与搜索/筛选；会话保留 run_id/归属，删除日志独立，不与客户端执行记录混合。仅默认位置当前日志，见 [历史读取](mole-history.md) | `mole:mole_dispatch_history_early`；`bin/history.sh:main` |
 | `history --help|-h` | 已用日志来源、范围与归属说明及筛选界面替代 | 同上 |
 
@@ -84,6 +86,8 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 
 ## 追踪与升级
 
-源码证据均来自固定提交的 [主入口](https://github.com/tw93/Mole/blob/ba3a0f57f78e4c22818fda701219cc3dd4d6953f/mole)、[Shell 入口目录](https://github.com/tw93/Mole/tree/ba3a0f57f78e4c22818fda701219cc3dd4d6953f/bin)、[分析入口](https://github.com/tw93/Mole/blob/ba3a0f57f78e4c22818fda701219cc3dd4d6953f/cmd/analyze/main.go)、[状态入口](https://github.com/tw93/Mole/blob/ba3a0f57f78e4c22818fda701219cc3dd4d6953f/cmd/status/main.go)。这些文件在 `.cache/mole-source/` 可核对，表内使用函数名定位。
+源码证据均来自固定提交的 [主入口](https://github.com/tw93/Mole/blob/308bf9911179ddfa40e5df9fdc42095a18ba5cfc/mole)、[Shell 入口目录](https://github.com/tw93/Mole/tree/308bf9911179ddfa40e5df9fdc42095a18ba5cfc/bin)、[分析入口](https://github.com/tw93/Mole/blob/308bf9911179ddfa40e5df9fdc42095a18ba5cfc/cmd/analyze/main.go)、[状态入口](https://github.com/tw93/Mole/blob/308bf9911179ddfa40e5df9fdc42095a18ba5cfc/cmd/status/main.go)。这些文件在 `.cache/mole-source/` 可核对，表内使用函数名定位。
 
 升级固定提交时，先比较以上解析分支、默认行为、已移除参数和保护规则，再更新映射、适配协议与测试；不能只替换版本字符串。每项实现后更新此表“当前状态”和 [release-roadmap](release-roadmap.md) 中对应验收项。品牌、真实机器矩阵、免费 DMG 发布与完整用户流程仍为独立验收条件。
+
+2026-10-29 升级差异、当前适配范围与实测记录见 [Mole 1.65.0 升级](mole-upgrade-1.65.0.md)。历史开发日志中的 1.59.1 记录保留原版本。

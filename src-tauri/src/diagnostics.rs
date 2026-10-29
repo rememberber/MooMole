@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn report_omits_all_free_text_and_keeps_unknown_and_time_boundaries() {
         let mut task = record();
-        let json = prepare(&task, Some("1.59.1".into())).unwrap();
+        let json = prepare(&task, Some("1.65.0".into())).unwrap();
         validate(&json).unwrap();
         for secret in [
             "private",

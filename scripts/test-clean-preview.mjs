@@ -8,7 +8,7 @@ const engine = resolve(import.meta.dirname, '../src-tauri/resources/mole')
 const scratch = mkdtempSync(resolve(tmpdir(), 'moomole-adapter-test-'))
 const ledger = resolve(scratch, 'ledger.nul')
 const report = resolve(scratch, 'report.nul')
-const revision = 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f'
+const revision = '308bf9911179ddfa40e5df9fdc42095a18ba5cfc'
 const parent = `${scratch}/缓存 ' [*]\n\t$(literal)`
 const rows = [
   ['path:parent', '8', '3', 'true', 'Apps', parent],

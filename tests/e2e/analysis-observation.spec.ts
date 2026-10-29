@@ -9,7 +9,7 @@ const observation: AnalysisObservation = {
   startedAt: 1792180800000,
   finishedAt: 1792180801250,
   elapsedMs: 1250,
-  engineVersion: '1.59.1',
+  engineVersion: '1.65.0',
   revision: 'fixture-revision',
   cacheUse: 'unreported',
 }
@@ -40,7 +40,7 @@ test('read provenance stays distinct from measurement freshness; coverage ignore
   const details = explorer.getByText('测量范围与图表说明', { exact: true })
   await details.focus()
   await page.keyboard.press('Enter')
-  await expect(explorer.getByText(/来源：Mole CLI v1.59.1/)).toBeVisible()
+  await expect(explorer.getByText(/来源：Mole CLI v1.65.0/)).toBeVisible()
   await expect(explorer.getByText(/引擎修订：fixture-revision/)).toBeVisible()
   await expect(explorer.getByText(/读取完成时间不等于每个项目的测量时间/)).toBeVisible()
 })

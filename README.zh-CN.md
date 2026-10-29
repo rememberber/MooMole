@@ -95,6 +95,6 @@ npm run test:e2e
 
 ## 来源与许可证
 
-内置 Mole CLI 基线为 **1.59.1** / [`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f)，上游源码未修改。客户端适配层和界面源码在本仓库。构建/候选提供绑定同一 App 的客户端、Mole、依赖分发物及 npm 源码输入，完整对应源码与发行许可审阅仍待完成，见 [源码包](docs/source-bundle.md) 和 [依赖材料](docs/dependency-materials.md)。
+内置 Mole CLI 基线为 **1.65.0** / [`308bf9911179ddfa40e5df9fdc42095a18ba5cfc`](https://github.com/tw93/Mole/commit/308bf9911179ddfa40e5df9fdc42095a18ba5cfc)，上游源码未修改。客户端适配层和界面源码在本仓库。构建/候选提供绑定同一 App 的客户端、Mole、依赖分发物及 npm 源码输入，完整对应源码与发行许可审阅仍待完成，见 [源码包](docs/source-bundle.md) 和 [依赖材料](docs/dependency-materials.md)。
 
 本项目按 [GPL-3.0-only](LICENSE) 提供。上游许可证见 [Mole-LICENSE](third-party/Mole-LICENSE)，来源和构建说明见 [第三方说明](third-party/NOTICE.md)。Mole 名称及品牌资产属于原项目，本项目不代表官方或获得官方背书；公开名称仍须按上游品牌政策确认。

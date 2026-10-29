@@ -285,7 +285,7 @@ fn scan_with(
         serde_json::from_str(include_str!("../../src/lib/installers-catalog.json"))
             .map_err(|_| "安装包来源说明无法读取。")?;
     if reference.revision != engine::REVISION
-        || reference.version != "1.59.1"
+        || reference.version != "1.65.0"
         || reference.max_depth != 2
         || reference.extensions != ["dmg", "pkg", "mpkg", "iso", "xip", "zip"]
     {

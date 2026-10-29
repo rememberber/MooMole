@@ -39,7 +39,7 @@ function fixture(t) {
     arch: 'arm64',
     revision: 'a'.repeat(40),
     engineRevision: 'b'.repeat(40),
-    engineVersion: '1.59.1',
+    engineVersion: '1.65.0',
   }
   function asset(folder, file, body) {
     writeFileSync(join(folder, file), body)
@@ -108,7 +108,7 @@ function fixture(t) {
       revision: expected.revision,
     }
     const moleSource = {
-      ...asset(src, 'Mole-1.59.1-bbbbbbbbbbbb-source.tar.gz', 'fixture engine'),
+      ...asset(src, 'Mole-1.65.0-bbbbbbbbbbbb-source.tar.gz', 'fixture engine'),
       revision: expected.engineRevision,
       version: expected.engineVersion,
     }

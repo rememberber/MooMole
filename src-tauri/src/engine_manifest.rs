@@ -244,7 +244,7 @@ pub fn fixture(root: &Path) {
             std::fs::write(
                 &path,
                 if *name == "mole" {
-                    "VERSION=\"1.59.1\"\n"
+                    "VERSION=\"1.65.0\"\n"
                 } else {
                     "fixture"
                 },
@@ -271,7 +271,7 @@ pub fn fixture(root: &Path) {
         (*name, serde_json::json!({"size": bytes.len(), "sha256": format!("{:x}", Sha256::digest(bytes)), "executable": mode & 0o111 != 0}))
     }).collect();
     let manifest = serde_json::json!({"schemaVersion":1, "repository":"https://github.com/tw93/Mole", "revision":crate::engine::REVISION,
-        "version":"1.59.1", "platform":"darwin", "arch":architecture(), "cleanProtocol":crate::clean_preview::PROTOCOL,"rulesProtocol":crate::rules::PROTOCOL,
+        "version":"1.65.0", "platform":"darwin", "arch":architecture(), "cleanProtocol":crate::clean_preview::PROTOCOL,"rulesProtocol":crate::rules::PROTOCOL,
         "build":{"recipeVersion":1,"goVersion":"go version go1.26.0 darwin/fixture","goos":"darwin","goarch": if architecture()=="x64" {"amd64"} else {"arm64"}},"files":files});
     std::fs::write(root.join("UPSTREAM.json"), manifest.to_string()).unwrap();
 }

@@ -37,7 +37,7 @@ function fixture(folder, content = 'fixture') {
       header.writeUInt32LE(process.arch === 'arm64' ? 0x0100000c : 0x01000007, 4)
       writeFileSync(path, header)
       chmodSync(path, 0o755)
-    } else writeFileSync(path, name === 'mole' ? 'VERSION="1.59.1"\n' : content)
+    } else writeFileSync(path, name === 'mole' ? 'VERSION="1.65.0"\n' : content)
   }
   return writeManifest(folder, `go version go1.26.0 darwin/${process.arch}`)
 }
@@ -56,11 +56,11 @@ test('manifest detects equal-size corruption, unexpected files, missing files, l
   ]) {
     const folder = work()
     fixture(folder)
-    assert.equal(verifyPrepared(folder).version, '1.59.1')
+    assert.equal(verifyPrepared(folder).version, '1.65.0')
     const manifest = verifyPrepared(folder)
     manifest.files = Object.fromEntries(Object.entries(manifest.files).reverse())
     writeFileSync(join(folder, 'UPSTREAM.json'), JSON.stringify(manifest))
-    assert.equal(verifyPrepared(folder).version, '1.59.1')
+    assert.equal(verifyPrepared(folder).version, '1.65.0')
     if (failure === 'changed') writeFileSync(join(folder, 'mo'), 'changed')
     if (failure === 'extra') writeFileSync(join(folder, 'unexpected'), '')
     if (failure === 'missing' || failure === 'link') rmSync(join(folder, 'mo'))

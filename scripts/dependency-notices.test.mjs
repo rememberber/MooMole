@@ -53,7 +53,7 @@ function fixture(t) {
   const sum = 'h1:' + createHash('sha256').update('fixture').digest('base64')
   const input = {
     root,
-    engine: { appVersion: '0.1.0', version: '1.59.1', revision: 'a'.repeat(40), arch: 'arm64' },
+    engine: { appVersion: '0.1.0', version: '1.65.0', revision: 'a'.repeat(40), arch: 'arm64' },
     cargo: {
       resolve: {
         root: 'app',

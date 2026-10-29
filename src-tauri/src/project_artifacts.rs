@@ -33,7 +33,7 @@ fn catalog() -> Result<Catalog, String> {
         serde_json::from_str(include_str!("../../src/lib/project-artifacts-catalog.json"))
             .map_err(|_| "工程产物说明无法读取。")?;
     if value.revision != engine::REVISION
-        || value.version != "1.59.1"
+        || value.version != "1.65.0"
         || value.targets.len() != 34
         || value.workspace_indicators.len() != 5
         || value.project_indicators.len() != 16

@@ -95,6 +95,6 @@ The frontend exposes no general shell, arbitrary SQL or direct filesystem interf
 
 ## Sources and license
 
-Bundled Mole CLI baseline: **1.59.1** / [`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f). Upstream sources are unchanged. Client adapters and UI sources are in this repository. Builds/candidates provide matching client, Mole, distributed dependencies and npm source inputs bound to the same app. Complete corresponding-source and release-license review remain pending; see [source bundles](docs/source-bundle.md) and [dependency materials](docs/dependency-materials.md).
+Bundled Mole CLI baseline: **1.65.0** / [`308bf9911179ddfa40e5df9fdc42095a18ba5cfc`](https://github.com/tw93/Mole/commit/308bf9911179ddfa40e5df9fdc42095a18ba5cfc). Upstream sources are unchanged. Client adapters and UI sources are in this repository. Builds/candidates provide matching client, Mole, distributed dependencies and npm source inputs bound to the same app. Complete corresponding-source and release-license review remain pending; see [source bundles](docs/source-bundle.md) and [dependency materials](docs/dependency-materials.md).
 
 Licensed under [GPL-3.0-only](LICENSE). See [Mole-LICENSE](third-party/Mole-LICENSE) and [third-party notices](third-party/NOTICE.md) for upstream licensing, provenance and build details. Mole names and brand assets belong to the original project. This project is neither official nor endorsed; the public name still requires confirmation under upstream branding policy.

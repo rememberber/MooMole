@@ -23,7 +23,7 @@ export const demoCleanPreview: CleanPreview = {
   output: '示例预览日志：本页仅用于展示界面，没有扫描本机文件。',
   dryRun: true,
   protocol: 2,
-  revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+  revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
   systemIncluded: false,
   items: [
     {
@@ -85,7 +85,7 @@ export const demoBootstrap: Bootstrap = {
   engine: {
     available: false,
     version: null,
-    revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+    revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
     reason: '浏览器仅展示示例数据；请启动桌面 App 读取本机。',
   },
   settings: {

@@ -1,8 +1,8 @@
 {
-  "version": "1.59.1",
-  "revision": "ba3a0f57f78e4c22818fda701219cc3dd4d6953f",
+  "version": "1.65.0",
+  "revision": "308bf9911179ddfa40e5df9fdc42095a18ba5cfc",
   "sourceHashes": {
-    "bin/installer.sh": "c18b9395769d64b0721b34641f0b711bf4ad4db17e125ebe47f3be6db6d536da"
+    "bin/installer.sh": "6d2b0db26029c377c2b14a3718f7e34bca8a47d8f157e615f41248021b6b198e"
   },
   "extensions": ["dmg", "pkg", "mpkg", "iso", "xip", "zip"],
   "maxDepth": 2,

@@ -16,7 +16,7 @@ export const interrupted: ExecutionDetail = {
   uncertainCount: 1,
   retainedForReview: true,
   reviewedAt: null,
-  revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+  revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
   protocol: 1,
   snapshotSha256: 'abcd'.repeat(16),
   items: Array.from({ length: 64 }, (_, i) => ({

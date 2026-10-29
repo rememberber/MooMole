@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { join, relative } from 'node:path'
 
-export const revision = 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f'
+export const revision = '308bf9911179ddfa40e5df9fdc42095a18ba5cfc'
 export const repository = 'https://github.com/tw93/Mole'
 export const requiredFiles = [
   'mole',

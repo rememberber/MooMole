@@ -154,7 +154,7 @@ moomole_review_rules() {
     exec 3< "$request"
     IFS= read -r -d '' header <&3 || return 1
     [[ "$header" == MooMole.rules.request.v4 ]] || return 1
-    printf '%s\0%s\0%s\0%s\0%s\0' 'MooMole.rules.v4' 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' '2' '1' "$HOME" > "$report"
+    printf '%s\0%s\0%s\0%s\0%s\0' 'MooMole.rules.v4' '308bf9911179ddfa40e5df9fdc42095a18ba5cfc' '2' '1' "$HOME" > "$report"
     while IFS= read -r -d '' id <&3; do
         if [[ "$id" == complete ]]; then
             # The Rust producer owns framing; reject unexpected trailing bytes.
