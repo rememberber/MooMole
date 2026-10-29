@@ -1,6 +1,135 @@
 use super::*;
 
 #[tokio::test]
+#[ignore = "real Mail-copy scope, fixed Mail process probe, Mole rules and native Trash on owned files only"]
+async fn real_mail_attachment_copy_uses_catalog_scope_and_preserves_mail_database() {
+    use crate::engine::TaskKind;
+    use std::os::unix::ffi::OsStrExt;
+    let temp = tempfile::Builder::new()
+        .prefix("MooMole-mail-native-")
+        .tempdir()
+        .unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let root = software_content::Source::MailDownloads.path(&home);
+    std::fs::create_dir_all(&root).unwrap();
+    let old = root.join("owned-attachment.txt");
+    std::fs::write(&old, vec![b'x'; 6 * 1024 * 1024]).unwrap();
+    let name = std::ffi::CString::new(old.as_os_str().as_bytes()).unwrap();
+    let times = [libc::timespec {
+        tv_sec: db::now() / 1000 - 40 * 86400,
+        tv_nsec: 0,
+    }; 2];
+    assert_eq!(
+        unsafe {
+            libc::utimensat(
+                libc::AT_FDCWD,
+                name.as_ptr(),
+                times.as_ptr(),
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        },
+        0
+    );
+    let recent = root.join("recent.txt");
+    std::fs::write(&recent, "recent keep").unwrap();
+    let maildb = home.join("Library/Mail/Envelope Index");
+    std::fs::create_dir_all(maildb.parent().unwrap()).unwrap();
+    std::fs::write(&maildb, "owned mail database keep").unwrap();
+    let scan = software_content::collect(
+        &home,
+        software_content::Source::MailDownloads,
+        &[],
+        Arc::new(Job::new(TaskKind::PersonalScan)),
+    )
+    .unwrap();
+    assert_eq!(scan.items.len(), 1);
+    let ids = vec![scan.items[0].id.clone()];
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let offer = store.offer(&ids, db::now()).unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(
+        &database,
+        &db::Settings {
+            acknowledged: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let rule_home = home.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalTrash)),
+        move |requested, job| {
+            let root = engine.clone();
+            let home = rule_home.clone();
+            async move { rules::run(&root, &home, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    for item in &result.items {
+        if let Some(r) = &item.receipt {
+            let m = std::fs::symlink_metadata(&r.destination).unwrap();
+            assert_eq!((m.dev(), m.ino()), (r.device, r.inode));
+            assert!(!Path::new(&item.path).exists());
+            objc2::rc::autoreleasepool(|_| {
+                use objc2_foundation::{NSFileManager, NSString, NSURL};
+                NSFileManager::defaultManager()
+                    .moveItemAtURL_toURL_error(
+                        &NSURL::fileURLWithPath(&NSString::from_str(&r.destination)),
+                        &NSURL::fileURLWithPath(&NSString::from_str(&item.path)),
+                    )
+                    .unwrap();
+            });
+        }
+    }
+    std::fs::create_dir_all("../.cache").unwrap();
+    std::fs::write("../.cache/software-mail-native.json",serde_json::to_vec_pretty(&serde_json::json!({"result":result,"sampleRetrieved":old.exists(),"mailDatabasePreserved":std::fs::read_to_string(&maildb).unwrap()=="owned mail database keep"})).unwrap()).unwrap();
+    assert_eq!(result.origin, software_content::MODULE);
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert_eq!(std::fs::read_to_string(&recent).unwrap(), "recent keep");
+    assert_eq!(
+        std::fs::read_to_string(&maildb).unwrap(),
+        "owned mail database keep"
+    );
+    let expected = serde_json::to_value(&result).unwrap();
+    let mut database = database.lock().unwrap();
+    let preview = crate::execution_archive::prepare(&mut database).unwrap();
+    let archives = home.join("archives");
+    let header = crate::execution_archive::archive(
+        &mut database,
+        &archives,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &archives,
+            &header.id,
+            crate::execution_archive::Kind::Cleanup,
+            &result.summary.id
+        )
+        .unwrap(),
+        expected
+    );
+}
+
+#[tokio::test]
 #[ignore = "real Vision, Mole protection and native Trash on locally generated owned photos only"]
 async fn real_similar_photos_select_trash_and_archive_without_claiming_identical_content() {
     use crate::engine::TaskKind;

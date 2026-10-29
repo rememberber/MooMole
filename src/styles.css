@@ -4421,3 +4421,15 @@ input[type='checkbox'] {
   object-fit: contain;
   background: var(--background);
 }
+.software-content-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.software-source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}

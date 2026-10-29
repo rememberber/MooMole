@@ -44,6 +44,7 @@ pub(crate) enum Domain {
     PersonalFiles,
     DuplicateFiles,
     SimilarPhotos,
+    SoftwareContent,
 }
 pub(super) fn read(
     item: &Item,
@@ -157,6 +158,7 @@ fn selected(
         Domain::PersonalFiles => &state.personal_files,
         Domain::DuplicateFiles => &state.duplicate_files,
         Domain::SimilarPhotos => &state.similar_photos,
+        Domain::SoftwareContent => &state.software_files,
     };
     let store = store.lock().map_err(|e| e.to_string())?;
     let scan = store.scan.as_ref().ok_or("请先完成文件扫描。")?;

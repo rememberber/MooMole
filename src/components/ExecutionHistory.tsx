@@ -364,6 +364,11 @@ function ExecutionResults({
           来源：相似照片。依据视觉特征推荐比较，内容可能不同；逐项选择并保留原件后处理。
         </p>
       )}
+      {detail.origin === 'softwareContent' && (
+        <p className="notice">
+          来源：软件附件副本。只处理已明确选择的本地附件文件，邮件正文和数据库保持原样。
+        </p>
+      )}
       {detail.origin === 'personalFiles' && (
         <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
       )}

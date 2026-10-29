@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 export interface PreviewTarget {
-  domain: 'personalFiles' | 'duplicateFiles' | 'similarPhotos'
+  domain: 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'softwareContent'
   scanId: string
   itemId: string
   path: string

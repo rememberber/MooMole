@@ -33,6 +33,13 @@ export interface PersonalReport {
     checkedFiles: number
     bytesRead: number
   }
+  softwareContent?: {
+    source: 'mailDownloads' | 'mailSandboxDownloads'
+    minimumAgeDays: number
+    minimumDirectoryBytes: number
+    minimumSizeMet: boolean
+    executionSupported: boolean
+  }
 }
 export interface PersonalSnapshot {
   phase: 'idle' | 'scanning' | 'ready' | 'processing' | 'completed' | 'failed'
@@ -55,7 +62,7 @@ export interface PersonalMovement {
   conflict: 'skip' | 'keepBoth'
 }
 export interface PersonalTransport {
-  origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos'
+  origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'softwareContent'
   read: () => Promise<unknown>
   start: (root: string, requestId: string) => Promise<void>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
@@ -183,6 +190,28 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       skipped: number(r.skipped),
       visited: number(r.visited),
       items: files(r.items, root, 2000),
+    }
+    if (r.softwareContent !== undefined) {
+      const s = object(r.softwareContent)
+      if (
+        r.duplicates !== undefined ||
+        r.similarPhotos !== undefined ||
+        !['mailDownloads', 'mailSandboxDownloads'].includes(s.source as string) ||
+        s.minimumAgeDays !== 31 ||
+        s.minimumDirectoryBytes !== 5242880 ||
+        typeof s.minimumSizeMet !== 'boolean' ||
+        typeof s.executionSupported !== 'boolean' ||
+        s.executionSupported !== (s.source === 'mailDownloads') ||
+        (!s.minimumSizeMet && report.items.length)
+      )
+        fail()
+      report.softwareContent = {
+        source: s.source as 'mailDownloads' | 'mailSandboxDownloads',
+        minimumAgeDays: 31,
+        minimumDirectoryBytes: 5242880,
+        minimumSizeMet: s.minimumSizeMet as boolean,
+        executionSupported: s.executionSupported as boolean,
+      }
     }
     if (r.similarPhotos !== undefined) {
       const s = object(r.similarPhotos)

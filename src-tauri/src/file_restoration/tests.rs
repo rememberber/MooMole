@@ -63,6 +63,7 @@ impl Fixture {
             movement: Some(movement.clone()),
             duplicates: None,
             similar_photos: None,
+            software_content: None,
         };
         let mut database = db::open_owned(&home.join("app.sqlite")).unwrap();
         db::save_settings(&database, &settings).unwrap();
@@ -232,6 +233,7 @@ fn native_trash_receipt_restores_owned_file() {
         movement: None,
         duplicates: None,
         similar_photos: None,
+        software_content: None,
     };
     let run_id = execution::begin_personal(&mut f.database.lock().unwrap(), &plan, now).unwrap();
     execution::intent(&mut f.database.lock().unwrap(), &run_id, &item.id, now).unwrap();

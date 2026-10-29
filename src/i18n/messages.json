@@ -6941,5 +6941,39 @@
     "支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32 MiB、八千万像素。照片图库、RAW、动态图、连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。",
     "Supports still JPEG, PNG, HEIC/HEIF, WebP, TIFF and BMP files, up to 32 MiB and 80 million pixels each. Photos libraries, RAW, animation, burst relationships and video are kept. Results are marked incomplete when file count, read or time limits are reached.",
     "JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP の静止画に対応し、1 枚あたり最大 32 MiB・8000 万画素です。写真ライブラリ、RAW、動画、アニメーション、連写の関連情報は保持します。件数、読み取り量、時間の上限に達した結果は未完了と表示します。"
+  ],
+  ["停止附件任务", "Stop attachment task", "添付ファイルの処理を停止"],
+  ["扫描附件副本", "Scan attachment copies", "添付ファイルのコピーをスキャン"],
+  ["软件内容类型", "Software content type", "ソフトウェアの内容の種類"],
+  ["附件副本", "Attachment copies", "添付ファイルのコピー"],
+  ["软件内容来源", "Software content source", "ソフトウェア内容の出典"],
+  ["软件附件来源", "Attachment source", "添付ファイルの出典"],
+  [
+    "来源：软件附件副本。只处理已明确选择的本地附件文件，邮件正文和数据库保持原样。",
+    "Source: software attachment copies. Only explicitly selected local attachments were processed; message bodies and databases are preserved.",
+    "出典：ソフトウェアの添付ファイルのコピー。明示的に選択したローカルの添付ファイルのみ処理し、メール本文とデータベースは保持します。"
+  ],
+  [
+    "确认处理软件附件副本",
+    "Confirm attachment copy processing",
+    "添付ファイルのコピーの処理を確認"
+  ],
+  ["软件附件目录", "Software attachment folder", "ソフトウェアの添付ファイルフォルダ"],
+  [
+    "这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。",
+    "These are attachment copies opened or downloaded by Mail. They may contain edits not saved elsewhere and are not disposable cache. Only regular files older than 30 full days are listed, with nothing selected by default. Quit Mail normally and check the content and whether the original message remains available.",
+    "Mail で開いた、またはダウンロードした添付ファイルのコピーです。別途保存していない編集内容を含む場合があり、再生成可能なキャッシュとは扱いません。30 日を超える通常ファイルのみ表示し、初期状態では選択しません。Mail を通常終了し、内容と元のメールを取得できるか確認してください。"
+  ],
+  [
+    "当前已核对的普通文件未达到 Mole 默认 5 MiB 目录门槛，本轮不提供附件处理；未访问的范围仍然未知。",
+    "Verified regular files do not reach Mole's default 5 MiB folder threshold, so attachment processing is unavailable for this scan. Unread areas remain unknown.",
+    "確認した通常ファイルが Mole の既定のフォルダ基準 5 MiB に達していないため、今回の添付ファイル処理は提供しません。未アクセスの範囲は不明のままです。"
+  ],
+  ["Mail 附件副本", "Mail attachment copies", "Mail の添付ファイルのコピー"],
+  ["Mail 旧位置附件副本", "Mail copies in legacy location", "Mail の旧保存先のコピー"],
+  [
+    "此 Mail 容器位置受到 Mole 核心规则保护，仅供预览；附件与目录保持原样，不提供处理确认。",
+    "This Mail container is protected by Mole's core rules. Preview only; attachments and folders are preserved and processing confirmation is unavailable.",
+    "この Mail コンテナは Mole の基本ルールで保護されています。プレビューのみ利用でき、添付ファイルとフォルダを保持し、処理の確認は提供しません。"
   ]
 ]

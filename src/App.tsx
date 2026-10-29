@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Activity,
   BrainCircuit,
@@ -34,6 +34,12 @@ import * as api from './lib/api'
 import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
 import { duplicateTransport, similarTransport } from './lib/personal-files'
+import {
+  softwareContentRoot,
+  softwareContentSources,
+  softwareContentTransport,
+  type SoftwareContentSource,
+} from './lib/software-content'
 import { usePersonalFiles } from './lib/use-personal-files'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -249,6 +255,18 @@ export default function App() {
   }, [language])
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
+  const [softwareTab, setSoftwareTab] = useState<'cache' | 'attachments'>('cache')
+  const [softwareSource, setSoftwareSource] =
+    useState<SoftwareContentSource>('mailSandboxDownloads')
+  const contentTransport = useMemo(() => softwareContentTransport(softwareSource), [softwareSource])
+  const softwareFiles = usePersonalFiles(
+    page === 'softwareCleanup' && softwareTab === 'attachments',
+    data?.home ?? '',
+    contentTransport,
+  )
+  useEffect(() => {
+    softwareFiles.setRoot(softwareContentRoot(data?.home ?? '', softwareSource))
+  }, [data?.home, softwareSource])
   const aiScan = useAiScan(data?.home ?? '')
   const personalFiles = usePersonalFiles(page === 'personalFiles', data?.home ?? '')
   const duplicates = usePersonalFiles(
@@ -309,6 +327,21 @@ export default function App() {
         : current,
     )
   }, [similar.result])
+  useEffect(() => {
+    const detail = softwareFiles.result
+    if (!detail) return
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            executions: preserveExecutionProgress(
+              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
+              current.executions,
+            ),
+          }
+        : current,
+    )
+  }, [softwareFiles.result])
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -849,6 +882,7 @@ export default function App() {
     !personalFiles.running &&
     !duplicates.running &&
     !similar.running &&
+    !softwareFiles.running &&
     !uninstallActive &&
     !appControlActive &&
     !searchRepairActive &&
@@ -1151,7 +1185,27 @@ export default function App() {
                     )}
                   </>
                 )}
-                {(page === 'quickCleanup' || page === 'softwareCleanup') && (
+                {page === 'softwareCleanup' &&
+                  softwareTab === 'attachments' &&
+                  (softwareFiles.running ? (
+                    <button
+                      className="button secondary compact"
+                      disabled={softwareFiles.starting || softwareFiles.stopping}
+                      onClick={() => void softwareFiles.cancel()}
+                    >
+                      停止附件任务
+                    </button>
+                  ) : (
+                    <button
+                      className="button primary compact"
+                      disabled={!canRun || executionActive}
+                      onClick={() => void softwareFiles.start()}
+                    >
+                      扫描附件副本
+                    </button>
+                  ))}
+                {(page === 'quickCleanup' ||
+                  (page === 'softwareCleanup' && softwareTab === 'cache')) && (
                   <button
                     className="button primary compact"
                     disabled={!canRun || executionActive}
@@ -1675,7 +1729,56 @@ export default function App() {
             />
           )}
 
-          {(page === 'quickCleanup' || page === 'softwareCleanup') && (
+          {page === 'softwareCleanup' && (
+            <div className="software-content-modes" role="tablist" aria-label="软件内容类型">
+              <button
+                role="tab"
+                aria-selected={softwareTab === 'cache'}
+                className={`button compact ${softwareTab === 'cache' ? 'primary' : 'secondary'}`}
+                disabled={quickScanning || softwareFiles.running}
+                onClick={() => setSoftwareTab('cache')}
+              >
+                缓存
+              </button>
+              <button
+                role="tab"
+                aria-selected={softwareTab === 'attachments'}
+                className={`button compact ${softwareTab === 'attachments' ? 'primary' : 'secondary'}`}
+                disabled={quickScanning || softwareFiles.running}
+                onClick={() => setSoftwareTab('attachments')}
+              >
+                附件副本
+              </button>
+            </div>
+          )}
+          {page === 'softwareCleanup' && softwareTab === 'attachments' && (
+            <>
+              <label className="software-source">
+                软件内容来源
+                <select
+                  aria-label="软件附件来源"
+                  value={softwareSource}
+                  disabled={softwareFiles.running}
+                  onChange={(e) => setSoftwareSource(e.target.value as SoftwareContentSource)}
+                >
+                  {softwareContentSources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <PersonalFiles
+                controller={softwareFiles}
+                mode="software"
+                home={data.home}
+                protectedPaths={data.settings.protectedPaths}
+                enabled={canRun && !executionActive}
+                onHistory={() => changePage('history')}
+              />
+            </>
+          )}
+          {(page === 'quickCleanup' || (page === 'softwareCleanup' && softwareTab === 'cache')) && (
             <>
               {quickScanStatus && (
                 <p className="quick-intro motion-scan" data-scanning={quickScanning} role="status">

@@ -30,15 +30,24 @@ fn policy_stamp(home: &Path) -> Result<(PathBuf, Witness, bool), String> {
     }
     Ok((nearest.into(), held.witness, present))
 }
-fn validate(item: &Item, plan: &Plan, settings: &db::Settings, now: i64) -> Result<(), String> {
+fn validate(
+    item: &Item,
+    plan: &Plan,
+    settings: &db::Settings,
+    now: i64,
+    home: &Path,
+) -> Result<(), String> {
     if !settings.acknowledged
         || now < plan.created_at
         || now >= plan.expires_at
-        || !ordinary(Path::new(&item.path))
+        || !plan.allows(Path::new(&item.path))
         || !Path::new(&item.path).starts_with(&plan.root)
         || protected(Path::new(&item.path), &settings.protected_paths)?
     {
         return Err("文件受保护、范围变化或计划过期，本项保留。".into());
+    }
+    if let Some(binding) = &plan.software_content {
+        binding.validate(item, home, now)?;
     }
     let held = AnchoredPath::open(Path::new(&item.path))?;
     let meta = held.target().metadata().map_err(|e| e.to_string())?;
@@ -107,7 +116,9 @@ pub(super) async fn run(
             async move { rules::run(&root, &home, &requested, job).await }
         },
         move |run| {
-            let store = if domain == similar_photos::MODULE {
+            let store = if domain == software_content::MODULE {
+                &state.software_files
+            } else if domain == similar_photos::MODULE {
                 &state.similar_photos
             } else if domain == duplicates::MODULE {
                 &state.duplicate_files
@@ -170,8 +181,8 @@ where
                 continue;
             }
             let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
-            let preliminary =
-                validate(item, &plan, &settings, db::now()).and_then(|_| policy_stamp(&home));
+            let preliminary = validate(item, &plan, &settings, db::now(), &home)
+                .and_then(|_| policy_stamp(&home));
             let mut stamp = match preliminary {
                 Ok(stamp) => stamp,
                 Err(reason) => {
@@ -266,7 +277,10 @@ where
                         return Err("本批个人文件处理已超时，本项保留。".into());
                     }
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
-                    validate(&one, &saved, &settings, db::now())?;
+                    validate(&one, &saved, &settings, db::now(), &own_home)?;
+                    if saved.software_content.is_some() {
+                        software_content::execution_gate(&control)?;
+                    };
                     if saved.duplicates.is_some() {
                         duplicates::verify(&saved, &one, &control)?;
                     }
@@ -323,7 +337,10 @@ where
                         return Err("系统处理开始前已取消。".into());
                     }
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
-                    validate(&one, &saved, &settings, db::now())?;
+                    validate(&one, &saved, &settings, db::now(), &own_home)?;
+                    if saved.software_content.is_some() {
+                        software_content::execution_gate(&control)?;
+                    };
                     if policy_stamp(&own_home)? != stamp {
                         return Err("保护配置在最终处理前已变化，保留。".into());
                     }

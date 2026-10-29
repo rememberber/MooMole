@@ -558,7 +558,13 @@ export interface ExecutionReceipt {
   inode: string
 }
 export interface ExecutionDetail extends ExecutionSummary {
-  origin?: 'mole' | 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'fileRestoration'
+  origin?:
+    | 'mole'
+    | 'personalFiles'
+    | 'duplicateFiles'
+    | 'similarPhotos'
+    | 'softwareContent'
+    | 'fileRestoration'
   spaceObservation?: CleanupSpaceObservation | null
   revision: string
   protocol: number

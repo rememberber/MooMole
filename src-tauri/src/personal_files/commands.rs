@@ -29,6 +29,7 @@ fn finish(state: &AppState, request: &str, phase: &'static str, error: Option<St
         &state.personal_files,
         &state.duplicate_files,
         &state.similar_photos,
+        &state.software_files,
     ] {
         if let Ok(mut store) = store.lock() {
             if store.request_id.as_deref() == Some(request) {
@@ -46,6 +47,7 @@ fn store(state: &AppState, domain: Domain) -> &std::sync::Mutex<Store> {
         Domain::PersonalFiles => &state.personal_files,
         Domain::DuplicateFiles => &state.duplicate_files,
         Domain::SimilarPhotos => &state.similar_photos,
+        Domain::SoftwareContent => &state.software_files,
     }
 }
 #[tauri::command]
@@ -91,6 +93,15 @@ fn start(
     domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    start_with_source(root, request_id, domain, None, state)
+}
+fn start_with_source(
+    root: String,
+    request_id: String,
+    domain: Domain,
+    source: Option<software_content::Source>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
     let slot = state
         .project_slots
@@ -110,14 +121,19 @@ fn start(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _ownership = (operation, slot);
-        let result = scan::collect(&PathBuf::from(root), &settings.protected_paths, job.clone())
-            .and_then(|scan| match domain {
-                Domain::DuplicateFiles => duplicates::collect(scan, job),
-                Domain::SimilarPhotos => objc2::rc::autoreleasepool(|_| {
-                    similar_photos::collect(scan, job, &settings.protected_paths)
-                }),
-                Domain::PersonalFiles => Ok(scan),
-            });
+        let collected = if let Some(source) = source {
+            software_content::collect(&state.home, source, &settings.protected_paths, job.clone())
+        } else {
+            scan::collect(&PathBuf::from(root), &settings.protected_paths, job.clone())
+        };
+        let result = collected.and_then(|scan| match domain {
+            Domain::DuplicateFiles => duplicates::collect(scan, job),
+            Domain::SimilarPhotos => objc2::rc::autoreleasepool(|_| {
+                similar_photos::collect(scan, job, &settings.protected_paths)
+            }),
+            Domain::PersonalFiles => Ok(scan),
+            Domain::SoftwareContent => Ok(scan),
+        });
         match result {
             Ok(scan) => {
                 if let Ok(mut store) = store(&state, domain).lock() {
@@ -306,6 +322,7 @@ fn execute(
                         Domain::PersonalFiles => MODULE,
                         Domain::DuplicateFiles => duplicates::MODULE,
                         Domain::SimilarPhotos => similar_photos::MODULE,
+                        Domain::SoftwareContent => software_content::MODULE,
                     } =>
         {
             plan
@@ -387,6 +404,64 @@ pub(crate) fn execute_similar_trash(
         personal_files_confirmed,
         false,
         Domain::SimilarPhotos,
+        state,
+    )
+}
+
+#[tauri::command]
+pub(crate) fn get_software_content(
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    read(&state, Domain::SoftwareContent)
+}
+#[tauri::command]
+pub(crate) fn start_software_content(
+    source: software_content::Source,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let root = source.path(&state.home).to_string_lossy().into_owned();
+    start_with_source(
+        root,
+        request_id,
+        Domain::SoftwareContent,
+        Some(source),
+        state,
+    )
+}
+#[tauri::command]
+pub(crate) fn prepare_software_trash(
+    scan_id: String,
+    selected_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Confirmation, String> {
+    prepare(scan_id, selected_ids, Domain::SoftwareContent, state)
+}
+#[tauri::command]
+pub(crate) fn discard_software_trash(
+    confirmation_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    store(&state, Domain::SoftwareContent)
+        .lock()
+        .map_err(|e| e.to_string())?
+        .offers
+        .remove(&confirmation_id);
+    Ok(())
+}
+#[tauri::command]
+pub(crate) fn execute_software_trash(
+    confirmation_id: String,
+    request_id: String,
+    personal_files_confirmed: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    execute(
+        confirmation_id,
+        request_id,
+        personal_files_confirmed,
+        false,
+        Domain::SoftwareContent,
         state,
     )
 }

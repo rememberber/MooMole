@@ -28,7 +28,7 @@ export function PersonalFiles({
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
-  mode?: 'personal' | 'duplicates' | 'similar'
+  mode?: 'personal' | 'duplicates' | 'similar' | 'software'
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const language = useLanguage()
@@ -56,13 +56,16 @@ export function PersonalFiles({
     now >= report.createdAt &&
     now < report.expiresAt
   const blocked = (path: string) => protectedPaths.some((rule) => pathOverlaps(path, rule))
+  const actionable = report?.softwareContent?.executionSupported !== false
   const chosen =
-    report?.items.filter((item) => selected.includes(item.id) && !blocked(item.path) && fresh) ?? []
+    report?.items.filter(
+      (item) => actionable && selected.includes(item.id) && !blocked(item.path) && fresh,
+    ) ?? []
   const items = useMemo(
     () => filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort),
     [report, query, kind, minimum, older, now, sort, language],
   )
-  const grouped = mode !== 'personal'
+  const grouped = mode === 'duplicates' || mode === 'similar'
   const groups =
     mode === 'similar'
       ? (report?.similarPhotos?.groups ?? [])
@@ -75,11 +78,13 @@ export function PersonalFiles({
         .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
     : items
   const title =
-    mode === 'similar'
-      ? '确认处理相似照片'
-      : mode === 'duplicates'
-        ? '确认处理重复文件'
-        : '确认处理个人文件'
+    mode === 'software'
+      ? '确认处理软件附件副本'
+      : mode === 'similar'
+        ? '确认处理相似照片'
+        : mode === 'duplicates'
+          ? '确认处理重复文件'
+          : '确认处理个人文件'
   useEffect(() => {
     setSelected([])
     setLimit(100)
@@ -132,44 +137,53 @@ export function PersonalFiles({
           <span>整理目录</span>
           <input
             aria-label={
-              mode === 'similar'
-                ? '相似照片目录'
-                : mode === 'duplicates'
-                  ? '重复文件目录'
-                  : '个人文件目录'
+              mode === 'software'
+                ? '软件附件目录'
+                : mode === 'similar'
+                  ? '相似照片目录'
+                  : mode === 'duplicates'
+                    ? '重复文件目录'
+                    : '个人文件目录'
             }
             value={c.root}
             disabled={c.running}
+            readOnly={mode === 'software'}
             onChange={(event) => c.setRoot(event.target.value)}
           />
         </label>
-        <button
-          type="button"
-          className="button secondary compact"
-          disabled={!api.desktop || c.running}
-          onClick={async () => {
-            const root = await api.chooseDirectory('选择要整理的个人目录')
-            if (root) c.setRoot(root)
-          }}
-        >
-          <FolderOpen size={14} />
-          选择目录
-        </button>
-        <button
-          type="button"
-          className="button text compact"
-          disabled={c.running}
-          onClick={() => c.setRoot(`${home}/Downloads`)}
-        >
-          下载目录
-        </button>
+        {mode !== 'software' && (
+          <>
+            <button
+              type="button"
+              className="button secondary compact"
+              disabled={!api.desktop || c.running}
+              onClick={async () => {
+                const root = await api.chooseDirectory('选择要整理的个人目录')
+                if (root) c.setRoot(root)
+              }}
+            >
+              <FolderOpen size={14} />
+              选择目录
+            </button>
+            <button
+              type="button"
+              className="button text compact"
+              disabled={c.running}
+              onClick={() => c.setRoot(`${home}/Downloads`)}
+            >
+              下载目录
+            </button>
+          </>
+        )}
       </form>
       <p className="muted">
-        {mode === 'similar'
-          ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
-          : mode === 'duplicates'
-            ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
-            : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
+        {mode === 'software'
+          ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
+          : mode === 'similar'
+            ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
+            : mode === 'duplicates'
+              ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
+              : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
       {mode === 'similar' && (
         <details>
@@ -207,6 +221,17 @@ export function PersonalFiles({
               {dateTime(report.createdAt)}
             </span>
           </div>
+          {report.softwareContent && !report.softwareContent.executionSupported && (
+            <p className="notice warning">
+              此 Mail 容器位置受到 Mole 核心规则保护，仅供预览；附件与目录保持原样，不提供处理确认。
+            </p>
+          )}
+          {report.softwareContent && !report.softwareContent.minimumSizeMet && (
+            <p className="notice">
+              当前已核对的普通文件未达到 Mole 默认 5 MiB
+              目录门槛，本轮不提供附件处理；未访问的范围仍然未知。
+            </p>
+          )}
           {report.similarPhotos && (
             <p className="notice">
               已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
@@ -313,7 +338,7 @@ export function PersonalFiles({
               {pending ? '正在准备…' : '移入废纸篓…'}
             </button>
           </div>
-          {!grouped && (
+          {!grouped && mode !== 'software' && (
             <>
               <div className="personal-scope">
                 <label className="personal-path">
@@ -397,6 +422,7 @@ export function PersonalFiles({
                       checked={chosen.some((value) => value.id === item.id)}
                       disabled={
                         !enabled ||
+                        !actionable ||
                         !fresh ||
                         blocked(item.path) ||
                         c.running ||
@@ -450,11 +476,13 @@ export function PersonalFiles({
                       onClick={() =>
                         setPreview({
                           domain:
-                            mode === 'similar'
-                              ? 'similarPhotos'
-                              : mode === 'duplicates'
-                                ? 'duplicateFiles'
-                                : 'personalFiles',
+                            mode === 'software'
+                              ? 'softwareContent'
+                              : mode === 'similar'
+                                ? 'similarPhotos'
+                                : mode === 'duplicates'
+                                  ? 'duplicateFiles'
+                                  : 'personalFiles',
                           scanId: report!.id,
                           itemId: item.id,
                           path: item.path,

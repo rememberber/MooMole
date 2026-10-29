@@ -280,7 +280,7 @@ impl Drop for OwnedChild<'_> {
     }
 }
 
-pub(super) fn supervise<S>(
+pub(crate) fn supervise<S>(
     step: S,
     mut command: Command,
     job: &Job,

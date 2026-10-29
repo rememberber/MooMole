@@ -15,6 +15,7 @@ pub(crate) mod movement;
 pub(crate) mod preview;
 mod scan;
 pub(crate) mod similar_photos;
+pub(crate) mod software_content;
 mod writer;
 pub(crate) const MODULE: &str = "personalFiles";
 pub(crate) const REVISION: &str = "MooMole.personal-files.v1";
@@ -43,6 +44,8 @@ struct Scan {
     expires_at: i64,
     items: Vec<Item>,
     report: Report,
+    software_content: Option<software_content::Binding>,
+    allocated_bytes: u64,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,6 +72,8 @@ pub(crate) struct Report {
     duplicates: Option<duplicates::Report>,
     #[serde(skip_serializing_if = "Option::is_none")]
     similar_photos: Option<similar_photos::Report>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    software_content: Option<software_content::Info>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -88,10 +93,14 @@ pub(crate) struct Plan {
     pub duplicates: Option<Vec<duplicates::Keep>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub similar_photos: Option<Vec<similar_photos::Keep>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub software_content: Option<software_content::Binding>,
 }
 impl Plan {
     pub(crate) fn origin(&self) -> &'static str {
-        if self.similar_photos.is_some() {
+        if self.software_content.is_some() {
+            software_content::MODULE
+        } else if self.similar_photos.is_some() {
             similar_photos::MODULE
         } else if self.duplicates.is_some() {
             duplicates::MODULE
@@ -99,11 +108,18 @@ impl Plan {
             MODULE
         }
     }
+    pub(crate) fn allows(&self, path: &Path) -> bool {
+        self.software_content
+            .as_ref()
+            .map_or_else(|| ordinary(path), |s| s.allows(path))
+    }
     pub(crate) fn validate_record(&self) -> Result<(), String> {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
         if self.module
-            != if self.similar_photos.is_some() {
+            != if self.software_content.is_some() {
+                software_content::MODULE
+            } else if self.similar_photos.is_some() {
                 similar_photos::MODULE
             } else if self.duplicates.is_some() {
                 duplicates::MODULE
@@ -112,7 +128,9 @@ impl Plan {
             }
             || self.protocol != 1
             || self.revision
-                != if self.similar_photos.is_some() {
+                != if self.software_content.is_some() {
+                    software_content::REVISION
+                } else if self.similar_photos.is_some() {
                     similar_photos::REVISION
                 } else if self.duplicates.is_some() {
                     duplicates::REVISION
@@ -128,13 +146,13 @@ impl Plan {
             || self.expires_at - self.created_at > TTL
             || self.items.is_empty()
             || self.items.len() > MAX_SELECTED
-            || !ordinary(Path::new(&self.root))
+            || !self.allows(Path::new(&self.root))
             || self.items.iter().any(|item| {
                 uuid::Uuid::parse_str(&item.id).is_err()
                     || !ids.insert(&item.id)
                     || !paths.insert(&item.path)
                     || item.size > 9_007_199_254_740_991
-                    || !ordinary(Path::new(&item.path))
+                    || !self.allows(Path::new(&item.path))
                     || !Path::new(&item.path).starts_with(&self.root)
                     || item.path == self.root
                     || item
@@ -145,6 +163,13 @@ impl Plan {
             })
         {
             return Err("个人文件计划无法核对，请重新扫描。".into());
+        }
+        if let Some(source) = &self.software_content {
+            if self.movement.is_some() || self.duplicates.is_some() || self.similar_photos.is_some()
+            {
+                return Err("软件附件计划不能混入其他处理方式。".into());
+            }
+            source.validate_record(&self.root, &self.items)?;
         }
         if let Some(movement) = &self.movement {
             movement.validate_record(&self.items)?;
@@ -218,6 +243,15 @@ impl Store {
         self.offers
             .retain(|_, offer| now < offer.expires_at && Instant::now() < offer.deadline);
         let scan = self.scan.as_ref().ok_or("请先扫描个人文件。")?;
+        if scan
+            .software_content
+            .as_ref()
+            .is_some_and(|b| b.source == software_content::Source::MailSandboxDownloads)
+        {
+            return Err(
+                "此 Mail 容器位置受到 Mole 核心规则保护，仅供预览；不会生成处理确认。".into(),
+            );
+        }
         let selected: HashSet<_> = ids.iter().collect();
         if now < scan.created_at
             || now >= scan.expires_at
@@ -252,7 +286,9 @@ impl Store {
             .map(|r| similar_photos::selection(r, &scan.items, &items))
             .transpose()?;
         let plan = Plan {
-            module: if similar.is_some() {
+            module: if scan.software_content.is_some() {
+                software_content::MODULE
+            } else if similar.is_some() {
                 similar_photos::MODULE
             } else if proof.is_some() {
                 duplicates::MODULE
@@ -261,7 +297,9 @@ impl Store {
             }
             .into(),
             protocol: 1,
-            revision: if similar.is_some() {
+            revision: if scan.software_content.is_some() {
+                software_content::REVISION
+            } else if similar.is_some() {
                 similar_photos::REVISION
             } else if proof.is_some() {
                 duplicates::REVISION
@@ -278,6 +316,7 @@ impl Store {
             movement: None,
             duplicates: proof,
             similar_photos: similar,
+            software_content: scan.software_content.clone(),
         };
         plan.validate_record()?;
         let confirmation = Confirmation {

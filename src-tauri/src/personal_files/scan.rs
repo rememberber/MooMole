@@ -12,7 +12,19 @@ use std::{
 };
 
 pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Scan, String> {
-    if !ordinary(root) || rules.iter().any(|rule| root.starts_with(rule)) {
+    collect_scoped(root, rules, job, None)
+}
+pub(super) fn collect_scoped(
+    root: &Path,
+    rules: &[String],
+    job: Arc<Job>,
+    scope: Option<software_content::Binding>,
+) -> Result<Scan, String> {
+    if !scope
+        .as_ref()
+        .map_or_else(|| ordinary(root), |s| s.allows(root))
+        || rules.iter().any(|rule| root.starts_with(rule))
+    {
         return Err(
             "请选择未受保护的普通个人目录；系统、应用、隐藏和资料库目录不在本次范围。".into(),
         );
@@ -33,6 +45,8 @@ pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Sc
         job,
         rules,
         device: meta.dev(),
+        scope: scope.as_ref(),
+        allocated_bytes: 0,
     };
     walker.walk(anchor.target(), root, 0)?;
     if AnchoredPath::open(root)?.witness.nodes != anchor.witness.nodes {
@@ -52,6 +66,7 @@ pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Sc
         items: walker.items.iter().map(row).collect(),
         duplicates: None,
         similar_photos: None,
+        software_content: None,
     };
     Ok(Scan {
         id: report.id.clone(),
@@ -60,6 +75,8 @@ pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Sc
         expires_at: now + TTL,
         items: walker.items,
         report,
+        allocated_bytes: walker.allocated_bytes,
+        software_content: scope,
     })
 }
 struct Walker<'a> {
@@ -72,6 +89,8 @@ struct Walker<'a> {
     job: Arc<Job>,
     rules: &'a [String],
     device: u64,
+    scope: Option<&'a software_content::Binding>,
+    allocated_bytes: u64,
 }
 impl Walker<'_> {
     fn bounded(&mut self) -> bool {
@@ -131,7 +150,11 @@ impl Walker<'_> {
                 continue;
             };
             let child = path.join(text);
-            if !ordinary(&child) || protected(&child, self.rules)? {
+            if !self
+                .scope
+                .map_or_else(|| ordinary(&child), |s| s.allows(&child))
+                || protected(&child, self.rules)?
+            {
                 self.skipped += 1;
                 continue;
             }
@@ -178,6 +201,9 @@ impl Walker<'_> {
                     });
                     match observed {
                         Ok(witness) => {
+                            self.allocated_bytes = self
+                                .allocated_bytes
+                                .saturating_add((stat.st_blocks.max(0) as u64).saturating_mul(512));
                             let item = Item {
                                 id: uuid::Uuid::new_v4().to_string(),
                                 path: child.to_str().unwrap().into(),
