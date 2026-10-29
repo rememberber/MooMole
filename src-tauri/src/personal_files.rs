@@ -17,6 +17,7 @@ pub(crate) mod preview;
 mod scan;
 pub(crate) mod similar_photos;
 pub(crate) mod software_content;
+pub(crate) mod transfer;
 mod writer;
 pub(crate) const MODULE: &str = "personalFiles";
 pub(crate) const REVISION: &str = "MooMole.personal-files.v1";

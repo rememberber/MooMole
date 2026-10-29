@@ -7206,5 +7206,107 @@
   ["启动操作未完成", "Startup action incomplete", "起動設定の操作が未完了"],
   ["启动操作已取消", "Startup action cancelled", "起動設定の操作を中止"],
   ["启动结果待核实", "Startup result needs review", "起動設定の結果の確認が必要"],
-  ["启动操作曾中断", "Startup action interrupted", "起動設定の操作が中断"]
+  ["启动操作曾中断", "Startup action interrupted", "起動設定の操作が中断"],
+  ["跨磁盘逐项结果", "Cross-disk item results", "ディスク間移動の項目別結果"],
+  ["跨磁盘结果待核实", "Cross-disk result needs review", "ディスク間移動の結果の確認が必要"],
+  ["确认目标：", "Confirmed destination:", "確認済みの保存先："],
+  ["副本记录位置：", "Recorded copy location:", "記録されたコピーの場所："],
+  ["原件废纸篓位置：", "Original's Trash location:", "元ファイルのゴミ箱の場所："],
+  ["临时记录位置：", "Recorded temporary location:", "記録された一時ファイルの場所："],
+  ["跨磁盘移动确认与结果", "Cross-disk move confirmation and result", "ディスク間移動の確認と結果"],
+  ["移动到另一磁盘", "Move to another disk", "別のディスクに移動"],
+  [
+    "先复制并校验目标文件，再将原件移入原磁盘的废纸篓。不会覆盖同名目标、永久删除原件或清空废纸篓；原磁盘空间不会因此立即释放。停止后已生成的副本会保留，原件处理未完成时会分别记录。请先关闭相关文件；本轮不完整检查所有应用占用。",
+    "Copy and verify the destination, then move the original to Trash on its disk. Existing destinations are not overwritten; originals are not permanently deleted and Trash is not emptied. Source disk space is not immediately freed. Stopping keeps created copies and records incomplete original processing separately. Close relevant files first; this does not fully check every application using them.",
+    "保存先にコピーして検証した後、元ファイルを元のディスクのゴミ箱へ移動します。同名の保存先は上書きせず、元ファイルの完全削除やゴミ箱の消去は行いません。元のディスクの空き容量はすぐには増えません。停止しても作成済みのコピーは保持し、元ファイルの未完了処理を個別に記録します。 関連ファイルを閉じてください。すべてのアプリによる使用状況の完全な確認は行いません。"
+  ],
+  ["复制校验与恢复边界", "Copy verification and recovery limits", "コピー検証と復元の範囲"],
+  [
+    "核对内容、权限、修改时间、扩展属性和资源分支；安全标记保留并按系统形式核对。复制失败、变化或未知时不继续处理原件。此类操作暂不提供应用内自动恢复，请按两端收据在 Finder 核对；不会自动删除副本。",
+    "Verify contents, permissions, modification time, extended attributes and resource forks. Security markers are kept and checked in their system form. Copy failures, changes or unknown results stop original processing. In-app automatic restoration is not available yet; check both receipts in Finder. Copies are never deleted automatically.",
+    "内容、権限、更新日時、拡張属性、リソースフォークを検証します。セキュリティ属性は保持し、システム形式で確認します。コピーの失敗・変化・不明な結果があれば元ファイルの処理を止めます。アプリ内の自動復元は未対応です。両方の記録を Finder で確認してください。コピーは自動削除しません。"
+  ],
+  ["正在核对跨磁盘计划…", "Checking cross-disk move plan…", "ディスク間移動の計画を確認中…"],
+  ["跨磁盘确认文件", "Files confirmed for cross-disk move", "ディスク間移動の確認対象"],
+  [
+    "此项按重名规则保留。",
+    "Kept under the name-conflict rule.",
+    "同名の処理ルールにより保持します。"
+  ],
+  [
+    "我已核对目标，确认校验后把原件移入废纸篓，并了解取消和恢复边界。",
+    "I checked the destination, authorize moving originals to Trash after verification, and understand cancellation and recovery limits.",
+    "保存先を確認し、検証後に元ファイルをゴミ箱へ移動することを承認し、中止と復元の範囲を理解しました。"
+  ],
+  [
+    "跨磁盘确认已过期，请返回后重新检查。",
+    "Cross-disk confirmation expired. Go back and check again.",
+    "ディスク間移動の確認期限が切れました。戻って再確認してください。"
+  ],
+  [
+    "正在复制、校验或处理原件；请以逐项记录为准。",
+    "Copying, verifying or processing originals; follow the item records.",
+    "コピー、検証または元ファイルの処理中です。項目別の記録を確認してください。"
+  ],
+  ["确认跨磁盘移动", "Confirm cross-disk move", "ディスク間移動を確認"],
+  ["停止跨磁盘移动", "Stop cross-disk move", "ディスク間移動を停止"],
+  ["跨磁盘移动记录", "Cross-disk move history", "ディスク間移動の履歴"],
+  ["刷新跨磁盘记录", "Refresh cross-disk history", "ディスク間移動の履歴を更新"],
+  [
+    "尚无跨磁盘移动记录。",
+    "No cross-disk move history yet.",
+    "ディスク間移動の履歴はまだありません。"
+  ],
+  [
+    "请核对副本、原件废纸篓及临时位置。记录已检查不会移动文件、补做步骤或把原结果改成成功。",
+    "Check the copy, original's Trash location and temporary path. Recording a review does not move files, complete missing steps or mark the original result successful.",
+    "コピー、元ファイルのゴミ箱の場所、一時パスを確認してください。確認済みとして記録しても、ファイル移動、未完了処理の実行、成功への変更は行いません。"
+  ],
+  [
+    "我已核对两端和临时位置，了解原结果仍保留。",
+    "I checked both ends and temporary locations and understand the original result is retained.",
+    "両方の場所と一時パスを確認し、元の結果が保持されることを理解しました。"
+  ],
+  ["关闭跨磁盘记录", "Close cross-disk history", "ディスク間移動の履歴を閉じる"],
+  [
+    "同一磁盘直接移动；其他磁盘会单独确认复制校验和原件废纸篓处理。目标被占用时不覆盖、不重新编号。",
+    "Move directly on the same disk. Other disks require separate confirmation for verified copying and moving originals to Trash. Occupied destinations are not overwritten or renumbered during execution.",
+    "同じディスクでは直接移動します。別のディスクでは、コピー検証と元ファイルのゴミ箱への移動を個別に確認します。処理時に同名の保存先を上書きしたり、番号を再割り当てしたりしません。"
+  ],
+  [
+    "跨磁盘数据无法核对，请在历史检查两端实际状态；不会重复移动。",
+    "Cross-disk data could not be verified. Check both locations in history; moving will not repeat.",
+    "ディスク間移動のデータを検証できません。履歴で両方の実際の状態を確認してください。移動は繰り返しません。"
+  ],
+  ["正在跨磁盘移动", "Moving across disks", "ディスク間を移動中"],
+  [
+    "所选文件已完成跨磁盘移动",
+    "Selected cross-disk moves completed",
+    "選択したファイルのディスク間移動が完了"
+  ],
+  [
+    "部分完成，副本或原件需核对",
+    "Partially completed; check copies and originals",
+    "一部完了・コピーと元ファイルの確認が必要"
+  ],
+  ["跨磁盘移动已取消", "Cross-disk move cancelled", "ディスク間移動を中止"],
+  ["未完成跨磁盘移动", "Cross-disk move not completed", "ディスク間移動は未完了"],
+  ["跨磁盘移动曾中断", "Cross-disk move interrupted", "ディスク間移動が中断されました"],
+  ["正在复制并校验", "Copying and verifying", "コピー・検証中"],
+  ["目标副本已校验", "Destination copy verified", "保存先のコピーを検証済み"],
+  ["等待原件处理证据", "Awaiting original processing evidence", "元ファイルの処理の確認待ち"],
+  [
+    "目标副本与原件收据已保存",
+    "Copy and original receipts saved",
+    "コピーと元ファイルの記録を保存済み"
+  ],
+  [
+    "副本已建立，原件未完成移动",
+    "Copy created; original move incomplete",
+    "コピー作成済み・元ファイルの移動は未完了"
+  ],
+  ["按计划保留", "Kept as planned", "計画どおり保持"],
+  ["未继续处理", "Not continued", "後続の処理は未実行"],
+  ["查看副本记录位置", "Show recorded copy location", "コピーの記録場所を表示"],
+  ["查看原件记录位置", "Show recorded original location", "元ファイルの記録場所を表示"]
 ]

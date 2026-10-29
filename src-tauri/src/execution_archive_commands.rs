@@ -45,6 +45,7 @@ fn idle(state: &AppState) -> Result<(), String> {
                         | super::engine::TaskKind::FileRestore
                         | super::engine::TaskKind::PersonalArchive
                         | super::engine::TaskKind::StartupManagement
+                        | super::engine::TaskKind::PersonalTransfer
                         | super::engine::TaskKind::AppTrash
                         | super::engine::TaskKind::MaintenanceRefresh
                 )
@@ -95,6 +96,7 @@ pub(crate) async fn archive_execution_history(
                             | super::engine::TaskKind::FileRestore
                             | super::engine::TaskKind::PersonalArchive
                             | super::engine::TaskKind::StartupManagement
+                            | super::engine::TaskKind::PersonalTransfer
                             | super::engine::TaskKind::AppTrash
                             | super::engine::TaskKind::MaintenanceRefresh
                     )

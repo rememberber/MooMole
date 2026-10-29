@@ -99,6 +99,7 @@ struct AppState {
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
+    personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
     startup_management: Arc<Mutex<startup_management::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
@@ -884,6 +885,7 @@ fn start_task(
             | TaskKind::FileRestore
             | TaskKind::PersonalArchive
             | TaskKind::StartupManagement
+            | TaskKind::PersonalTransfer
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -920,6 +922,7 @@ fn start_task(
                         | TaskKind::FileRestore
                         | TaskKind::PersonalArchive
                         | TaskKind::StartupManagement
+                        | TaskKind::PersonalTransfer
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -2315,6 +2318,9 @@ pub fn run() {
                 search_repairs: Arc::new(Mutex::new(None)),
                 file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
                 personal_archives: Arc::new(Mutex::new(personal_files::archive::Store::default())),
+                personal_transfers: Arc::new(
+                    Mutex::new(personal_files::transfer::Store::default()),
+                ),
                 storage_monitor: Arc::new(storage_monitor::Controller::default()),
                 startup_management: Arc::new(Mutex::new(startup_management::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
@@ -2403,6 +2409,12 @@ pub fn run() {
             application_icon,
             inspect_application,
             app_control::control_application,
+            personal_files::transfer::commands::personal_move_strategy,
+            personal_files::transfer::commands::prepare_personal_transfer,
+            personal_files::transfer::commands::discard_personal_transfer,
+            personal_files::transfer::commands::get_personal_transfers,
+            personal_files::transfer::commands::acknowledge_personal_transfer,
+            personal_files::transfer::commands::execute_personal_transfer,
             personal_files::archive::commands::prepare_personal_archive,
             personal_files::archive::commands::discard_personal_archive,
             personal_files::archive::commands::execute_personal_archive,

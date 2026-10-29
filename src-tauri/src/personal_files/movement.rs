@@ -106,13 +106,35 @@ pub(super) fn prepare(
     conflict: Conflict,
     settings: &db::Settings,
 ) -> Result<Movement, String> {
+    prepare_locations(items, path, conflict, settings, true)
+}
+pub(super) fn prepare_cross_volume(
+    items: &[Item],
+    path: &str,
+    conflict: Conflict,
+    settings: &db::Settings,
+) -> Result<Movement, String> {
+    prepare_locations(items, path, conflict, settings, false)
+}
+fn prepare_locations(
+    items: &[Item],
+    path: &str,
+    conflict: Conflict,
+    settings: &db::Settings,
+    same_volume: bool,
+) -> Result<Movement, String> {
     let held = directory(path, settings)?;
     let device = held.target().metadata().map_err(|e| e.to_string())?.dev();
     let mut reserved = HashSet::new();
     let mut targets = Vec::new();
     for item in items {
-        if item.witness.nodes.last().is_none_or(|n| n.dev != device) {
-            return Err("本阶段只支持同卷移动；跨卷需要复制与内容核验，请另选目录。".into());
+        if item
+            .witness
+            .nodes
+            .last()
+            .is_none_or(|n| (n.dev == device) != same_volume)
+        {
+            return Err("源与目标磁盘关系已变化，请重新选择移动方式。".into());
         }
         let source = Path::new(&item.path);
         let name = source

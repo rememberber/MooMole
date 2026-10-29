@@ -54,6 +54,8 @@ import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
 import { StartupManagement } from './components/StartupManagement'
+import { FileTransferCenter, FileTransferHistory } from './components/FileTransferCenter'
+import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import { storageMonitorTransport } from './lib/storage-monitor'
@@ -392,6 +394,8 @@ export default function App() {
   const [restorationTarget, setRestorationTarget] = useState<RestorationTarget | null>(null)
   const [restorationActive, setRestorationActive] = useState(false)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
+  const [transferActive, setTransferActive] = useState(false)
+  const [transferTarget, setTransferTarget] = useState<TransferTarget | null>(null)
   const [fileArchiveTarget, setFileArchiveTarget] = useState<FileArchiveTarget | null>(null)
   const [searchRepairActive, setSearchRepairActive] = useState(false)
   const [searchRepairOpenSignal, setSearchRepairOpenSignal] = useState(0)
@@ -437,7 +441,8 @@ export default function App() {
   )
   const executionActive =
     api.desktop &&
-    (startupActive ||
+    (transferActive ||
+      startupActive ||
       fileArchiveActive ||
       executionPending ||
       !!data?.executions.some((item) => item.state === 'running'))
@@ -905,6 +910,7 @@ export default function App() {
     !searchRepairActive &&
     !restorationActive &&
     !fileArchiveActive &&
+    !transferActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -1541,6 +1547,15 @@ export default function App() {
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
           />
+          <FileTransferCenter
+            target={transferTarget}
+            onClose={() => setTransferTarget(null)}
+            onActiveChange={setTransferActive}
+            onOutcome={() => {
+              setHistoryEpoch((v) => v + 1)
+              void refreshRecords()
+            }}
+          />
           <FileArchiveCenter
             target={fileArchiveTarget}
             home={data.home}
@@ -1781,6 +1796,7 @@ export default function App() {
               }
               controller={activeFiles}
               onArchive={page === 'personalFiles' ? setFileArchiveTarget : undefined}
+              onTransfer={page === 'personalFiles' ? setTransferTarget : undefined}
               home={data.home}
               protectedPaths={data.settings.protectedPaths}
               enabled={canRun && !executionActive}
@@ -2370,6 +2386,7 @@ export default function App() {
                   )
                 }}
               />
+              <FileTransferHistory key={`transfers-${historyEpoch}`} />
               <FileArchiveHistory key={`file-archives-${historyEpoch}`} />
               <TaskHistory
                 records={data.history}

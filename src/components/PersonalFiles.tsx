@@ -15,6 +15,7 @@ import { ExecutionLocation } from './ExecutionLocation'
 import { FilePreview } from './FilePreview'
 import type { PreviewTarget } from '../lib/file-preview'
 import type { FileArchiveTarget } from '../lib/file-archive'
+import { transferTransport, type TransferTarget } from '../lib/file-transfer'
 
 export function PersonalFiles({
   controller: c,
@@ -23,6 +24,7 @@ export function PersonalFiles({
   enabled,
   onHistory,
   onArchive,
+  onTransfer,
   mode = 'personal',
   softwareSource,
   playlistPath,
@@ -33,6 +35,7 @@ export function PersonalFiles({
   enabled: boolean
   onHistory: () => void
   onArchive?: (target: FileArchiveTarget) => void
+  onTransfer?: (target: TransferTarget) => void
   mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads' | 'offline'
   softwareSource?: string
   playlistPath?: string
@@ -120,6 +123,26 @@ export function PersonalFiles({
     setPending(true)
     setError('')
     try {
+      const directory = destination.trim().replace(/\/+$/, '')
+      if (
+        moving &&
+        onTransfer &&
+        report &&
+        (await transferTransport.strategy(
+          report.id,
+          chosen.map((i) => i.id),
+          directory,
+        )) === 'crossVolume'
+      ) {
+        onTransfer({
+          scanId: report.id,
+          root: report.root,
+          items: chosen,
+          destination: directory,
+          conflict,
+        })
+        return
+      }
       setConfirmation(
         await c.prepare(
           chosen.map((item) => item.id),
@@ -406,7 +429,7 @@ export function PersonalFiles({
                 </select>
               </div>
               <p className="muted">
-                请选择同一磁盘卷的目录；跨卷移动暂不可用。目标被占用时不覆盖、不重新编号。
+                同一磁盘直接移动；其他磁盘会单独确认复制校验和原件废纸篓处理。目标被占用时不覆盖、不重新编号。
               </p>
             </>
           )}

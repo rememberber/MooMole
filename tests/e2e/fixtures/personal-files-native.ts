@@ -158,6 +158,8 @@ export async function installPersonalMock(page: Page, pendingScan = false, dupli
                 executions: read().runId ? [result()] : [],
               }
             if (command === 'get_ai_scan') return null
+            if (command === 'personal_move_strategy') return 'sameVolume'
+            if (command === 'get_personal_transfers') return { records: [], activeRequests: [] }
             if (
               [
                 'get_history',
