@@ -34,6 +34,7 @@ pub enum TaskKind {
     PersonalMove,
     AppControl,
     SearchRepair,
+    FileRestore,
 }
 
 impl TaskKind {
@@ -57,6 +58,7 @@ impl TaskKind {
             Self::PersonalMove => "personalmove",
             Self::AppControl => "appcontrol",
             Self::SearchRepair => "searchrepair",
+            Self::FileRestore => "filerestore",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -72,6 +74,7 @@ impl TaskKind {
                 | Self::PersonalMove
                 | Self::AppControl
                 | Self::SearchRepair
+                | Self::FileRestore
         )
     }
 }
@@ -107,6 +110,7 @@ impl Job {
                 | TaskKind::MaintenanceRefresh
                 | TaskKind::PersonalTrash
                 | TaskKind::PersonalMove
+                | TaskKind::FileRestore
         ) {
             return Err("此任务不能绑定修改执行批次。".into());
         }
@@ -394,7 +398,8 @@ async fn run_kind(
         | TaskKind::PersonalTrash
         | TaskKind::PersonalMove
         | TaskKind::AppControl
-        | TaskKind::SearchRepair => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::SearchRepair
+        | TaskKind::FileRestore => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -458,7 +463,8 @@ async fn run_kind(
         | TaskKind::PersonalTrash
         | TaskKind::PersonalMove
         | TaskKind::AppControl
-        | TaskKind::SearchRepair => false,
+        | TaskKind::SearchRepair
+        | TaskKind::FileRestore => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

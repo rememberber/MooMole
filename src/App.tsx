@@ -45,6 +45,8 @@ import type { AppControlTarget } from './lib/app-control'
 import { SearchRepairCenter } from './components/SearchRepairCenter'
 import { ProblemRepairs } from './components/ProblemRepairs'
 import { searchRepairTransport } from './lib/search-repair'
+import { FileRestorationCenter } from './components/FileRestorationCenter'
+import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -315,6 +317,8 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [restorationTarget, setRestorationTarget] = useState<RestorationTarget | null>(null)
+  const [restorationActive, setRestorationActive] = useState(false)
   const [searchRepairActive, setSearchRepairActive] = useState(false)
   const [searchRepairOpenSignal, setSearchRepairOpenSignal] = useState(0)
   const [refreshActive, setRefreshActive] = useState(false)
@@ -818,6 +822,7 @@ export default function App() {
     !uninstallActive &&
     !appControlActive &&
     !searchRepairActive &&
+    !restorationActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -1386,6 +1391,15 @@ export default function App() {
             transport={api.refreshTransport}
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
+          />
+          <FileRestorationCenter
+            target={restorationTarget}
+            transport={restorationTransport}
+            onClose={() => setRestorationTarget(null)}
+            onActiveChange={setRestorationActive}
+            onOutcome={() => {
+              void refreshRecords(true)
+            }}
           />
           <SearchRepairCenter
             openSignal={searchRepairOpenSignal}
@@ -2087,6 +2101,9 @@ export default function App() {
                 onCancel={api.cancelLogCleanup}
                 onAcknowledge={api.acknowledgeExecution}
                 onRevealReceipt={api.revealExecutionItem}
+                onRestore={
+                  api.desktop && canRun && !executionActive ? setRestorationTarget : undefined
+                }
                 onRecordsChange={(executions) => {
                   setExecutionTrackingError('')
                   setData((current) =>

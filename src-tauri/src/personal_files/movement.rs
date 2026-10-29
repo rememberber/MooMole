@@ -51,7 +51,7 @@ impl Movement {
             targets: self.targets.clone(),
         }
     }
-    pub(super) fn validate_record(&self, items: &[Item]) -> Result<(), String> {
+    pub(crate) fn validate_record(&self, items: &[Item]) -> Result<(), String> {
         let dir = Path::new(&self.directory);
         let mut paths = HashSet::new();
         if !ordinary(dir)
@@ -72,7 +72,7 @@ impl Movement {
         }
         Ok(())
     }
-    pub(super) fn validate_directory(
+    pub(crate) fn validate_directory(
         &self,
         settings: &db::Settings,
     ) -> Result<AnchoredPath, String> {
@@ -86,7 +86,7 @@ impl Movement {
         Ok(held)
     }
 }
-fn directory(path: &str, settings: &db::Settings) -> Result<AnchoredPath, String> {
+pub(crate) fn directory(path: &str, settings: &db::Settings) -> Result<AnchoredPath, String> {
     if !settings.acknowledged
         || !ordinary(Path::new(path))
         || protected(Path::new(path), &settings.protected_paths)?
@@ -175,7 +175,7 @@ pub(super) fn prepare(
     Ok(result)
 }
 
-pub(super) struct Prepared {
+pub(crate) struct Prepared {
     source: AnchoredPath,
     directory: AnchoredPath,
     destination: PathBuf,
@@ -183,7 +183,7 @@ pub(super) struct Prepared {
     new_name: CString,
 }
 impl Prepared {
-    pub(super) fn new(
+    pub(crate) fn new(
         item: &Item,
         movement: &Movement,
         target: &str,
@@ -235,7 +235,7 @@ impl Prepared {
             new_name,
         })
     }
-    pub(super) fn move_checked(
+    pub(crate) fn move_checked(
         self,
         gate: impl FnOnce() -> Result<(), String>,
     ) -> Result<(Outcome, String), String> {

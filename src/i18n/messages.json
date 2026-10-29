@@ -6707,5 +6707,66 @@
     "索引结果无法核对，请检查实际搜索状态；不会自动重试。",
     "Cannot verify the indexing result. Check search manually; no automatic retry will occur.",
     "索引の結果を照合できません。検索状態を確認してください。自動再試行は行いません。"
+  ],
+  [
+    "来源：文件恢复。按原处理收据重新确认，将文件移回原位置；原处理记录保持不变。",
+    "Source: file restoration. Confirmed against the original receipt and moved back; the original operation record is preserved.",
+    "出典：ファイルの復元。元の処理の記録を照合して元の場所に戻しました。元の操作記録は保持されます。"
+  ],
+  ["恢复原位置…", "Restore original location…", "元の場所に復元…"],
+  [
+    "可选择恢复原位置并重新检查文件；权限受限或条件不符时，请在 Finder 核对后手动取回。同名冲突不要覆盖。",
+    "Choose restoration to recheck the file and original location. If unavailable, check and retrieve it in Finder. Do not overwrite name conflicts.",
+    "元の場所への復元を選択するとファイルを再確認します。権限や条件で利用できない場合は Finder で確認して戻してください。同名の項目を上書きしないでください。"
+  ],
+  ["文件恢复结果", "File restoration result", "ファイルの復元結果"],
+  ["恢复原位置", "Restore original location", "元の場所に復元"],
+  ["当前记录位置", "Current recorded location", "現在の記録場所"],
+  ["恢复到原位置", "Restore to original location", "元の場所に戻す"],
+  [
+    "仅恢复这一份已记录的普通文件，重新核对身份和保护范围。原位置必须存在且没有同名项目；不会覆盖、自动改名或创建目录。当前文件若已被移走、替换或权限受限，将保留并说明原因。",
+    "Restores this recorded regular file after checking identity and protection. The original folder must exist and the name must be free. No overwrites, automatic renaming or folder creation. Files moved away, replaced or inaccessible are kept with an explanation.",
+    "記録された通常ファイルの識別情報と保護範囲を再確認して復元します。元のフォルダが存在し、同名の項目がないことが必要です。上書き、自動改名、フォルダ作成は行いません。移動・置換済み、または権限でアクセスできない場合は保持して理由を表示します。"
+  ],
+  [
+    "正在核对当前文件与原位置…",
+    "Checking the file and original location…",
+    "現在のファイルと元の場所を確認中…"
+  ],
+  [
+    "恢复确认已过期，请返回后重新检查。",
+    "Restoration confirmation expired. Return and check again.",
+    "復元の確認が期限切れです。戻って再確認してください。"
+  ],
+  [
+    "我已核对当前文件和原位置，确认将这一份文件移回。",
+    "I checked the file and original location and confirm moving this file back.",
+    "現在のファイルと元の場所を確認し、このファイルを戻すことを承認します。"
+  ],
+  [
+    "正在恢复。取消只会阻止尚未开始的系统调用，已经移回的文件会保留。",
+    "Restoring. Cancel stops system calls that have not started; restored files remain in place.",
+    "復元中です。キャンセルは未開始のシステム操作のみ停止します。復元済みのファイルはそのまま保持します。"
+  ],
+  ["已恢复到原位置", "Restored to original location", "元の場所に復元しました"],
+  ["恢复结果待核实", "Restoration result needs checking", "復元結果は要確認です"],
+  ["本项未恢复", "File was not restored", "このファイルは復元されませんでした"],
+  [
+    "恢复另存为一条执行记录，原处理结果保持不变。请在原位置核对文件。",
+    "Restoration is saved as a separate execution record. The original result is preserved. Check the file at its original location.",
+    "復元は別の実行記録に保存され、元の処理結果は保持されます。元の場所でファイルを確認してください。"
+  ],
+  ["取消后续恢复", "Cancel pending restoration", "未開始の復元をキャンセル"],
+  ["返回历史", "Back to history", "履歴に戻る"],
+  ["确认恢复这一项", "Confirm this restoration", "この項目の復元を確認"],
+  [
+    "恢复确认与原记录不一致，请重新检查；不会操作文件。",
+    "Restoration confirmation does not match the original record. Check again; no file action will be taken.",
+    "復元の確認が元の記録と一致しません。再確認してください。ファイルは操作しません。"
+  ],
+  [
+    "恢复结果无法核对，请在操作历史检查实际状态；不会重复恢复。",
+    "Cannot verify restoration. Check the actual state in history; restoration will not be repeated.",
+    "復元結果を照合できません。操作履歴で実際の状態を確認してください。復元を繰り返しません。"
   ]
 ]

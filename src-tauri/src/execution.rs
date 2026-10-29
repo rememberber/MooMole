@@ -188,7 +188,12 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
 fn saved_plan(body: &str) -> Result<SavedPlan, String> {
     let value: serde_json::Value =
         serde_json::from_str(body).map_err(|_| "执行计划快照无法读取。")?;
-    if value.get("module").is_some() {
+    if value.get("module").and_then(|v| v.as_str()) == Some(crate::file_restoration::MODULE) {
+        let plan: crate::file_restoration::Plan =
+            serde_json::from_value(value).map_err(|_| "恢复执行快照无法读取。")?;
+        plan.validate_record()?;
+        Ok(restoration_saved(&plan))
+    } else if value.get("module").is_some() {
         let plan: crate::personal_files::Plan =
             serde_json::from_value(value).map_err(|_| "个人文件执行快照无法读取。")?;
         plan.validate_record()?;
@@ -197,6 +202,37 @@ fn saved_plan(body: &str) -> Result<SavedPlan, String> {
         let plan: Plan = serde_json::from_value(value).map_err(|_| "执行计划快照无法读取。")?;
         Ok(SavedPlan::from(&plan))
     }
+}
+
+fn restoration_saved(plan: &crate::file_restoration::Plan) -> SavedPlan {
+    SavedPlan {
+        id: plan.id.clone(),
+        revision: plan.revision.clone(),
+        protocol: plan.protocol,
+        origin: crate::file_restoration::MODULE,
+        method: "move",
+        items: vec![SavedItem {
+            id: plan.item.id.clone(),
+            path: plan.item.path.clone(),
+            size: Some(plan.item.size),
+            target_path: Some(plan.source.original_path.clone()),
+        }],
+    }
+}
+pub(crate) fn begin_restoration(
+    db: &mut Connection,
+    plan: &crate::file_restoration::Plan,
+    at: i64,
+) -> Result<String, String> {
+    plan.validate_record()?;
+    if at < plan.created_at || at >= plan.expires_at {
+        return Err("恢复确认已过期。".into());
+    }
+    let body = serde_json::to_string(plan).map_err(|e| e.to_string())?;
+    if body.len() > MAX_PLAN {
+        return Err("恢复计划超过记录上限。".into());
+    }
+    begin_saved(db, &restoration_saved(plan), body, at)
 }
 
 fn sql(error: rusqlite::Error) -> String {

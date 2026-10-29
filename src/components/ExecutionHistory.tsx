@@ -10,6 +10,7 @@ import { watchExecution, preserveExecutionProgress } from '../lib/execution-watc
 import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
 import { CleanupResultSummary } from './CleanupResultSummary'
+import type { RestorationTarget } from '../lib/file-restoration'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -43,6 +44,7 @@ export function ExecutionHistory({
   onRevealReceipt,
   onAcknowledge,
   onReady,
+  onRestore,
 }: {
   onAcknowledge?: (record: ExecutionDetail) => Promise<ExecutionDetail>
   onReady?: (section: HTMLElement | null) => void
@@ -52,6 +54,7 @@ export function ExecutionHistory({
   onRecordsChange?: (records: ExecutionSummary[]) => void
   onCancel?: (id: string) => Promise<void>
   onRevealReceipt?: RevealExecutionItem
+  onRestore?: (target: RestorationTarget) => void
 }) {
   const [records, setRecords] = useState(initialRecords)
   const [refreshing, setRefreshing] = useState(false)
@@ -301,7 +304,19 @@ export function ExecutionHistory({
             />
           )}
           {detail ? (
-            <ExecutionResults key={detail.id} detail={detail} onRevealReceipt={onRevealReceipt} />
+            <ExecutionResults
+              key={detail.id}
+              detail={detail}
+              onRevealReceipt={onRevealReceipt}
+              onRestore={
+                onRestore
+                  ? (target) => {
+                      close()
+                      onRestore(target)
+                    }
+                  : undefined
+              }
+            />
           ) : (
             !detailError && <p role="status">正在读取本地记录…</p>
           )}
@@ -314,9 +329,11 @@ export function ExecutionHistory({
 function ExecutionResults({
   detail,
   onRevealReceipt,
+  onRestore,
 }: {
   detail: ExecutionDetail
   onRevealReceipt?: RevealExecutionItem
+  onRestore?: (target: RestorationTarget) => void
 }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -344,6 +361,11 @@ function ExecutionResults({
       )}
       {detail.origin === 'personalFiles' && (
         <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
+      )}
+      {detail.origin === 'fileRestoration' && (
+        <p className="notice">
+          来源：文件恢复。按原处理收据重新确认，将文件移回原位置；原处理记录保持不变。
+        </p>
       )}
       <p className="muted">
         {stateName(detail.state, detail.method)} · {detail.method === 'move' ? '已移动' : '已移入'}{' '}
@@ -440,8 +462,32 @@ function ExecutionResults({
                     itemId={item.id}
                     onReveal={onRevealReceipt}
                     method={detail.method}
+                    canRestore={
+                      !!onRestore &&
+                      item.state === 'moved' &&
+                      detail.state !== 'running' &&
+                      ['personalFiles', 'duplicateFiles'].includes(detail.origin ?? '')
+                    }
                   />
                 )}
+                {onRestore &&
+                  item.state === 'moved' &&
+                  detail.state !== 'running' &&
+                  ['personalFiles', 'duplicateFiles'].includes(detail.origin ?? '') && (
+                    <button
+                      className="button secondary compact"
+                      onClick={() =>
+                        onRestore({
+                          runId: detail.id,
+                          itemId: item.id,
+                          currentPath: item.receipt!.destination,
+                          originalPath: item.path,
+                        })
+                      }
+                    >
+                      恢复原位置…
+                    </button>
+                  )}
               </div>
             )}
             <ol className="execution-events" aria-label="项目记录顺序">

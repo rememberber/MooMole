@@ -31,6 +31,7 @@ mod execution_review;
 #[cfg(test)]
 mod execution_sandbox;
 mod execution_schema;
+mod file_restoration;
 mod impact;
 mod installers;
 mod instance;
@@ -93,6 +94,7 @@ struct AppState {
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
+    file_restorations: Arc<Mutex<file_restoration::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
     uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
@@ -871,6 +873,7 @@ fn start_task(
             | TaskKind::PersonalMove
             | TaskKind::AppControl
             | TaskKind::SearchRepair
+            | TaskKind::FileRestore
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -904,6 +907,7 @@ fn start_task(
                         | TaskKind::PersonalMove
                         | TaskKind::AppControl
                         | TaskKind::SearchRepair
+                        | TaskKind::FileRestore
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -1792,7 +1796,10 @@ fn cancel_log_cleanup(run_id: String, state: tauri::State<'_, AppState>) -> Resu
     for job in jobs.values() {
         if matches!(
             job.kind,
-            TaskKind::LogTrash | TaskKind::PersonalTrash | TaskKind::PersonalMove
+            TaskKind::LogTrash
+                | TaskKind::PersonalTrash
+                | TaskKind::PersonalMove
+                | TaskKind::FileRestore
         ) && job.cancel_execution(&run_id)
         {
             return Ok(());
@@ -2293,6 +2300,7 @@ pub fn run() {
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
                 search_repairs: Arc::new(Mutex::new(None)),
+                file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
                 uninstall_confirmations: Arc::new(Mutex::new(
@@ -2362,6 +2370,9 @@ pub fn run() {
             application_icon,
             inspect_application,
             app_control::control_application,
+            file_restoration::commands::prepare_file_restoration,
+            file_restoration::commands::discard_file_restoration,
+            file_restoration::commands::execute_file_restoration,
             maintenance::search_repair::prepare_search_repair,
             maintenance::search_repair::discard_search_repair,
             maintenance::search_repair::execute_search_repair,
