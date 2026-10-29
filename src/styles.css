@@ -4280,3 +4280,11 @@ input[type='checkbox'] {
 .duplicate-group span {
   color: var(--muted);
 }
+
+.analysis-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}

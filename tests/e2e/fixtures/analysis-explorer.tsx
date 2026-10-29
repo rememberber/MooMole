@@ -53,7 +53,7 @@ export const analysis: Analysis = {
   ],
 }
 
-export function mount(many = false, observation?: Analysis['mooObservation']) {
+export function mount(many = false, observation?: Analysis['mooObservation'], actions = false) {
   const host = document.createElement('div')
   host.id = 'analysis-test-fixture'
   host.style.cssText =
@@ -95,6 +95,7 @@ export function mount(many = false, observation?: Analysis['mooObservation']) {
           refreshing={false}
           onAnalyze={(path) => setRequest(`analyze:${path}`)}
           onReveal={(path) => setRequest(`reveal:${path}`)}
+          onOrganize={actions ? (path, mode) => setRequest(`${mode}:${path}`) : undefined}
         />
       </>
     )

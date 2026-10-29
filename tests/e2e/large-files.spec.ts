@@ -48,6 +48,31 @@ async function open(page: Page, value = analysis) {
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
 }
 
+test('large files route their exact containing folder to organization and exclude out-of-scope paths', async ({
+  page,
+}) => {
+  await open(page)
+  const view = library(page)
+  await expect(
+    view.getByRole('button', { name: `整理 ${root}-other/out.pdf 所在目录`, exact: true }),
+  ).toBeDisabled()
+  await view
+    .getByRole('button', { name: `整理 ${root}/sub/movie.MP4 所在目录`, exact: true })
+    .click()
+  await expect(
+    page.getByRole('main', { name: '文件整理内容' }).getByRole('textbox', { name: '个人文件目录' }),
+  ).toHaveValue(`${root}/sub`)
+  const commands = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('mock-native-commands')!),
+  )
+  expect(
+    commands.filter(
+      (r: { command: string }) =>
+        r.command === 'start_personal_scan' || r.command.startsWith('execute_personal_'),
+    ),
+  ).toHaveLength(0)
+})
+
 test('large-file view uses the independent result, filters returned paths, and routes exact read-only actions', async ({
   page,
 }) => {

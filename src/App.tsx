@@ -1646,6 +1646,11 @@ export default function App() {
                   refreshing={busy?.kind === 'analyze'}
                   onAnalyze={(target) => void execute('analyze', target)}
                   onReveal={reveal}
+                  onOrganize={(target, mode) => {
+                    if (mode === 'duplicates') duplicates.setRoot(target)
+                    else personalFiles.setRoot(target)
+                    changePage(mode === 'duplicates' ? 'duplicateFiles' : 'personalFiles')
+                  }}
                 />
               ) : analysisTaskActive(analysisTask) ? null : (
                 <section className="card">

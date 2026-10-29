@@ -25,6 +25,7 @@ import {
   entryBytes,
   measurementCoverage,
   spaceTiles,
+  parentDirectory,
 } from '../lib/analysis'
 
 const PAGE_SIZE = 100
@@ -41,6 +42,7 @@ export function AnalysisExplorer({
   refreshing,
   onAnalyze,
   onReveal,
+  onOrganize,
 }: {
   ref?: Ref<AnalysisExplorerHandle>
   initialContext?: AnalysisContext
@@ -51,6 +53,7 @@ export function AnalysisExplorer({
   refreshing: boolean
   onAnalyze: (path: string) => void
   onReveal: (path: string) => void
+  onOrganize?: (path: string, mode: 'files' | 'duplicates') => void
 }) {
   const [view, setView] = useState<'directory' | 'large'>(initialContext?.view ?? 'directory')
   const [query, setQuery] = useState(initialContext?.directory.query ?? '')
@@ -207,6 +210,27 @@ export function AnalysisExplorer({
           </small>
         </div>
       </div>
+      {onOrganize && (
+        <div className="analysis-next-actions">
+          <button
+            className="button secondary compact"
+            disabled={!canAnalyze || !canReveal || refreshing}
+            onClick={() => onOrganize(analysis.path, 'files')}
+          >
+            整理当前目录
+          </button>
+          <button
+            className="button secondary compact"
+            disabled={!canAnalyze || !canReveal || refreshing}
+            onClick={() => onOrganize(analysis.path, 'duplicates')}
+          >
+            查找当前目录的重复文件
+          </button>
+          <span className="muted">
+            进入后重新扫描并选择，再确认移动或清理；分析结果不会直接修改文件。
+          </span>
+        </div>
+      )}
       <div className="analysis-observation" aria-label="结果时间与完整性">
         <p>
           {observation ? (
@@ -266,6 +290,7 @@ export function AnalysisExplorer({
           canReveal={canReveal}
           onAnalyze={onAnalyze}
           onReveal={onReveal}
+          onOrganize={onOrganize ? (path) => onOrganize(path, 'files') : undefined}
         />
       ) : (
         <section className="card analysis-content">
@@ -387,6 +412,34 @@ export function AnalysisExplorer({
               </div>
               <p className="mono">{selected.path}</p>
               <div className="analysis-inspector-actions">
+                {onOrganize && (
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={!canAnalyze || !canReveal || refreshing}
+                      onClick={() =>
+                        onOrganize(
+                          selected.is_dir ? selected.path : parentDirectory(selected.path),
+                          'files',
+                        )
+                      }
+                    >
+                      {selected.is_dir ? '整理此文件夹' : '整理所在目录'}
+                    </button>
+                    <button
+                      className="button secondary compact"
+                      disabled={!canAnalyze || !canReveal || refreshing}
+                      onClick={() =>
+                        onOrganize(
+                          selected.is_dir ? selected.path : parentDirectory(selected.path),
+                          'duplicates',
+                        )
+                      }
+                    >
+                      查找同目录的重复文件
+                    </button>
+                  </>
+                )}
                 {selected.is_dir && (
                   <button
                     className="button secondary compact"

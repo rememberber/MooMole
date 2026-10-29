@@ -6573,5 +6573,16 @@
     "执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。",
     "Selected files and retained copies are checked again before processing. If a retained copy changes or is missing, its selected duplicates are kept.",
     "処理前に選択したファイルと残すコピーの内容を再確認します。残すコピーが変更されたか存在しない場合、そのグループは処理しません。"
-  ]
+  ],
+  ["整理当前目录", "Organize this directory", "現在のフォルダを整理"],
+  ["查找当前目录的重复文件", "Find duplicates in this directory", "現在のフォルダの重複を検索"],
+  [
+    "进入后重新扫描并选择，再确认移动或清理；分析结果不会直接修改文件。",
+    "Scan again and choose files before confirming moves or cleanup. Analysis results do not directly change files.",
+    "移動先の画面で再スキャンしてファイルを選び、移動やクリーンアップを確認してください。分析結果だけでファイルを変更することはありません。"
+  ],
+  ["整理此文件夹", "Organize this folder", "このフォルダを整理"],
+  ["整理所在目录", "Organize containing folder", "保存先フォルダを整理"],
+  ["查找同目录的重复文件", "Find duplicates in containing folder", "同じフォルダの重複を検索"],
+  ["整理 {0} 所在目录", "Organize the folder containing {0}", "{0} の保存先フォルダを整理"]
 ]

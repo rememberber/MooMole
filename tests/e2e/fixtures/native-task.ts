@@ -51,6 +51,13 @@ export async function installTaskMock(
             command: string,
             args: { taskId?: string; kind?: string; path?: string } = {},
           ) => {
+            const commands = JSON.parse(sessionStorage.getItem('mock-native-commands') ?? '[]')
+            sessionStorage.setItem(
+              'mock-native-commands',
+              JSON.stringify([...commands, { command, args }]),
+            )
+            if (command === 'get_personal_files' || command === 'get_duplicate_files')
+              return { phase: 'idle', requestId: null, runId: null, report: null, error: null }
             if (command === 'bootstrap')
               return {
                 ...initial,

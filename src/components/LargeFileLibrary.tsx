@@ -24,6 +24,7 @@ export function LargeFileLibrary({
   canReveal,
   onAnalyze,
   onReveal,
+  onOrganize,
 }: {
   ref?: Ref<LargeFileHandle>
   initialContext?: LargeFileContext
@@ -32,6 +33,7 @@ export function LargeFileLibrary({
   canReveal: boolean
   onAnalyze: (path: string) => void
   onReveal: (path: string) => void
+  onOrganize?: (path: string) => void
 }) {
   const [query, setQuery] = useState(initialContext?.query ?? '')
   const [kind, setKind] = useState<FileKind>(initialContext?.kind ?? 'all')
@@ -147,6 +149,16 @@ export function LargeFileLibrary({
                 {largeFileBytes(file) == null ? '大小未知' : bytes(file.size)}
               </span>
               <div className="large-file-actions">
+                {onOrganize && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canAnalyze || !canReveal || !inScope}
+                    onClick={() => onOrganize(parentDirectory(file.path))}
+                    aria-label={`整理 ${file.path} 所在目录`}
+                  >
+                    整理所在目录
+                  </button>
+                )}
                 <button
                   className="button secondary compact"
                   disabled={!canAnalyze || !inScope}
