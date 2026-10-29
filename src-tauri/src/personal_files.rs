@@ -9,6 +9,7 @@ use std::{
 };
 
 pub(crate) mod commands;
+pub(crate) mod duplicates;
 mod movement;
 mod scan;
 mod writer;
@@ -61,6 +62,8 @@ pub(crate) struct Report {
     skipped: usize,
     visited: usize,
     items: Vec<FileRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duplicates: Option<duplicates::Report>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -76,15 +79,24 @@ pub(crate) struct Plan {
     pub items: Vec<Item>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub movement: Option<movement::Movement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duplicates: Option<Vec<duplicates::Keep>>,
 }
 impl Plan {
     pub(crate) fn validate_record(&self) -> Result<(), String> {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
-        if self.module != MODULE
+        if self.module
+            != if self.duplicates.is_some() {
+                duplicates::MODULE
+            } else {
+                MODULE
+            }
             || self.protocol != 1
             || self.revision
-                != if self.movement.is_some() {
+                != if self.duplicates.is_some() {
+                    duplicates::REVISION
+                } else if self.movement.is_some() {
                     movement::REVISION
                 } else {
                     REVISION
@@ -117,6 +129,12 @@ impl Plan {
         if let Some(movement) = &self.movement {
             movement.validate_record(&self.items)?;
         }
+        if let Some(proof) = &self.duplicates {
+            if self.movement.is_some() {
+                return Err("重复文件计划不接受移动方式。".into());
+            }
+            duplicates::validate_record(proof, &self.items, &self.root)?;
+        }
         Ok(())
     }
 }
@@ -135,6 +153,8 @@ pub(crate) struct Confirmation {
     items: Vec<FileRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     movement: Option<movement::Confirmation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kept_files: Option<Vec<FileRow>>,
 }
 #[derive(Default)]
 pub(crate) struct Store {
@@ -193,10 +213,26 @@ impl Store {
         }
         let id = uuid::Uuid::new_v4().to_string();
         let expires_at = (now + 30_000).min(scan.expires_at);
+        let proof = scan
+            .report
+            .duplicates
+            .as_ref()
+            .map(|r| duplicates::selection(r, &scan.items, &items))
+            .transpose()?;
         let plan = Plan {
-            module: MODULE.into(),
+            module: if proof.is_some() {
+                duplicates::MODULE
+            } else {
+                MODULE
+            }
+            .into(),
             protocol: 1,
-            revision: REVISION.into(),
+            revision: if proof.is_some() {
+                duplicates::REVISION
+            } else {
+                REVISION
+            }
+            .into(),
             id: id.clone(),
             scan_id: scan.id.clone(),
             root: scan.root.clone(),
@@ -204,6 +240,7 @@ impl Store {
             expires_at: scan.expires_at,
             items,
             movement: None,
+            duplicates: proof,
         };
         plan.validate_record()?;
         let confirmation = Confirmation {
@@ -213,6 +250,10 @@ impl Store {
             expires_at,
             items: plan.items.iter().map(row).collect(),
             movement: None,
+            kept_files: plan
+                .duplicates
+                .as_ref()
+                .map(|p| p.iter().map(|k| row(&k.keeper)).collect()),
         };
         self.offers.insert(
             id,

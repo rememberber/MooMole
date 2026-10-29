@@ -1,5 +1,120 @@
 use super::*;
 
+#[tokio::test]
+#[ignore = "Real duplicate content checks, Mole protections and native Trash on owned files only; retrieves exact receipts"]
+async fn real_duplicates_keep_one_copy_and_record_native_trash() {
+    use crate::engine::TaskKind;
+    let temp = tempfile::Builder::new()
+        .prefix("MooMole-duplicates-native-")
+        .tempdir()
+        .unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let root = home.join("Downloads");
+    std::fs::create_dir(&root).unwrap();
+    for name in ["one.txt", "two.txt", "keep.txt"] {
+        std::fs::write(root.join(name), "owned duplicate content").unwrap();
+    }
+    let job = Arc::new(Job::new(TaskKind::PersonalScan));
+    let scan = super::super::scan::collect(&root, &[], job.clone()).unwrap();
+    let scan = duplicates::collect(scan, job).unwrap();
+    let ids: Vec<_> = scan
+        .items
+        .iter()
+        .filter(|i| !i.path.ends_with("/keep.txt"))
+        .map(|i| i.id.clone())
+        .collect();
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let offer = store.offer(&ids, db::now()).unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(
+        &database,
+        &db::Settings {
+            acknowledged: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let rule_home = home.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalTrash)),
+        move |requested, job| {
+            let engine = engine.clone();
+            let home = rule_home.clone();
+            async move { rules::run(&engine, &home, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    // Retrieve all actual receipts before checking success, never guess Trash.
+    for item in &result.items {
+        if let Some(r) = &item.receipt {
+            let m = std::fs::symlink_metadata(&r.destination).unwrap();
+            assert_eq!((m.dev(), m.ino()), (r.device, r.inode));
+            assert!(!Path::new(&item.path).exists());
+            objc2::rc::autoreleasepool(|_| {
+                use objc2_foundation::{NSFileManager, NSString, NSURL};
+                NSFileManager::defaultManager()
+                    .moveItemAtURL_toURL_error(
+                        &NSURL::fileURLWithPath(&NSString::from_str(&r.destination)),
+                        &NSURL::fileURLWithPath(&NSString::from_str(&item.path)),
+                    )
+                    .unwrap();
+            });
+        }
+    }
+    assert_eq!(result.origin, duplicates::MODULE);
+    assert_eq!(
+        result.summary.moved_count,
+        2,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    for name in ["one.txt", "two.txt", "keep.txt"] {
+        assert_eq!(
+            std::fs::read_to_string(root.join(name)).unwrap(),
+            "owned duplicate content"
+        );
+    }
+    let expected = serde_json::to_value(&result).unwrap();
+    let run = result.summary.id.clone();
+    drop(database);
+    let mut reopened = db::open_owned(&home.join("app.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(execution::detail(&reopened, &run).unwrap()).unwrap(),
+        expected
+    );
+    let preview = crate::execution_archive::prepare(&mut reopened).unwrap();
+    let archives = home.join("archives");
+    let archive = crate::execution_archive::archive(
+        &mut reopened,
+        &archives,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &archives,
+            &archive.id,
+            crate::execution_archive::Kind::Cleanup,
+            &run
+        )
+        .unwrap(),
+        expected
+    );
+    std::fs::write(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/duplicates-native.json"),serde_json::to_vec_pretty(&serde_json::json!({"record":expected,"keeperAndRetrievedContentVerified":true,"archiveReadbackVerified":true})).unwrap()).unwrap();
+}
+
 #[test]
 fn move_intent_reopens_unknown_without_replay_and_rejects_method_tampering() {
     use crate::engine::TaskKind;

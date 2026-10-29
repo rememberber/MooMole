@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import * as api from '../lib/api'
 import type { PersonalController } from '../lib/use-personal-files'
@@ -19,12 +19,14 @@ export function PersonalFiles({
   protectedPaths,
   enabled,
   onHistory,
+  mode = 'personal',
 }: {
   controller: PersonalController
   home: string
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
+  mode?: 'personal' | 'duplicates'
 }) {
   const language = useLanguage()
   const [query, setQuery] = useState(''),
@@ -57,6 +59,14 @@ export function PersonalFiles({
     () => filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort),
     [report, query, kind, minimum, older, now, sort, language],
   )
+  const groups = mode === 'duplicates' ? (report?.duplicates?.groups ?? []) : []
+  const displayItems =
+    mode === 'duplicates'
+      ? groups
+          .filter((g) => g.itemIds.some((id) => items.some((i) => i.id === id)))
+          .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
+      : items
+  const title = mode === 'duplicates' ? '确认处理重复文件' : '确认处理个人文件'
   useEffect(() => {
     setSelected([])
     setLimit(100)
@@ -106,7 +116,7 @@ export function PersonalFiles({
         <label className="personal-path">
           <span>整理目录</span>
           <input
-            aria-label="个人文件目录"
+            aria-label={mode === 'duplicates' ? '重复文件目录' : '个人文件目录'}
             value={c.root}
             disabled={c.running}
             onChange={(event) => c.setRoot(event.target.value)}
@@ -134,7 +144,9 @@ export function PersonalFiles({
         </button>
       </form>
       <p className="muted">
-        按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。
+        {mode === 'duplicates'
+          ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
+          : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
       {c.error && (
         <p className="notice warning" role="alert">
@@ -163,6 +175,13 @@ export function PersonalFiles({
               {dateTime(report.createdAt)}
             </span>
           </div>
+          {report.duplicates && (
+            <p className="notice">
+              已核对 {report.duplicates.checkedFiles} 个文件，找到 {groups.length}{' '}
+              组相同内容。每组保留一份后的额外副本合计 {bytes(report.duplicates.extraBytes)}
+              ，不等于可立即释放空间。筛选匹配组，组内副本一起显示。
+            </p>
+          )}
           {(!report.complete || report.skipped > 0) && (
             <p className="notice">
               {report.cancelled ? '扫描已停止。' : '本次扫描范围有限。'} 已跳过 {report.skipped}{' '}
@@ -225,15 +244,22 @@ export function PersonalFiles({
               已选 {chosen.length} 项 · {bytes(chosen.reduce((sum, item) => sum + item.size, 0))}
             </strong>
             <span>每批最多 20 项</span>
-            <button
-              className="button secondary compact"
-              disabled={
-                !enabled || c.running || !fresh || !chosen.length || !destination.trim() || pending
-              }
-              onClick={() => void prepare(true)}
-            >
-              移动到目录…
-            </button>
+            {mode !== 'duplicates' && (
+              <button
+                className="button secondary compact"
+                disabled={
+                  !enabled ||
+                  c.running ||
+                  !fresh ||
+                  !chosen.length ||
+                  !destination.trim() ||
+                  pending
+                }
+                onClick={() => void prepare(true)}
+              >
+                移动到目录…
+              </button>
+            )}
             <button
               className="button secondary compact"
               disabled={!selected.length || pending || c.running}
@@ -249,88 +275,120 @@ export function PersonalFiles({
               {pending ? '正在准备…' : '移入废纸篓…'}
             </button>
           </div>
-          <div className="personal-scope">
-            <label className="personal-path">
-              <span>移动到</span>
-              <input
-                aria-label="个人文件移动目标"
-                value={destination}
-                disabled={pending || c.running}
-                placeholder="选择目标目录后审阅移动计划"
-                onChange={(event) => setDestination(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              className="button secondary compact"
-              disabled={!api.desktop || pending || c.running}
-              onClick={async () => {
-                const dir = await api.chooseDirectory('选择个人文件移动目标')
-                if (dir) setDestination(dir)
-              }}
-            >
-              <FolderOpen size={14} />
-              选择目标目录
-            </button>
-            <select
-              aria-label="移动重名处理"
-              value={conflict}
-              disabled={pending || c.running}
-              onChange={(event) => setConflict(event.target.value as typeof conflict)}
-            >
-              <option value="skip">重名时跳过</option>
-              <option value="keepBoth">保留两份并编号</option>
-            </select>
-          </div>
-          <p className="muted">
-            请选择同一磁盘卷的目录；跨卷移动暂不可用。目标被占用时不覆盖、不重新编号。
-          </p>
-          <div className="card personal-list" role="region" aria-label="个人文件列表">
-            {items.slice(0, limit).map((item) => (
-              <article className="personal-row" key={item.id}>
-                <input
-                  type="checkbox"
-                  aria-label={`选择 ${item.path}`}
-                  checked={chosen.some((value) => value.id === item.id)}
-                  disabled={
-                    !enabled ||
-                    !fresh ||
-                    blocked(item.path) ||
-                    c.running ||
-                    pending ||
-                    (!selected.includes(item.id) && chosen.length >= 20)
-                  }
-                  onChange={(event) =>
-                    setSelected((ids) =>
-                      event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id),
-                    )
-                  }
-                />
-                <div>
-                  <strong data-i18n="off">{item.name}</strong>
-                  <p className="mono full-path">{shortPath(item.path, home)}</p>
-                  <small>
-                    {blocked(item.path) ? '已保护' : '个人文件 · 需自行确认'} ·{' '}
-                    {dateTime(item.modifiedAt)}
-                  </small>
-                </div>
-                <span>{bytes(item.size)}</span>
+          {mode !== 'duplicates' && (
+            <>
+              <div className="personal-scope">
+                <label className="personal-path">
+                  <span>移动到</span>
+                  <input
+                    aria-label="个人文件移动目标"
+                    value={destination}
+                    disabled={pending || c.running}
+                    placeholder="选择目标目录后审阅移动计划"
+                    onChange={(event) => setDestination(event.target.value)}
+                  />
+                </label>
                 <button
+                  type="button"
                   className="button secondary compact"
-                  disabled={!api.desktop}
-                  onClick={() =>
-                    void api.reveal(item.path).catch((reason) => setError(String(reason)))
-                  }
+                  disabled={!api.desktop || pending || c.running}
+                  onClick={async () => {
+                    const dir = await api.chooseDirectory('选择个人文件移动目标')
+                    if (dir) setDestination(dir)
+                  }}
                 >
-                  在 Finder 中查看
+                  <FolderOpen size={14} />
+                  选择目标目录
                 </button>
-              </article>
-            ))}
+                <select
+                  aria-label="移动重名处理"
+                  value={conflict}
+                  disabled={pending || c.running}
+                  onChange={(event) => setConflict(event.target.value as typeof conflict)}
+                >
+                  <option value="skip">重名时跳过</option>
+                  <option value="keepBoth">保留两份并编号</option>
+                </select>
+              </div>
+              <p className="muted">
+                请选择同一磁盘卷的目录；跨卷移动暂不可用。目标被占用时不覆盖、不重新编号。
+              </p>
+            </>
+          )}
+          <div className="card personal-list" role="region" aria-label="个人文件列表">
+            {displayItems.slice(0, limit).map((item, index) => {
+              const group = groups.find((g) => g.itemIds.includes(item.id))
+              const lastCopy =
+                !!group &&
+                group.itemIds.filter((id) => !chosen.some((i) => i.id === id)).length <= 1 &&
+                !chosen.some((i) => i.id === item.id)
+              const first =
+                group && (index === 0 || !group.itemIds.includes(displayItems[index - 1].id))
+              return (
+                <Fragment key={item.id}>
+                  {first && (
+                    <header className="duplicate-group">
+                      <strong>
+                        相同内容 · {group.itemIds.length} 份 · 每份 {bytes(group.size)}
+                      </strong>
+                      <span>每组至少保留一份</span>
+                    </header>
+                  )}
+                  <article className="personal-row">
+                    <input
+                      type="checkbox"
+                      aria-label={`选择 ${item.path}`}
+                      checked={chosen.some((value) => value.id === item.id)}
+                      disabled={
+                        !enabled ||
+                        !fresh ||
+                        blocked(item.path) ||
+                        c.running ||
+                        pending ||
+                        lastCopy ||
+                        (!selected.includes(item.id) && chosen.length >= 20)
+                      }
+                      onChange={(event) =>
+                        setSelected((ids) =>
+                          event.target.checked
+                            ? [...ids, item.id]
+                            : ids.filter((id) => id !== item.id),
+                        )
+                      }
+                    />
+                    <div>
+                      <strong data-i18n="off">{item.name}</strong>
+                      <p className="mono full-path">{shortPath(item.path, home)}</p>
+                      <small>
+                        {blocked(item.path)
+                          ? '已保护'
+                          : mode === 'duplicates'
+                            ? chosen.some((i) => i.id === item.id)
+                              ? '所选副本'
+                              : '将保留'
+                            : '个人文件 · 需自行确认'}{' '}
+                        · {dateTime(item.modifiedAt)}
+                      </small>
+                    </div>
+                    <span>{bytes(item.size)}</span>
+                    <button
+                      className="button secondary compact"
+                      disabled={!api.desktop}
+                      onClick={() =>
+                        void api.reveal(item.path).catch((reason) => setError(String(reason)))
+                      }
+                    >
+                      在 Finder 中查看
+                    </button>
+                  </article>
+                </Fragment>
+              )
+            })}
             {!items.length && (
               <p className="empty-inline">没有匹配的个人文件，可调整筛选或重新扫描。</p>
             )}
           </div>
-          {items.length > limit && (
+          {displayItems.length > limit && (
             <button
               className="button secondary compact"
               onClick={() => setLimit((value) => value + 100)}
@@ -395,12 +453,8 @@ export function PersonalFiles({
       </button>
       {!api.desktop && <p className="notice">浏览器预览不能读取或处理本机文件，请使用桌面 App。</p>}
       {confirmation && (
-        <Modal
-          title="确认处理个人文件"
-          onClose={pending ? undefined : close}
-          className="review-plan-modal"
-        >
-          <h2>确认处理个人文件</h2>
+        <Modal title={title} onClose={pending ? undefined : close} className="review-plan-modal">
+          <h2>{title}</h2>
           <p>
             {confirmation.items.length} 个文件 ·{' '}
             {bytes(confirmation.items.reduce((sum, item) => sum + item.size, 0))}
@@ -438,6 +492,17 @@ export function PersonalFiles({
               </article>
             ))}
           </div>
+          {confirmation.keptFiles && (
+            <section className="notice">
+              <strong>这批保留的副本</strong>
+              {confirmation.keptFiles.map((item) => (
+                <p className="mono full-path" key={item.id}>
+                  {item.path}
+                </p>
+              ))}
+              <p>执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。</p>
+            </section>
+          )}
           <label className="uninstall-ack">
             <input
               type="checkbox"

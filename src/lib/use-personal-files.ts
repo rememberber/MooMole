@@ -51,7 +51,7 @@ export function usePersonalFiles(
         setSnapshot(next)
         if (next.runId) {
           const detail = await transport.detail(next.runId)
-          if (detail.id !== next.runId || detail.origin !== 'personalFiles')
+          if (detail.id !== next.runId || detail.origin !== (transport.origin ?? 'personalFiles'))
             throw Error('返回的个人文件批次不匹配。')
           if (closed || generation.current !== current) return
           setResult(detail)

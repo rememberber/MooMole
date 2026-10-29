@@ -50,6 +50,7 @@ pub(super) fn collect(root: &Path, rules: &[String], job: Arc<Job>) -> Result<Sc
         skipped: walker.skipped,
         visited: walker.visited,
         items: walker.items.iter().map(row).collect(),
+        duplicates: None,
     };
     Ok(Scan {
         id: report.id.clone(),

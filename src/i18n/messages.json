@@ -6527,5 +6527,51 @@
     "我已核查源文件、确认目标与逐项结果，了解未知结果保持且不会自动重试。",
     "I verified the source files, confirmed destinations and item results, and understand that unknown results remain unknown without automatic retries.",
     "元のファイル、確認した移動先、項目ごとの結果を確認し、不明な結果は不明なまま保持され自動再試行しないことを理解しました。"
+  ],
+  ["重复文件", "Duplicates", "重複ファイル"],
+  ["查找重复文件", "Find duplicates", "重複ファイルを検索"],
+  [
+    "来源：重复文件。按内容核对分组，处理前再次验证保留副本；同样内容不表示不同位置没有用途。",
+    "Source: duplicates. Files are grouped by content and retained copies are checked again before processing. Identical content can still serve different purposes in different locations.",
+    "ソース：重複ファイル。内容で分類し、処理前に残すコピーを再確認します。同じ内容でも場所によって用途が異なる場合があります。"
+  ],
+  ["确认处理重复文件", "Confirm duplicate processing", "重複ファイルの処理を確認"],
+  ["重复文件目录", "Duplicate search folder", "重複ファイルの検索フォルダ"],
+  [
+    "按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。",
+    "Files are checked and grouped by content. Nothing is selected by default; retain at least one copy per group. Identical files can serve different purposes in different locations. Review their paths before choosing. Folders, app libraries and similar but different photos are excluded.",
+    "内容を照合して分類します。初期状態では未選択で、各グループに最低1つ残します。同じ内容でも場所によって用途が異なるため、パスを確認して選んでください。フォルダ、アプリのライブラリ、類似していても内容が異なる写真は対象外です。"
+  ],
+  [
+    "已核对 {0} 个文件，找到 {1} 组相同内容。每组保留一份后的额外副本合计 {2}，不等于可立即释放空间。筛选匹配组，组内副本一起显示。",
+    "Checked {0} files and found {1} identical-content groups. Extra copies after retaining one per group total {2}; this is not immediately freed space. Filters match groups and show all copies together.",
+    "{0} 個のファイルを照合し、同じ内容のグループが {1} 件見つかりました。各グループに1つ残した追加コピーの合計は {2} です。すぐに空く容量とは異なります。フィルターに一致するグループ内のコピーをまとめて表示します。"
+  ],
+  ["个文件，找到", " files; found ", " 個のファイルを照合し、"],
+  [
+    "组相同内容。每组保留一份后的额外副本合计",
+    " identical-content groups. Extra copies after retaining one per group total ",
+    " グループの同じ内容を検出。各グループに1つ残した追加コピーの合計は "
+  ],
+  [
+    "，不等于可立即释放空间。筛选匹配组，组内副本一起显示。",
+    "; not immediately freed space. Filters match groups and show all copies together.",
+    " です。すぐに空く容量とは異なります。一致するグループのコピーをまとめて表示します。"
+  ],
+  [
+    "相同内容 · {0} 份 · 每份 {1}",
+    "Identical content · {0} copies · {1} each",
+    "同じ内容 · {0} 個 · 各 {1}"
+  ],
+  ["相同内容 ·", "Identical content ·", "同じ内容 ·"],
+  ["份 · 每份", " copies · each ", " 個 · 各 "],
+  ["每组至少保留一份", "Keep at least one copy per group", "各グループに最低1つ残す"],
+  ["所选副本", "Selected copy", "選択したコピー"],
+  ["将保留", "Will be retained", "残す"],
+  ["这批保留的副本", "Copies retained in this batch", "今回残すコピー"],
+  [
+    "执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。",
+    "Selected files and retained copies are checked again before processing. If a retained copy changes or is missing, its selected duplicates are kept.",
+    "処理前に選択したファイルと残すコピーの内容を再確認します。残すコピーが変更されたか存在しない場合、そのグループは処理しません。"
   ]
 ]

@@ -2,13 +2,13 @@ import type { Page } from '@playwright/test'
 import { demoBootstrap, demoSnapshot } from '../../../src/lib/demo'
 
 // UI transport fixture only: no native file reads, moves, rules or SQLite.
-export async function installPersonalMock(page: Page, pendingScan = false) {
+export async function installPersonalMock(page: Page, pendingScan = false, duplicates = false) {
   await page.addInitScript(
-    ({ initial, status, pendingScan }) => {
+    ({ initial, status, pendingScan, duplicates }) => {
       const uuid = (n: number) => `${String(n).padStart(8, '0')}-1234-4123-8123-123456789abc`
       const now = Date.now(),
         root = '/Users/demo/Downloads'
-      const original = {
+      const original: any = {
         id: uuid(1),
         root,
         createdAt: now - 1000,
@@ -47,6 +47,27 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
             modifiedAt: now - 500 * 86400000,
           },
         ],
+      }
+      if (duplicates) {
+        original.items = [2, 3, 4].map((n, index) => ({
+          id: uuid(n),
+          path: `${root}/${['one.txt', 'two.txt', 'keep.txt'][index]}`,
+          name: ['one.txt', 'two.txt', 'keep.txt'][index],
+          size: 65536,
+          modifiedAt: now - 86400000,
+        }))
+        original.duplicates = {
+          groups: [
+            {
+              id: 'a'.repeat(64),
+              size: 65536,
+              itemIds: original.items.map((i: { id: string }) => i.id),
+            },
+          ],
+          bytesRead: 262144,
+          checkedFiles: 4,
+          extraBytes: 131072,
+        }
       }
       const read = () =>
         JSON.parse(sessionStorage.getItem('personal-state') || 'null') || {
@@ -88,7 +109,7 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
           reviewedAt: null,
           revision: 'MooMole.personal-files.v1',
           protocol: 1,
-          origin: 'personalFiles',
+          origin: duplicates ? 'duplicateFiles' : 'personalFiles',
           snapshotSha256: 'a'.repeat(64),
           spaceObservation: null,
           events: [],
@@ -160,8 +181,12 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
                 error: null,
                 result: status,
               }
-            if (command === 'get_personal_files') {
+            if (command === 'get_personal_files' || command === 'get_duplicate_files') {
               const state = read()
+              if (duplicates && state.phase === 'processing') {
+                state.phase = 'completed'
+                save(state)
+              }
               if (state.phase === 'scanning' && sessionStorage.getItem('personal-finish-scan')) {
                 state.phase = 'ready'
                 state.report = scan()
@@ -169,7 +194,7 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
               }
               return state
             }
-            if (command === 'start_personal_scan') {
+            if (command === 'start_personal_scan' || command === 'start_duplicate_scan') {
               if (args.root !== root) throw Error('unexpected root')
               sessionStorage.removeItem('personal-movement')
               sessionStorage.removeItem('personal-executed')
@@ -184,12 +209,17 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
               })
               return
             }
-            if (command === 'prepare_personal_trash' || command === 'prepare_personal_move') {
+            if (
+              command === 'prepare_personal_trash' ||
+              command === 'prepare_personal_move' ||
+              command === 'prepare_duplicate_trash'
+            ) {
               const source = scan()
               if (args.scanId !== source.id) throw Error('wrong source scan')
               const ids = args.selectedIds as string[]
               const items = source.items.filter((item: { id: string }) => ids.includes(item.id))
               if (items.length !== ids.length || !items.length) throw Error('wrong exact IDs')
+              if (duplicates && ids.length >= source.items.length) throw Error('must retain a copy')
               sessionStorage.setItem('personal-selected', JSON.stringify(items))
               const movement =
                 command === 'prepare_personal_move'
@@ -214,10 +244,22 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
                 expiresAt: Date.now() + 30000,
                 items,
                 ...(movement ? { movement } : {}),
+                ...(duplicates
+                  ? {
+                      keptFiles: source.items
+                        .filter((i: { id: string }) => !ids.includes(i.id))
+                        .slice(0, 1),
+                    }
+                  : {}),
               }
             }
-            if (command === 'discard_personal_trash') return
-            if (command === 'execute_personal_trash' || command === 'execute_personal_move') {
+            if (command === 'discard_personal_trash' || command === 'discard_duplicate_trash')
+              return
+            if (
+              command === 'execute_personal_trash' ||
+              command === 'execute_personal_move' ||
+              command === 'execute_duplicate_trash'
+            ) {
               if (
                 args.confirmationId !== uuid(6) ||
                 args.personalFilesConfirmed !== true ||
@@ -257,6 +299,6 @@ export async function installPersonalMock(page: Page, pendingScan = false) {
         },
       })
     },
-    { initial: demoBootstrap, status: demoSnapshot, pendingScan },
+    { initial: demoBootstrap, status: demoSnapshot, pendingScan, duplicates },
   )
 }

@@ -37,6 +37,39 @@ function report(): PersonalReport {
   }
 }
 describe('personal file boundaries', () => {
+  it('requires duplicate groups and confirmation to retain a distinct known copy', () => {
+    const source = report()
+    source.items[1].size = source.items[0].size
+    source.duplicates = {
+      groups: [{ id: 'a'.repeat(64), size: source.items[0].size, itemIds: [first, second] }],
+      extraBytes: source.items[0].size,
+      bytesRead: 2 * source.items[0].size,
+      checkedFiles: 2,
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.duplicates?.groups).toHaveLength(1)
+    const raw = {
+      id: second,
+      root: source.root,
+      createdAt: at + 1,
+      expiresAt: at + 30000,
+      items: [source.items[0]],
+      keptFiles: [source.items[1]],
+    }
+    expect(readPersonalConfirmation(raw, source, [first], at + 2).keptFiles?.[0].id).toBe(second)
+    for (const keptFiles of [
+      undefined,
+      [],
+      [source.items[0]],
+      [{ ...source.items[1], path: '/Users/demo/Downloads/other.pdf', name: 'other.pdf' }],
+    ])
+      expect(() =>
+        readPersonalConfirmation({ ...raw, keptFiles }, source, [first], at + 2),
+      ).toThrow()
+    const malformed = structuredClone(snapshot)
+    malformed.report.duplicates!.groups[0].itemIds = [first, first]
+    expect(() => readPersonalSnapshot(malformed)).toThrow()
+  })
   it('rejects outside-root, malformed and duplicate source rows instead of dropping evidence', () => {
     const valid = { phase: 'ready', requestId: first, runId: null, report: report(), error: null }
     expect(readPersonalSnapshot(valid).report?.items).toHaveLength(2)

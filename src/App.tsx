@@ -11,6 +11,7 @@ import {
   Code2,
   Cpu,
   FolderOpen,
+  Copy,
   HardDrive,
   History,
   Info,
@@ -32,6 +33,7 @@ import {
 import * as api from './lib/api'
 import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
+import { duplicateTransport } from './lib/personal-files'
 import { usePersonalFiles } from './lib/use-personal-files'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -158,6 +160,7 @@ const navigation = [
   ['quickCleanup', Zap, '速战速决'],
   ['softwareCleanup', Sparkles, '软件清理'],
   ['personalFiles', FolderOpen, '文件整理'],
+  ['duplicateFiles', Copy, '重复文件'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
@@ -234,6 +237,12 @@ export default function App() {
   const [page, setPage] = useState<Page>('overview')
   const aiScan = useAiScan(data?.home ?? '')
   const personalFiles = usePersonalFiles(page === 'personalFiles', data?.home ?? '')
+  const duplicates = usePersonalFiles(
+    page === 'duplicateFiles',
+    data?.home ?? '',
+    duplicateTransport,
+  )
+  const activeFiles = page === 'duplicateFiles' ? duplicates : personalFiles
   useEffect(() => {
     const detail = personalFiles.result
     if (!detail) return
@@ -249,6 +258,21 @@ export default function App() {
         : current,
     )
   }, [personalFiles.result])
+  useEffect(() => {
+    const detail = duplicates.result
+    if (!detail) return
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            executions: preserveExecutionProgress(
+              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
+              current.executions,
+            ),
+          }
+        : current,
+    )
+  }, [duplicates.result])
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -781,6 +805,7 @@ export default function App() {
     !quickScanning &&
     !aiScan.running &&
     !personalFiles.running &&
+    !duplicates.running &&
     !uninstallActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
@@ -1011,17 +1036,17 @@ export default function App() {
                     </button>
                   </>
                 )}
-                {page === 'personalFiles' &&
-                  (personalFiles.running ? (
+                {(page === 'personalFiles' || page === 'duplicateFiles') &&
+                  (activeFiles.running ? (
                     <button
                       className="button secondary compact"
-                      disabled={personalFiles.starting || personalFiles.stopping}
-                      onClick={() => void personalFiles.cancel()}
+                      disabled={activeFiles.starting || activeFiles.stopping}
+                      onClick={() => void activeFiles.cancel()}
                     >
                       <Square size={13} />
-                      {personalFiles.stopping
+                      {activeFiles.stopping
                         ? '正在停止…'
-                        : personalFiles.snapshot.phase === 'processing'
+                        : activeFiles.snapshot.phase === 'processing'
                           ? '停止后续项目'
                           : '停止扫描'}
                     </button>
@@ -1029,11 +1054,11 @@ export default function App() {
                     <button
                       className="button primary compact"
                       type="button"
-                      onClick={() => void personalFiles.start()}
-                      disabled={!canRun || executionActive || !personalFiles.root.trim()}
+                      onClick={() => void activeFiles.start()}
+                      disabled={!canRun || executionActive || !activeFiles.root.trim()}
                     >
                       <Search size={15} />
-                      扫描文件
+                      {page === 'duplicateFiles' ? '查找重复文件' : '扫描文件'}
                     </button>
                   ))}
                 {page === 'aiScan' && (
@@ -1320,6 +1345,7 @@ export default function App() {
             {page === 'quickCleanup' ||
             page === 'softwareCleanup' ||
             page === 'personalFiles' ||
+            page === 'duplicateFiles' ||
             page === 'cleanup' ||
             page === 'apps' ||
             page === 'maintenance'
@@ -1542,9 +1568,11 @@ export default function App() {
             </>
           )}
 
-          {page === 'personalFiles' && (
+          {(page === 'personalFiles' || page === 'duplicateFiles') && (
             <PersonalFiles
-              controller={personalFiles}
+              key={page}
+              mode={page === 'duplicateFiles' ? 'duplicates' : 'personal'}
+              controller={activeFiles}
               home={data.home}
               protectedPaths={data.settings.protectedPaths}
               enabled={canRun && !executionActive}

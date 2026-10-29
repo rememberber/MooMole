@@ -49,6 +49,9 @@ fn validate(item: &Item, plan: &Plan, settings: &db::Settings, now: i64) -> Resu
     {
         return Err("个人文件的身份、内容或本地状态已变化，请重新扫描。".into());
     }
+    if plan.duplicates.is_some() {
+        duplicates::validate_keeper(plan, item)?;
+    }
     if let Some(movement) = &plan.movement {
         movement.validate_directory(settings)?;
         if movement
@@ -89,6 +92,7 @@ pub(super) async fn run(
     job: Arc<Job>,
     request: String,
 ) -> Result<execution::Detail, String> {
+    let duplicates = plan.duplicates.is_some();
     run_with(
         state.db.clone(),
         state.home.clone(),
@@ -100,7 +104,12 @@ pub(super) async fn run(
             async move { rules::run(&root, &home, &requested, job).await }
         },
         move |run| {
-            if let Ok(mut store) = state.personal_files.lock() {
+            let store = if duplicates {
+                &state.duplicate_files
+            } else {
+                &state.personal_files
+            };
+            if let Ok(mut store) = store.lock() {
                 if store.request_id.as_deref() == Some(request.as_str()) {
                     store.run_id = Some(run.into());
                 }
@@ -253,6 +262,9 @@ where
                     }
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
                     validate(&one, &saved, &settings, db::now())?;
+                    if saved.duplicates.is_some() {
+                        duplicates::verify(&saved, &one, &control)?;
+                    }
                     if policy_stamp(&own_home)? != stamp {
                         return Err("Mole 保护配置已变化，请重新检查。".into());
                     }

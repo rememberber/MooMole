@@ -24,23 +24,40 @@ fn register(state: &AppState, request: &str, kind: TaskKind) -> Result<Arc<Job>,
     Ok(job)
 }
 fn finish(state: &AppState, request: &str, phase: &'static str, error: Option<String>) {
-    if let Ok(mut store) = state.personal_files.lock() {
-        if store.request_id.as_deref() == Some(request) {
-            store.phase = phase;
-            store.error = error;
+    for store in [&state.personal_files, &state.duplicate_files] {
+        if let Ok(mut store) = store.lock() {
+            if store.request_id.as_deref() == Some(request) {
+                store.phase = phase;
+                store.error = error.clone();
+            }
         }
     }
     if let Ok(mut jobs) = state.jobs.lock() {
         jobs.remove(request);
     }
 }
+fn store(state: &AppState, duplicates: bool) -> &std::sync::Mutex<Store> {
+    if duplicates {
+        &state.duplicate_files
+    } else {
+        &state.personal_files
+    }
+}
 #[tauri::command]
 pub(crate) fn get_personal_files(
     state: tauri::State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
+    read(&state, false)
+}
+#[tauri::command]
+pub(crate) fn get_duplicate_files(
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    read(&state, true)
+}
+fn read(state: &AppState, duplicates: bool) -> Result<serde_json::Value, String> {
     serde_json::to_value(
-        state
-            .personal_files
+        store(state, duplicates)
             .lock()
             .map_err(|e| e.to_string())?
             .snapshot(),
@@ -53,6 +70,22 @@ pub(crate) fn start_personal_scan(
     request_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    start(root, request_id, false, state)
+}
+#[tauri::command]
+pub(crate) fn start_duplicate_scan(
+    root: String,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    start(root, request_id, true, state)
+}
+fn start(
+    root: String,
+    request_id: String,
+    duplicates: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
     let slot = state
         .project_slots
@@ -62,7 +95,9 @@ pub(crate) fn start_personal_scan(
     let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
     let job = register(&state, &request_id, TaskKind::PersonalScan)?;
     {
-        let mut store = state.personal_files.lock().map_err(|e| e.to_string())?;
+        let mut store = store(&state, duplicates)
+            .lock()
+            .map_err(|e| e.to_string())?;
         *store = Store {
             phase: "scanning",
             request_id: Some(request_id.clone()),
@@ -72,10 +107,17 @@ pub(crate) fn start_personal_scan(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _ownership = (operation, slot);
-        let result = scan::collect(&PathBuf::from(root), &settings.protected_paths, job);
+        let result = scan::collect(&PathBuf::from(root), &settings.protected_paths, job.clone())
+            .and_then(|scan| {
+                if duplicates {
+                    duplicates::collect(scan, job)
+                } else {
+                    Ok(scan)
+                }
+            });
         match result {
             Ok(scan) => {
-                if let Ok(mut store) = state.personal_files.lock() {
+                if let Ok(mut store) = store(&state, duplicates).lock() {
                     if store.request_id.as_deref() == Some(&request_id) {
                         store.scan = Some(scan);
                     }
@@ -93,6 +135,22 @@ pub(crate) fn prepare_personal_trash(
     selected_ids: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Confirmation, String> {
+    prepare(scan_id, selected_ids, false, state)
+}
+#[tauri::command]
+pub(crate) fn prepare_duplicate_trash(
+    scan_id: String,
+    selected_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Confirmation, String> {
+    prepare(scan_id, selected_ids, true, state)
+}
+fn prepare(
+    scan_id: String,
+    selected_ids: Vec<String>,
+    duplicates: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<Confirmation, String> {
     let _operation = state.updates.installation.enter()?;
     if state.shutdown.closing()
         || state
@@ -104,7 +162,9 @@ pub(crate) fn prepare_personal_trash(
     {
         return Err("请等待当前任务结束后再确认个人文件。".into());
     }
-    let mut store = state.personal_files.lock().map_err(|e| e.to_string())?;
+    let mut store = store(&state, duplicates)
+        .lock()
+        .map_err(|e| e.to_string())?;
     if store.scan.as_ref().is_none_or(|scan| scan.id != scan_id) {
         return Err("个人文件扫描已变化，请重新选择。".into());
     }
@@ -150,6 +210,35 @@ pub(crate) fn discard_personal_trash(
     Ok(())
 }
 #[tauri::command]
+pub(crate) fn discard_duplicate_trash(
+    confirmation_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .duplicate_files
+        .lock()
+        .map_err(|e| e.to_string())?
+        .offers
+        .remove(&confirmation_id);
+    Ok(())
+}
+#[tauri::command]
+pub(crate) fn execute_duplicate_trash(
+    confirmation_id: String,
+    request_id: String,
+    personal_files_confirmed: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    execute(
+        confirmation_id,
+        request_id,
+        personal_files_confirmed,
+        false,
+        true,
+        state,
+    )
+}
+#[tauri::command]
 pub(crate) fn execute_personal_trash(
     confirmation_id: String,
     request_id: String,
@@ -160,6 +249,7 @@ pub(crate) fn execute_personal_trash(
         confirmation_id,
         request_id,
         personal_files_confirmed,
+        false,
         false,
         state,
     )
@@ -176,6 +266,7 @@ pub(crate) fn execute_personal_move(
         request_id,
         personal_files_confirmed,
         true,
+        false,
         state,
     )
 }
@@ -184,6 +275,7 @@ fn execute(
     request_id: String,
     personal_files_confirmed: bool,
     moving: bool,
+    duplicates: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     if !personal_files_confirmed {
@@ -200,14 +292,17 @@ fn execute(
         },
     )?;
     let taken = {
-        state
-            .personal_files
+        store(&state, duplicates)
             .lock()
             .map_err(|e| e.to_string())?
             .take(&confirmation_id, db::now())
     };
     let plan = match taken {
-        Ok(plan) if plan.movement.is_some() == moving => plan,
+        Ok(plan)
+            if plan.movement.is_some() == moving && plan.duplicates.is_some() == duplicates =>
+        {
+            plan
+        }
         Ok(_) => {
             finish(&state, &request_id, "failed", None);
             return Err("确认的处理方式不匹配，请重新选择。".into());
@@ -218,7 +313,9 @@ fn execute(
         }
     };
     {
-        let mut store = state.personal_files.lock().map_err(|e| e.to_string())?;
+        let mut store = store(&state, duplicates)
+            .lock()
+            .map_err(|e| e.to_string())?;
         store.phase = "processing";
         store.request_id = Some(request_id.clone());
         store.run_id = None;

@@ -3,6 +3,7 @@ export type Page =
   | 'quickCleanup'
   | 'softwareCleanup'
   | 'personalFiles'
+  | 'duplicateFiles'
   | 'aiScan'
   | 'analyze'
   | 'cleanup'
@@ -555,7 +556,7 @@ export interface ExecutionReceipt {
   inode: string
 }
 export interface ExecutionDetail extends ExecutionSummary {
-  origin?: 'mole' | 'personalFiles'
+  origin?: 'mole' | 'personalFiles' | 'duplicateFiles'
   spaceObservation?: CleanupSpaceObservation | null
   revision: string
   protocol: number

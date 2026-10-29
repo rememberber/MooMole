@@ -4266,3 +4266,17 @@ input[type='checkbox'] {
     flex-wrap: wrap;
   }
 }
+
+.duplicate-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+}
+.duplicate-group span {
+  color: var(--muted);
+}

@@ -337,6 +337,11 @@ function ExecutionResults({
   )
   return (
     <>
+      {detail.origin === 'duplicateFiles' && (
+        <p className="notice">
+          来源：重复文件。按内容核对分组，处理前再次验证保留副本；同样内容不表示不同位置没有用途。
+        </p>
+      )}
       {detail.origin === 'personalFiles' && (
         <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
       )}

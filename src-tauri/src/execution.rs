@@ -158,7 +158,11 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
             id: plan.id.clone(),
             revision: plan.revision.clone(),
             protocol: plan.protocol,
-            origin: crate::personal_files::MODULE,
+            origin: if plan.duplicates.is_some() {
+                crate::personal_files::duplicates::MODULE
+            } else {
+                crate::personal_files::MODULE
+            },
             method: if plan.movement.is_some() {
                 "move"
             } else {

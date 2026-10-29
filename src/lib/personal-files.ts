@@ -20,6 +20,12 @@ export interface PersonalReport {
   skipped: number
   visited: number
   items: PersonalFile[]
+  duplicates?: {
+    groups: { id: string; size: number; itemIds: string[] }[]
+    bytesRead: number
+    checkedFiles: number
+    extraBytes: number
+  }
 }
 export interface PersonalSnapshot {
   phase: 'idle' | 'scanning' | 'ready' | 'processing' | 'completed' | 'failed'
@@ -35,12 +41,14 @@ export interface PersonalConfirmation {
   expiresAt: number
   items: PersonalFile[]
   movement?: PersonalMovement & { targets: { id: string; destination: string | null }[] }
+  keptFiles?: PersonalFile[]
 }
 export interface PersonalMovement {
   directory: string
   conflict: 'skip' | 'keepBoth'
 }
 export interface PersonalTransport {
+  origin?: 'personalFiles' | 'duplicateFiles'
   read: () => Promise<unknown>
   start: (root: string, requestId: string) => Promise<void>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
@@ -70,6 +78,16 @@ export const personalTransport: PersonalTransport = {
     }),
   cancel: (taskId) => invoke('cancel_task', { taskId }),
   detail: (runId) => invoke('get_execution', { runId }),
+}
+export const duplicateTransport: PersonalTransport = {
+  ...personalTransport,
+  origin: 'duplicateFiles',
+  read: () => invoke('get_duplicate_files'),
+  start: (root, requestId) => invoke('start_duplicate_scan', { root, requestId }),
+  prepare: (scanId, selectedIds) => invoke('prepare_duplicate_trash', { scanId, selectedIds }),
+  discard: (confirmationId) => invoke('discard_duplicate_trash', { confirmationId }),
+  execute: (confirmationId, requestId) =>
+    invoke('execute_duplicate_trash', { confirmationId, requestId, personalFilesConfirmed: true }),
 }
 const fail = (): never => {
   throw Error('个人文件数据无法核对，请重新读取；不会重复处理。')
@@ -149,6 +167,44 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       visited: number(r.visited),
       items: files(r.items, root, 2000),
     }
+    if (r.duplicates !== undefined) {
+      const d = object(r.duplicates)
+      if (!Array.isArray(d.groups) || d.groups.length > 1000) fail()
+      const covered = new Set<string>(),
+        hashes = new Set<string>()
+      const groups = (d.groups as unknown[]).map((raw) => {
+        const g = object(raw),
+          size = number(g.size)
+        if (
+          typeof g.id !== 'string' ||
+          !/^[a-f\d]{64}$/.test(g.id) ||
+          hashes.has(g.id) ||
+          !size ||
+          !Array.isArray(g.itemIds) ||
+          g.itemIds.length < 2 ||
+          g.itemIds.length > 2000
+        )
+          fail()
+        hashes.add(g.id as string)
+        const itemIds = (g.itemIds as unknown[]).map((raw) => {
+          const value = id(raw)
+          if (covered.has(value) || !report!.items.some((i) => i.id === value && i.size === size))
+            fail()
+          covered.add(value)
+          return value
+        })
+        return { id: g.id as string, size, itemIds }
+      })
+      if (covered.size !== report.items.length) fail()
+      const extraBytes = number(d.extraBytes)
+      if (extraBytes !== groups.reduce((sum, g) => sum + g.size * (g.itemIds.length - 1), 0)) fail()
+      report.duplicates = {
+        groups,
+        extraBytes,
+        bytesRead: number(d.bytesRead),
+        checkedFiles: number(d.checkedFiles),
+      }
+    }
   }
   return {
     phase: v.phase as PersonalSnapshot['phase'],
@@ -221,6 +277,30 @@ export function readPersonalConfirmation(
     if (new Set(paths).size !== paths.length) fail()
     movement = { directory, conflict: m.conflict as PersonalMovement['conflict'], targets }
   } else if (v.movement !== undefined) fail()
+  let keptFiles: PersonalFile[] | undefined
+  if (report.duplicates) {
+    keptFiles = files(v.keptFiles, root, 20)
+    const expected = report.duplicates.groups.filter((g) =>
+      g.itemIds.some((value) => selected.includes(value)),
+    )
+    if (
+      movement ||
+      keptFiles.length !== expected.length ||
+      keptFiles.some(
+        (k) =>
+          selected.includes(k.id) ||
+          !report.items.some(
+            (i) =>
+              i.id === k.id &&
+              i.path === k.path &&
+              i.size === k.size &&
+              i.modifiedAt === k.modifiedAt,
+          ),
+      ) ||
+      expected.some((g) => keptFiles!.filter((k) => g.itemIds.includes(k.id)).length !== 1)
+    )
+      fail()
+  } else if (v.keptFiles !== undefined) fail()
   return {
     id: id(v.id),
     root,
@@ -228,6 +308,7 @@ export function readPersonalConfirmation(
     expiresAt,
     items: rows,
     ...(movement ? { movement } : {}),
+    ...(keptFiles ? { keptFiles } : {}),
   }
 }
 export function filterPersonalFiles(
