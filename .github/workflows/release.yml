@@ -1,0 +1,198 @@
+name: Build and release MooMole
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Build installers only (does not publish)
+        required: true
+        default: all
+        type: choice
+        options: [all, arm64, x64]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24.21.0'
+  GO_VERSION: '1.26.0'
+  RUSTUP_TOOLCHAIN: '1.99.0'
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      title: ${{ steps.release.outputs.title }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      make_latest: ${{ steps.release.outputs.make_latest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Read version and trilingual release notes
+        id: release
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: |
+          tag="$RELEASE_TAG"
+          if [ -z "$tag" ]; then
+            tag="v$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          fi
+          python3 scripts/manage_releases.py validate --tag "$tag" --github-output "$GITHUB_OUTPUT"
+
+  package:
+    name: Package macOS ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.target != 'all' && format('["{0}"]', inputs.target) || '["arm64","x64"]') }}
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-15-intel
+    env:
+      CANDIDATE_DIR: ci-artifacts/installer-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: scripts/engine-manifest.mjs
+      - name: Install Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri
+          shared-key: macos-${{ matrix.arch }}
+      - run: npm ci
+      - name: Build ad-hoc App and DMG
+        id: build
+        run: |
+          npm run build:local-dmg
+          node --input-type=module <<'JS'
+          import { appendFileSync, readdirSync } from 'node:fs'
+          import { checkVersion } from './scripts/version.mjs'
+          const prefix = `MooMole-${checkVersion(process.cwd())}-mac-${process.arch}-`
+          const stages = readdirSync('local-artifacts').filter(name => name.startsWith(prefix))
+          if (stages.length !== 1) throw Error('Expected one fresh build')
+          appendFileSync(process.env.GITHUB_OUTPUT, `report=local-artifacts/${stages[0]}/validation.json\n`)
+          JS
+      - name: Package corresponding source and dependency materials
+        env:
+          APP_REPORT: ${{ steps.build.outputs.report }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_ARCH: ${{ matrix.arch }}
+        run: |
+          node scripts/candidate-artifacts.mjs stage --report "$APP_REPORT" --output "$CANDIDATE_DIR"
+          npm run source:bundle -- --output "$CANDIDATE_DIR/source" --app-report "$APP_REPORT"
+          npm run source:dependencies -- --output "$CANDIDATE_DIR/dependencies" --app-report "$APP_REPORT"
+          npm run source:npm -- --output "$CANDIDATE_DIR/npm-source" --app-report "$APP_REPORT" --dependency-report "$CANDIDATE_DIR/dependencies/validation.json"
+          node scripts/candidate-artifacts.mjs seal --output "$CANDIDATE_DIR"
+          python3 scripts/manage_releases.py stage --candidate-dir "$CANDIDATE_DIR" --output-dir release-assets --version "$RELEASE_VERSION" --arch "$RELEASE_ARCH"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: moomole-mac-${{ matrix.arch }}
+          path: release-assets/*
+          compression-level: 0
+          retention-days: 14
+          overwrite: true
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: github.event_name == 'push'
+    needs: [prepare, package]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: moomole-mac-*
+          path: release-assets
+          merge-multiple: true
+      - name: Collect assets, checksums and release body
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/manage_releases.py validate-assets --tag "$RELEASE_TAG" --assets-dir release-assets --metadata-output release-metadata/RELEASE.json
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          name: ${{ needs.prepare.outputs.title }}
+          body_path: release-assets/RELEASE-NOTES.md
+          prerelease: ${{ needs.prepare.outputs.prerelease }}
+          make_latest: ${{ needs.prepare.outputs.make_latest }}
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/*.dmg
+            release-assets/*-materials.zip
+            release-assets/SHA512SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: moomole-release-metadata
+          path: release-metadata/RELEASE.json
+          retention-days: 14
+          overwrite: true
+          if-no-files-found: error
+
+  publish-update-manifest:
+    name: Update main feed and READMEs
+    if: github.event_name == 'push'
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-moomole-update-manifest
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: moomole-release-metadata
+          path: release-metadata
+      - name: Enable published installers and refresh README links
+        run: |
+          gh release view "$RELEASE_TAG" --json assets,isDraft,tagName,publishedAt > release-metadata/published.json
+          python3 scripts/manage_releases.py update-manifest --metadata release-metadata/RELEASE.json --published release-metadata/published.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update-manifest.json README.md README.zh-CN.md README.ja-JP.md
+          if git diff --staged --quiet; then
+            echo "Release metadata is already current"
+            exit 0
+          fi
+          git commit -m "chore: publish $RELEASE_TAG update metadata"
+          git pull --rebase origin main
+          git push origin main

@@ -11,6 +11,8 @@ src-tauri/resources/.mole-*/
 playwright-report/
 test-results/
 ci-artifacts/
+release-assets/
+release-metadata/
 local-artifacts/
 *.tsbuildinfo
 

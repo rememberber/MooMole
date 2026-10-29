@@ -32,9 +32,13 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 ## 当前状态
 
+<!-- release:start -->
+
 最新公开版本为 **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)**（2026-10-29），内置 **Mole CLI 1.65.0**。这是学习研究版本，已提供下表限定范围内的真实清理、应用卸载和 Quick Look 维护。完整权限/故障、安装升级及对应源码/许可验收仍未完成，具体见 [执行验收](docs/first-release-execution.md) 和发布说明。
 
 0.2.0 新增速战速决与经过验证的用户缓存处理、本机 Agent 驱动的 AI 深度扫描、中英日免重启切换、窗口拖动修复及克制的任务动效。[发布说明](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) 提供英、中、日三语。
+
+<!-- release:end -->
 
 | 功能             | 现在可以做什么                                                                                                              | 当前限制                                                                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,6 +57,8 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 ## 安装与更新
 
+<!-- downloads:start -->
+
 可从下方下载与本机架构匹配的 **0.2.0** DMG。安装包采用免费 ad-hoc 签名，没有 Apple Developer ID 签名或公证，不要求购买 Apple 开发者账户。
 
 | Mac 类型 | 下载 |
@@ -61,6 +67,8 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 | Intel（`x64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
 
 可在[关于本机](https://support.apple.com/zh-cn/guide/mac-help/mchlea7173f3/mac)查看芯片或处理器。核对[发布页](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)或 [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS) 中的大小和 SHA-512，再打开 DMG，将应用复制到“应用程序”并从安装位置启动。对应架构的 `materials.zip` 包含匹配的源码、依赖材料和校验清单。
+
+<!-- downloads:end -->
 
 首次打开时，macOS 可能提示无法验证开发者或检查恶意软件；请先确认来源和文件完整性，再根据 [Apple 的安全说明](https://support.apple.com/zh-cn/102445)自行判断。应用不会关闭 Gatekeeper 或移除系统安全属性。更新采用“设置 → 关于 → 检查更新 → 下载并校验大小/SHA-512 → 打开 DMG → 正常退出后手动替换”的流程，不静默覆盖运行中的 App。没有已发布新版时，更新检查不会生成安装包。
 
@@ -106,7 +114,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-浏览器回归使用独立的 1431 端口，不复用已有服务；冲突时可显式设置 `MOOMOLE_E2E_PORT=1432`。开发 App 使用 1420。其余版本、产物、来源、许可和候选工具的检查见 [构建验证](docs/build-validation.md)。远程 Checks 已实际运行；候选流水线通过检查后构建两个架构的优化产物，不自动发布 Release 或更新清单。
+浏览器回归使用独立的 1431 端口，不复用已有服务；冲突时可显式设置 `MOOMOLE_E2E_PORT=1432`。开发 App 使用 1420。其余版本、产物、来源、许可和候选工具的检查见 [构建验证](docs/build-validation.md)。日常 Checks 与发布独立。与 MooTool 一致，推送版本标签后并行打包、自动发布三语 GitHub Release，再更新清单与 README 下载区块，见 [发布约定](RELEASE_CONVENTIONS.md)。
 
 ## 本地数据与恢复
 

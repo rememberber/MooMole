@@ -32,9 +32,13 @@ The interface supports Simplified Chinese, English and Japanese. Switch at any t
 
 ## Current status
 
+<!-- release:start -->
+
 Latest published version: **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)** (2026-10-29), bundled with **Mole CLI 1.65.0**. This learning and research release includes real cleanup, app uninstall and Quick Look maintenance within the limits below. Full permission/fault, installation/upgrade and corresponding-source/license acceptance remains incomplete; see [execution acceptance](docs/first-release-execution.md) and the release notes.
 
 New in 0.2.0: quick cleanup with verified user-cache execution, AI deep scan through local agents, Chinese/English/Japanese switching, restored window dragging and restrained task animations. The [release notes](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) are available in English, Simplified Chinese and Japanese.
+
+<!-- release:end -->
 
 | Feature                        | Available now                                                                                                                                                                                         | Current limits                                                                                                                                                                                                                          |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,6 +57,8 @@ Moving to Trash does not immediately free space. Cancellation stops only work no
 
 ## Installation and updates
 
+<!-- downloads:start -->
+
 Download the architecture-matched **0.2.0** DMG below. Packages use free ad-hoc signing; they do not have Apple Developer ID signing or notarization. A paid Apple developer account is not required.
 
 | Mac | Download |
@@ -61,6 +67,8 @@ Download the architecture-matched **0.2.0** DMG below. Packages use free ad-hoc 
 | Intel (`x64`) | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
 
 Check the chip/processor in [About This Mac](https://support.apple.com/guide/mac-help/mchlea7173f3/mac). Verify file size and SHA-512 on the [release page](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) or against [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS), open the DMG, copy the app to Applications, then launch from that location. Matching source, dependency materials and validation manifests are in each architecture’s `materials.zip` on the release page.
+
+<!-- downloads:end -->
 
 On first open, macOS may warn that the developer or malicious-software status cannot be verified. Confirm the source and integrity, then decide using [Apple’s security guidance](https://support.apple.com/102445). The app never disables Gatekeeper or strips system security attributes. Updates follow **Settings → About → Check for updates → Download and verify size/SHA-512 → Open DMG → Quit normally and replace manually**. A running app is never silently replaced. Checking does not generate packages when no new release exists.
 
@@ -106,7 +114,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Browser regression uses a separate port 1431 without reusing an existing server; override with `MOOMOLE_E2E_PORT=1432` if occupied. Development app uses 1420. Other version/artifact/source/licensing/candidate checks are in [build validation](docs/build-validation.md). Remote checks have run. After checks, the candidate pipeline builds optimized artifacts for both architectures; it does not publish Releases or update manifests automatically.
+Browser regression uses a separate port 1431 without reusing an existing server; override with `MOOMOLE_E2E_PORT=1432` if occupied. Development app uses 1420. Other version/artifact/source/licensing/candidate checks are in [build validation](docs/build-validation.md). Checks run independently of releases. As in MooTool, pushing a version tag starts parallel packaging, publishes the trilingual GitHub Release, then updates the feed and README download blocks automatically. See [release conventions](RELEASE_CONVENTIONS.md).
 
 ## Local data and recovery
 

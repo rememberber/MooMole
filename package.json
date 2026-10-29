@@ -37,7 +37,9 @@
     "test:rust-source": "python3 -B -m unittest discover -s scripts -p test_audit_rust_source.py",
     "test:projects": "node --test scripts/project-artifacts-catalog.test.mjs",
     "test:installers": "node --test scripts/installers-catalog.test.mjs",
-    "i18n:check": "node scripts/i18n-catalog.mjs"
+    "i18n:check": "node scripts/i18n-catalog.mjs",
+    "release:check": "python3 scripts/manage_releases.py validate",
+    "test:release": "python3 -B -m unittest discover -s scripts -p test_manage_releases.py"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
