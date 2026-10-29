@@ -21,7 +21,7 @@ pub(crate) struct Sample {
     pub available_bytes: u64,
 }
 impl Sample {
-    fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         self.measured_at >= 0
             && self.measured_at <= MAX_EXACT as i64
             && !self.volume_id.is_empty()

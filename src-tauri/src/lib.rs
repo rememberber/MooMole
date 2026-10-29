@@ -51,6 +51,7 @@ mod review;
 mod rules;
 mod shutdown;
 mod status_watch;
+mod storage_monitor;
 mod tasks;
 mod tree;
 mod uninstall_confirmation;
@@ -95,6 +96,7 @@ struct AppState {
     refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
+    storage_monitor: Arc<storage_monitor::Controller>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
     uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
@@ -2301,6 +2303,7 @@ pub fn run() {
                 refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
                 search_repairs: Arc::new(Mutex::new(None)),
                 file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
+                storage_monitor: Arc::new(storage_monitor::Controller::default()),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
                 uninstall_confirmations: Arc::new(Mutex::new(
@@ -2317,6 +2320,7 @@ pub fn run() {
                 updates,
                 window_placement: window_placement.clone(),
             });
+            storage_monitor::start(app.state::<AppState>().inner().clone());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
             // Restore only after database ownership, without holding a mutex
@@ -2330,6 +2334,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            storage_monitor::get_storage_monitor,
+            storage_monitor::configure_storage_monitor,
+            storage_monitor::sample_storage_monitor,
             personal_files::commands::get_personal_files,
             personal_files::commands::get_duplicate_files,
             personal_files::commands::start_duplicate_scan,

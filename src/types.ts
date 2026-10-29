@@ -1,4 +1,5 @@
 export type Page =
+  | 'storageMonitor'
   | 'overview'
   | 'quickCleanup'
   | 'softwareCleanup'

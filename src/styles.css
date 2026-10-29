@@ -4312,3 +4312,47 @@ input[type='checkbox'] {
 .problem-repair-row button {
   flex-shrink: 0;
 }
+
+.storage-monitor-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.storage-monitor-settings label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.storage-monitor-reading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+}
+.storage-monitor-reading > div {
+  display: grid;
+  gap: 6px;
+}
+.storage-monitor-reading strong {
+  font-size: 32px;
+  font-weight: 650;
+}
+.storage-monitor-reading small {
+  color: var(--muted);
+}
+.storage-trend {
+  margin: 12px 0;
+  color: var(--accent);
+}
+.storage-trend svg {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+}
+.storage-trend figcaption {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+}

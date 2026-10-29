@@ -6768,5 +6768,94 @@
     "恢复结果无法核对，请在操作历史检查实际状态；不会重复恢复。",
     "Cannot verify restoration. Check the actual state in history; restoration will not be repeated.",
     "復元結果を照合できません。操作履歴で実際の状態を確認してください。復元を繰り返しません。"
+  ],
+  ["持续管理", "Ongoing care", "継続管理"],
+  ["持续空间管理", "Ongoing storage care", "継続的な容量管理"],
+  ["定期记录空间", "Record storage periodically", "容量を定期的に記録"],
+  ["记录间隔", "Record interval", "記録間隔"],
+  ["空间记录间隔", "Storage record interval", "容量の記録間隔"],
+  ["每 15 分钟", "Every 15 minutes", "15 分ごと"],
+  ["每小时", "Hourly", "1 時間ごと"],
+  ["每 6 小时", "Every 6 hours", "6 時間ごと"],
+  ["低空间提示", "Low storage hint", "空き容量不足の表示"],
+  ["低空间阈值", "Low storage threshold", "空き容量のしきい値"],
+  ["保存观察设置", "Save monitoring settings", "観測設定を保存"],
+  ["正在记录…", "Recording…", "記録中…"],
+  ["记录当前空间", "Record storage now", "現在の容量を記録"],
+  [
+    "仅在 MooMole 运行时按间隔记录本账户所在卷的容量。休眠后只补一次当前观察，退出 App 后停止；设置会保留到下次打开。最多保留 720 条样本。",
+    "Records this account's volume at the chosen interval while MooMole is running. After sleep, records only the current state. Stops when the app exits and resumes with saved settings next launch. Keeps up to 720 samples.",
+    "MooMole の実行中、選択した間隔でこのアカウントのボリューム容量を記録します。スリープ後は現在の状態を一度だけ記録します。終了後は停止し、次回は保存した設定を使用します。最大 720 件を保持します。"
+  ],
+  ["{0} · {1} 条真实记录", "{0} · {1} observed samples", "{0} · 実測記録 {1} 件"],
+  ["定期空间观察已开启", "Periodic storage monitoring is on", "定期的な容量観測はオンです"],
+  ["定期空间观察已关闭", "Periodic storage monitoring is off", "定期的な容量観測はオフです"],
+  ["条真实记录", "observed samples", "件の実測記録"],
+  [
+    "请在桌面 App 中记录真实空间趋势。",
+    "Use the desktop app to record real storage trends.",
+    "実際の容量推移はデスクトップアプリで記録してください。"
+  ],
+  [
+    "账户所在卷可用空间",
+    "Available space on this account's volume",
+    "このアカウントのボリュームの空き容量"
+  ],
+  ["最近观察", "Recent observation", "最近の観測"],
+  [
+    "历史观察，当前状态未知",
+    "Historical observation; current state unknown",
+    "過去の観測、現在の状態は不明"
+  ],
+  ["分析空间去向", "Analyze storage usage", "容量の使用先を分析"],
+  [
+    "最近观察的可用空间低于提醒阈值，建议检查大文件与可整理内容。",
+    "The latest observed free space is below your threshold. Check large files and content you can organize.",
+    "最近の空き容量はしきい値を下回っています。大きなファイルや整理できる内容を確認してください。"
+  ],
+  [
+    "上次观察的可用空间低于阈值，请先记录当前空间再判断。",
+    "The previous observation was below your threshold. Record the current space before deciding.",
+    "前回の空き容量はしきい値を下回っていました。現在の容量を記録してから判断してください。"
+  ],
+  [
+    "同一卷可用空间趋势",
+    "Available space trend for the same volume",
+    "同じボリュームの空き容量の推移"
+  ],
+  [
+    "{0} — {1} · 仅连接最近同一卷的真实观察点",
+    "{0} — {1} · Connects recent measured points from the same volume only",
+    "{0} — {1} · 同じボリュームの最近の実測点のみを接続"
+  ],
+  [
+    "· 仅连接最近同一卷的真实观察点",
+    "· Connects recent measured points from the same volume only",
+    "· 同じボリュームの最近の実測点のみを接続"
+  ],
+  [
+    "至少两条时间递增的同卷记录才展示趋势。卷变化或时间回拨不合并推算。",
+    "A trend needs at least two observations of the same volume in increasing time order. Volume changes and backward clock changes are not combined.",
+    "同じボリュームで時刻が増加する記録が 2 件以上ある場合に推移を表示します。ボリューム変更や時計の巻き戻りを合算して推定しません。"
+  ],
+  [
+    "可用空间以系统当前向本账户报告的数值为准。APFS 共享容量、缓存、快照与其他应用活动可能导致波动，变化不等于本次清理效果。低空间提示仅在此页面显示。",
+    "Available space is reported by the system for this account. Shared APFS capacity, caches, snapshots and other apps may cause changes; changes do not measure cleanup results. Low storage hints appear on this page only.",
+    "空き容量はシステムがこのアカウントに報告する値です。APFS の共有容量、キャッシュ、スナップショット、他のアプリの動作で変動します。変化は今回のクリーンアップの効果を示しません。容量不足の表示はこのページのみです。"
+  ],
+  [
+    "尚无空间记录。可先记录一次，再开启定期观察。",
+    "No storage records yet. Record once, then enable periodic monitoring.",
+    "容量の記録はまだありません。一度記録してから定期観測を有効にできます。"
+  ],
+  [
+    "记录仅保存在本机。采集与低空间提示不会自动处理文件。",
+    "Records stay on this Mac. Monitoring and low storage hints never process files automatically.",
+    "記録はこの Mac にのみ保存します。観測や容量不足の表示によってファイルを自動処理することはありません。"
+  ],
+  [
+    "空间观察数据无法核对，请刷新；不会用缺失数据推断可用空间。",
+    "Cannot verify storage observations. Refresh; missing data will not be used to infer available space.",
+    "容量の観測データを照合できません。更新してください。欠測値から空き容量を推定しません。"
   ]
 ]

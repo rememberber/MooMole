@@ -47,6 +47,7 @@ import { ProblemRepairs } from './components/ProblemRepairs'
 import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
+import { storageMonitorTransport } from './lib/storage-monitor'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -162,6 +163,10 @@ const StatusDisks = deferredView(async () => ({
   default: (await import('./components/StatusDisks')).StatusDisks,
 }))
 
+const StorageMonitor = deferredView(async () => ({
+  default: (await import('./components/StorageMonitor')).StorageMonitor,
+}))
+
 const navigation = [
   ['overview', LayoutGrid, '概览'],
   ['quickCleanup', Zap, '速战速决'],
@@ -174,6 +179,7 @@ const navigation = [
   ['apps', Box, '应用列表'],
   ['status', Activity, '系统状态'],
   ['maintenance', Wrench, '系统维护'],
+  ['storageMonitor', Activity, '持续管理'],
   ['projects', Code2, '工程产物'],
   ['installers', Archive, '安装包'],
   ['history', History, '操作历史'],
@@ -1991,6 +1997,13 @@ export default function App() {
             </>
           )}
 
+          {page === 'storageMonitor' && (
+            <StorageMonitor
+              enabled={api.desktop}
+              transport={storageMonitorTransport}
+              onAnalyze={() => changePage('analyze')}
+            />
+          )}
           {page === 'installers' && (
             <Installers
               root={installers.root}
