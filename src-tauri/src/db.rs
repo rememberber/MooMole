@@ -189,6 +189,7 @@ fn open(path: &Path) -> Result<Connection, String> {
         result?;
     }
     crate::personal_files::archive::journal::reconcile(&mut connection)?;
+    crate::startup_management::journal::reconcile(&mut connection)?;
     crate::execution::reconcile(&mut connection, now())?;
     crate::uninstall_journal::reconcile(&mut connection, now())?;
     crate::maintenance::refresh_journal::reconcile(&mut connection, now())?;

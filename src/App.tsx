@@ -53,6 +53,7 @@ import { ProblemRepairs } from './components/ProblemRepairs'
 import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
+import { StartupManagement } from './components/StartupManagement'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import { storageMonitorTransport } from './lib/storage-monitor'
@@ -385,6 +386,9 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
+  const [startupActive, setStartupActive] = useState(false)
+  const [startupToolbar, setStartupToolbar] = useState<HTMLElement | null>(null)
   const [restorationTarget, setRestorationTarget] = useState<RestorationTarget | null>(null)
   const [restorationActive, setRestorationActive] = useState(false)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
@@ -433,7 +437,8 @@ export default function App() {
   )
   const executionActive =
     api.desktop &&
-    (fileArchiveActive ||
+    (startupActive ||
+      fileArchiveActive ||
       executionPending ||
       !!data?.executions.some((item) => item.state === 'running'))
   function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
@@ -896,6 +901,7 @@ export default function App() {
     !softwareFiles.running &&
     !uninstallActive &&
     !appControlActive &&
+    !startupActive &&
     !searchRepairActive &&
     !restorationActive &&
     !fileArchiveActive &&
@@ -1245,7 +1251,10 @@ export default function App() {
                     {cleanPreview ? '重新扫描' : '扫描清理预览'}
                   </button>
                 )}
-                {page === 'apps' && (
+                {page === 'apps' && appsTab === 'startup' && (
+                  <span className="toolbar-actions" ref={setStartupToolbar} />
+                )}
+                {page === 'apps' && appsTab === 'installed' && (
                   <button
                     className="button secondary compact"
                     disabled={!canRun}
@@ -1481,6 +1490,35 @@ export default function App() {
           </span>
         </header>
         <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
+          {page === 'apps' && (
+            <div className="software-content-modes" role="tablist" aria-label="应用管理类型">
+              <button
+                role="tab"
+                aria-selected={appsTab === 'installed'}
+                className={`button compact ${appsTab === 'installed' ? 'primary' : 'secondary'}`}
+                disabled={startupActive}
+                onClick={() => setAppsTab('installed')}
+              >
+                已安装应用
+              </button>
+              <button
+                role="tab"
+                aria-selected={appsTab === 'startup'}
+                className={`button compact ${appsTab === 'startup' ? 'primary' : 'secondary'}`}
+                disabled={startupActive}
+                onClick={() => setAppsTab('startup')}
+              >
+                启动与后台
+              </button>
+            </div>
+          )}
+          <StartupManagement
+            visible={page === 'apps' && appsTab === 'startup'}
+            historyVisible={page === 'history'}
+            enabled={canRun && !executionActive}
+            toolbar={startupToolbar}
+            onActiveChange={setStartupActive}
+          />
           <ExecutionArchiveCenter
             openSignal={archiveOpenSignal}
             enabled={api.desktop}
@@ -2050,7 +2088,7 @@ export default function App() {
             </>
           )}
 
-          {page === 'apps' && (
+          {page === 'apps' && appsTab === 'installed' && (
             <>
               <div className="inline-note">
                 <Info size={14} />

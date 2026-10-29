@@ -7097,5 +7097,114 @@
   ["已归档", "Archived", "アーカイブ済み"],
   ["未归档", "Not archived", "未アーカイブ"],
   ["临时归档内容已核对", "Temporary archive contents verified", "一時アーカイブの内容を検証済み"],
-  ["临时归档记录位置：", "Recorded temporary archive location:", "記録された一時アーカイブの場所："]
+  [
+    "临时归档记录位置：",
+    "Recorded temporary archive location:",
+    "記録された一時アーカイブの場所："
+  ],
+  ["应用管理类型", "Application management", "アプリ管理の種類"],
+  ["已安装应用", "Installed apps", "インストール済み"],
+  ["启动与后台", "Startup & background", "起動・バックグラウンド"],
+  ["系统登录项设置", "System login item settings", "システムのログイン項目設定"],
+  ["停止启动任务", "Stop startup task", "起動管理を停止"],
+  ["读取启动配置", "Read startup entries", "起動設定を読み取る"],
+  ["启动与后台管理", "Startup and background management", "起動・バックグラウンド管理"],
+  [
+    "管理当前用户 LaunchAgents 目录中的登录配置。暂停会保留配置文件并改变名称，再请求移除相同程序的后台注册；恢复后程序可能立即运行。可能影响同步、更新或其他工作，请逐项确认。文件在启动目录不表示当前正在运行或系统允许启动。",
+    "Manage login configurations in this user's LaunchAgents folder. Pausing keeps and renames the file, then requests removal of the matching background registration. Resuming may run the program immediately. Review each item; syncing, updates or other work may be affected. A file in this folder does not prove it is running or permitted to start.",
+    "現在のユーザーの LaunchAgents 内のログイン設定を管理します。一時停止では設定を保持して名前を変更し、同じプログラムのバックグラウンド登録の解除を要求します。復元すると直ちに実行される場合があります。同期や更新などに影響するため個別に確認してください。このフォルダにあることは実行中や起動許可を意味しません。"
+  ],
+  [
+    "现代登录项、其他账户、系统服务与管理员安装的后台项目请在系统登录项设置中管理；本页不代表全部后台来源。",
+    "Manage modern login items, other accounts, system services and administrator-installed background items in System Settings. This page does not cover every background source.",
+    "新しい形式のログイン項目、他のアカウント、システムサービス、管理者がインストールした項目はシステム設定で管理してください。このページはすべての項目を網羅しません。"
+  ],
+  [
+    "本轮未完整读取，未检查的范围仍未知；请结合系统登录项设置核对。",
+    "This read is incomplete. Unchecked scope remains unknown; also review system login item settings.",
+    "読み取りは未完了です。未確認の範囲は不明のままです。システムのログイン項目設定も確認してください。"
+  ],
+  [
+    "启动配置清单已过期，请重新读取。",
+    "Startup list expired. Read it again.",
+    "起動設定の一覧の期限が切れました。再度読み取ってください。"
+  ],
+  [
+    "读取用户登录配置，或打开系统登录项设置查看其他来源。",
+    "Read user login configurations, or open system settings for other sources.",
+    "ユーザーのログイン設定を読み取るか、システム設定で他の項目を確認してください。"
+  ],
+  [
+    "正在检查或处理启动配置；停止不会撤销已完成的配置更改。",
+    "Checking or processing startup configuration. Stopping does not undo completed changes.",
+    "起動設定を確認・処理中です。停止しても完了した設定変更は元に戻りません。"
+  ],
+  ["用户启动配置列表", "User startup configurations", "ユーザーの起動設定一覧"],
+  [
+    "本轮目录未发现可识别配置，不代表没有登录项。",
+    "No recognized configurations were found in this folder. Other login items may exist.",
+    "このフォルダに認識可能な設定は見つかりませんでした。他のログイン項目が存在する場合があります。"
+  ],
+  ["已暂停的配置", "Paused configuration", "一時停止中の設定"],
+  ["启动目录中的配置", "Configuration in startup folder", "起動フォルダ内の設定"],
+  ["程序与参数", "Program and arguments", "プログラムと引数"],
+  ["恢复此配置…", "Resume configuration…", "この設定を復元…"],
+  ["暂停此配置…", "Pause configuration…", "この設定を一時停止…"],
+  ["启动管理记录", "Startup management history", "起動管理履歴"],
+  ["刷新启动记录", "Refresh startup history", "起動履歴を更新"],
+  ["启动操作结果", "Startup action result", "起動設定の操作結果"],
+  ["确认启动配置操作", "Confirm startup configuration action", "起動設定の操作を確認"],
+  ["暂停此登录配置", "Pause this login configuration", "このログイン設定を一時停止"],
+  ["恢复此登录配置", "Resume this login configuration", "このログイン設定を復元"],
+  [
+    "暂停可能中断后台同步或更新；恢复可能立即执行当前程序。停止只阻止后续步骤，已完成的更名或系统请求不会自动撤销。未知结果须在历史核对，不会自动重试。",
+    "Pausing may interrupt background sync or updates; resuming may run the current program immediately. Stopping prevents later steps, but does not undo completed renames or system requests. Review uncertain results in history; they are never retried automatically.",
+    "一時停止により同期や更新が中断され、復元すると現在のプログラムが直ちに実行される場合があります。停止は後続の手順を止めますが、完了した名前変更やシステム要求は取り消しません。不明な結果は履歴で確認し、自動的には再試行しません。"
+  ],
+  [
+    "配置文件更名已有完成证据。",
+    "Configuration rename has completion evidence.",
+    "設定ファイルの名前変更を確認済みです。"
+  ],
+  [
+    "配置文件更名尚无完成证据。",
+    "Configuration rename has no completion evidence yet.",
+    "設定ファイルの名前変更は未確認です。"
+  ],
+  [
+    "启动确认已过期，请返回后重新检查。",
+    "Startup confirmation expired. Go back and check again.",
+    "起動設定の確認期限が切れました。戻って再確認してください。"
+  ],
+  [
+    "我已核对配置和程序，了解可能影响后台工作。",
+    "I checked the configuration and program and understand background work may be affected.",
+    "設定とプログラムを確認し、バックグラウンド処理に影響する可能性を理解しました。"
+  ],
+  ["确认更改此配置", "Confirm configuration change", "この設定の変更を確認"],
+  ["返回启动列表", "Back to startup list", "起動一覧に戻る"],
+  [
+    "请核对配置两个位置和系统后台状态。记录已检查不会修改文件、重放操作或把原结果改成成功。",
+    "Check both configuration locations and system background state. Recording a review does not modify files, repeat the operation or mark the original result successful.",
+    "設定の両方の場所とシステムのバックグラウンド状態を確認してください。確認済みとして記録しても、ファイル変更、操作の再実行、成功への変更は行いません。"
+  ],
+  [
+    "我已核对配置位置和后台状态，了解原结果仍待核实。",
+    "I checked the configuration locations and background state and understand the original result remains uncertain.",
+    "設定の場所とバックグラウンド状態を確認し、元の結果は引き続き不明であることを理解しました。"
+  ],
+  ["关闭启动记录", "Close startup history", "起動履歴を閉じる"],
+  [
+    "启动管理数据无法核对，请刷新并查看历史；不会重复操作。",
+    "Startup data could not be verified. Refresh and check history; the operation will not repeat.",
+    "起動管理データを検証できません。更新して履歴を確認してください。操作は繰り返しません。"
+  ],
+  ["已暂停此登录配置", "Login configuration paused", "このログイン設定を一時停止済み"],
+  ["已恢复此登录配置", "Login configuration resumed", "このログイン設定を復元済み"],
+  ["正在处理启动配置", "Processing startup configuration", "起動設定を処理中"],
+  ["部分完成，请核对", "Partially completed; review needed", "一部完了・確認が必要"],
+  ["启动操作未完成", "Startup action incomplete", "起動設定の操作が未完了"],
+  ["启动操作已取消", "Startup action cancelled", "起動設定の操作を中止"],
+  ["启动结果待核实", "Startup result needs review", "起動設定の結果の確認が必要"],
+  ["启动操作曾中断", "Startup action interrupted", "起動設定の操作が中断"]
 ]

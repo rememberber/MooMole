@@ -36,6 +36,7 @@ pub enum TaskKind {
     SearchRepair,
     FileRestore,
     PersonalArchive,
+    StartupManagement,
 }
 
 impl TaskKind {
@@ -61,6 +62,7 @@ impl TaskKind {
             Self::SearchRepair => "searchrepair",
             Self::FileRestore => "filerestore",
             Self::PersonalArchive => "personalarchive",
+            Self::StartupManagement => "startupmanagement",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -78,6 +80,7 @@ impl TaskKind {
                 | Self::SearchRepair
                 | Self::FileRestore
                 | Self::PersonalArchive
+                | Self::StartupManagement
         )
     }
 }
@@ -403,7 +406,8 @@ async fn run_kind(
         | TaskKind::AppControl
         | TaskKind::SearchRepair
         | TaskKind::FileRestore
-        | TaskKind::PersonalArchive => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::PersonalArchive
+        | TaskKind::StartupManagement => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -469,7 +473,8 @@ async fn run_kind(
         | TaskKind::AppControl
         | TaskKind::SearchRepair
         | TaskKind::FileRestore
-        | TaskKind::PersonalArchive => false,
+        | TaskKind::PersonalArchive
+        | TaskKind::StartupManagement => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
