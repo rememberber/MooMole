@@ -1,6 +1,7 @@
 //! Bind a short-lived native reference to an observed ordinary file or strict cache tree.
 //! This building block grants no cleanup authority: it checks neither Mole
-//! module rules nor user confirmation. Only the sealed cleanup executor may use it.
+//! module rules nor user confirmation. The sealed cache/log executor and explicit
+//! personal-file executor supply their own independent confirmation and policy.
 //! Reference identity and path scope are separate, and validation is not a lock.
 use crate::{observation::AnchoredPath, review::ScanItem};
 use objc2::rc::{autoreleasepool, Retained};

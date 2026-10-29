@@ -6241,5 +6241,149 @@
     "In-app restore is not available yet. Use the actual receipts below to verify and recover items in Finder. Full records are saved in history; scan again and create a new plan for any further cleanup.",
     "App 内復元にはまだ対応していません。以下の実際のレシートをもとに Finder で確認して取り戻せます。全記録は履歴に保存されています。再処理には再スキャンと新しい計画が必要です。"
   ],
-  ["字节） ·", "bytes) ·", "バイト） ·"]
+  ["字节） ·", "bytes) ·", "バイト） ·"],
+  ["个人文件整理", "Personal files", "個人ファイル整理"],
+  ["扫描文件", "Scan files", "ファイルをスキャン"],
+  [
+    "来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。",
+    "Source: personal file organization. Files were explicitly selected by the user and are not classified as rebuildable caches.",
+    "出所：個人ファイル整理。ユーザーが明示的に選択したファイルであり、再生成可能なキャッシュとは分類していません。"
+  ],
+  ["整理目录", "Folder to organize", "整理するフォルダ"],
+  ["个人文件目录", "Personal files folder", "個人ファイルのフォルダ"],
+  ["选择要整理的个人目录", "Choose a personal folder to organize", "整理する個人フォルダを選択"],
+  ["下载目录", "Downloads folder", "ダウンロードフォルダ"],
+  [
+    "按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。",
+    "Choose personal files based on their contents; none are selected by default. Large size or an old modification date does not mean a file can be deleted. This flow handles regular files and retains folders and app libraries.",
+    "内容を確認して個人ファイルを選択してください。初期状態では未選択です。サイズが大きいことや更新日が古いことは削除可能な根拠にはなりません。今回は通常ファイルを処理し、フォルダとアプリのライブラリは保持します。"
+  ],
+  [
+    "正在逐项处理个人文件，结果会保存到历史。",
+    "Processing personal files individually. Results are saved in history.",
+    "個人ファイルを項目ごとに処理しています。結果は履歴に保存されます。"
+  ],
+  [
+    "正在读取目录，可停止扫描并保留已取得的结果。",
+    "Reading the folder. You can stop the scan and keep results already collected.",
+    "フォルダを読み取り中です。スキャンを停止しても取得済みの結果は保持されます。"
+  ],
+  [
+    "{0} 个普通文件 · {1} · {2}",
+    "{0} regular files · {1} · {2}",
+    "通常ファイル {0} 件 · {1} · {2}"
+  ],
+  ["个普通文件 ·", "regular files ·", "件の通常ファイル ·"],
+  [
+    "{0} 已跳过 {1} 项；隐藏、链接、受保护、共享、云占位、其他卷或无法读取的内容未纳入。已显示项目不代表目录全部内容。",
+    "{0} Skipped {1} items. Hidden, linked, protected, shared, cloud-only, other-volume or unreadable items are excluded. Displayed files do not represent all folder contents.",
+    "{0} {1} 項目をスキップしました。非表示、リンク、保護対象、共有、クラウド上のみ、別ボリューム、読み取り不可の項目は含みません。表示項目がフォルダの全内容を表すわけではありません。"
+  ],
+  ["扫描已停止。", "Scan stopped.", "スキャンを停止しました。"],
+  [
+    "本次扫描范围有限。",
+    "This scan has limited coverage.",
+    "今回のスキャン範囲には制限があります。"
+  ],
+  [
+    "项；隐藏、链接、受保护、共享、云占位、其他卷或无法读取的内容未纳入。已显示项目不代表目录全部内容。",
+    "items; hidden, linked, protected, shared, cloud-only, other-volume or unreadable content is excluded. Displayed items do not cover the entire folder.",
+    "項目。非表示、リンク、保護対象、共有、クラウド上のみ、別ボリューム、読み取り不可の内容は含みません。表示項目はフォルダ全体を網羅していません。"
+  ],
+  [
+    "个人文件扫描已过期，请重新扫描后选择。",
+    "The personal file scan expired. Scan again before selecting files.",
+    "個人ファイルのスキャンが期限切れです。再スキャンしてから選択してください。"
+  ],
+  ["搜索个人文件", "Search personal files", "個人ファイルを検索"],
+  ["个人文件类型", "Personal file type", "個人ファイルの種類"],
+  ["个人文件最小大小", "Minimum personal file size", "個人ファイルの最小サイズ"],
+  ["全部大小", "All sizes", "すべてのサイズ"],
+  ["至少 100 MB", "At least 100 MB", "100 MB 以上"],
+  ["至少 1 GB", "At least 1 GB", "1 GB 以上"],
+  ["个人文件修改时间", "Personal file modification date", "個人ファイルの更新日"],
+  ["全部修改时间", "All modification dates", "すべての更新日"],
+  ["30 天前修改", "Modified over 30 days ago", "更新から 30 日以上"],
+  ["90 天前修改", "Modified over 90 days ago", "更新から 90 日以上"],
+  ["一年前修改", "Modified over a year ago", "更新から 1 年以上"],
+  ["个人文件排序", "Personal file sort order", "個人ファイルの並べ替え"],
+  ["最早修改优先", "Oldest modification first", "更新日が古い順"],
+  ["按名称", "By name", "名前順"],
+  ["已选 {0} 项 · {1}", "Selected {0} items · {1}", "{0} 項目を選択 · {1}"],
+  ["每批最多 20 项", "Up to 20 items per batch", "1 回につき最大 20 項目"],
+  ["移入废纸篓…", "Move to Trash…", "ゴミ箱へ移動…"],
+  ["个人文件列表", "Personal file list", "個人ファイル一覧"],
+  [
+    "没有匹配的个人文件，可调整筛选或重新扫描。",
+    "No matching personal files. Adjust filters or scan again.",
+    "一致する個人ファイルがありません。絞り込みを変更するか再スキャンしてください。"
+  ],
+  [
+    "选择下载目录或其他个人目录，再点击顶部“扫描文件”。",
+    "Choose Downloads or another personal folder, then click “Scan files” above.",
+    "ダウンロードなどの個人フォルダを選び、上部の「ファイルをスキャン」を押してください。"
+  ],
+  ["个人文件处理结果", "Personal file results", "個人ファイルの処理結果"],
+  [
+    "已移入 {0} / {1} 项 · 待核实 {2} 项",
+    "Moved {0} / {1} items · {2} need review",
+    "{0} / {1} 項目を移動 · 要確認 {2} 項目"
+  ],
+  ["本项未确认移入", "Move not confirmed for this item", "この項目の移動は未確認"],
+  ["查看处理历史", "View operation history", "処理履歴を表示"],
+  [
+    "浏览器预览不能读取或处理本机文件，请使用桌面 App。",
+    "The browser preview cannot read or process local files. Use the desktop app.",
+    "ブラウザのプレビューではローカルファイルの読み取りや処理はできません。デスクトップ App を使用してください。"
+  ],
+  ["确认处理个人文件", "Confirm personal file operation", "個人ファイルの処理を確認"],
+  ["{0} 个文件 · {1}", "{0} files · {1}", "ファイル {0} 件 · {1}"],
+  ["个文件 ·", "files ·", "件のファイル ·"],
+  [
+    "这些是你选择的个人文件，可能包含唯一副本或未同步内容。请核对内容并关闭相关文件；本次不完整检查所有应用占用，不能保证文件空闲。",
+    "These are personal files you selected and may contain unique copies or unsynced content. Review their contents and close related files. This flow does not fully check usage by every app and cannot guarantee files are idle.",
+    "選択した個人ファイルには、唯一のコピーや未同期の内容が含まれる場合があります。内容を確認し、関連ファイルを閉じてください。すべてのアプリの使用状況を完全には検査しないため、未使用とは保証できません。"
+  ],
+  [
+    "仅将下面列出的普通文件移入废纸篓，保留文件夹。处理前重新检查路径保护、权限和文件变化；不清空废纸篓。恢复需在 Finder 中核对实际收据，原位置有同名文件时不要覆盖。",
+    "Only the regular files below will be moved to Trash; folders are retained. Path protection, permissions and file changes are checked again before processing. Trash is not emptied. To recover, verify the actual receipts in Finder and do not overwrite an existing file at the original location.",
+    "以下の通常ファイルのみをゴミ箱へ移動し、フォルダは保持します。処理前にパスの保護、権限、ファイルの変更を再検査します。ゴミ箱は空にしません。復元時は Finder で実際のレシートを確認し、元の場所にある同名ファイルを上書きしないでください。"
+  ],
+  [
+    "我已核对所选个人文件，确认不再需要，并了解占用与恢复边界。",
+    "I reviewed the selected personal files, confirm they are no longer needed, and understand the usage-check and recovery limits.",
+    "選択した個人ファイルを確認し、不要であることと使用状況の検査・復元の制限を理解しました。"
+  ],
+  ["返回选择", "Back to selection", "選択に戻る"],
+  [
+    "个人文件确认已过期，请返回重新检查。",
+    "Personal file confirmation expired. Go back and check again.",
+    "個人ファイルの確認が期限切れです。戻って再確認してください。"
+  ],
+  [
+    "个人文件数据无法核对，请重新读取；不会重复处理。",
+    "Personal file data could not be verified. Read it again; the operation will not be repeated.",
+    "個人ファイルのデータを照合できません。再読み取りしてください。処理は繰り返しません。"
+  ],
+  [
+    "返回的个人文件批次不匹配。",
+    "The returned personal file batch does not match.",
+    "返された個人ファイルの処理単位が一致しません。"
+  ],
+  [
+    "个人文件状态读取失败，正在接回原任务：{0}",
+    "Failed to read personal file status; reconnecting to the original task: {0}",
+    "個人ファイルの状態を読み取れません。元のタスクに再接続しています：{0}"
+  ],
+  [
+    "请等待扫描结束后重新选择。",
+    "Wait for the scan to finish, then select files again.",
+    "スキャン終了後にファイルを選び直してください。"
+  ],
+  [
+    "扫描已过期或整理目录已变化，请重新扫描后选择。",
+    "The scan expired or the target folder changed. Scan again before selecting files.",
+    "スキャンが期限切れ、または対象フォルダが変わりました。再スキャンしてから選択してください。"
+  ],
+  ["文件整理", "Files", "ファイル整理"]
 ]

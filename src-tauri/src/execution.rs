@@ -113,6 +113,71 @@ pub struct Detail {
     pub items: Vec<Item>,
     pub events: Vec<Event>,
     pub space_observation: Option<crate::cleanup_space::Report>,
+    pub origin: &'static str,
+}
+
+struct SavedItem {
+    id: String,
+    path: String,
+    size: Option<u64>,
+}
+struct SavedPlan {
+    id: String,
+    revision: String,
+    protocol: u64,
+    origin: &'static str,
+    items: Vec<SavedItem>,
+}
+impl From<&Plan> for SavedPlan {
+    fn from(plan: &Plan) -> Self {
+        Self {
+            id: plan.id.clone(),
+            revision: plan.revision.clone(),
+            protocol: plan.protocol,
+            origin: "mole",
+            items: plan
+                .items
+                .iter()
+                .map(|i| SavedItem {
+                    id: i.candidate.id.clone(),
+                    path: i.candidate.path.clone(),
+                    size: i.candidate.size,
+                })
+                .collect(),
+        }
+    }
+}
+impl From<&crate::personal_files::Plan> for SavedPlan {
+    fn from(plan: &crate::personal_files::Plan) -> Self {
+        Self {
+            id: plan.id.clone(),
+            revision: plan.revision.clone(),
+            protocol: plan.protocol,
+            origin: crate::personal_files::MODULE,
+            items: plan
+                .items
+                .iter()
+                .map(|i| SavedItem {
+                    id: i.id.clone(),
+                    path: i.path.clone(),
+                    size: Some(i.size),
+                })
+                .collect(),
+        }
+    }
+}
+fn saved_plan(body: &str) -> Result<SavedPlan, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).map_err(|_| "执行计划快照无法读取。")?;
+    if value.get("module").is_some() {
+        let plan: crate::personal_files::Plan =
+            serde_json::from_value(value).map_err(|_| "个人文件执行快照无法读取。")?;
+        plan.validate_record()?;
+        Ok(SavedPlan::from(&plan))
+    } else {
+        let plan: Plan = serde_json::from_value(value).map_err(|_| "执行计划快照无法读取。")?;
+        Ok(SavedPlan::from(&plan))
+    }
 }
 
 fn sql(error: rusqlite::Error) -> String {
@@ -175,8 +240,8 @@ fn running(tx: &Transaction<'_>, run: &str) -> Result<(), String> {
     Ok(())
 }
 
-// These internal methods intentionally have no production caller yet. Keeping
-// accounting separate prevents the read-only GUI from obtaining write authority.
+// Accounting grants no mutation rights. Operation-specific executors validate
+// their own source protocol, confirmation and native object before calling it.
 #[allow(dead_code)]
 pub fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<String, String> {
     if uuid::Uuid::parse_str(&plan.id).is_err()
@@ -206,6 +271,29 @@ pub fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<String, String
     if body.len() > MAX_PLAN {
         return Err("执行计划超过 8 MiB 上限。".into());
     }
+    begin_saved(db, &SavedPlan::from(plan), body, at)
+}
+pub(crate) fn begin_personal(
+    db: &mut Connection,
+    plan: &crate::personal_files::Plan,
+    at: i64,
+) -> Result<String, String> {
+    plan.validate_record()?;
+    if at < plan.created_at || at >= plan.expires_at {
+        return Err("个人文件计划已过期。".into());
+    }
+    let body = serde_json::to_string(plan).map_err(|e| e.to_string())?;
+    if body.len() > MAX_PLAN {
+        return Err("个人文件执行计划超过记录上限。".into());
+    }
+    begin_saved(db, &SavedPlan::from(plan), body, at)
+}
+fn begin_saved(
+    db: &mut Connection,
+    plan: &SavedPlan,
+    body: String,
+    at: i64,
+) -> Result<String, String> {
     let reserved = body.len() as i64 + plan.items.len() as i64 * RESERVE_PER_ITEM;
     let tx = transaction(db)?;
     let already_used: bool = tx
@@ -229,7 +317,7 @@ pub fn begin(db: &mut Connection, plan: &Plan, at: i64) -> Result<String, String
     for (ordinal, item) in plan.items.iter().enumerate() {
         tx.execute(
             "INSERT INTO execution_items VALUES (?1,?2,?3,?4,'pending','尚未开始',NULL)",
-            params![id, item.candidate.id, ordinal as i64, item.candidate.path],
+            params![id, item.id, ordinal as i64, item.path],
         )
         .map_err(sql)?;
     }
@@ -512,7 +600,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
     if body.len() > MAX_PLAN || format!("{:x}", Sha256::digest(body.as_bytes())) != digest {
         return Err("执行计划快照损坏，保留原始记录供核查。".into());
     }
-    let plan: Plan = serde_json::from_str(&body).map_err(|_| "执行计划快照无法读取。")?;
+    let plan = saved_plan(&body)?;
     let mut items = {
         let mut s = db.prepare("SELECT item_id,path,state,reason,receipt FROM execution_items WHERE run_id=?1 ORDER BY ordinal").map_err(sql)?;
         let rows = s
@@ -541,17 +629,15 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
     };
     if plan.id != summary.plan_id
         || items.len() != plan.items.len()
-        || items.iter().zip(&plan.items).any(|(item, expected)| {
-            item.id != expected.candidate.id || item.path != expected.candidate.path
-        })
+        || items
+            .iter()
+            .zip(&plan.items)
+            .any(|(item, expected)| item.id != expected.id || item.path != expected.path)
     {
         return Err("逐项记录与不可变计划不一致，保留原始记录供核查。".into());
     }
     for (item, expected) in items.iter_mut().zip(&plan.items) {
-        item.scan_size_bytes = expected
-            .candidate
-            .size
-            .filter(|size| *size <= 9_007_199_254_740_991);
+        item.scan_size_bytes = expected.size.filter(|size| *size <= 9_007_199_254_740_991);
     }
     let events = {
         let mut s = db.prepare("SELECT item_id,state,created_at,reason,receipt FROM execution_events WHERE run_id=?1 ORDER BY seq").map_err(sql)?;
@@ -595,6 +681,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         items,
         events,
         space_observation,
+        origin: plan.origin,
     })
 }
 fn decode_receipt(body: Option<String>) -> Result<Option<Receipt>, String> {

@@ -330,6 +330,9 @@ function ExecutionResults({
   )
   return (
     <>
+      {detail.origin === 'personalFiles' && (
+        <p className="notice">来源：个人文件整理。文件由用户明确选择，不表示属于可重建缓存。</p>
+      )}
       <p className="muted">
         {stateName(detail.state)} · 已移入 {detail.movedCount} / {detail.itemCount} 项 · 待核实{' '}
         {detail.uncertainCount} 项

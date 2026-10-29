@@ -21,6 +21,28 @@ pub struct ScanItem {
     #[serde(default)]
     pub(crate) tree: Option<crate::tree::TreeWitness>,
 }
+impl ScanItem {
+    pub(crate) fn personal_file(id: &str, path: &str, size: u64, witness: Witness) -> Self {
+        Self {
+            candidate: Candidate {
+                id: id.into(),
+                path: path.into(),
+                upstream_identity: String::new(),
+                section: String::new(),
+                size: Some(size),
+                item_count: 1,
+                covered_by: None,
+                is_directory: false,
+                resolved_path: Some(path.into()),
+                impact: None,
+                provenance: None,
+            },
+            witness: Some(witness),
+            unavailable: None,
+            tree: None,
+        }
+    }
+}
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Scan {

@@ -53,6 +53,7 @@ impl Fixture {
             }],
             events: vec![],
             space_observation: None,
+            origin: "mole",
         };
         Self {
             _root: root,

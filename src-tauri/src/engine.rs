@@ -29,6 +29,8 @@ pub enum TaskKind {
     StatusWatch,
     VisibilityProbe,
     AiScan,
+    PersonalScan,
+    PersonalTrash,
 }
 
 impl TaskKind {
@@ -47,6 +49,8 @@ impl TaskKind {
             Self::StatusWatch => "statuswatch",
             Self::VisibilityProbe => "visibilityprobe",
             Self::AiScan => "aiscan",
+            Self::PersonalScan => "personalscan",
+            Self::PersonalTrash => "personaltrash",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -57,6 +61,8 @@ impl TaskKind {
                 | Self::MaintenanceRefresh
                 | Self::VisibilityProbe
                 | Self::AiScan
+                | Self::PersonalScan
+                | Self::PersonalTrash
         )
     }
 }
@@ -87,7 +93,10 @@ impl Job {
     pub(crate) fn bind_execution(&self, run: &str) -> Result<(), String> {
         if !matches!(
             self.kind,
-            TaskKind::LogTrash | TaskKind::AppTrash | TaskKind::MaintenanceRefresh
+            TaskKind::LogTrash
+                | TaskKind::AppTrash
+                | TaskKind::MaintenanceRefresh
+                | TaskKind::PersonalTrash
         ) {
             return Err("此任务不能绑定修改执行批次。".into());
         }
@@ -370,7 +379,9 @@ async fn run_kind(
         | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
         | TaskKind::VisibilityProbe
-        | TaskKind::AiScan => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::AiScan
+        | TaskKind::PersonalScan
+        | TaskKind::PersonalTrash => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -429,7 +440,9 @@ async fn run_kind(
         | TaskKind::MaintenanceRefresh
         | TaskKind::StatusWatch
         | TaskKind::VisibilityProbe
-        | TaskKind::AiScan => false,
+        | TaskKind::AiScan
+        | TaskKind::PersonalScan
+        | TaskKind::PersonalTrash => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

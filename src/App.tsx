@@ -32,6 +32,7 @@ import {
 import * as api from './lib/api'
 import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
+import { usePersonalFiles } from './lib/use-personal-files'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
@@ -83,6 +84,9 @@ const SettingsModal = deferredView(
 )
 const AiDeepScan = deferredView(async () => ({
   default: (await import('./components/AiDeepScan')).AiDeepScan,
+}))
+const PersonalFiles = deferredView(async () => ({
+  default: (await import('./components/PersonalFiles')).PersonalFiles,
 }))
 const QuickCleanup = deferredView(async () => ({
   default: (await import('./components/QuickCleanup')).QuickCleanup,
@@ -153,6 +157,7 @@ const navigation = [
   ['overview', LayoutGrid, '概览'],
   ['quickCleanup', Zap, '速战速决'],
   ['softwareCleanup', Sparkles, '软件清理'],
+  ['personalFiles', FolderOpen, '文件整理'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
@@ -228,6 +233,22 @@ export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [page, setPage] = useState<Page>('overview')
   const aiScan = useAiScan(data?.home ?? '')
+  const personalFiles = usePersonalFiles(page === 'personalFiles', data?.home ?? '')
+  useEffect(() => {
+    const detail = personalFiles.result
+    if (!detail) return
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            executions: preserveExecutionProgress(
+              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
+              current.executions,
+            ),
+          }
+        : current,
+    )
+  }, [personalFiles.result])
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -756,6 +777,7 @@ export default function App() {
     !busy &&
     !quickScanning &&
     !aiScan.running &&
+    !personalFiles.running &&
     !uninstallActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
@@ -801,6 +823,7 @@ export default function App() {
               className={page === id ? 'active' : ''}
               onClick={() => changePage(id)}
               aria-current={page === id ? 'page' : undefined}
+              title={name}
             >
               <Icon size={18} strokeWidth={1.7} />
               <span>{name}</span>
@@ -985,6 +1008,31 @@ export default function App() {
                     </button>
                   </>
                 )}
+                {page === 'personalFiles' &&
+                  (personalFiles.running ? (
+                    <button
+                      className="button secondary compact"
+                      disabled={personalFiles.starting || personalFiles.stopping}
+                      onClick={() => void personalFiles.cancel()}
+                    >
+                      <Square size={13} />
+                      {personalFiles.stopping
+                        ? '正在停止…'
+                        : personalFiles.snapshot.phase === 'processing'
+                          ? '停止后续项目'
+                          : '停止扫描'}
+                    </button>
+                  ) : (
+                    <button
+                      className="button primary compact"
+                      type="button"
+                      onClick={() => void personalFiles.start()}
+                      disabled={!canRun || executionActive || !personalFiles.root.trim()}
+                    >
+                      <Search size={15} />
+                      扫描文件
+                    </button>
+                  ))}
                 {page === 'aiScan' && (
                   <>
                     <button
@@ -1268,6 +1316,7 @@ export default function App() {
             <ShieldCheck size={13} />
             {page === 'quickCleanup' ||
             page === 'softwareCleanup' ||
+            page === 'personalFiles' ||
             page === 'cleanup' ||
             page === 'apps' ||
             page === 'maintenance'
@@ -1477,6 +1526,15 @@ export default function App() {
             </>
           )}
 
+          {page === 'personalFiles' && (
+            <PersonalFiles
+              controller={personalFiles}
+              home={data.home}
+              protectedPaths={data.settings.protectedPaths}
+              enabled={canRun && !executionActive}
+              onHistory={() => changePage('history')}
+            />
+          )}
           {page === 'aiScan' && (
             <AiDeepScan
               controller={aiScan}

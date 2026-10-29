@@ -40,6 +40,7 @@ mod mole_history;
 mod native_trash_tests;
 mod observation;
 mod permissions;
+mod personal_files;
 mod process;
 mod project_artifacts;
 mod provenance;
@@ -95,6 +96,7 @@ struct AppState {
     status_watch: Arc<Mutex<status_watch::Store>>,
     cleanup_visibility: Arc<Mutex<activity_authorization::Store>>,
     ai_scan: Arc<Mutex<ai_scan::Store>>,
+    personal_files: Arc<Mutex<personal_files::Store>>,
     engine_root: PathBuf,
     home: PathBuf,
     shutdown: Arc<shutdown::Controller>,
@@ -860,6 +862,8 @@ fn start_task(
             | TaskKind::StatusWatch
             | TaskKind::VisibilityProbe
             | TaskKind::AiScan
+            | TaskKind::PersonalScan
+            | TaskKind::PersonalTrash
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -885,7 +889,10 @@ fn start_task(
         || jobs.contains_key(&task_id)
         || jobs.values().any(|job| {
             job.kind == kind
-                || job.kind == TaskKind::AiScan
+                || matches!(
+                    job.kind,
+                    TaskKind::AiScan | TaskKind::PersonalScan | TaskKind::PersonalTrash
+                ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
     {
@@ -1771,7 +1778,9 @@ fn cancel_log_cleanup(run_id: String, state: tauri::State<'_, AppState>) -> Resu
     // LogTrash job alone: a late click must not cancel a newer batch.
     let jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     for job in jobs.values() {
-        if job.kind == TaskKind::LogTrash && job.cancel_execution(&run_id) {
+        if matches!(job.kind, TaskKind::LogTrash | TaskKind::PersonalTrash)
+            && job.cancel_execution(&run_id)
+        {
             return Ok(());
         }
     }
@@ -2277,6 +2286,7 @@ pub fn run() {
                 status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
                 cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
                 ai_scan: Arc::new(Mutex::new(ai_scan::Store::default())),
+                personal_files: Arc::new(Mutex::new(personal_files::Store::default())),
                 engine_root,
                 home: app.path().home_dir()?,
                 shutdown: Arc::new(shutdown::Controller::default()),
@@ -2296,6 +2306,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            personal_files::commands::get_personal_files,
+            personal_files::commands::start_personal_scan,
+            personal_files::commands::prepare_personal_trash,
+            personal_files::commands::discard_personal_trash,
+            personal_files::commands::execute_personal_trash,
             ai_scan::detect_ai_agents,
             ai_scan::ai_scan_skill,
             ai_scan::start_ai_scan,

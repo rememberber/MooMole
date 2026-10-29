@@ -150,8 +150,11 @@ button svg {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-height: 0;
+  overflow-y: auto;
 }
 .main-nav button {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -165,6 +168,12 @@ button svg {
 }
 .main-nav button:hover {
   background: var(--selected);
+}
+.main-nav button > span:not(.active-dot) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .main-nav button.active {
   background: var(--selected);
@@ -3860,6 +3869,79 @@ input[type='checkbox'] {
 .quick-cleanup {
   display: grid;
   gap: 12px;
+}
+.personal-files {
+  display: grid;
+  gap: 12px;
+}
+.personal-scope,
+.personal-filters,
+.personal-summary,
+.personal-selection {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.personal-path {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+}
+.personal-path input {
+  flex: 1;
+  min-width: 0;
+}
+.personal-filters input {
+  flex: 1;
+  min-width: 160px;
+}
+.personal-path input,
+.personal-filters input,
+.personal-filters select {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+}
+.personal-summary,
+.personal-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.personal-selection {
+  justify-content: flex-end;
+  font-size: 12px;
+}
+.personal-selection strong {
+  margin-right: auto;
+}
+.personal-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  padding: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.personal-row:last-child {
+  border-bottom: none;
+}
+.personal-row p {
+  margin: 4px 0;
+}
+.personal-result {
+  padding: 16px;
+}
+.personal-result-row {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+  font-size: 12px;
 }
 .cleanup-result-summary {
   border: 1px solid var(--border);

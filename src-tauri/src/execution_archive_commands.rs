@@ -40,6 +40,7 @@ fn idle(state: &AppState) -> Result<(), String> {
                 matches!(
                     j.kind,
                     super::engine::TaskKind::LogTrash
+                        | super::engine::TaskKind::PersonalTrash
                         | super::engine::TaskKind::AppTrash
                         | super::engine::TaskKind::MaintenanceRefresh
                 )
@@ -85,6 +86,7 @@ pub(crate) async fn archive_execution_history(
                     matches!(
                         j.kind,
                         super::engine::TaskKind::LogTrash
+                            | super::engine::TaskKind::PersonalTrash
                             | super::engine::TaskKind::AppTrash
                             | super::engine::TaskKind::MaintenanceRefresh
                     )
