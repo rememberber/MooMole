@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "purpose": "npm-source-input-origins",
   "reviewedAt": "2026-10-25",
-  "packageLockSha256": "eb6003462a5ef361080040a57399dc0c6899fd45b7d2fd10d1ae78080f19966e",
+  "packageLockSha256": "4e5aa539a67eaadac82d8f646ff40a5ff03770af8051e7a461634207fb3ba5df",
   "registryVerification": {
     "tool": "npm 11.19.0 audit signatures --omit=dev",
     "registrySignatures": 8,

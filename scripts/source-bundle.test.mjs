@@ -89,6 +89,17 @@ function fixture(t) {
   )
   file(
     app,
+    'third-party/npm-source-origins.json',
+    json({
+      schemaVersion: 1,
+      purpose: 'npm-source-input-origins',
+      packageLockSha256: createHash('sha256')
+        .update(readFileSync(join(app, 'package-lock.json')))
+        .digest('hex'),
+    }),
+  )
+  file(
+    app,
     'scripts/engine-manifest.mjs',
     `export const revision = '${engine}'\nexport const repository = 'https://github.com/tw93/Mole'\n`,
   )

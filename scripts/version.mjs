@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -110,7 +111,28 @@ export function versionPlan(root) {
   })
   add('src-tauri/Cargo.toml', cargoPackage)
   add('src-tauri/Cargo.lock', cargoLock)
-  return { version, files, sourceText }
+  const lock = files.find((file) => file.path === 'package-lock.json')
+  const digest = (text) => createHash('sha256').update(text).digest('hex')
+  const path = 'third-party/npm-source-origins.json'
+  const before = readFileSync(resolve(root, path), 'utf8')
+  const origins = JSON.parse(before)
+  const fields = [...before.matchAll(/^  "packageLockSha256": "([a-f0-9]{64})"/gm)]
+  if (
+    origins.schemaVersion !== 1 ||
+    origins.purpose !== 'npm-source-input-origins' ||
+    fields.length !== 1 ||
+    fields[0][1] !== origins.packageLockSha256
+  )
+    throw new Error('npm-source-origins.json: invalid lockfile binding')
+  const sourceBindingMatches = origins.packageLockSha256 === digest(lock.before)
+  const offset = fields[0].index + fields[0][0].lastIndexOf('"') - fields[0][1].length
+  files.push({
+    path,
+    before,
+    current: sourceBindingMatches ? version : 'package-lock SHA-256 mismatch',
+    after: before.slice(0, offset) + digest(lock.after) + before.slice(offset + 64),
+  })
+  return { version, files, sourceText, sourceBindingMatches }
 }
 
 export function checkVersion(root, tag) {
@@ -127,6 +149,12 @@ export function checkVersion(root, tag) {
 
 export function syncVersion(root) {
   const plan = versionPlan(root)
+  // A version-only sync may renew an already-verified lockfile binding. Never
+  // approve dependency edits or a stale source inventory by replacing its hash.
+  if (!plan.sourceBindingMatches)
+    throw new Error(
+      'npm source lockfile binding is stale; review dependency/source changes before updating it.',
+    )
   // Refuse edits made after preparing this plan. This is a repository tool,
   // not a multi-file transaction; interrupted sync can be rerun from Git.
   if (readFileSync(resolve(root, 'package.json'), 'utf8') !== plan.sourceText)
