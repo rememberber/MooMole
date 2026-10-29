@@ -6,7 +6,7 @@ export async function installSoftwareContentMock(page: Page) {
     const native = (window as any).__TAURI_INTERNALS__,
       original = native.invoke
     const root = (source: string) =>
-      source === 'chromeDownloads'
+      source === 'chromeDownloads' || source === 'vlcPlaylist'
         ? '/Users/demo'
         : source === 'mailDownloads'
           ? '/Users/demo/Library/Mail Downloads'
@@ -22,6 +22,10 @@ export async function installSoftwareContentMock(page: Page) {
         'software-content-calls',
         JSON.stringify([...calls, { command, args }]),
       )
+      if (command === 'plugin:dialog|open')
+        return sessionStorage.getItem('playlist-picker-cancelled')
+          ? null
+          : sessionStorage.getItem('playlist-picker-path') || '/Users/demo/Movies/offline.m3u8'
       if (command === 'start_software_content') {
         await original('start_personal_scan', {
           root: '/Users/demo/Downloads',
@@ -35,14 +39,24 @@ export async function installSoftwareContentMock(page: Page) {
           .filter((i: any) => ['old.zip', 'notes.txt'].includes(i.name))
           .map((i: any) => ({
             ...i,
-            path: `${source === 'chromeDownloads' ? '/Users/demo/Downloads' : current}/${i.name}`,
+            name:
+              source === 'vlcPlaylist'
+                ? i.name === 'old.zip'
+                  ? 'offline.mov'
+                  : 'recording.wav'
+                : i.name,
+            path:
+              source === 'vlcPlaylist'
+                ? `/Users/demo/Movies/${i.name === 'old.zip' ? 'offline.mov' : 'recording.wav'}`
+                : `${source === 'chromeDownloads' ? '/Users/demo/Downloads' : current}/${i.name}`,
           }))
         report.softwareContent = {
           source,
-          minimumAgeDays: source === 'chromeDownloads' ? 0 : 31,
-          minimumDirectoryBytes: source === 'chromeDownloads' ? 0 : 5242880,
+          minimumAgeDays: ['chromeDownloads', 'vlcPlaylist'].includes(source) ? 0 : 31,
+          minimumDirectoryBytes: ['chromeDownloads', 'vlcPlaylist'].includes(source) ? 0 : 5242880,
           minimumSizeMet: true,
           executionSupported: source !== 'mailSandboxDownloads',
+          ...(source === 'vlcPlaylist' ? { playlistPath: args.playlistPath } : {}),
         }
         sessionStorage.setItem('personal-report', JSON.stringify(report))
         const state = JSON.parse(sessionStorage.getItem('personal-state')!)

@@ -3,11 +3,16 @@
 use super::*;
 use rusqlite::{Connection, OpenFlags};
 use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt, sync::atomic::Ordering};
-struct ReadBound {
-    held: AnchoredPath,
-    bytes: Vec<u8>,
+pub(super) struct ReadBound {
+    pub(super) held: AnchoredPath,
+    pub(super) bytes: Vec<u8>,
 }
-fn read(path: &Path, limit: u64, job: &Job, started: Instant) -> Result<ReadBound, String> {
+pub(super) fn read(
+    path: &Path,
+    limit: u64,
+    job: &Job,
+    started: Instant,
+) -> Result<ReadBound, String> {
     let held = AnchoredPath::open(path)?;
     let m = held.target().metadata().map_err(|e| e.to_string())?;
     if !m.is_file()
@@ -15,7 +20,7 @@ fn read(path: &Path, limit: u64, job: &Job, started: Instant) -> Result<ReadBoun
         || !held.local_materialized()
         || m.len() > limit
     {
-        return Err("浏览器历史文件不可读取、未落地或超过本轮读取上限。".into());
+        return Err("来源记录不可读取、未落地或超过本轮读取上限。".into());
     }
     let mut f = OpenOptions::new()
         .read(true)
@@ -24,26 +29,26 @@ fn read(path: &Path, limit: u64, job: &Job, started: Instant) -> Result<ReadBoun
         .map_err(|e| e.to_string())?;
     let observed = f.metadata().map_err(|e| e.to_string())?;
     if (observed.dev(), observed.ino()) != (m.dev(), m.ino()) {
-        return Err("浏览器历史在读取前变化，请重新扫描。".into());
+        return Err("来源记录在读取前变化，请重新扫描。".into());
     }
     let mut bytes = Vec::new();
     let mut buffer = [0u8; 128 * 1024];
     loop {
         if job.cancelled.load(Ordering::SeqCst) || started.elapsed() > Duration::from_secs(10) {
-            return Err("浏览器下载记录读取已停止，未确认的范围保留。".into());
+            return Err("来源记录读取已停止，未确认的范围保留。".into());
         }
         let n = f.read(&mut buffer).map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
         if bytes.len() as u64 + n as u64 > limit {
-            return Err("浏览器历史在读取期间变大，原记录保留。".into());
+            return Err("来源记录在读取期间变大，原记录保留。".into());
         }
         bytes.extend_from_slice(&buffer[..n]);
     }
     held.validate()?;
     if bytes.len() as u64 != m.len() {
-        return Err("浏览器历史大小变化，请重新扫描。".into());
+        return Err("来源记录大小变化，请重新扫描。".into());
     }
     Ok(ReadBound { held, bytes })
 }
@@ -192,6 +197,7 @@ pub(super) fn collect(
         directory: root.witness,
         allocated_at_scan: 0,
         history: Some(database.held.witness.clone()),
+        playlist: None,
     };
     let report = Report {
         id: uuid::Uuid::new_v4().to_string(),
@@ -211,6 +217,7 @@ pub(super) fn collect(
             minimum_directory_bytes: 0,
             minimum_size_met: true,
             execution_supported: true,
+            playlist_path: None,
         }),
     };
     Ok(Scan {

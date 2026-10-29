@@ -4,7 +4,7 @@ async function open(page: import('@playwright/test').Page) {
   await installSoftwareContentMock(page)
   await page.goto('/')
   await page.getByRole('navigation').getByRole('button', { name: '软件清理', exact: true }).click()
-  await page.getByRole('tab', { name: '附件与下载', exact: true }).click()
+  await page.getByRole('tab', { name: '附件、下载与离线', exact: true }).click()
   return page.getByRole('main', { name: '软件清理内容' })
 }
 test('protected modern Mail content is previewable and cannot be selected or submitted', async ({
@@ -38,7 +38,7 @@ test('supported attachment copies use catalog sources, filters and one explicit 
   page,
 }) => {
   const main = await open(page)
-  await main.getByRole('combobox', { name: '软件附件来源' }).selectOption('mailDownloads')
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('mailDownloads')
   await page.getByRole('button', { name: '扫描附件副本', exact: true }).click()
   await expect(main.getByRole('textbox', { name: '软件附件目录' })).toHaveAttribute('readonly', '')
   const list = main.getByRole('region', { name: '个人文件列表' })
@@ -68,7 +68,7 @@ test('browser downloads keep their source explicit and process only separately c
   page,
 }) => {
   const main = await open(page)
-  await main.getByRole('combobox', { name: '软件附件来源' }).selectOption('chromeDownloads')
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')
   await page.getByRole('button', { name: '扫描下载记录', exact: true }).click()
   await expect(main.getByRole('textbox', { name: '下载文件范围' })).toHaveValue('/Users/demo')
   await expect(main).toContainText('不遍历整个账户目录')
@@ -89,4 +89,72 @@ test('browser downloads keep their source explicit and process only separately c
     'chromeDownloads',
   )
   expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
+})
+
+test('offline media requires a selected playlist and one separately confirmed file selection', async ({
+  page,
+}) => {
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('vlcPlaylist')
+  const scan = page.getByRole('button', { name: '扫描离线影音', exact: true })
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('playlist-picker-cancelled', '1'))
+  await main.getByRole('button', { name: '选择播放列表', exact: true }).click()
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('playlist-picker-cancelled'))
+  await main.getByRole('button', { name: '选择播放列表', exact: true }).click()
+  await expect(main.getByRole('textbox', { name: '播放列表来源' })).toHaveValue(
+    '/Users/demo/Movies/offline.m3u8',
+  )
+  await scan.click()
+  await expect(main).toContainText('播放列表及播放器数据库保持原样')
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await expect(list.getByRole('article')).toHaveCount(2)
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await list.getByRole('article').filter({ hasText: 'recording.wav' }).getByRole('checkbox').check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认处理离线影音文件' })
+  await expect(dialog).toContainText('/Users/demo/Movies/recording.wav')
+  await expect(dialog.getByRole('button', { name: '确认移入废纸篓', exact: true })).toBeDisabled()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(calls.find((c: any) => c.command === 'start_software_content').args).toMatchObject({
+    source: 'vlcPlaylist',
+    playlistPath: '/Users/demo/Movies/offline.m3u8',
+  })
+  expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
+})
+
+test('changing a playlist or source withdraws previous file selection until rescanned', async ({
+  page,
+}) => {
+  const main = await open(page)
+  const source = main.getByRole('combobox', { name: '软件内容来源' })
+  await source.selectOption('vlcPlaylist')
+  await main.getByRole('button', { name: '选择播放列表', exact: true }).click()
+  await page.getByRole('button', { name: '扫描离线影音', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await list.getByRole('checkbox').first().check()
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeEnabled()
+  await page.evaluate(() =>
+    sessionStorage.setItem('playlist-picker-path', '/Users/demo/Movies/other.m3u8'),
+  )
+  await main.getByRole('button', { name: '选择播放列表', exact: true }).click()
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await expect(list.getByRole('checkbox').first()).toBeDisabled()
+  await source.selectOption('chromeDownloads')
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await expect(list.getByRole('checkbox').first()).toBeDisabled()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(
+    calls.some(
+      (c: any) => c.command === 'execute_software_trash' || c.command === 'prepare_software_trash',
+    ),
+  ).toBe(false)
 })

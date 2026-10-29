@@ -1,9 +1,10 @@
 //! Exact software content roots, independent of cache classification.
-//! Mail copies only: no mailbox databases, messages or recursive root removal.
+//! No mailbox/player databases, messages or recursive root removal.
 use super::*;
 use crate::{db, engine::Job, observation::AnchoredPath};
 use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc};
 mod chromium;
+mod playlist;
 pub(crate) const MODULE: &str = "softwareContent";
 pub(super) const REVISION: &str = "MooMole.software-content.v1";
 const MINIMUM: u64 = 5 * 1024 * 1024;
@@ -22,10 +23,14 @@ pub(crate) enum Source {
     MailDownloads,
     MailSandboxDownloads,
     ChromeDownloads,
+    VlcPlaylist,
 }
 impl Source {
+    fn recorded_files(self) -> bool {
+        matches!(self, Self::ChromeDownloads | Self::VlcPlaylist)
+    }
     pub(super) fn path(self, home: &Path) -> PathBuf {
-        if self == Self::ChromeDownloads {
+        if self.recorded_files() {
             return home.to_path_buf();
         }
         home.join(match self {
@@ -33,7 +38,7 @@ impl Source {
             Self::MailSandboxDownloads => {
                 "Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
             }
-            Self::ChromeDownloads => unreachable!(),
+            Self::ChromeDownloads | Self::VlcPlaylist => unreachable!(),
         })
     }
     fn history(self, home: &Path) -> Option<PathBuf> {
@@ -50,6 +55,8 @@ pub(crate) struct Binding {
     pub allocated_at_scan: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<Witness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playlist: Option<Witness>,
 }
 impl Binding {
     pub(super) fn root(&self) -> PathBuf {
@@ -57,8 +64,10 @@ impl Binding {
     }
     pub(super) fn allows(&self, path: &Path) -> bool {
         let root = self.root();
-        if self.source == Source::ChromeDownloads {
-            return path.starts_with(&root) && ordinary(path);
+        if self.source.recorded_files() {
+            return path.starts_with(&root)
+                && ordinary(path)
+                && (path == root || self.source != Source::VlcPlaylist || playlist::media(path));
         }
         path == root
             || path.strip_prefix(&root).is_ok_and(|r| {
@@ -80,7 +89,16 @@ impl Binding {
                 .nodes
                 .last()
                 .is_none_or(|n| n.path != Path::new(root))
-            || (self.source != Source::ChromeDownloads && self.allocated_at_scan < MINIMUM)
+            || (!self.source.recorded_files() && self.allocated_at_scan < MINIMUM)
+            || (self.source == Source::VlcPlaylist
+                && self.playlist.as_ref().is_none_or(|w| {
+                    w.version != crate::observation::VERSION
+                        || w.nodes.last().is_none_or(|n| {
+                            !playlist::manifest_allowed(&n.path, Path::new(&self.home))
+                        })
+                }))
+            || (self.source != Source::VlcPlaylist && self.playlist.is_some())
+            || (self.source != Source::ChromeDownloads && self.history.is_some())
             || (self.source == Source::ChromeDownloads
                 && self.history.as_ref().is_none_or(|w| {
                     w.version != crate::observation::VERSION
@@ -99,7 +117,7 @@ impl Binding {
     pub(super) fn validate(&self, item: &Item, home: &Path, now: i64) -> Result<(), String> {
         if Path::new(&self.home) != home
             || !self.allows(Path::new(&item.path))
-            || (self.source != Source::ChromeDownloads && !old_enough(item, now))
+            || (!self.source.recorded_files() && !old_enough(item, now))
         {
             return Err("附件不属于已确认目录或未超过保留期限，本项保留。".into());
         }
@@ -112,6 +130,17 @@ impl Binding {
         {
             return Err("附件目录或祖先身份已变化，本项保留。".into());
         }
+        if self.source == Source::VlcPlaylist {
+            let witness = self
+                .playlist
+                .as_ref()
+                .ok_or("播放列表来源缺失，本项保留。")?;
+            let path = &witness.nodes.last().ok_or("播放列表路径缺失。")?.path;
+            let manifest = AnchoredPath::open(path)?;
+            if manifest.witness != *witness || !manifest.local_materialized() {
+                return Err("播放列表已变化，请重新扫描；本项保留。".into());
+            }
+        }
         Ok(())
     }
 }
@@ -123,6 +152,16 @@ pub(crate) struct Info {
     pub minimum_directory_bytes: u64,
     pub minimum_size_met: bool,
     pub execution_supported: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub playlist_path: Option<String>,
+}
+pub(super) fn collect_playlist(
+    home: &Path,
+    manifest: &Path,
+    rules: &[String],
+    job: Arc<Job>,
+) -> Result<Scan, String> {
+    playlist::collect(home, manifest, rules, job)
 }
 pub(super) fn collect(
     home: &Path,
@@ -133,6 +172,9 @@ pub(super) fn collect(
     if source == Source::ChromeDownloads {
         return chromium::collect(home, source, rules, job);
     }
+    if source == Source::VlcPlaylist {
+        return Err("请先选择 VLC 导出的 M3U8 播放列表。".into());
+    }
     let path = source.path(home);
     let held = AnchoredPath::open(&path)
         .map_err(|_| "附件目录不存在或无法访问；未检查的范围保持未知，不会请求提升权限。")?;
@@ -142,6 +184,7 @@ pub(super) fn collect(
         directory: held.witness,
         allocated_at_scan: 0,
         history: None,
+        playlist: None,
     };
     let mut scan = super::scan::collect_scoped(&path, rules, job, Some(binding))?;
     let enough = scan.allocated_bytes >= MINIMUM;
@@ -157,13 +200,14 @@ pub(super) fn collect(
         minimum_directory_bytes: MINIMUM,
         minimum_size_met: enough,
         execution_supported: source == Source::MailDownloads,
+        playlist_path: None,
     });
     Ok(scan)
 }
 // Same fixed process predicate as pinned Mole _mail_process_state. Never parses
 // pgrep prose, runs a shell, sends signals to Mail or treats probe errors as idle.
 pub(super) fn execution_gate(source: Source, job: &Job) -> Result<(), String> {
-    if source == Source::ChromeDownloads {
+    if source.recorded_files() {
         return Ok(());
     }
     let mut command = Command::new("/usr/bin/pgrep");

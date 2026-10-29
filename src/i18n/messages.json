@@ -6998,5 +6998,26 @@
     "Chrome 已完成下载（默认配置）",
     "Chrome completed downloads (default profile)",
     "Chrome の完了済みダウンロード（既定プロファイル）"
+  ],
+  ["扫描离线影音", "Scan offline media", "オフラインメディアをスキャン"],
+  ["附件、下载与离线", "Attachments, downloads & offline media", "添付・ダウンロード・オフライン"],
+  ["播放列表来源", "Source playlist", "元のプレイリスト"],
+  ["选择播放列表", "Choose playlist", "プレイリストを選択"],
+  ["确认处理离线影音文件", "Confirm offline media cleanup", "オフラインメディアの処理を確認"],
+  ["离线影音文件范围", "Offline media scope", "オフラインメディアの範囲"],
+  [
+    "选择 VLC 导出的 M3U8 播放列表，找出其中的本地影音文件，默认不选。文件可能是唯一原件，无法保证可重新下载；移走后原播放列表可能无法继续播放。仅处理你选择的普通文件，播放列表及播放器数据库保持原样；流媒体、未列入的文件与未支持的格式保留。本轮可审阅路径、大小和时间，尚不提供影音播放预览。",
+    "Choose an M3U8 playlist exported by VLC to locate local media. Nothing is selected by default. Files may be unique originals and may not be downloadable again; moving them may break playback from the playlist. Only selected regular files are processed. The playlist and player databases stay intact; streams, unlisted files and unsupported formats are kept. Review paths, sizes and dates; audio/video playback preview is not available yet.",
+    "VLC から書き出した M3U8 を選び、ローカルの音声・動画ファイルを確認します。初期選択はありません。唯一の原本で再ダウンロードできない可能性があり、移動後は元のプレイリストで再生できなくなることがあります。選択した通常ファイルのみを処理し、プレイリストとプレーヤーのデータベースは変更しません。ストリーム、一覧にないファイル、未対応形式は保持します。パス・サイズ・日時を確認できますが、音声・動画の再生プレビューは未対応です。"
+  ],
+  [
+    "选择 VLC 导出的 M3U8 播放列表",
+    "Choose an M3U8 playlist exported by VLC",
+    "VLC から書き出した M3U8 を選択"
+  ],
+  [
+    "VLC 播放列表中的本地影音",
+    "Local media from a VLC playlist",
+    "VLC プレイリスト内のローカルメディア"
   ]
 ]

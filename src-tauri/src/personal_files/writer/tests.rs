@@ -1,6 +1,129 @@
 use super::*;
 
 #[tokio::test]
+#[ignore = "real playlist media, Mole rules and native Trash on self-created media/manifest only"]
+async fn real_playlist_media_trash_preserves_manifest_and_unlisted_files() {
+    use crate::engine::TaskKind;
+    let temp = tempfile::Builder::new()
+        .prefix("MooMole-playlist-native-")
+        .tempdir()
+        .unwrap();
+    let home = temp.path().canonicalize().unwrap();
+    let folder = home.join("Movies");
+    std::fs::create_dir(&folder).unwrap();
+    let chosen = folder.join("chosen.wav");
+    let keep = folder.join("unlisted.wav");
+    let mut audio = Vec::from(&b"RIFF"[..]);
+    audio.extend(40u32.to_le_bytes());
+    audio.extend(b"WAVEfmt ");
+    audio.extend(16u32.to_le_bytes());
+    audio.extend(1u16.to_le_bytes()); // PCM
+    audio.extend(1u16.to_le_bytes()); // mono
+    audio.extend(8000u32.to_le_bytes());
+    audio.extend(16000u32.to_le_bytes());
+    audio.extend(2u16.to_le_bytes());
+    audio.extend(16u16.to_le_bytes());
+    audio.extend(b"data");
+    audio.extend(4u32.to_le_bytes());
+    audio.extend([0u8; 4]);
+    std::fs::write(&chosen, &audio).unwrap();
+    std::fs::write(&keep, "unlisted keep").unwrap();
+    let manifest = folder.join("offline.m3u8");
+    let original = "#EXTM3U\nchosen.wav\n";
+    std::fs::write(&manifest, original).unwrap();
+    let scan = software_content::collect_playlist(
+        &home,
+        &manifest,
+        &[],
+        Arc::new(Job::new(TaskKind::PersonalScan)),
+    )
+    .unwrap();
+    assert_eq!(scan.items.len(), 1);
+    let ids = vec![scan.items[0].id.clone()];
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let offer = store.offer(&ids, db::now()).unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(
+        &database,
+        &db::Settings {
+            acknowledged: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let rule_home = home.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalTrash)),
+        move |requested, job| {
+            let root = engine.clone();
+            let home = rule_home.clone();
+            async move { rules::run(&root, &home, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    for item in &result.items {
+        if let Some(r) = &item.receipt {
+            let m = std::fs::symlink_metadata(&r.destination).unwrap();
+            assert_eq!((m.dev(), m.ino()), (r.device, r.inode));
+            assert!(!Path::new(&item.path).exists());
+            objc2::rc::autoreleasepool(|_| {
+                use objc2_foundation::{NSFileManager, NSString, NSURL};
+                NSFileManager::defaultManager()
+                    .moveItemAtURL_toURL_error(
+                        &NSURL::fileURLWithPath(&NSString::from_str(&r.destination)),
+                        &NSURL::fileURLWithPath(&NSString::from_str(&item.path)),
+                    )
+                    .unwrap();
+            });
+        }
+    }
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert_eq!(result.origin, software_content::MODULE);
+    assert_eq!(std::fs::read_to_string(&manifest).unwrap(), original);
+    assert_eq!(std::fs::read(&chosen).unwrap(), audio);
+    assert_eq!(std::fs::read_to_string(&keep).unwrap(), "unlisted keep");
+    let expected = serde_json::to_value(&result).unwrap();
+    let mut database = database.lock().unwrap();
+    let preview = crate::execution_archive::prepare(&mut database).unwrap();
+    let directory = home.join("archives");
+    let header = crate::execution_archive::archive(
+        &mut database,
+        &directory,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &directory,
+            &header.id,
+            crate::execution_archive::Kind::Cleanup,
+            &result.summary.id
+        )
+        .unwrap(),
+        expected
+    );
+    std::fs::create_dir_all("../.cache").unwrap();
+    std::fs::write("../.cache/playlist-media-native.json",serde_json::to_vec_pretty(&serde_json::json!({"result":expected,"playlistPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})).unwrap()).unwrap();
+}
+
+#[tokio::test]
 #[ignore = "real browser download snapshot, Mole rules and native Trash on self-created files/database only"]
 async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
     use crate::engine::TaskKind;

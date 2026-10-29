@@ -258,7 +258,11 @@ export default function App() {
   const [softwareTab, setSoftwareTab] = useState<'cache' | 'attachments'>('cache')
   const [softwareSource, setSoftwareSource] =
     useState<SoftwareContentSource>('mailSandboxDownloads')
-  const contentTransport = useMemo(() => softwareContentTransport(softwareSource), [softwareSource])
+  const [mediaPlaylist, setMediaPlaylist] = useState('')
+  const contentTransport = useMemo(
+    () => softwareContentTransport(softwareSource, mediaPlaylist),
+    [softwareSource, mediaPlaylist],
+  )
   const softwareFiles = usePersonalFiles(
     page === 'softwareCleanup' && softwareTab === 'attachments',
     data?.home ?? '',
@@ -1198,10 +1202,18 @@ export default function App() {
                   ) : (
                     <button
                       className="button primary compact"
-                      disabled={!canRun || executionActive}
+                      disabled={
+                        !canRun ||
+                        executionActive ||
+                        (softwareSource === 'vlcPlaylist' && !mediaPlaylist)
+                      }
                       onClick={() => void softwareFiles.start()}
                     >
-                      {softwareSource === 'chromeDownloads' ? '扫描下载记录' : '扫描附件副本'}
+                      {softwareSource === 'vlcPlaylist'
+                        ? '扫描离线影音'
+                        : softwareSource === 'chromeDownloads'
+                          ? '扫描下载记录'
+                          : '扫描附件副本'}
                     </button>
                   ))}
                 {(page === 'quickCleanup' ||
@@ -1747,7 +1759,7 @@ export default function App() {
                 disabled={quickScanning || softwareFiles.running}
                 onClick={() => setSoftwareTab('attachments')}
               >
-                附件与下载
+                附件、下载与离线
               </button>
             </div>
           )}
@@ -1756,7 +1768,7 @@ export default function App() {
               <label className="software-source">
                 软件内容来源
                 <select
-                  aria-label="软件附件来源"
+                  aria-label="软件内容来源"
                   value={softwareSource}
                   disabled={softwareFiles.running}
                   onChange={(e) => setSoftwareSource(e.target.value as SoftwareContentSource)}
@@ -1768,9 +1780,41 @@ export default function App() {
                   ))}
                 </select>
               </label>
+              {softwareSource === 'vlcPlaylist' && (
+                <div className="personal-scope">
+                  <label className="personal-path">
+                    <span>播放列表来源</span>
+                    <input aria-label="播放列表来源" value={mediaPlaylist} readOnly />
+                  </label>
+                  <button
+                    className="button secondary compact"
+                    disabled={!api.desktop || softwareFiles.running}
+                    onClick={async () => {
+                      try {
+                        const path = await api.chooseMediaPlaylist()
+                        if (path) setMediaPlaylist(path)
+                      } catch (reason) {
+                        setError(String(reason))
+                      }
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    选择播放列表
+                  </button>
+                </div>
+              )}
               <PersonalFiles
+                key={softwareSource}
                 controller={softwareFiles}
-                mode={softwareSource === 'chromeDownloads' ? 'downloads' : 'software'}
+                mode={
+                  softwareSource === 'vlcPlaylist'
+                    ? 'offline'
+                    : softwareSource === 'chromeDownloads'
+                      ? 'downloads'
+                      : 'software'
+                }
+                softwareSource={softwareSource}
+                playlistPath={mediaPlaylist}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}

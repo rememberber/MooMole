@@ -121,7 +121,14 @@ fn start_with_source(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _ownership = (operation, slot);
-        let collected = if let Some(source) = source {
+        let collected = if source == Some(software_content::Source::VlcPlaylist) {
+            software_content::collect_playlist(
+                &state.home,
+                &PathBuf::from(root),
+                &settings.protected_paths,
+                job.clone(),
+            )
+        } else if let Some(source) = source {
             software_content::collect(&state.home, source, &settings.protected_paths, job.clone())
         } else {
             scan::collect(&PathBuf::from(root), &settings.protected_paths, job.clone())
@@ -418,9 +425,19 @@ pub(crate) fn get_software_content(
 pub(crate) fn start_software_content(
     source: software_content::Source,
     request_id: String,
+    playlist_path: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let root = source.path(&state.home).to_string_lossy().into_owned();
+    let root = if source == software_content::Source::VlcPlaylist {
+        playlist_path
+            .filter(|s| !s.is_empty() && s.len() <= 4096)
+            .ok_or("请先选择 VLC 导出的 M3U8 播放列表。")?
+    } else {
+        if playlist_path.is_some() {
+            return Err("此固定来源不接受播放列表路径。".into());
+        }
+        source.path(&state.home).to_string_lossy().into_owned()
+    };
     start_with_source(
         root,
         request_id,

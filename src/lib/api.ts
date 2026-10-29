@@ -262,6 +262,17 @@ export const chooseDirectory = async (title = '选择要检查的文件夹'): Pr
   return typeof selected === 'string' ? selected : null
 }
 
+export const chooseMediaPlaylist = async (): Promise<string | null> => {
+  if (!desktop) return null
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title: translate('选择 VLC 导出的 M3U8 播放列表'),
+    filters: [{ name: 'M3U8', extensions: ['m3u8'] }],
+  })
+  return typeof selected === 'string' ? selected : null
+}
+
 export async function runTask<K extends TaskKind>(
   kind: K,
   path: string | undefined,

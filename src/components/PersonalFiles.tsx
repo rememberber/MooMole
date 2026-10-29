@@ -22,17 +22,21 @@ export function PersonalFiles({
   enabled,
   onHistory,
   mode = 'personal',
+  softwareSource,
+  playlistPath,
 }: {
   controller: PersonalController
   home: string
   protectedPaths: string[]
   enabled: boolean
   onHistory: () => void
-  mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads'
+  mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads' | 'offline'
+  softwareSource?: string
+  playlistPath?: string
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const language = useLanguage()
-  const software = mode === 'software' || mode === 'downloads'
+  const software = mode === 'software' || mode === 'downloads' || mode === 'offline'
   const [query, setQuery] = useState(''),
     [kind, setKind] = useState<FileKind>('all')
   const [minimum, setMinimum] = useState(0),
@@ -54,6 +58,9 @@ export function PersonalFiles({
   const fresh =
     !!report &&
     c.root.trim().replace(/\/+$/, '') === report.root &&
+    (!softwareSource || report.softwareContent?.source === softwareSource) &&
+    (mode !== 'offline' ||
+      (!!playlistPath && report.softwareContent?.playlistPath === playlistPath)) &&
     now >= report.createdAt &&
     now < report.expiresAt
   const blocked = (path: string) => protectedPaths.some((rule) => pathOverlaps(path, rule))
@@ -79,21 +86,23 @@ export function PersonalFiles({
         .flatMap((g) => g.itemIds.map((id) => report!.items.find((i) => i.id === id)!))
     : items
   const title =
-    mode === 'downloads'
-      ? '确认处理浏览器下载'
-      : mode === 'software'
-        ? '确认处理软件附件副本'
-        : mode === 'similar'
-          ? '确认处理相似照片'
-          : mode === 'duplicates'
-            ? '确认处理重复文件'
-            : '确认处理个人文件'
+    mode === 'offline'
+      ? '确认处理离线影音文件'
+      : mode === 'downloads'
+        ? '确认处理浏览器下载'
+        : mode === 'software'
+          ? '确认处理软件附件副本'
+          : mode === 'similar'
+            ? '确认处理相似照片'
+            : mode === 'duplicates'
+              ? '确认处理重复文件'
+              : '确认处理个人文件'
   useEffect(() => {
     setSelected([])
     setLimit(100)
     setPreview(null)
   }, [report?.id])
-  useEffect(() => setSelected([]), [c.root])
+  useEffect(() => setSelected([]), [c.root, softwareSource, playlistPath])
   useEffect(() => {
     setLimit(100)
   }, [query, kind, minimum, older, sort])
@@ -140,15 +149,17 @@ export function PersonalFiles({
           <span>整理目录</span>
           <input
             aria-label={
-              mode === 'downloads'
-                ? '下载文件范围'
-                : mode === 'software'
-                  ? '软件附件目录'
-                  : mode === 'similar'
-                    ? '相似照片目录'
-                    : mode === 'duplicates'
-                      ? '重复文件目录'
-                      : '个人文件目录'
+              mode === 'offline'
+                ? '离线影音文件范围'
+                : mode === 'downloads'
+                  ? '下载文件范围'
+                  : mode === 'software'
+                    ? '软件附件目录'
+                    : mode === 'similar'
+                      ? '相似照片目录'
+                      : mode === 'duplicates'
+                        ? '重复文件目录'
+                        : '个人文件目录'
             }
             value={c.root}
             disabled={c.running}
@@ -182,15 +193,17 @@ export function PersonalFiles({
         )}
       </form>
       <p className="muted">
-        {mode === 'downloads'
-          ? '仅根据浏览器默认配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。'
-          : mode === 'software'
-            ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
-            : mode === 'similar'
-              ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
-              : mode === 'duplicates'
-                ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
-                : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
+        {mode === 'offline'
+          ? '选择 VLC 导出的 M3U8 播放列表，找出其中的本地影音文件，默认不选。文件可能是唯一原件，无法保证可重新下载；移走后原播放列表可能无法继续播放。仅处理你选择的普通文件，播放列表及播放器数据库保持原样；流媒体、未列入的文件与未支持的格式保留。本轮可审阅路径、大小和时间，尚不提供影音播放预览。'
+          : mode === 'downloads'
+            ? '仅根据浏览器默认配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。'
+            : mode === 'software'
+              ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
+              : mode === 'similar'
+                ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
+                : mode === 'duplicates'
+                  ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
+                  : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
       {mode === 'similar' && (
         <details>

@@ -34,11 +34,12 @@ export interface PersonalReport {
     bytesRead: number
   }
   softwareContent?: {
-    source: 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads'
+    source: 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads' | 'vlcPlaylist'
     minimumAgeDays: number
     minimumDirectoryBytes: number
     minimumSizeMet: boolean
     executionSupported: boolean
+    playlistPath?: string
   }
 }
 export interface PersonalSnapshot {
@@ -196,23 +197,31 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       if (
         r.duplicates !== undefined ||
         r.similarPhotos !== undefined ||
-        !['mailDownloads', 'mailSandboxDownloads', 'chromeDownloads'].includes(
+        !['mailDownloads', 'mailSandboxDownloads', 'chromeDownloads', 'vlcPlaylist'].includes(
           s.source as string,
         ) ||
-        s.minimumAgeDays !== (s.source === 'chromeDownloads' ? 0 : 31) ||
-        s.minimumDirectoryBytes !== (s.source === 'chromeDownloads' ? 0 : 5242880) ||
+        s.minimumAgeDays !==
+          (['chromeDownloads', 'vlcPlaylist'].includes(s.source as string) ? 0 : 31) ||
+        s.minimumDirectoryBytes !==
+          (['chromeDownloads', 'vlcPlaylist'].includes(s.source as string) ? 0 : 5242880) ||
         typeof s.minimumSizeMet !== 'boolean' ||
         typeof s.executionSupported !== 'boolean' ||
         s.executionSupported !== (s.source !== 'mailSandboxDownloads') ||
-        (!s.minimumSizeMet && report.items.length)
+        (!s.minimumSizeMet && report.items.length) ||
+        (s.source === 'vlcPlaylist'
+          ? !path(s.playlistPath).startsWith(`${root}/`) ||
+            !/\.m3u8$/i.test(s.playlistPath as string)
+          : s.playlistPath !== undefined)
       )
         fail()
       report.softwareContent = {
-        source: s.source as 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads',
+        source: s.source as
+          'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads' | 'vlcPlaylist',
         minimumAgeDays: s.minimumAgeDays as number,
         minimumDirectoryBytes: s.minimumDirectoryBytes as number,
         minimumSizeMet: s.minimumSizeMet as boolean,
         executionSupported: s.executionSupported as boolean,
+        ...(s.source === 'vlcPlaylist' ? { playlistPath: path(s.playlistPath) } : {}),
       }
     }
     if (r.similarPhotos !== undefined) {

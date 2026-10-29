@@ -37,6 +37,36 @@ function report(): PersonalReport {
   }
 }
 describe('personal file boundaries', () => {
+  it('offline media reports require a playlist in the reported account scope and cannot relabel another source', () => {
+    const source = report()
+    source.softwareContent = {
+      source: 'vlcPlaylist',
+      minimumAgeDays: 0,
+      minimumDirectoryBytes: 0,
+      minimumSizeMet: true,
+      executionSupported: true,
+      playlistPath: `${source.root}/offline.m3u8`,
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.softwareContent?.playlistPath).toBe(
+      `${source.root}/offline.m3u8`,
+    )
+    for (const mutate of [
+      (s: any) => {
+        delete s.report.softwareContent.playlistPath
+      },
+      (s: any) => {
+        s.report.softwareContent.playlistPath = '/Users/other/collection.m3u8'
+      },
+      (s: any) => {
+        s.report.softwareContent.source = 'chromeDownloads'
+      },
+    ]) {
+      const changed = structuredClone(snapshot)
+      mutate(changed)
+      expect(() => readPersonalSnapshot(changed)).toThrow()
+    }
+  })
   it('similar groups allow different content sizes but bind thumbnails and the retained original', () => {
     const source = report()
     source.items = source.items.map((i, index) => ({
