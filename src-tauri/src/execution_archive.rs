@@ -23,7 +23,7 @@ use std::{
 const MAX_BODY: usize = 128 * 1024 * 1024;
 const MAX_ROWS: usize = 32768;
 const MAX_HEADER: usize = 2048;
-const TABLES: [&str; 11] = [
+const TABLES: [&str; 12] = [
     "execution_runs",
     "execution_items",
     "execution_events",
@@ -35,8 +35,9 @@ const TABLES: [&str; 11] = [
     "maintenance_steps",
     "maintenance_events",
     "maintenance_reviews",
+    crate::cleanup_space::TABLE,
 ];
-const WIDTHS: [usize; 11] = [9, 7, 7, 3, 12, 6, 3, 9, 8, 8, 3];
+const WIDTHS: [usize; 12] = [9, 7, 7, 3, 12, 6, 3, 9, 8, 8, 3, 3];
 const ROOTS: [&str; 3] = ["execution_runs", "uninstall_runs", "maintenance_runs"];
 type Tables = Vec<Vec<Vec<Value>>>;
 fn err(e: impl std::fmt::Display) -> String {
@@ -109,6 +110,7 @@ pub(crate) struct Listing {
     pub unreadable: usize,
 }
 struct Evidence {
+    version: u32,
     body: Vec<u8>,
     entries: Vec<Entry>,
     counts: Counts,
@@ -129,6 +131,7 @@ fn memory() -> Result<Connection, String> {
         maintenance::SCHEMA,
         maintenance::REVIEW_SCHEMA,
         crate::execution_review::SCHEMA,
+        crate::cleanup_space::SCHEMA,
     ] {
         db.execute_batch(schema).map_err(err)?;
     }
@@ -220,6 +223,9 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     let mut rows = 0;
     let mut bytes = 0;
     for (table, width) in TABLES.iter().zip(WIDTHS) {
+        if *table == crate::cleanup_space::TABLE && !crate::cleanup_space::has_rows(db)? {
+            continue;
+        }
         let mut q = db
             .prepare(&format!(
                 "SELECT * FROM {table} ORDER BY rowid LIMIT {}",
@@ -265,6 +271,7 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
         return Err("归档读回不一致。".into());
     }
     Ok(Evidence {
+        version: if tables.len() == 11 { 1 } else { 2 },
         body,
         entries: saved_entries,
         counts,
@@ -272,7 +279,7 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     })
 }
 fn rebuild(tables: &Tables) -> Result<Connection, String> {
-    if tables.len() != TABLES.len() || tables.iter().map(Vec::len).sum::<usize>() > MAX_ROWS {
+    if ![11, 12].contains(&tables.len()) || tables.iter().map(Vec::len).sum::<usize>() > MAX_ROWS {
         return Err("归档表集合或数量无效。".into());
     }
     let mut db = memory()?;
@@ -383,7 +390,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
     let h: Header = serde_json::from_slice(&bytes).map_err(err)?;
     valid_id(&h.id)?;
     if h.format != "MooMole execution evidence"
-        || h.version != 1
+        || ![1, 2].contains(&h.version)
         || h.created_at < 0
         || h.counts.total() == 0
         || h.counts.total() > 64
@@ -436,6 +443,9 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
         return Err("读取期间归档已变化。".into());
     }
     let tables: Tables = serde_json::from_slice(&bytes).map_err(err)?;
+    if tables.len() != if h.version == 1 { 11 } else { 12 } {
+        return Err("归档版本与表集合不一致。".into());
+    }
     let database = rebuild(&tables)?;
     let (entries, counts, _) = entries(&database)?;
     if counts != h.counts {
@@ -553,7 +563,7 @@ fn archive_with(
     }
     let h = Header {
         format: "MooMole execution evidence".into(),
-        version: 1,
+        version: d.version,
         id: uuid::Uuid::new_v4().to_string(),
         created_at: at,
         counts: d.counts,

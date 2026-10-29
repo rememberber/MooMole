@@ -6192,5 +6192,54 @@
   ["音乐", "Music", "ミュージック"],
   ["系统帮助", "System help", "システムヘルプ"],
   ["系统图标", "System icons", "システムアイコン"],
-  ["文件预览", "File previews", "ファイルプレビュー"]
+  ["文件预览", "File previews", "ファイルプレビュー"],
+  ["清理容量结果", "Cleanup size results", "クリーンアップ容量の結果"],
+  ["本批所选大小", "Selected size for this run", "今回選択したサイズ"],
+  ["+ {0} 项大小未知", "+ {0} items with unknown size", "+ サイズ不明 {0} 項目"],
+  ["磁盘可用空间变化", "Change in available disk space", "ディスク空き容量の変化"],
+  ["未取得可比较的观察", "Comparable observations unavailable", "比較可能な観測なし"],
+  ["增加 {0}", "Increased by {0}", "{0} 増加"],
+  ["减少 {0}", "Decreased by {0}", "{0} 減少"],
+  ["未观察到变化", "No change observed", "変化は観測されませんでした"],
+  [
+    "项目大小沿用扫描时的估算。移入废纸篓不会立即释放空间；磁盘变化也可能来自其他程序、系统缓存或快照，不能归因于本次清理。",
+    "Item sizes use the scan estimates. Moving to Trash does not immediately free space. Disk changes may also come from other apps, system caches or snapshots and cannot be attributed to this cleanup.",
+    "項目サイズはスキャン時の推定値です。ゴミ箱へ移動しても直ちに空き容量は増えません。他のアプリ、システムキャッシュやスナップショットも容量に影響するため、今回の処理による変化とは断定できません。"
+  ],
+  [
+    "前后观察的卷或容量已变化，未计算差值。",
+    "The volume or its capacity changed between observations; no difference was calculated.",
+    "観測の間にボリュームまたは容量が変化したため、差分を計算していません。"
+  ],
+  [
+    "观察时间无法与本批处理核对，未计算差值。",
+    "Observation times could not be matched to this run; no difference was calculated.",
+    "観測時刻を今回の処理と照合できないため、差分を計算していません。"
+  ],
+  ["空间观察详情", "Space observation details", "容量観測の詳細"],
+  ["处理前可用 {0} · {1}", "Available before: {0} · {1}", "処理前の空き容量 {0} · {1}"],
+  ["处理后可用 {0} · {1}", "Available after: {0} · {1}", "処理後の空き容量 {0} · {1}"],
+  ["处理前可用", "Available before", "処理前の空き容量"],
+  ["处理后可用", "Available after", "処理後の空き容量"],
+  [
+    "观察当前用户主目录所在本地卷的文件系统可用块；不包含系统估算的可清除空间，也不等同于单个文件实际占用。",
+    "Observes filesystem blocks available on the local volume containing the current user’s home directory. Excludes estimated purgeable space and does not measure each file’s physical allocation.",
+    "現在のユーザーのホームディレクトリがあるローカルボリュームで、ファイルシステムの利用可能ブロックを観測します。システム推定の消去可能領域は含まず、個別ファイルの実使用量でもありません。"
+  ],
+  [
+    "处理前可用 {0}（{1} 字节） · {2}",
+    "Available before: {0} ({1} bytes) · {2}",
+    "処理前の空き容量 {0}（{1} バイト） · {2}"
+  ],
+  [
+    "处理后可用 {0}（{1} 字节） · {2}",
+    "Available after: {0} ({1} bytes) · {2}",
+    "処理後の空き容量 {0}（{1} バイト） · {2}"
+  ],
+  [
+    "当前没有应用内恢复。可按下方实际收据在 Finder 中核对取回；完整记录已保存在历史中，再次处理需重新扫描并生成计划。",
+    "In-app restore is not available yet. Use the actual receipts below to verify and recover items in Finder. Full records are saved in history; scan again and create a new plan for any further cleanup.",
+    "App 内復元にはまだ対応していません。以下の実際のレシートをもとに Finder で確認して取り戻せます。全記録は履歴に保存されています。再処理には再スキャンと新しい計画が必要です。"
+  ],
+  ["字节） ·", "bytes) ·", "バイト） ·"]
 ]

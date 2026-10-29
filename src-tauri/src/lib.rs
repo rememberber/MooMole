@@ -12,6 +12,7 @@ mod app_shared_rules;
 mod app_uninstall_rules;
 mod clean_preview;
 mod cleanup_preparation;
+mod cleanup_space;
 // Native cleanup requires a sealed cache/log confirmation and fresh per-item checks.
 mod cleanup_target;
 mod db;

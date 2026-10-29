@@ -94,6 +94,17 @@ impl Fixture {
             review::create(&scan, &[scan.items[0].candidate.id.clone()], &[], self.at).unwrap();
         let item = &plan.items[0].candidate.id;
         let run = execution::begin(&mut self.db, &plan, self.at).unwrap();
+        crate::cleanup_space::begin(
+            &self.db,
+            &run,
+            Some(&crate::cleanup_space::Sample {
+                measured_at: self.at,
+                volume_id: "1:aabb".into(),
+                total_bytes: 1000,
+                available_bytes: 100,
+            }),
+        )
+        .unwrap();
         execution::intent(&mut self.db, &run, item, self.at + 1).unwrap();
         let destination = self.root.path().join("owned-recovery.log");
         fs::rename(path, &destination).unwrap();
@@ -111,6 +122,17 @@ impl Fixture {
         )
         .unwrap();
         execution::finish(&mut self.db, &run, false, self.at + 3).unwrap();
+        crate::cleanup_space::finish(
+            &self.db,
+            &run,
+            Some(&crate::cleanup_space::Sample {
+                measured_at: self.at + 4,
+                volume_id: "1:aabb".into(),
+                total_bytes: 1000,
+                available_bytes: 100,
+            }),
+        )
+        .unwrap();
         run
     }
     fn uninstall(&mut self, unknown: bool) -> String {
@@ -177,6 +199,7 @@ fn full_capacity_archive_preserves_all_three_modules_and_releases_admission_with
     }
     let before = collect(&f.db).unwrap();
     assert_eq!(before.counts.total(), 64);
+    assert_eq!(before.version, 2);
     let originals = vec![
         (
             Kind::Cleanup,
@@ -200,6 +223,7 @@ fn full_capacity_archive_preserves_all_three_modules_and_releases_admission_with
     let preview = prepare(&mut f.db).unwrap();
     let root = f.archives();
     let h = archive(&mut f.db, &root, &preview.fingerprint, f.at + 100).unwrap();
+    assert_eq!(h.version, 2);
     for table in TABLES {
         assert_eq!(
             f.db.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r
@@ -229,6 +253,44 @@ fn full_capacity_archive_preserves_all_three_modules_and_releases_admission_with
     let reopened = db::open_fixture(&f.root.path().join("live.sqlite")).unwrap();
     assert!(execution::list(&reopened).unwrap().is_empty());
     assert_eq!(view(&root, &h.id).unwrap().entries.len(), 64);
+}
+
+#[test]
+fn legacy_archives_stay_byte_identical_and_version_must_match_the_payload() {
+    let mut f = Fixture::new();
+    let run = f.maintenance(false);
+    let preview = prepare(&mut f.db).unwrap();
+    let root = f.archives();
+    let header = archive(&mut f.db, &root, &preview.fingerprint, f.at + 10).unwrap();
+    assert_eq!(header.version, 1);
+    let path = filename(&root, &header.id).unwrap();
+    let original = fs::read(&path).unwrap();
+    let export_path = f.root.path().join("legacy.moomole-history");
+    export(&root, &header.id, &export_path).unwrap();
+    let imported = f.root.path().join("imported");
+    import(&imported, &export_path).unwrap();
+    assert_eq!(
+        fs::read(filename(&imported, &header.id).unwrap()).unwrap(),
+        original
+    );
+    assert_eq!(
+        detail(&imported, &header.id, Kind::Maintenance, &run).unwrap()["state"],
+        "completed"
+    );
+    let split = original.iter().position(|byte| *byte == b'\n').unwrap();
+    let mut wrong_header = header.clone();
+    wrong_header.version = 2;
+    let mut changed = serde_json::to_vec(&wrong_header).unwrap();
+    changed.push(b'\n');
+    changed.extend_from_slice(&original[split + 1..]);
+    fs::write(&export_path, changed).unwrap();
+    assert!(import(&imported, &export_path)
+        .unwrap_err()
+        .contains("表集合"));
+    assert_eq!(
+        fs::read(filename(&imported, &header.id).unwrap()).unwrap(),
+        original
+    );
 }
 #[test]
 fn unknown_running_changed_and_unsafe_storage_preserve_live_evidence() {

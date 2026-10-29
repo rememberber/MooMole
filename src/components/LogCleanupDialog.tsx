@@ -6,6 +6,7 @@ import { useNow } from '../lib/use-now'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
 import { ExecutionReason } from './ExecutionReason'
 import { DustCloud } from './TaskMotion'
+import { CleanupResultSummary } from './CleanupResultSummary'
 
 const states: Record<string, string> = {
   moved: '已移入废纸篓',
@@ -100,13 +101,15 @@ export function LogCleanupDialog({
           <p role="status">
             已移入 {result.movedCount} 项 · 其余 {result.itemCount - result.movedCount} 项未确认移入
           </p>
+          <CleanupResultSummary detail={result} />
           {(result.uncertainCount > 0 || result.state === 'interrupted') && (
             <p className="notice warning">
               本批结果需要核实，已停止后续处理。请查看历史中的实际收据，不要重复执行。
             </p>
           )}
           <p className="muted">
-            移入废纸篓不等于释放空间；当前没有应用内恢复。完整记录已保存在历史中，再次处理需重新扫描并生成计划。
+            当前没有应用内恢复。可按下方实际收据在 Finder
+            中核对取回；完整记录已保存在历史中，再次处理需重新扫描并生成计划。
           </p>
           <div className="plan-items">
             {result.items.map((item) => (

@@ -89,6 +89,7 @@ pub struct Item {
     pub state: String,
     pub reason: String,
     pub receipt: Option<Receipt>,
+    pub scan_size_bytes: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -111,6 +112,7 @@ pub struct Detail {
     pub snapshot_sha256: String,
     pub items: Vec<Item>,
     pub events: Vec<Event>,
+    pub space_observation: Option<crate::cleanup_space::Report>,
 }
 
 fn sql(error: rusqlite::Error) -> String {
@@ -511,7 +513,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         return Err("执行计划快照损坏，保留原始记录供核查。".into());
     }
     let plan: Plan = serde_json::from_str(&body).map_err(|_| "执行计划快照无法读取。")?;
-    let items = {
+    let mut items = {
         let mut s = db.prepare("SELECT item_id,path,state,reason,receipt FROM execution_items WHERE run_id=?1 ORDER BY ordinal").map_err(sql)?;
         let rows = s
             .query_map([id], |r| {
@@ -532,6 +534,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
                 state,
                 reason,
                 receipt: decode_receipt(receipt)?,
+                scan_size_bytes: None,
             })
         })
         .collect::<Result<Vec<_>, String>>()?
@@ -543,6 +546,12 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         })
     {
         return Err("逐项记录与不可变计划不一致，保留原始记录供核查。".into());
+    }
+    for (item, expected) in items.iter_mut().zip(&plan.items) {
+        item.scan_size_bytes = expected
+            .candidate
+            .size
+            .filter(|size| *size <= 9_007_199_254_740_991);
     }
     let events = {
         let mut s = db.prepare("SELECT item_id,state,created_at,reason,receipt FROM execution_events WHERE run_id=?1 ORDER BY seq").map_err(sql)?;
@@ -576,6 +585,8 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         &digest,
         summary.state == "interrupted" && summary.uncertain_count > 0,
     )?;
+    let space_observation =
+        crate::cleanup_space::read(db, id, summary.created_at, summary.finished_at);
     Ok(Detail {
         summary,
         revision: plan.revision,
@@ -583,6 +594,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         snapshot_sha256: digest,
         items,
         events,
+        space_observation,
     })
 }
 fn decode_receipt(body: Option<String>) -> Result<Option<Receipt>, String> {

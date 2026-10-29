@@ -330,6 +330,14 @@ where
     let started = Instant::now();
     let result: Result<(), String> = async {
         job.bind_execution(&run)?;
+        let before = crate::cleanup_space::measure(home.clone()).await;
+        if let Ok(db) = database.lock() {
+            if crate::cleanup_space::begin(&db, &run, before.as_ref()).is_err() {
+                eprintln!(
+                    "Cleanup space observation could not be recorded; item evidence is unchanged."
+                );
+            }
+        }
         #[cfg(test)]
         if let Some(hook) = &checkpoint {
             hook(Phase::Begun, &run, None);
@@ -577,6 +585,12 @@ where
         return Err(format!(
             "{error} 批次 {run} 的实际结果请在历史中核对，不能自动重试。"
         ));
+    }
+    let after = crate::cleanup_space::measure(home).await;
+    if let Ok(db) = database.lock() {
+        if crate::cleanup_space::finish(&db, &run, after.as_ref()).is_err() {
+            eprintln!("Final cleanup space observation unavailable; item evidence is unchanged.");
+        }
     }
     execution::detail(&*database.lock().map_err(|e| e.to_string())?, &run)
 }

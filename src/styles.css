@@ -3861,6 +3861,29 @@ input[type='checkbox'] {
   display: grid;
   gap: 12px;
 }
+.cleanup-result-summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-block: 12px;
+  font-size: 12px;
+}
+.cleanup-result-summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.cleanup-result-summary dt {
+  color: var(--muted);
+}
+.cleanup-result-summary dd {
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+.cleanup-result-summary p {
+  line-height: 1.6;
+}
 .quick-intro {
   margin: 0;
   color: var(--muted);

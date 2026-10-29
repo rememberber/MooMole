@@ -75,7 +75,7 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    v.version !== 1 ||
+    ![1, 2].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )

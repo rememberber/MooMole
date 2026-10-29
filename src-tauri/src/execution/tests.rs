@@ -8,6 +8,55 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 mod controlled;
 mod crash;
 
+#[test]
+fn scan_sizes_and_supplemental_space_survive_restart_without_changing_receipts() {
+    let mut f = Fixture::new();
+    let run = f.begin();
+    let before = crate::cleanup_space::Sample {
+        measured_at: f.at,
+        volume_id: "1:aa".into(),
+        total_bytes: 1000,
+        available_bytes: 400,
+    };
+    crate::cleanup_space::begin(&f.db, &run, Some(&before)).unwrap();
+    f.move_fixture(&run, 0);
+    finish(&mut f.db, &run, true, f.at + 3).unwrap();
+    crate::cleanup_space::finish(
+        &f.db,
+        &run,
+        Some(&crate::cleanup_space::Sample {
+            measured_at: f.at + 4,
+            available_bytes: 400,
+            ..before.clone()
+        }),
+    )
+    .unwrap();
+    let d = detail(&f.db, &run).unwrap();
+    assert_eq!(d.items[0].scan_size_bytes, f.plan.items[0].candidate.size);
+    assert_eq!(d.items[1].state, "cancelled");
+    assert_eq!(d.space_observation.as_ref().unwrap().before, Some(before));
+    let expected = serde_json::to_value(d).unwrap();
+    let path = f.root.join("app.sqlite");
+    drop(f.db);
+    let reopened = db::open_fixture(&path).unwrap();
+    assert_eq!(
+        serde_json::to_value(detail(&reopened, &run).unwrap()).unwrap(),
+        expected
+    );
+    reopened
+        .execute(
+            "UPDATE cleanup_space_observations SET before_sample='invalid supplemental JSON'",
+            [],
+        )
+        .unwrap();
+    let corrupt = detail(&reopened, &run).unwrap();
+    assert_eq!(
+        serde_json::to_value(&corrupt.items).unwrap(),
+        expected["items"]
+    );
+    assert!(corrupt.space_observation.unwrap().before.is_none());
+}
+
 struct Fixture {
     _root: tempfile::TempDir,
     root: std::path::PathBuf,

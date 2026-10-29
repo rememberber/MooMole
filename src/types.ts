@@ -554,6 +554,7 @@ export interface ExecutionReceipt {
   inode: string
 }
 export interface ExecutionDetail extends ExecutionSummary {
+  spaceObservation?: CleanupSpaceObservation | null
   revision: string
   protocol: number
   snapshotSha256: string
@@ -563,6 +564,7 @@ export interface ExecutionDetail extends ExecutionSummary {
     state: string
     reason: string
     receipt: ExecutionReceipt | null
+    scanSizeBytes?: number | null
   }[]
   events: {
     itemId: string
@@ -571,6 +573,18 @@ export interface ExecutionDetail extends ExecutionSummary {
     reason: string
     receipt: ExecutionReceipt | null
   }[]
+}
+
+export interface CleanupSpaceSample {
+  measuredAt: number
+  volumeId: string
+  totalBytes: number
+  availableBytes: number
+}
+export interface CleanupSpaceObservation {
+  version: 1
+  before: CleanupSpaceSample | null
+  after: CleanupSpaceSample | null
 }
 
 export interface ModuleCheck {

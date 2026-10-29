@@ -49,8 +49,10 @@ impl Fixture {
                     device: m.dev(),
                     inode: m.ino(),
                 }),
+                scan_size_bytes: None,
             }],
             events: vec![],
+            space_observation: None,
         };
         Self {
             _root: root,

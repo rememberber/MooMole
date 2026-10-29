@@ -394,8 +394,15 @@ async fn changed_policy_unknown_rules_and_cancellation_never_move_or_replay() {
 #[ignore = "Explicit production native executor on OWN isolated log fixtures with fixture rule runner; restores exact receipts"]
 async fn selected_native_executor_records_results_and_stops_later_items_on_cancel() {
     use objc2_foundation::{NSFileManager, NSString, NSURL};
-    for cancel_after_first in [false, true] {
+    for (cancel_after_first, failed_space_storage) in [(false, false), (true, false), (false, true)]
+    {
         let mut f = Fixture::new();
+        if failed_space_storage {
+            f.db.lock()
+                .unwrap()
+                .execute_batch("CREATE TABLE cleanup_space_observations(unrelated TEXT);")
+                .unwrap();
+        }
         f.root.disable_cleanup(true);
         eprintln!(
             "Production executor fixture root (preserved on failure): {}",
@@ -451,6 +458,22 @@ async fn selected_native_executor_records_results_and_stops_later_items_on_cance
             }
         }
         let detail = result.unwrap();
+        assert_eq!(detail.space_observation.is_none(), failed_space_storage);
+        if let Some(observed) = &detail.space_observation {
+            let before = observed
+                .before
+                .as_ref()
+                .expect("real local before observation");
+            let after = observed
+                .after
+                .as_ref()
+                .expect("real local after observation");
+            assert_eq!(before.volume_id, after.volume_id);
+            assert!(after.measured_at >= before.measured_at);
+        }
+        for (item, source) in detail.items.iter().zip(&f.plan.items) {
+            assert_eq!(item.scan_size_bytes, source.candidate.size);
+        }
         assert_eq!(
             detail.summary.state,
             if cancel_after_first {

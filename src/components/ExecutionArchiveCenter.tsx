@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { bytes, dateTime } from '../lib/format'
 import { refreshReason } from '../lib/quicklook-refresh'
+import type { ExecutionDetail } from '../types'
+import { CleanupResultSummary } from './CleanupResultSummary'
 import {
   archivePreview,
   archiveHeader,
@@ -237,6 +239,9 @@ export function ExecutionArchiveCenter({
             </strong>
             {detail && (
               <>
+                {selected.kind === 'cleanup' && (
+                  <CleanupResultSummary detail={detail as ExecutionDetail} />
+                )}
                 {'path' in detail && <p className="mono full-path">{detail.path}</p>}
                 {detail.reviewedAt !== null && (
                   <p className="notice">已人工核查；原结果保持，核查不证明操作成功或已恢复。</p>

@@ -28,8 +28,9 @@ function fixture() {
 describe('portable evidence boundaries', () => {
   it('accepts only a supported bounded header and scope, never a zero or malformed capacity', () => {
     expect(archiveHeader(header).counts.uninstall).toBe(1)
+    expect(archiveHeader({ ...header, version: 2 }).counts.uninstall).toBe(1)
     for (const patch of [
-      { version: 2 },
+      { version: 3 },
       { payloadBytes: 128 * 1024 * 1024 + 1 },
       { payloadBytes: 0 },
       { counts: { cleanup: 0, uninstall: 0, maintenance: 0 } },

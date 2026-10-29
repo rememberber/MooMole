@@ -9,6 +9,7 @@ import { reviewedResult } from '../lib/execution-review'
 import { watchExecution, preserveExecutionProgress } from '../lib/execution-watcher'
 import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
+import { CleanupResultSummary } from './CleanupResultSummary'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -341,6 +342,7 @@ function ExecutionResults({
           : '取消与中断不会撤销已经完成的项目。移入废纸篓不等于释放磁盘空间。'}{' '}
         这里仅查看记录，收据本身不能授权恢复操作。
       </div>
+      <CleanupResultSummary detail={detail} />
       <details className="execution-metadata">
         <summary>批次与计划信息</summary>
         <dl>
