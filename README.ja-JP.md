@@ -95,6 +95,6 @@ DB schema は v7 です。v1〜v6 からの更新前には自動バックアッ�
 
 ## 出所とライセンス
 
-内蔵 Mole CLI の基準は **1.59.1** / [`ba3a0f57f78e4c22818fda701219cc3dd4d6953f`](https://github.com/tw93/Mole/commit/ba3a0f57f78e4c22818fda701219cc3dd4d6953f) で、上流ソースは未変更です。クライアントの適応層と UI は本リポジトリにあります。ビルド・候補は同一 App に対応するクライアント・Mole・依存配布物・npm ソース入力を提供します。完全な対応ソースと配布ライセンスの審査は未完了です。[ソースバンドル](docs/source-bundle.md)と[依存資料](docs/dependency-materials.md)をご覧ください。
+内蔵 Mole CLI の基準は **1.65.0** / [`308bf9911179ddfa40e5df9fdc42095a18ba5cfc`](https://github.com/tw93/Mole/commit/308bf9911179ddfa40e5df9fdc42095a18ba5cfc) で、上流ソースは未変更です。クライアントの適応層と UI は本リポジトリにあります。ビルド・候補は同一 App に対応するクライアント・Mole・依存配布物・npm ソース入力を提供します。完全な対応ソースと配布ライセンスの審査は未完了です。[ソースバンドル](docs/source-bundle.md)と[依存資料](docs/dependency-materials.md)をご覧ください。
 
 本プロジェクトは [GPL-3.0-only](LICENSE) です。上流ライセンスは [Mole-LICENSE](third-party/Mole-LICENSE)、出所とビルドは[第三者の説明](third-party/NOTICE.md)をご覧ください。Mole の名称・ブランド資産は元プロジェクトに帰属します。本プロジェクトは公式でも公式の推奨を受けたものでもありません。公開名称は上流のブランド方針に基づく確認が必要です。

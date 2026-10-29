@@ -37,7 +37,7 @@ function fixture(t) {
       version: '0.1.0',
       arch: 'arm64',
       engineRevision: 'a'.repeat(40),
-      engineVersion: '1.59.1',
+      engineVersion: '1.65.0',
       noticesSha256: 'c'.repeat(64),
       expectedIds: ['cargo:example@1.0.0', 'npm:example@1.0.0'],
       source: { revision: 'b'.repeat(40), dirty: false },

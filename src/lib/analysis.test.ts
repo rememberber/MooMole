@@ -38,7 +38,7 @@ describe('analysis measurements and map geometry', () => {
       startedAt: 2000,
       finishedAt: 1000,
       elapsedMs: 250,
-      engineVersion: '1.59.1',
+      engineVersion: '1.65.0',
       revision: 'fixture',
     }
     // Duration is independent of wall-clock ordering.

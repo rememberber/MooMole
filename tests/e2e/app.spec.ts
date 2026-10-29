@@ -83,13 +83,13 @@ test('home engine summary shows verified version and handles unavailable engines
   })
   const fixture = page.locator('#engine-test-fixture')
   const engine = fixture.getByRole('region', { name: 'Mole CLI 版本' })
-  await expect(engine).toContainText('v1.59.1')
-  await expect(engine).toContainText('ba3a0f57f78e')
+  await expect(engine).toContainText('v1.65.0')
+  await expect(engine).toContainText('308bf9911179')
   await expect(engine).toContainText('引擎就绪')
   await fixture.getByRole('button', { name: '模拟引擎缺失' }).click()
   await expect(engine).toContainText('版本待确认')
   await expect(engine).toContainText('引擎未就绪')
-  await expect(engine).not.toContainText('v1.59.1')
+  await expect(engine).not.toContainText('v1.65.0')
 })
 
 test('structured preview supports selection, subset totals, filters and diagnostics', async ({

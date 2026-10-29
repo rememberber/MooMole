@@ -1,13 +1,13 @@
 {
-  "version": "1.59.1",
-  "revision": "ba3a0f57f78e4c22818fda701219cc3dd4d6953f",
+  "version": "1.65.0",
+  "revision": "308bf9911179ddfa40e5df9fdc42095a18ba5cfc",
   "sourceHashes": {
     "lib/optimize/catalog.sh": "455254182e6c74f8e2634df807435f3ba5244f2081b462bcf12de74a765b96a9",
-    "lib/optimize/tasks.sh": "40a632ad47d4270776fd250602e2fecccadd9dd10650fb46f8bb37b0d8fc1cf5",
-    "lib/optimize/maintenance.sh": "530d8169304dd3464d210d398b7cb2fadd9382abe1c2bb7af97c40dba8514145",
-    "lib/manage/whitelist.sh": "1fc4c40e14704698217556d7aa059b86a7a99f573fee79324fd661af5df572a8",
-    "lib/core/base.sh": "58627b0717c02c6d27dbd28d33ff038affad9d6e8fec4770905c1bb3f1fda6f3",
-    "lib/core/app_protection.sh": "75cb9db37d26656c01e6c2298d3907c0a7b3b0a2d73fec1494ae522447c37d37"
+    "lib/optimize/tasks.sh": "860619dfd267194f83d722ab4255437ecfb7a0bcffc415aed32845cd14675779",
+    "lib/optimize/maintenance.sh": "2a9420e78f0fe991c85b0b24a333a226424ad931ae6432ca1f6ea0d82cebc8cb",
+    "lib/manage/whitelist.sh": "42bb2f56f9eb24b0bb348a92592430f36dbc7d836572dd1bcf036fbb11657e39",
+    "lib/core/base.sh": "9e89df4b623125bc61fdce48a962ee4a8e63f6d9d72c3635a72d30e28ce31b29",
+    "lib/core/app_protection.sh": "ef2cad3f88f7e94a1c5af991bb11a062b34292b087dc8330ec1ee8ff16a21cc8"
   },
   "items": [
     {

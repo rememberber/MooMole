@@ -63,7 +63,7 @@ function fixture(t) {
     'cmd/status/main.go',
   ])
     file(upstream, name, `fixture ${name}\n`)
-  file(upstream, 'mole', 'VERSION="1.59.1"\n', 0o755)
+  file(upstream, 'mole', 'VERSION="1.65.0"\n', 0o755)
   file(upstream, '.claude/skills/fixture/a.md', 'upstream fixture\n')
   mkdirSync(join(upstream, '.agents/skills'), { recursive: true })
   symlinkSync('../../.claude/skills/fixture', join(upstream, '.agents/skills/fixture'))
@@ -140,7 +140,7 @@ test('exact immutable client/upstream trees preserve modes and internal links, e
   command('tar', ['-xzf', join(f.output, report.mole.file), '-C', unpack])
   assert.equal(
     readlinkSync(
-      join(unpack, `Mole-1.59.1-${f.engine.slice(0, 12)}-source/.agents/skills/fixture`),
+      join(unpack, `Mole-1.65.0-${f.engine.slice(0, 12)}-source/.agents/skills/fixture`),
     ),
     '../../.claude/skills/fixture',
   )
@@ -161,7 +161,7 @@ test('dirty/wrong binary reports cannot bind sources; valid reports bind only se
     source: { revision: f.revision, dirty: false },
     version: '0.1.0',
     engineRevision: f.engine,
-    engineVersion: '1.59.1',
+    engineVersion: '1.65.0',
     architecture: 'arm64',
     archive: {
       file: archiveName,

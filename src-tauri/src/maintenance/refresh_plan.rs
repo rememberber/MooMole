@@ -76,7 +76,7 @@ fn policy(ctx: &Context) -> Result<String, String> {
         );
     }
     let info = engine::info(&ctx.engine_root);
-    if !info.available || info.version.as_deref() != Some("1.59.1") {
+    if !info.available || info.version.as_deref() != Some("1.65.0") {
         return Err("Mole 引擎基线无法核对。".into());
     }
     digest(&(source, patterns))

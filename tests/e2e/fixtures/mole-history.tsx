@@ -6,7 +6,7 @@ import type { MoleHistory } from '../../../src/types'
 // Browser-only data; never written to Mole logs or the user's SQLite database.
 export const moleHistory: MoleHistory = {
   version: 1,
-  revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+  revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
   collectedAt: 1792080000000,
   limit: 200,
   operationsSource: { path: '/fixture/operations.log', state: 'ready', reason: null },

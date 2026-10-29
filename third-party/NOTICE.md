@@ -1,11 +1,11 @@
 # Mole CLI
 
 - Upstream: https://github.com/tw93/Mole
-- Revision: `ba3a0f57f78e4c22818fda701219cc3dd4d6953f`
-- Source snapshot: https://github.com/tw93/Mole/tree/ba3a0f57f78e4c22818fda701219cc3dd4d6953f
+- Revision: `308bf9911179ddfa40e5df9fdc42095a18ba5cfc`
+- Source snapshot: https://github.com/tw93/Mole/tree/308bf9911179ddfa40e5df9fdc42095a18ba5cfc
 - Copyright: Mole authors and contributors; retain the notices in the upstream source.
 - License: GPL-3.0; the unmodified license text is included in `Mole-LICENSE`.
-- Trademark policy: https://github.com/tw93/Mole/blob/ba3a0f57f78e4c22818fda701219cc3dd4d6953f/TRADEMARK.md
+- Trademark policy: https://github.com/tw93/Mole/blob/308bf9911179ddfa40e5df9fdc42095a18ba5cfc/TRADEMARK.md
 - Official product: https://mole.fit/zh/
 
 `npm run engine:prepare` fetches the exact Git revision, checks its identity and tracked-file cleanliness, and exports that tree into an isolated build directory with `git archive`. It preserves the upstream `mole`, `mo`, `bin/`, `lib/`, license and trademark files, and compiles `cmd/analyze` and `cmd/status` with `go build -mod=readonly -buildvcs=false -trimpath`. The generated manifest records the actual Go toolchain, target architecture, resource sizes and SHA-256 digests; a verified staging directory is atomically published. The complete upstream source and Go dependency manifest remain available in `.cache/mole-source/`. No upstream source patches are applied. See `docs/engine-integrity.md` for offline preparation and signing boundaries.

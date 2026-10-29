@@ -250,7 +250,7 @@ async fn read_project_roots(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&engine_root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         project_artifacts::roots::read(&home)
@@ -284,7 +284,7 @@ async fn inspect_project_artifacts(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&engine_root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         project_artifacts::scan(std::path::Path::new(&root), &protected)
@@ -324,7 +324,7 @@ async fn inspect_installers(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&engine_root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         installers::scan(std::path::Path::new(&root), &protected)
@@ -365,7 +365,7 @@ async fn inspect_installer_zip(
         let (_permit, _operation) = (permit, operation);
         let prepared = tauri::async_runtime::spawn_blocking(move || {
             let info = engine::info(&engine_root);
-            if !info.available || info.version.as_deref() != Some("1.59.1") {
+            if !info.available || info.version.as_deref() != Some("1.65.0") {
                 return Err("Mole 引擎基线无法确认。".into());
             }
             installers::zip::Prepared::open(
@@ -414,7 +414,7 @@ async fn inspect_installer_zip_data(
         let (_permit, _operation) = (permit, operation);
         let prepared = tauri::async_runtime::spawn_blocking(move || {
             let info = engine::info(&engine_root);
-            if !info.available || info.version.as_deref() != Some("1.59.1") {
+            if !info.available || info.version.as_deref() != Some("1.65.0") {
                 return Err("Mole 引擎基线无法确认。".into());
             }
             installers::zip::Prepared::open_data(
@@ -463,7 +463,7 @@ async fn inspect_installer_connection(
         let (_permit, _operation) = (permit, operation);
         let prepared = tauri::async_runtime::spawn_blocking(move || {
             let info = engine::info(&engine_root);
-            if !info.available || info.version.as_deref() != Some("1.59.1") {
+            if !info.available || info.version.as_deref() != Some("1.65.0") {
                 return Err("Mole 引擎基线无法确认。".into());
             }
             installers::connection::Prepared::open(
@@ -511,7 +511,7 @@ async fn inspect_installer_usage(
         let (_permit, _operation) = (permit, operation);
         let prepared = tauri::async_runtime::spawn_blocking(move || {
             let info = engine::info(&engine_root);
-            if !info.available || info.version.as_deref() != Some("1.59.1") {
+            if !info.available || info.version.as_deref() != Some("1.65.0") {
                 return Err("Mole 引擎基线无法确认。".into());
             }
             installers::usage::Prepared::open(
@@ -559,7 +559,7 @@ async fn inspect_installer_image(
         let (_permit, _operation) = (permit, operation);
         let prepared = tauri::async_runtime::spawn_blocking(move || {
             let info = engine::info(&engine_root);
-            if !info.available || info.version.as_deref() != Some("1.59.1") {
+            if !info.available || info.version.as_deref() != Some("1.65.0") {
                 return Err("Mole 引擎基线无法确认。".into());
             }
             installers::image::Prepared::open(
@@ -606,7 +606,7 @@ async fn inspect_project_git(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&engine_root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         project_artifacts::git_index::inspect(
@@ -649,7 +649,7 @@ async fn measure_project_artifact(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&engine_root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         project_artifacts::measurement::measure(
@@ -699,7 +699,7 @@ async fn inspect_maintenance(
         // deadline expires. A timed-out OS read is not cancelled by dropping it.
         let (_permit, _operation) = (permit, operation);
         let info = engine::info(&root);
-        if !info.available || info.version.as_deref() != Some("1.59.1") {
+        if !info.available || info.version.as_deref() != Some("1.65.0") {
             return Err("Mole 引擎基线无法确认，请先检查引擎。".into());
         }
         maintenance::inspect(&home, &protected_paths)

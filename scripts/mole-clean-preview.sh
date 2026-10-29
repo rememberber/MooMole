@@ -41,7 +41,7 @@ moomole_write_clean_report() {
     # candidates, exact identity associations and per-item evidence budgets.
     [[ $(/usr/bin/stat -f %z "$MOOMOLE_ORIGINS") -le 8388608 ]] || return 1
     printf '%s\0%s\0%s\0' 'MooMole.clean.v2' \
-        'ba3a0f57f78e4c22818fda701219cc3dd4d6953f' "$SYSTEM_CLEAN" > "$report"
+        '308bf9911179ddfa40e5df9fdc42095a18ba5cfc' "$SYSTEM_CLEAN" > "$report"
     emit_deduplicated_dry_run_ledger >> "$report" || return 1
     printf '%s\0' ledger >> "$report" || return 1
     if [[ -n "${CLEAN_PREVIEW_LEDGER_FILE:-}" ]]; then

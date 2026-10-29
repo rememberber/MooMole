@@ -52,7 +52,7 @@ function fixture(t) {
     const path = join(engine, name)
     mkdirSync(dirname(path), { recursive: true })
     if (name.endsWith('-go')) cpSync(main, path)
-    else writeFileSync(path, name === 'mole' ? 'VERSION="1.59.1"\n' : 'isolated fixture\n')
+    else writeFileSync(path, name === 'mole' ? 'VERSION="1.65.0"\n' : 'isolated fixture\n')
   }
   writeManifest(engine, `go version go1.26.0 darwin/${process.arch}`)
   const legal = join(source, 'Contents/Resources/legal'),
@@ -66,7 +66,7 @@ function fixture(t) {
       schemaVersion: 1,
       purpose: 'moomole-dependency-materials',
       appVersion: '0.1.0',
-      engineVersion: '1.59.1',
+      engineVersion: '1.65.0',
       engineRevision: revision,
       arch: process.arch,
       rustVersion: 'fixture',
@@ -77,7 +77,7 @@ function fixture(t) {
       materials: [{ sha256, offset: 0, size: text.length }],
       packages: [
         'app:moomole@0.1.0',
-        'engine:mole@1.59.1',
+        'engine:mole@1.65.0',
         'stdlib:go@fixture',
         'stdlib:rust@fixture',
       ].map((id) => ({

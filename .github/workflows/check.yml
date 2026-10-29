@@ -113,6 +113,10 @@ jobs:
       - run: npm run test:app-artifact
       - run: npm run test:source
       - run: npm run test:adapter
+      - name: Compare adapters with pinned upstream and verify private history inputs
+        run: |
+          node scripts/cargo.mjs test --locked --lib prepared_ -- --ignored
+          node scripts/cargo.mjs test --locked --lib mole_history::tests:: -- --ignored
       - name: Rust tests with locked dependencies
         run: npm run check:rust -- --locked
       - name: Build debug App (not a release installer)

@@ -576,8 +576,9 @@ mod tests {
         let base = fs::read_to_string(root.join("lib/core/base.sh")).unwrap();
         let (_temp, app) = fixture();
         populate(&app);
-        let script=format!("set -euo pipefail\nMOLE_TIMEOUT_DISK_VERIFY_SEC=5\ncreate_temp_file() {{ mktemp; }}\n_mole_uninstall_materialize_find0() {{ local output=\"$1\"; shift; find \"$@\" > \"$output\"; }}\n{}\n{}\n_mole_uninstall_embedded_bundle_ids \"$1\" \"$2\"",
+        let script=format!("set -euo pipefail\nMOLE_TIMEOUT_DISK_VERIFY_SEC=5\ncreate_temp_file() {{ mktemp; }}\n_mole_uninstall_materialize_find0() {{ local output=\"$1\"; shift; find \"$@\" > \"$output\"; }}\n{}\n{}\n{}\n_mole_uninstall_embedded_bundle_ids \"$1\" \"$2\"",
             crate::app_background::test_function(&base,"mole_is_reverse_dns_bundle_id"),
+            crate::app_background::test_function(&base,"mole_ascii_lowercase"),
             crate::app_background::test_function(&source,"_mole_uninstall_embedded_bundle_ids"));
         let output = std::process::Command::new("/bin/bash")
             .args([

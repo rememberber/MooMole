@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::process::Command;
 
-pub const REVISION: &str = "ba3a0f57f78e4c22818fda701219cc3dd4d6953f";
+pub const REVISION: &str = "308bf9911179ddfa40e5df9fdc42095a18ba5cfc";
 pub(crate) const OUTPUT_LIMIT: u64 = 32 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -582,7 +582,7 @@ mod tests {
         }
         std::fs::write(
             root.join("mole"),
-            "#!/bin/bash\nVERSION=\"1.59.1\"\nexit 99\n",
+            "#!/bin/bash\nVERSION=\"1.65.0\"\nexit 99\n",
         )
         .unwrap();
         crate::engine_manifest::fixture(root);
@@ -590,12 +590,12 @@ mod tests {
             serde_json::from_slice(&std::fs::read(root.join("UPSTREAM.json")).unwrap()).unwrap();
         let info = super::info(root);
         assert!(info.available);
-        assert_eq!(info.version.as_deref(), Some("1.59.1"));
+        assert_eq!(info.version.as_deref(), Some("1.65.0"));
         for source in [
             "",
             "VERSION=\"1.59.2\"\n",
-            "VERSION=\"$(echo 1.59.1)\"\n",
-            "VERSION=\"1.59.1\"\nVERSION=\"1.59.1\"\n",
+            "VERSION=\"$(echo 1.65.0)\"\n",
+            "VERSION=\"1.65.0\"\nVERSION=\"1.65.0\"\n",
         ] {
             std::fs::write(root.join("mole"), source).unwrap();
             crate::engine_manifest::fixture(root);
@@ -604,7 +604,7 @@ mod tests {
             assert_eq!(info.version, None);
             assert!(info.reason.is_some());
         }
-        std::fs::write(root.join("mole"), "VERSION=\"1.59.1\"\n").unwrap();
+        std::fs::write(root.join("mole"), "VERSION=\"1.65.0\"\n").unwrap();
         let mut legacy = manifest.clone();
         legacy.as_object_mut().unwrap().remove("version");
         std::fs::write(root.join("UPSTREAM.json"), legacy.to_string()).unwrap();
@@ -626,7 +626,7 @@ mod tests {
             2000,
             1000,
             Duration::from_millis(250),
-            Some("1.59.1"),
+            Some("1.65.0"),
         );
         for key in ["path", "scan_status", "total_size", "entries"] {
             assert_eq!(result[key], original[key]);
@@ -635,7 +635,7 @@ mod tests {
             result["mooObservation"],
             json!({
                 "version": 1, "source": "mole-directory-json", "startedAt": 2000,
-                "finishedAt": 1000, "elapsedMs": 250, "engineVersion": "1.59.1",
+                "finishedAt": 1000, "elapsedMs": 250, "engineVersion": "1.65.0",
                 "revision": REVISION, "cacheUse": "unreported"
             })
         );

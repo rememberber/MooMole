@@ -207,7 +207,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         throw new Error('应用状态读取超时（核对安装收据），结果无法确认；请稍后重试。')
       const pathRule = (status: string, index = -1) => ({
         version: 2,
-        revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+        revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
         source: 'moleUninstallPathSubset',
         code:
           (mode?.endsWith('MoleProtected') || mode?.endsWith('MoleIdentity')) &&
@@ -334,7 +334,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         protection,
         embedded: {
           version: 1,
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch'
               ? 'notChecked'
@@ -392,7 +392,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
             entries: groupMode ? 12 : 0,
             candidates: groupMode ? 2 : 0,
           },
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch'
               ? 'notChecked'
@@ -542,7 +542,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
                   entries: 40,
                   candidates: 2,
                 },
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch'
               ? 'unknown'
@@ -686,7 +686,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
             candidates: mode?.startsWith('associationMainFiles') ? 2 : 0,
           },
           version: mode === 'associationFuture' ? 14 : 13,
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode?.startsWith('association') && mode !== 'associationFuture'
               ? 'observed'
@@ -1077,7 +1077,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         },
         background: {
           version: mode === 'backgroundFuture' ? 2 : 1,
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch' ||
             mode?.startsWith('moleUnknown') ||
@@ -1114,7 +1114,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         },
         officialUninstaller: {
           version: mode === 'officialFuture' ? 2 : 1,
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch' || mode?.startsWith('moleUnknown') || mode === 'officialMissingName'
               ? 'unknown'
@@ -1133,7 +1133,7 @@ async function setup(page: Page, appName = 'Example', appId = 'org.example.same'
         },
         moleProtection: {
           version: mode === 'moleFuture' ? 2 : 1,
-          revision: 'ba3a0f57f78e4c22818fda701219cc3dd4d6953f',
+          revision: '308bf9911179ddfa40e5df9fdc42095a18ba5cfc',
           code:
             mode === 'mismatch' || mode?.startsWith('moleUnknown')
               ? 'unknown'
@@ -1387,7 +1387,7 @@ test('Mole protections, no-match and unavailable rules remain distinct while cli
   await expect(inspection).toContainText('本次未命中系统组件禁用规则')
   await inspection.getByText('规则来源', { exact: true }).click()
   await expect(inspection.getByText(/should_protect_from_uninstall/)).toBeVisible()
-  await expect(inspection).toContainText('ba3a0f57f78e')
+  await expect(inspection).toContainText('308bf9911179')
   await inspection.getByText('规则来源', { exact: true }).click()
   await page.evaluate(() => sessionStorage.setItem('inspection-mode', 'moleProtected'))
   await inspection.getByRole('button', { name: '重新检查状态' }).click()

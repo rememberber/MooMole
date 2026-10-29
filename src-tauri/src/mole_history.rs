@@ -275,7 +275,9 @@ pub async fn run(root: &Path, home: &Path, job: Arc<Job>) -> Result<serde_json::
         .env("TMPDIR", inputs.scratch.path())
         .env("NO_COLOR", "1")
         .env(
-            "MOLE_OPERATIONS_LOG",
+            // V1.65.0 reads OPERATIONS_LOG_FILE directly. Keep the upstream
+            // parser bound to our private snapshot instead of the live log.
+            "OPERATIONS_LOG_FILE",
             inputs.scratch.path().join("operations"),
         )
         .env("MOLE_DELETE_LOG", inputs.scratch.path().join("deletions"))

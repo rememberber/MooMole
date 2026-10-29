@@ -7,7 +7,7 @@ function Fixture() {
   const [available, setAvailable] = useState(true)
   return (
     <>
-      <EngineSummary engine={{ ...demoBootstrap.engine, available, version: '1.59.1' }} desktop />
+      <EngineSummary engine={{ ...demoBootstrap.engine, available, version: '1.65.0' }} desktop />
       <button onClick={() => setAvailable(false)}>模拟引擎缺失</button>
     </>
   )

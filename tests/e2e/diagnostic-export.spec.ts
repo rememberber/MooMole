@@ -8,7 +8,7 @@ const report =
       appVersion: '0.1.0',
       platform: 'macos',
       architecture: 'aarch64',
-      currentEngineVersion: '1.59.1',
+      currentEngineVersion: '1.65.0',
       taskKind: 'status',
       taskState: 'running',
       directoryRecorded: false,
