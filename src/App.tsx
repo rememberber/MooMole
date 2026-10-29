@@ -42,6 +42,9 @@ import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
 import type { AppControlTarget } from './lib/app-control'
+import { SearchRepairCenter } from './components/SearchRepairCenter'
+import { ProblemRepairs } from './components/ProblemRepairs'
+import { searchRepairTransport } from './lib/search-repair'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -312,6 +315,8 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [searchRepairActive, setSearchRepairActive] = useState(false)
+  const [searchRepairOpenSignal, setSearchRepairOpenSignal] = useState(0)
   const [refreshActive, setRefreshActive] = useState(false)
   const [refreshOpenSignal, setRefreshOpenSignal] = useState(0)
   const [appsStale, setAppsStale] = useState(false)
@@ -812,6 +817,7 @@ export default function App() {
     !duplicates.running &&
     !uninstallActive &&
     !appControlActive &&
+    !searchRepairActive &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -1381,6 +1387,14 @@ export default function App() {
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
           />
+          <SearchRepairCenter
+            openSignal={searchRepairOpenSignal}
+            transport={searchRepairTransport}
+            onActiveChange={setSearchRepairActive}
+            onOutcome={() => {
+              void refreshRecords(true)
+            }}
+          />
           <ApplicationControlCenter
             target={appControlTarget}
             onClose={() => setAppControlTarget(null)}
@@ -1944,16 +1958,23 @@ export default function App() {
           )}
 
           {page === 'maintenance' && (
-            <MaintenanceCatalog
-              query={maintenanceQuery}
-              engine={data.engine}
-              report={maintenance.report}
-              reading={maintenance.reading}
-              error={maintenance.error}
-              selected={maintenance.selected}
-              onSelect={maintenance.select}
-              reviewing={maintenance.reviewing}
-            />
+            <>
+              <ProblemRepairs
+                enabled={canRun}
+                onPreview={() => setRefreshOpenSignal((n) => n + 1)}
+                onSearch={() => setSearchRepairOpenSignal((n) => n + 1)}
+              />
+              <MaintenanceCatalog
+                query={maintenanceQuery}
+                engine={data.engine}
+                report={maintenance.report}
+                reading={maintenance.reading}
+                error={maintenance.error}
+                selected={maintenance.selected}
+                onSelect={maintenance.select}
+                reviewing={maintenance.reviewing}
+              />
+            </>
           )}
 
           {page === 'installers' && (

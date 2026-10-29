@@ -21,7 +21,7 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 const GRACE: Duration = Duration::from_secs(1);
 const POLL: Duration = Duration::from_millis(20);
 
-fn readonly_system_tool(tool: &AnchoredPath) -> bool {
+pub(super) fn readonly_system_tool(tool: &AnchoredPath) -> bool {
     let mut fs = MaybeUninit::<libc::statfs>::zeroed();
     // Root ownership/mode alone would not exclude an extra writable ACL.
     // macOS 14+ supplies this tool on the read-only system volume. Refuse a
@@ -71,15 +71,15 @@ pub(crate) enum Stop {
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Attempt {
-    pub step: Step,
+pub(crate) struct Attempt<S = Step> {
+    pub step: S,
     pub outcome: Outcome,
     pub exit_code: Option<i32>,
     pub stop: Option<Stop>,
     pub reason: &'static str,
 }
-impl Attempt {
-    fn not_started(step: Step, reason: &'static str, stop: Option<Stop>) -> Self {
+impl<S> Attempt<S> {
+    fn not_started(step: S, reason: &'static str, stop: Option<Stop>) -> Self {
         Self {
             step,
             outcome: Outcome::NotStarted,
@@ -280,14 +280,14 @@ impl Drop for OwnedChild<'_> {
     }
 }
 
-fn supervise(
-    step: Step,
+pub(super) fn supervise<S>(
+    step: S,
     mut command: Command,
     job: &Job,
     timeout: Duration,
     grace: Duration,
     after_spawn: impl FnOnce(u32),
-) -> Attempt {
+) -> Attempt<S> {
     if job.cancelled.load(Ordering::SeqCst) {
         return Attempt::not_started(step, "cancelledBeforeStart", Some(Stop::Cancelled));
     }

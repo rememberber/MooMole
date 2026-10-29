@@ -4294,3 +4294,21 @@ input[type='checkbox'] {
   gap: 6px;
   flex-shrink: 0;
 }
+
+.problem-repairs {
+  margin-bottom: 18px;
+}
+.problem-repair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.problem-repair-row p {
+  margin: 5px 0 0;
+}
+.problem-repair-row button {
+  flex-shrink: 0;
+}

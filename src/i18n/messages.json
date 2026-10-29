@@ -6623,5 +6623,89 @@
   ["已观察到应用退出", "Application observed quit", "アプリの終了を確認"],
   ["所选副本未运行", "Selected installation is not running", "選択したアプリは実行されていません"],
   ["尚未确认完成", "Completion not confirmed", "完了は未確認です"],
-  ["已停止等待", "Stopped waiting", "待機を停止しました"]
+  ["已停止等待", "Stopped waiting", "待機を停止しました"],
+  [
+    "{0} / {1} 项 ·{2}预览和文件搜索问题可从上方入口处理；以下其余维护项目的执行暂未开放。",
+    "{0} / {1} tasks ·{2}Use the actions above for preview and file search issues. Other tasks below cannot be executed yet.",
+    "{0} / {1} 項目 ·{2}プレビューとファイル検索は上の入口から操作できます。以下の他の項目はまだ実行できません。"
+  ],
+  [
+    "预览和文件搜索问题可从上方入口处理；以下其余维护项目的执行暂未开放。",
+    "Use the actions above for preview and file search issues. Other tasks below cannot be executed yet.",
+    "プレビューとファイル検索は上の入口から操作できます。以下の他の項目はまだ実行できません。"
+  ],
+  ["按问题修复", "Repair by problem", "問題から修復"],
+  ["文件预览不显示", "File previews do not appear", "ファイルのプレビューが表示されない"],
+  [
+    "刷新当前用户的 Quick Look 缓存和预览服务，再打开原来的文件验证。",
+    "Refresh this user's Quick Look cache and preview service, then reopen the file to check.",
+    "現在のユーザーの Quick Look キャッシュとサービスを更新し、元のファイルを開いて確認します。"
+  ],
+  ["修复预览…", "Repair previews…", "プレビューを修復…"],
+  ["文件搜索不到", "Files are missing from search", "ファイルが検索で見つからない"],
+  [
+    "选择个人文件夹提交 Spotlight 索引，再用文件名验证搜索结果。",
+    "Submit a personal folder to Spotlight, then check search results using the file name.",
+    "個人フォルダを Spotlight に登録し、ファイル名で検索結果を確認します。"
+  ],
+  ["更新目录索引…", "Update folder index…", "フォルダ索引を更新…"],
+  ["更新文件搜索索引", "Update file search index", "ファイル検索の索引を更新"],
+  [
+    "文件存在但 Finder 或 Spotlight 搜索不到时，可选择所在文件夹重新提交索引。",
+    "If a file exists but Finder or Spotlight cannot find it, select its folder to submit it for indexing again.",
+    "ファイルが存在しても Finder や Spotlight で見つからない場合、フォルダを選択して索引の更新を要求できます。"
+  ],
+  [
+    "会读取所选文件夹及其子目录并更新 Spotlight 索引，可能占用 CPU 和磁盘。不删除原文件，不清空整卷索引，也不更改隐私排除；隐私排除、权限与不支持的格式仍可能影响搜索。",
+    "Reads this folder and its subfolders to update Spotlight. This may use CPU and disk. Source files, the volume index and privacy exclusions are preserved. Privacy exclusions, permissions and unsupported formats may still affect search.",
+    "選択したフォルダとサブフォルダを読み取り、Spotlight の索引を更新します。CPU とディスクを使用する場合があります。元のファイル、ボリューム索引、プライバシーの除外設定は保持します。除外設定、権限、未対応形式は引き続き検索に影響します。"
+  ],
+  ["选择文件夹…", "Choose folder…", "フォルダを選択…"],
+  [
+    "目录确认已过期，请重新选择后确认。",
+    "Folder confirmation expired. Select and confirm the folder again.",
+    "フォルダの確認が期限切れです。再度選択して確認してください。"
+  ],
+  [
+    "正在处理索引请求；已提交给 Spotlight 的后台工作可能在停止后继续。",
+    "Processing the indexing request. Work already submitted to Spotlight may continue after stopping.",
+    "索引の要求を処理中です。Spotlight に送信済みの作業は停止後も続く場合があります。"
+  ],
+  ["索引操作结果", "Indexing result", "索引操作の結果"],
+  ["索引命令已完成", "Indexing command completed", "索引コマンドが完了しました"],
+  ["索引命令未启动", "Indexing command did not start", "索引コマンドは開始されませんでした"],
+  ["索引结果待核实", "Indexing result needs checking", "索引の結果は要確認です"],
+  [
+    "后台索引可能仍在更新。请在 Finder 或 Spotlight 中重新搜索原来的文件名，确认能否找到；命令完成不代表问题已修复。",
+    "Background indexing may continue. Search for the original file name in Finder or Spotlight to check. Command completion does not prove the problem is fixed.",
+    "バックグラウンドで索引の更新が続く場合があります。Finder や Spotlight で元のファイル名を検索して確認してください。コマンドの完了だけでは問題の解決を確認できません。"
+  ],
+  [
+    "命令已停止或未确认正常结束，已提交的后台索引无法撤销。",
+    "The command stopped or did not finish normally. Submitted background indexing cannot be undone.",
+    "コマンドが停止したか、正常終了を確認できません。送信済みの索引作業は取り消せません。"
+  ],
+  [
+    "操作和所选目录已保存在操作历史中。原文件保留，此操作没有恢复原索引的功能。",
+    "The action and selected folder are saved in history. Source files are preserved; the previous index cannot be restored through this action.",
+    "操作とフォルダは履歴に保存されます。元のファイルは保持されますが、以前の索引を復元する機能はありません。"
+  ],
+  ["停止索引命令", "Stop indexing command", "索引コマンドを停止"],
+  ["返回维护", "Back to maintenance", "メンテナンスに戻る"],
+  ["确认更新索引", "Confirm index update", "索引の更新を確認"],
+  [
+    "选择搜索不到文件的目录",
+    "Choose the folder missing from search",
+    "検索で見つからないファイルのフォルダを選択"
+  ],
+  [
+    "索引确认无法核对，请重新选择目录。",
+    "Cannot verify the indexing confirmation. Select the folder again.",
+    "索引の確認を照合できません。フォルダを再度選択してください。"
+  ],
+  [
+    "索引结果无法核对，请检查实际搜索状态；不会自动重试。",
+    "Cannot verify the indexing result. Check search manually; no automatic retry will occur.",
+    "索引の結果を照合できません。検索状態を確認してください。自動再試行は行いません。"
+  ]
 ]

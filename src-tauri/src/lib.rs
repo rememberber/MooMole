@@ -92,6 +92,7 @@ struct AppState {
     installer_slots: Arc<tokio::sync::Semaphore>,
     maintenance_reviews: Arc<Mutex<maintenance::review::Store>>,
     refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
+    search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
     uninstall_confirmations: Arc<Mutex<uninstall_confirmation::Confirmations>>,
@@ -869,6 +870,7 @@ fn start_task(
             | TaskKind::PersonalTrash
             | TaskKind::PersonalMove
             | TaskKind::AppControl
+            | TaskKind::SearchRepair
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -901,6 +903,7 @@ fn start_task(
                         | TaskKind::PersonalTrash
                         | TaskKind::PersonalMove
                         | TaskKind::AppControl
+                        | TaskKind::SearchRepair
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -2289,6 +2292,7 @@ pub fn run() {
                 installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                 maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
                 refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
+                search_repairs: Arc::new(Mutex::new(None)),
                 cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
                 uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
                 uninstall_confirmations: Arc::new(Mutex::new(
@@ -2358,6 +2362,9 @@ pub fn run() {
             application_icon,
             inspect_application,
             app_control::control_application,
+            maintenance::search_repair::prepare_search_repair,
+            maintenance::search_repair::discard_search_repair,
+            maintenance::search_repair::execute_search_repair,
             prepare_application_uninstall_plan,
             recheck_application_uninstall_plan,
             discard_application_uninstall_plan,

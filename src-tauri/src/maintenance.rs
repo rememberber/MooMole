@@ -308,5 +308,6 @@ pub(crate) mod refresh_execution;
 pub(crate) mod refresh_journal;
 pub(crate) mod refresh_plan;
 pub(crate) mod review;
+pub(crate) mod search_repair;
 #[cfg(test)]
 mod tests;

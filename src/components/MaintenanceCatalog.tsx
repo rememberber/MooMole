@@ -37,7 +37,7 @@ export function MaintenanceCatalog({
       <p className="muted" role="status">
         {items.length} / {maintenanceCatalog.items.length} 项 ·
         {snapshot ? '2 项已有设置观察，其余尚未检查。' : '可检查 2 项本机设置，其余仅提供说明。'}
-        桌面版可从工具栏刷新 Quick Look 预览，其余维护执行暂未开放。
+        预览和文件搜索问题可从上方入口处理；以下其余维护项目的执行暂未开放。
       </p>
       {reading && (
         <p className="muted" role="status">
