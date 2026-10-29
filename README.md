@@ -1,4 +1,8 @@
-# MooMole
+<p align="center">
+  <img src="src/assets/icon.svg" alt="MooMole" width="112" height="112" />
+</p>
+
+<h1 align="center">MooMole</h1>
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja-JP.md)
 
@@ -7,6 +11,20 @@ An unofficial macOS graphical client for Mole CLI, with more approachable workfl
 > This independent, unofficial project is for learning and research only. Understand the effects of each operation and back up important data before use. You assume the risks and any resulting issues.
 >
 > Some features build on [Mole CLI](https://github.com/tw93/Mole). Thanks to its author and contributors. Please respect and support their work by choosing the [official Mole product](https://mole.fit/) for everyday use.
+
+## Screenshots
+
+Current interface in Simplified Chinese, captured from the browser preview with sample data. These images do not represent a scan of this Mac or release acceptance. Click an image to view it at full size.
+
+![MooMole overview with engine status and sample system metrics](docs/screenshots/overview.png)
+
+| Space analyzer | Cleanup review |
+| --- | --- |
+| [![Folder space map and path navigation](docs/screenshots/space-analysis.png)](docs/screenshots/space-analysis.png) | [![Item-by-item cleanup review with size estimates and filters](docs/screenshots/cleanup.png)](docs/screenshots/cleanup.png) |
+| **System maintenance** | **System status · Dark theme** |
+| [![Mole maintenance catalog with task descriptions and availability limits](docs/screenshots/maintenance.png)](docs/screenshots/maintenance.png) | [![Sample CPU and memory metrics in the dark theme](docs/screenshots/system-status-dark.png)](docs/screenshots/system-status-dark.png) |
+
+Brand assets: [SVG icon](src/assets/icon.svg) · [Logo](src/assets/logo.svg) · [Logo for dark backgrounds](src/assets/logo-dark.svg). See [usage notes](docs/brand-assets.md).
 
 ## Languages
 

@@ -1,4 +1,8 @@
-# MooMole
+<p align="center">
+  <img src="src/assets/icon.svg" alt="MooMole" width="112" height="112" />
+</p>
+
+<h1 align="center">MooMole</h1>
 
 [English](README.md) · **简体中文** · [日本語](README.ja-JP.md)
 
@@ -7,6 +11,20 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 > 本项目仅供学习和研究使用，是独立的非官方项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。
 >
 > 部分能力基于 [Mole CLI](https://github.com/tw93/Mole)，感谢原作者及贡献者。为尊重和支持 Mole 的开发成果，日常使用建议选择 [Mole 官方产品](https://mole.fit/zh/)。
+
+## 界面预览
+
+以下为当前简体中文界面的浏览器预览截图，使用示例数据，不代表本机扫描结果或发布验收。点击图片可查看原图。
+
+![MooMole 概览：内置引擎状态与示例系统指标](docs/screenshots/overview.png)
+
+| 空间分析 | 清理审阅 |
+| --- | --- |
+| [![目录空间分布图与路径导航](docs/screenshots/space-analysis.png)](docs/screenshots/space-analysis.png) | [![逐项审阅清理候选、大小估算与筛选](docs/screenshots/cleanup.png)](docs/screenshots/cleanup.png) |
+| **系统维护** | **系统状态 · 深色主题** |
+| [![Mole 维护项目说明与当前可用范围](docs/screenshots/maintenance.png)](docs/screenshots/maintenance.png) | [![深色主题下的示例 CPU 与内存指标](docs/screenshots/system-status-dark.png)](docs/screenshots/system-status-dark.png) |
+
+品牌资源：[SVG 图标](src/assets/icon.svg) · [横版 Logo](src/assets/logo.svg) · [深色背景 Logo](src/assets/logo-dark.svg)。使用方式见[品牌资源说明](docs/brand-assets.md)。
 
 ## 语言
 

@@ -1,4 +1,8 @@
-# MooMole
+<p align="center">
+  <img src="src/assets/icon.svg" alt="MooMole" width="112" height="112" />
+</p>
+
+<h1 align="center">MooMole</h1>
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語**
 
@@ -7,6 +11,20 @@ Mole CLI の機能を分かりやすい操作で利用できる、非公式の m
 > 本プロジェクトは学習・研究向けの独立した非公式プロジェクトです。操作の影響を理解し、重要なデータをバックアップしてからご利用ください。利用のリスクおよび生じた問題は利用者の責任となります。
 >
 > 一部の機能は [Mole CLI](https://github.com/tw93/Mole) に基づきます。作者と貢献者に感謝します。開発成果を尊重し支援するため、日常利用には [Mole 公式製品](https://mole.fit/)をご検討ください。
+
+## 画面プレビュー
+
+現在の簡体字中国語 UI を、サンプルデータで表示したブラウザプレビューです。本機のスキャン結果やリリース検証の完了を示すものではありません。画像をクリックすると原寸で表示できます。
+
+![MooMole の概要：内蔵エンジンの状態とサンプルのシステム指標](docs/screenshots/overview.png)
+
+| 容量分析 | クリーンアップの確認 |
+| --- | --- |
+| [![フォルダの容量マップとパスナビゲーション](docs/screenshots/space-analysis.png)](docs/screenshots/space-analysis.png) | [![候補ごとの確認、サイズ見積もりと絞り込み](docs/screenshots/cleanup.png)](docs/screenshots/cleanup.png) |
+| **システムメンテナンス** | **システム状態 · ダークテーマ** |
+| [![Mole のメンテナンス項目の説明と現在の対応範囲](docs/screenshots/maintenance.png)](docs/screenshots/maintenance.png) | [![ダークテーマで表示した CPU とメモリのサンプル指標](docs/screenshots/system-status-dark.png)](docs/screenshots/system-status-dark.png) |
+
+ブランド素材：[SVG アイコン](src/assets/icon.svg) · [横型ロゴ](src/assets/logo.svg) · [暗い背景用ロゴ](src/assets/logo-dark.svg)。[使用方法](docs/brand-assets.md)をご覧ください。
 
 ## 言語
 
