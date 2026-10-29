@@ -188,11 +188,17 @@ export function AiDeepScan({
         </p>
       )}
       {snapshot && (
-        <section className="card ai-report" aria-label="AI 扫描结果">
+        <section
+          className="card ai-report motion-scan"
+          data-scanning={ai.running && !ai.stopping}
+          aria-label="AI 扫描结果"
+        >
           <div className="ai-report-heading">
             <strong>
               {ai.running && <LoaderCircle size={15} className="spin" />}
-              {snapshot.stage}
+              <span className="motion-text" data-active={ai.running && !ai.stopping}>
+                {snapshot.stage}
+              </span>
             </strong>
             <span className="muted">{dateTime(snapshot.startedAt)}</span>
           </div>

@@ -52,6 +52,8 @@ import { useInstallers } from './lib/use-installers'
 import { AnalysisNavigation } from './components/AnalysisNavigation'
 import { recentAnalysisPaths } from './lib/recent-analysis'
 import { AnalysisTaskNotice } from './components/AnalysisTaskNotice'
+import { useMotionVisibility, WorkspaceAtmosphere } from './components/TaskMotion'
+import { useWindowDrag } from './lib/use-window-drag'
 import { analysisTaskActive, failedAnalysisTask, type AnalysisTask } from './lib/analysis-task'
 import { AnalysisContexts, type AnalysisExplorerHandle } from './lib/analysis-context'
 import {
@@ -215,6 +217,8 @@ function Metric({
 }
 
 export default function App() {
+  useMotionVisibility()
+  const dragWindow = useWindowDrag()
   const language = useLanguage()
   useEffect(() => {
     document.documentElement.lang = language === 'zh' ? 'zh-CN' : language
@@ -758,12 +762,29 @@ export default function App() {
   const cpuUsage = statusPercent(snapshot?.cpu?.usage) ?? undefined
   const memoryUsage = statusPercent(snapshot?.memory?.used_percent) ?? undefined
   const totalCandidates = cleanup?.items.reduce((sum, item) => sum + (item.size ?? 0), 0)
+  const workspaceMotion =
+    (executionActive && !executionTrackingError) || uninstallActive || refreshActive
+      ? 'working'
+      : (busy && !cancelPending && busy.kind !== 'history') ||
+          analysisTask?.state === 'starting' ||
+          (quickScanning && !quickScanCancelled.current) ||
+          (aiScan.running && !aiScan.stopping && !aiScan.error) ||
+          projects.reading ||
+          projects.loadingRoots ||
+          !!projects.measuring ||
+          !!projects.checkingGit ||
+          installers.reading ||
+          !!installers.checking ||
+          maintenance.reading ||
+          maintenance.reviewing
+        ? 'scanning'
+        : 'idle'
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-drag" data-tauri-drag-region />
-        <div className="brand">
+        <div className="sidebar-drag" data-tauri-drag-region="deep" onMouseDown={dragWindow} />
+        <div className="brand" data-tauri-drag-region="deep" onMouseDown={dragWindow}>
           <div className="brand-mark">
             m<span>·</span>
           </div>
@@ -799,10 +820,12 @@ export default function App() {
         </div>
       </aside>
       <div className="workspace">
+        <WorkspaceAtmosphere phase={workspaceMotion} />
         <header
           className="topbar"
           data-scrolled={toolbarScrolled}
-          data-tauri-drag-region
+          data-tauri-drag-region="deep"
+          onMouseDown={dragWindow}
           aria-label={`${pageName}工具栏`}
         >
           <div className="toolbar-actions">
@@ -819,6 +842,7 @@ export default function App() {
                 )}
                 <form
                   className="path-bar"
+                  data-tauri-drag-region="false"
                   onSubmit={(event) => {
                     event.preventDefault()
                     if (canRun) void execute('analyze', path)
@@ -1462,8 +1486,10 @@ export default function App() {
           {page === 'quickCleanup' && (
             <>
               {quickScanStatus && (
-                <p className="quick-intro" role="status">
-                  {quickScanStatus}
+                <p className="quick-intro motion-scan" data-scanning={quickScanning} role="status">
+                  <span className="motion-text" data-active={quickScanning}>
+                    {quickScanStatus}
+                  </span>
                 </p>
               )}
               <QuickCleanup
@@ -1938,6 +1964,7 @@ export default function App() {
         <ReviewPlanDialog
           key={plan.id}
           initialPlan={plan}
+          executions={data.executions}
           autoCheck={autoCheckPlanId === plan.id}
           onRefresh={api.reviewPlan}
           onCheckRules={api.checkReviewRules}
@@ -1970,10 +1997,12 @@ export default function App() {
         />
       )}
       {busy && !(busy.kind === 'analyze' && page === 'analyze') && (
-        <div className="task-toast" role="status">
+        <div className="task-toast motion-scan" data-scanning={!cancelPending} role="status">
           <LoaderCircle size={18} className="spin" />
           <div>
-            <strong>{kindNames[busy.kind]}进行中</strong>
+            <strong className="motion-text" data-active={!cancelPending}>
+              {kindNames[busy.kind]}进行中
+            </strong>
             <span>
               {cancelPending ? '正在停止任务进程…' : '检查在本机运行，你可以继续浏览其他页面。'}
             </span>

@@ -195,9 +195,12 @@ button svg {
   background: var(--selected);
 }
 .workspace {
+  --workspace-inset: 176px;
   flex: 1;
   margin-left: 176px;
   min-width: 0;
+  position: relative;
+  isolation: isolate;
 }
 .topbar {
   position: sticky;
@@ -210,16 +213,9 @@ button svg {
   gap: 12px;
   border-bottom: 1px solid transparent;
   background: var(--background);
-  -webkit-app-region: drag;
 }
 .topbar[data-scrolled='true'] {
   border-bottom-color: var(--border);
-}
-.topbar button,
-.topbar input,
-.topbar select,
-.topbar form {
-  -webkit-app-region: no-drag;
 }
 .toolbar-actions {
   display: flex;
@@ -2066,6 +2062,30 @@ h3 {
   background: #14151b55;
   backdrop-filter: blur(3px);
 }
+.modal[open] {
+  animation: dialog-arrive 160ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.modal[open]::backdrop {
+  animation: dialog-backdrop-arrive 160ms ease-out both;
+}
+@keyframes dialog-arrive {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes dialog-backdrop-arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .modal.uninstall-modal {
   width: min(620px, calc(100vw - 48px));
 }
@@ -2421,11 +2441,247 @@ input[type='checkbox'] {
     transform: rotate(360deg);
   }
 }
+/* Quiet task feedback: monochrome, local to a summary, and driven by real state. */
+.workspace-atmosphere {
+  position: fixed;
+  inset: 52px 0 0 var(--workspace-inset);
+  z-index: -1;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+  user-select: none;
+  color: var(--text);
+  opacity: 0;
+  transition: opacity 640ms ease;
+}
+.workspace-atmosphere > span {
+  position: absolute;
+  pointer-events: none;
+  animation-play-state: paused;
+}
+.workspace-aura {
+  width: min(80vw, 780px);
+  height: 75%;
+  right: -35%;
+  top: -35%;
+  background: radial-gradient(ellipse at center, currentColor, transparent 68%);
+  opacity: 0.035;
+  animation: workspace-drift 14s ease-in-out infinite alternate;
+}
+.workspace-sweep {
+  inset: -25% auto auto -65%;
+  width: 55%;
+  height: 150%;
+  background: linear-gradient(105deg, transparent 32%, currentColor 50%, transparent 68%);
+  opacity: 0.022;
+  animation: workspace-scan 9s ease-in-out infinite;
+}
+.workspace-grain {
+  width: 220px;
+  height: 260px;
+  right: -55px;
+  bottom: 30px;
+  background: radial-gradient(circle, currentColor 0.6px, transparent 0.85px) 0 0 / 18px 18px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000, transparent 68%);
+  mask-image: radial-gradient(ellipse at center, #000, transparent 68%);
+  opacity: 0.09;
+  animation: workspace-drift 12s ease-in-out infinite alternate-reverse;
+}
+.workspace-atmosphere:is([data-phase='scanning'], [data-phase='working']) {
+  opacity: 1;
+}
+.workspace-atmosphere:is([data-phase='scanning'], [data-phase='working']) > span {
+  animation-play-state: running;
+}
+.workspace-atmosphere[data-phase='working'] .workspace-sweep {
+  animation-duration: 7s;
+}
+@keyframes workspace-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-12px, 8px, 0);
+  }
+}
+@keyframes workspace-scan {
+  0%,
+  8% {
+    transform: translate3d(0, 0, 0);
+  }
+  92%,
+  100% {
+    transform: translate3d(320%, 0, 0);
+  }
+}
+:root[data-window-inactive='true'] .workspace-atmosphere,
+:root[data-motion-paused='true'] .workspace-atmosphere,
+:root:has(dialog[open]) .workspace-atmosphere {
+  opacity: 0;
+}
+:root[data-motion-paused='true'] .workspace-atmosphere > span,
+:root:has(dialog[open]) .workspace-atmosphere > span {
+  animation-play-state: paused !important;
+}
+.motion-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.motion-summary > div {
+  min-width: 0;
+}
+.dust-cloud {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 52px;
+  color: var(--subtle);
+  pointer-events: none;
+  user-select: none;
+  contain: layout paint;
+  transition: opacity 900ms ease;
+}
+.dust-cloud[data-empty='true'] {
+  opacity: 0;
+}
+.dust-particle {
+  position: absolute;
+  width: var(--dust-size);
+  height: var(--dust-size);
+  opacity: var(--dust-alpha);
+  transform: scale(1);
+  transition:
+    opacity 900ms ease,
+    transform 1100ms ease;
+}
+.dust-particle[data-remaining='false'] {
+  opacity: 0;
+  transform: translate(10px, -5px) scale(0.25);
+}
+.dust-particle i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 48% 52% 58% 42%;
+  background: currentColor;
+  animation: dust-drift var(--dust-duration) ease-in-out var(--dust-delay) infinite alternate;
+  animation-play-state: paused;
+}
+.dust-cloud[data-visible='true']:is([data-phase='detected'], [data-phase='working'])
+  .dust-particle
+  i {
+  animation-play-state: running;
+}
+.dust-cloud[data-phase='working'] .dust-particle i {
+  animation-name: dust-gather;
+}
+.cleanup-motion-heading {
+  margin: 0 24px 14px 0;
+  min-height: 52px;
+}
+.cleanup-motion-heading h2 {
+  margin: 0;
+}
+:where(.motion-scan) {
+  position: relative;
+}
+.motion-scan {
+  isolation: isolate;
+}
+.motion-scan[data-scanning='true']::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 4%, var(--subtle) 50%, transparent 96%);
+  opacity: 0;
+  pointer-events: none;
+  animation: task-scan 3.8s ease-in-out infinite;
+}
+.motion-text[data-active='true'] {
+  /* The base remains legible throughout; a narrow darker/lighter band sweeps it. */
+  color: var(--subtle);
+  background: linear-gradient(100deg, var(--subtle) 38%, var(--text) 50%, var(--subtle) 62%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: task-text-sweep 3.4s ease-in-out infinite;
+}
+.analysis-task progress {
+  accent-color: var(--subtle);
+}
+@keyframes dust-drift {
+  from {
+    transform: translate(calc(var(--dust-x) * -0.5), calc(var(--dust-y) * -0.5));
+  }
+  to {
+    transform: translate(var(--dust-x), var(--dust-y));
+  }
+}
+@keyframes dust-gather {
+  from {
+    transform: translate(var(--dust-x), var(--dust-y)) scale(1);
+  }
+  to {
+    transform: translate(calc(var(--dust-x) * -0.7), calc(var(--dust-y) * -0.7)) scale(0.75);
+  }
+}
+@keyframes task-scan {
+  0%,
+  100% {
+    top: 10%;
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.15;
+  }
+  76% {
+    opacity: 0.15;
+  }
+  90% {
+    top: 90%;
+    opacity: 0;
+  }
+}
+@keyframes task-text-sweep {
+  0%,
+  12% {
+    background-position: 160% 0;
+  }
+  85%,
+  100% {
+    background-position: -60% 0;
+  }
+}
+:root[data-motion-paused='true'] :is(.dust-particle i, .motion-text),
+:root[data-motion-paused='true'] .motion-scan::after,
+:root:has(dialog[open]) .workspace :is(.dust-particle i, .motion-text),
+:root:has(dialog[open]) .workspace .motion-scan::after {
+  animation-play-state: paused !important;
+}
+@media (forced-colors: active) {
+  .workspace-atmosphere,
+  .dust-cloud,
+  .motion-scan::after {
+    display: none;
+  }
+  .motion-text[data-active='true'] {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
 @media (max-width: 1050px) {
   .sidebar {
     width: 166px;
   }
   .workspace {
+    --workspace-inset: 166px;
     margin-left: 166px;
   }
   .main-content {
@@ -2479,6 +2735,7 @@ input[type='checkbox'] {
     padding: 12px 0;
   }
   .workspace {
+    --workspace-inset: 70px;
     margin-left: 70px;
   }
   .main-content {
@@ -2538,7 +2795,26 @@ input[type='checkbox'] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .dust-particle i,
+  .modal[open],
+  .modal[open]::backdrop,
+  .workspace-atmosphere > span,
+  .motion-text[data-active='true'],
+  .motion-scan[data-scanning='true']::after {
+    animation: none !important;
+  }
+  .workspace-atmosphere {
+    display: none;
+  }
+  .motion-text[data-active='true'] {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+  .motion-scan[data-scanning='true']::after {
+    content: none;
   }
 }
 

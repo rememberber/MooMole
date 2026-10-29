@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CleanupConfirmation, ExecutionDetail } from '../types'
+import type { CleanupConfirmation, ExecutionDetail, ExecutionSummary } from '../types'
 import { Modal } from './Modal'
 import { bytes } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { ExecutionLocation, type RevealExecutionItem } from './ExecutionLocation'
 import { ExecutionReason } from './ExecutionReason'
+import { DustCloud } from './TaskMotion'
 
 const states: Record<string, string> = {
   moved: '已移入废纸篓',
@@ -24,6 +25,7 @@ export function LogCleanupDialog({
   onBack,
   onClose,
   onRevealReceipt,
+  execution,
 }: {
   simple?: boolean
   confirmation: CleanupConfirmation
@@ -32,6 +34,7 @@ export function LogCleanupDialog({
   onBack: () => void
   onClose: () => void
   onRevealReceipt?: RevealExecutionItem
+  execution?: ExecutionSummary
 }) {
   useNow()
   const expired = Date.now() < confirmation.createdAt || Date.now() >= confirmation.expiresAt
@@ -75,13 +78,23 @@ export function LogCleanupDialog({
     controller.current?.abort()
     onClose()
   }
+  // Do not predict progress from time. Failed, skipped and unknown items remain.
+  const evidence = result ?? (consumed ? execution : null)
+  const remaining = evidence?.itemCount ? 1 - evidence.movedCount / evidence.itemCount : 1
+  const moving = busy && !cancelling && (!evidence || evidence.state === 'running')
   return (
     <Modal
       title={result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}
       onClose={close}
       className="review-plan-modal"
     >
-      <h2>{result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}</h2>
+      <div className="motion-summary cleanup-motion-heading motion-scan" data-scanning={moving}>
+        <DustCloud
+          remaining={remaining}
+          phase={moving ? 'working' : consumed ? 'settled' : expired ? 'paused' : 'detected'}
+        />
+        <h2>{result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}</h2>
+      </div>
       {result ? (
         <>
           <p role="status">
@@ -152,11 +165,13 @@ export function LogCleanupDialog({
           {busy ? (
             <>
               <p role="status">
-                {cancelling
-                  ? '正在停止后续项目，等待当前项的实际结果。'
-                  : confirmation.requiresAuthorization
-                    ? '正在授权检查并逐项复核处理；系统确认窗口需要你本人操作。'
-                    : '正在逐项重新检查并处理，请等待实际结果。'}
+                <span className="motion-text" data-active={moving}>
+                  {cancelling
+                    ? '正在停止后续项目，等待当前项的实际结果。'
+                    : confirmation.requiresAuthorization
+                      ? '正在授权检查并逐项复核处理；系统确认窗口需要你本人操作。'
+                      : '正在逐项重新检查并处理，请等待实际结果。'}
+                </span>
               </p>
               {confirmation.requiresAuthorization && (
                 <p className="muted">

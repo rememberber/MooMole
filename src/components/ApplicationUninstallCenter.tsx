@@ -407,9 +407,16 @@ export function ApplicationUninstallCenter({
         (active || trackChanges.current.has(requestId)) &&
         (active || needsReview.length === 0) &&
         (!historyVisible || active) && (
-          <section className="notice uninstall-progress" aria-label="卸载状态">
+          <section
+            className="notice uninstall-progress motion-scan"
+            data-scanning={active && !cancelRequested && !cancelError}
+            aria-label="卸载状态"
+          >
             <div>
-              <strong>
+              <strong
+                className="motion-text"
+                data-active={active && !cancelRequested && !cancelError}
+              >
                 {detail ? (
                   <>
                     <span data-i18n="off">{detail.name}</span> ·{' '}
@@ -516,7 +523,13 @@ export function ApplicationUninstallCenter({
             <>
               {detail ? (
                 <>
-                  <strong role="status">
+                  <strong
+                    role="status"
+                    className="motion-text"
+                    data-active={
+                      active && !cancelRequested && !cancelError && detail.itemState !== 'uncertain'
+                    }
+                  >
                     <span data-i18n="off">{detail.name}</span> ·{' '}
                     {uninstallStateName(detail.itemState)}
                   </strong>
@@ -629,7 +642,13 @@ export function ApplicationUninstallCenter({
             <>
               <strong data-i18n="off">{plan?.name ?? target?.name}</strong>
               <p className="mono full-path">{plan?.path ?? target?.path}</p>
-              {checking && <p role="status">正在检查 App、运行状态与卸载范围；尚未执行。</p>}
+              {checking && (
+                <p role="status" className="motion-scan" data-scanning>
+                  <span className="motion-text" data-active>
+                    正在检查 App、运行状态与卸载范围；尚未执行。
+                  </span>
+                </p>
+              )}
               {review && <p role="status">{review.message}</p>}
               {error && (
                 <p className="notice warning" role="alert">

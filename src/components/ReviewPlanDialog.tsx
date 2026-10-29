@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RefreshCw, ShieldCheck } from 'lucide-react'
-import type { CleanupConfirmation, ExecutionDetail, ReviewPlan } from '../types'
+import type { CleanupConfirmation, ExecutionDetail, ExecutionSummary, ReviewPlan } from '../types'
 import { dateTime } from '../lib/format'
 import { Modal } from './Modal'
 import { useNow } from '../lib/use-now'
@@ -20,6 +20,7 @@ export function ReviewPlanDialog({
   onExecute,
   onDiscardConfirmation,
   onRevealReceipt,
+  executions = [],
 }: {
   initialPlan: ReviewPlan
   autoCheck?: boolean
@@ -29,6 +30,7 @@ export function ReviewPlanDialog({
   onExecute?: (id: string, signal: AbortSignal) => Promise<ExecutionDetail>
   onDiscardConfirmation?: (id: string) => Promise<void>
   onRevealReceipt?: RevealExecutionItem
+  executions?: ExecutionSummary[]
 }) {
   const [plan, setPlan] = useState(initialPlan)
   const [confirming, setConfirming] = useState<CleanupConfirmation | null>(null)
@@ -158,6 +160,10 @@ export function ReviewPlanDialog({
     return (
       <LogCleanupDialog
         confirmation={confirming}
+        execution={executions.find(
+          (execution) =>
+            execution.planId === confirming.planId && execution.createdAt >= confirming.createdAt,
+        )}
         simple={autoCheck}
         onExecute={onExecute}
         onDiscard={onDiscardConfirmation}
@@ -190,7 +196,7 @@ export function ReviewPlanDialog({
             : '当前未开放执行，复核不会清理文件。检查结果不代表已获准清理。'}
         </span>
       </div>
-      <div className="plan-summary">
+      <div className="plan-summary motion-scan" data-scanning={pending != null && !cancelling}>
         <strong>
           {preparation?.summary ??
             (problems ? `${problems} 项需要重新确认` : '本次文件信息未见变化')}
@@ -198,19 +204,21 @@ export function ReviewPlanDialog({
         <span>{plan.itemCount} 个项目</span>
       </div>
       <p className="plan-next" role="status">
-        {expired
-          ? '此计划已失效，之前的复查结果不再适用。'
-          : pending
-            ? '正在检查所选项目，请等待结果。'
-            : preparation
-              ? onExecute && offer
-                ? '下一步：核对项目用途与影响，再查看后端固定的移入范围。未满足条件的项目保留。'
-                : preparation.next
-              : problems
-                ? '下一步：先查看需确认的项目，展开检查详情了解原因。'
-                : !plan.ruleCheckedAt
-                  ? '下一步：复查 Mole 规则，再逐项了解用途与影响。'
-                  : '下一步：查看逐项检查结果与可能影响。'}
+        <span className="motion-text" data-active={pending != null && !cancelling && !expired}>
+          {expired
+            ? '此计划已失效，之前的复查结果不再适用。'
+            : pending
+              ? '正在检查所选项目，请等待结果。'
+              : preparation
+                ? onExecute && offer
+                  ? '下一步：核对项目用途与影响，再查看后端固定的移入范围。未满足条件的项目保留。'
+                  : preparation.next
+                : problems
+                  ? '下一步：先查看需确认的项目，展开检查详情了解原因。'
+                  : !plan.ruleCheckedAt
+                    ? '下一步：复查 Mole 规则，再逐项了解用途与影响。'
+                    : '下一步：查看逐项检查结果与可能影响。'}
+        </span>
       </p>
       {onExecute &&
         preparation?.valid &&
