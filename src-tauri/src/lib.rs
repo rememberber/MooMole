@@ -102,6 +102,7 @@ struct AppState {
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
+    folder_schedules: Arc<personal_files::schedule::runtime::Controller>,
     startup_management: Arc<Mutex<startup_management::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
@@ -887,6 +888,7 @@ fn start_task(
             | TaskKind::PersonalArchive
             | TaskKind::StartupManagement
             | TaskKind::PersonalTransfer
+            | TaskKind::FolderScan
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -924,6 +926,7 @@ fn start_task(
                         | TaskKind::PersonalArchive
                         | TaskKind::StartupManagement
                         | TaskKind::PersonalTransfer
+                        | TaskKind::FolderScan
                 ) && (job.kind == TaskKind::AiScan || kind != TaskKind::Status)
                 || (kind == TaskKind::Status && job.kind == TaskKind::StatusWatch)
         })
@@ -2331,45 +2334,59 @@ pub fn run() {
                 updates.schedule_maintenance(cache.join("pending-updates"));
             }
             app.manage(AppState {
-                db: Arc::new(Mutex::new(connection)),
-                jobs: Arc::new(Mutex::new(HashMap::new())),
-                results: Arc::new(Mutex::new(tasks::Results::default())),
-                archive_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
-                preview_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
-                maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                maintenance_reviews: Arc::new(Mutex::new(maintenance::review::Store::default())),
-                refresh_plans: Arc::new(Mutex::new(maintenance::refresh_plan::Store::default())),
-                search_repairs: Arc::new(Mutex::new(None)),
-                file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
-                personal_archives: Arc::new(Mutex::new(personal_files::archive::Store::default())),
-                personal_transfers: Arc::new(
-                    Mutex::new(personal_files::transfer::Store::default()),
-                ),
-                storage_monitor: Arc::new(storage_monitor::Controller::default()),
-                startup_management: Arc::new(Mutex::new(startup_management::Store::default())),
-                cleanup_confirmations: Arc::new(Mutex::new(log_cleanup::Confirmations::default())),
-                uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
-                uninstall_confirmations: Arc::new(Mutex::new(
-                    uninstall_confirmation::Confirmations::default(),
-                )),
-                status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
-                cleanup_visibility: Arc::new(Mutex::new(activity_authorization::Store::default())),
-                ai_scan: Arc::new(Mutex::new(ai_scan::Store::default())),
-                personal_files: Arc::new(Mutex::new(personal_files::Store::default())),
-                duplicate_files: Arc::new(Mutex::new(personal_files::Store::default())),
-                similar_photos: Arc::new(Mutex::new(personal_files::Store::default())),
-                software_files: Arc::new(Mutex::new(personal_files::Store::default())),
-                engine_root,
-                home: app.path().home_dir()?,
-                shutdown: Arc::new(shutdown::Controller::default()),
-                updates,
-                window_placement: window_placement.clone(),
-            });
+                    db: Arc::new(Mutex::new(connection)),
+                    jobs: Arc::new(Mutex::new(HashMap::new())),
+                    results: Arc::new(Mutex::new(tasks::Results::default())),
+                    archive_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                    preview_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                    maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    maintenance_reviews: Arc::new(
+                        Mutex::new(maintenance::review::Store::default()),
+                    ),
+                    refresh_plans: Arc::new(
+                        Mutex::new(maintenance::refresh_plan::Store::default()),
+                    ),
+                    search_repairs: Arc::new(Mutex::new(None)),
+                    file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
+                    personal_archives: Arc::new(Mutex::new(
+                        personal_files::archive::Store::default(),
+                    )),
+                    personal_transfers: Arc::new(Mutex::new(
+                        personal_files::transfer::Store::default(),
+                    )),
+                    storage_monitor: Arc::new(storage_monitor::Controller::default()),
+                    folder_schedules: Arc::new(
+                        personal_files::schedule::runtime::Controller::default(),
+                    ),
+                    startup_management: Arc::new(Mutex::new(startup_management::Store::default())),
+                    cleanup_confirmations: Arc::new(Mutex::new(
+                        log_cleanup::Confirmations::default(),
+                    )),
+                    uninstall_plans: Arc::new(Mutex::new(uninstall_plan::Store::default())),
+                    uninstall_confirmations: Arc::new(Mutex::new(
+                        uninstall_confirmation::Confirmations::default(),
+                    )),
+                    status_watch: Arc::new(Mutex::new(status_watch::Store::default())),
+                    cleanup_visibility: Arc::new(Mutex::new(
+                        activity_authorization::Store::default(),
+                    )),
+                    ai_scan: Arc::new(Mutex::new(ai_scan::Store::default())),
+                    personal_files: Arc::new(Mutex::new(personal_files::Store::default())),
+                    duplicate_files: Arc::new(Mutex::new(personal_files::Store::default())),
+                    similar_photos: Arc::new(Mutex::new(personal_files::Store::default())),
+                    software_files: Arc::new(Mutex::new(personal_files::Store::default())),
+                    engine_root,
+                    home: app.path().home_dir()?,
+                    shutdown: Arc::new(shutdown::Controller::default()),
+                    updates,
+                    window_placement: window_placement.clone(),
+                });
             storage_monitor::start(app.state::<AppState>().inner().clone());
+            personal_files::schedule::runtime::start(app.state::<AppState>().inner().clone());
             menu_bar::start(app.handle());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
@@ -2389,6 +2406,10 @@ pub fn run() {
             storage_monitor::sample_storage_monitor,
             menu_bar::get_menu_bar,
             menu_bar::configure_menu_bar,
+            personal_files::schedule::runtime::get_folder_schedules,
+            personal_files::schedule::runtime::configure_folder_schedule,
+            personal_files::schedule::runtime::remove_folder_schedule,
+            personal_files::schedule::runtime::start_folder_scan,
             personal_files::preview::preview_personal_file,
             personal_files::commands::get_personal_files,
             personal_files::commands::get_duplicate_files,

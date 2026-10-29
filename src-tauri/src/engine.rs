@@ -38,6 +38,7 @@ pub enum TaskKind {
     PersonalArchive,
     StartupManagement,
     PersonalTransfer,
+    FolderScan,
 }
 
 impl TaskKind {
@@ -65,6 +66,7 @@ impl TaskKind {
             Self::PersonalArchive => "personalarchive",
             Self::StartupManagement => "startupmanagement",
             Self::PersonalTransfer => "personaltransfer",
+            Self::FolderScan => "folderscan",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -84,6 +86,7 @@ impl TaskKind {
                 | Self::PersonalArchive
                 | Self::StartupManagement
                 | Self::PersonalTransfer
+                | Self::FolderScan
         )
     }
 }
@@ -411,7 +414,8 @@ async fn run_kind(
         | TaskKind::FileRestore
         | TaskKind::PersonalArchive
         | TaskKind::StartupManagement
-        | TaskKind::PersonalTransfer => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::PersonalTransfer
+        | TaskKind::FolderScan => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -479,7 +483,8 @@ async fn run_kind(
         | TaskKind::FileRestore
         | TaskKind::PersonalArchive
         | TaskKind::StartupManagement
-        | TaskKind::PersonalTransfer => false,
+        | TaskKind::PersonalTransfer
+        | TaskKind::FolderScan => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());

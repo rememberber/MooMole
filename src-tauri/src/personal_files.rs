@@ -15,6 +15,7 @@ mod media;
 pub(crate) mod movement;
 pub(crate) mod preview;
 mod scan;
+pub(crate) mod schedule;
 pub(crate) mod similar_photos;
 pub(crate) mod software_content;
 pub(crate) mod transfer;

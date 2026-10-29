@@ -190,6 +190,7 @@ fn open(path: &Path) -> Result<Connection, String> {
     }
     crate::personal_files::archive::journal::reconcile(&mut connection)?;
     crate::personal_files::transfer::journal::reconcile(&mut connection)?;
+    crate::personal_files::schedule::reconcile(&connection)?;
     crate::startup_management::journal::reconcile(&mut connection)?;
     crate::execution::reconcile(&mut connection, now())?;
     crate::uninstall_journal::reconcile(&mut connection, now())?;

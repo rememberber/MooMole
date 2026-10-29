@@ -61,6 +61,9 @@ import { restorationTransport, type RestorationTarget } from './lib/file-restora
 import { storageMonitorTransport } from './lib/storage-monitor'
 import { menuBarTransport, listenMenuBar } from './lib/menu-bar'
 import { MenuBarSettings } from './components/MenuBarSettings'
+import { FolderSchedules } from './components/FolderSchedules'
+import { folderScheduleTransport } from './lib/folder-schedules'
+import { useFolderSchedules } from './lib/use-folder-schedules'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -261,6 +264,7 @@ export default function App() {
     document.title = 'MooMole'
   }, [language])
   const [data, setData] = useState<Bootstrap | null>(null)
+  const folderSchedules = useFolderSchedules(api.desktop && !!data, folderScheduleTransport)
   const [page, setPage] = useState<Page>('overview')
   useEffect(() => {
     if (!api.desktop) return
@@ -925,6 +929,7 @@ export default function App() {
     !restorationActive &&
     !fileArchiveActive &&
     !transferActive &&
+    !folderSchedules.running &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -2276,6 +2281,15 @@ export default function App() {
                 onAnalyze={() => changePage('analyze')}
               />
               <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
+              <FolderSchedules
+                enabled={api.desktop}
+                controller={folderSchedules}
+                chooseDirectory={() => api.chooseDirectory('选择定期扫描目录')}
+                onOrganize={(root) => {
+                  personalFiles.setRoot(root)
+                  changePage('personalFiles')
+                }}
+              />
             </>
           )}
           {page === 'installers' && (

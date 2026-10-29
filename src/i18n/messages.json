@@ -7335,5 +7335,126 @@
     "菜单栏状态无法核对，请刷新。",
     "Menu bar state could not be verified. Refresh to try again.",
     "メニューバーの状態を確認できません。更新してください。"
+  ],
+  ["选择定期扫描目录", "Choose a directory for scheduled scans", "定期スキャンのフォルダを選択"],
+  ["定期扫描", "Scheduled scan", "定期スキャン"],
+  ["手动扫描", "Manual scan", "手動スキャン"],
+  [
+    "{0} 个所见文件 · {1} · 跳过 {2} 项",
+    "{0} observed files · {1} · {2} items skipped",
+    "検出したファイル {0} 個 · {1} · {2} 項目をスキップ"
+  ],
+  ["个所见文件 ·", "observed files ·", "個の検出ファイル ·"],
+  [
+    "新增 {0} · 属性变化 {1} · 未再见 {2} · 所见大小变化 {3}{4}",
+    "Added {0} · Attributes changed {1} · Not seen {2} · Observed size change {3}{4}",
+    "新規 {0} · 属性変更 {1} · 未検出 {2} · 検出サイズの変化 {3}{4}"
+  ],
+  ["新增", "Added", "新規"],
+  ["· 属性变化", "· Attributes changed", "· 属性変更"],
+  ["· 未再见", "· Not seen", "· 未検出"],
+  ["· 所见大小变化", "· Observed size change", "· 検出サイズの変化"],
+  [
+    "已保存第一份完整比较基线。",
+    "The first complete comparison baseline was saved.",
+    "最初の完全な比較基準を保存しました。"
+  ],
+  [
+    "范围或保护变化，已重新建立比较基线。",
+    "Scope or protection changed; a new baseline was saved.",
+    "範囲または保護設定が変わったため、比較基準を再作成しました。"
+  ],
+  [
+    "扫描不完整，不比较缺失文件，也不替换完整基线。",
+    "The scan is incomplete. Missing files are not compared and the complete baseline is retained.",
+    "スキャンは不完全です。未検出ファイルの比較や完全な比較基準の置き換えは行いません。"
+  ],
+  ["查看变化线索", "View change clues", "変化の手がかりを表示"],
+  ["属性变化", "Attributes changed", "属性変更"],
+  ["未再见", "Not seen", "未検出"],
+  [
+    "仅列出前 100 条变化线索，数量汇总包含其余结果。",
+    "Only the first 100 change clues are listed; totals include the rest.",
+    "変化の手がかりは先頭 100 件のみ表示します。集計には残りも含まれます。"
+  ],
+  ["目录定期扫描", "Scheduled directory scans", "フォルダの定期スキャン"],
+  ["添加扫描目录…", "Add a scan directory…", "スキャンするフォルダを追加…"],
+  ["刷新扫描记录", "Refresh scan records", "スキャン記録を更新"],
+  [
+    "仅在 MooMole 运行时扫描明确保存的目录；其他任务占用时延后，休眠后不补跑所有错过的周期。最多八个目录，保留最近 64 条记录。停止或移除任务不会修改目录文件。",
+    "Scans run only while MooMole is running, within saved directories. Other tasks may defer them; missed periods are not replayed after sleep. Up to eight directories and 64 recent records. Stopping or removing a task does not change its files.",
+    "MooMole の実行中に保存済みフォルダのみスキャンします。他のタスク実行中は延期し、スリープ中の周期をすべて再実行しません。最大 8 フォルダ、直近 64 件を保持します。停止やタスク削除でファイルは変更されません。"
+  ],
+  [
+    "比较所见文件的路径、大小和属性，不读取内容来判断相同，也不推断可清理或可释放空间。“未再见”可能来自移动、排除或目录变化，不代表文件已删除。",
+    "Compares observed paths, sizes and attributes, without reading contents for equality or inferring reclaimable space. Not seen may mean moved, excluded or changed scope; it does not prove deletion.",
+    "検出したパス、サイズ、属性を比較します。内容の同一性や解放可能容量は判定しません。「未検出」は移動、除外、範囲変更などでも生じ、削除を意味しません。"
+  ],
+  ["{0} · {1} 分钟", "{0} · {1} minutes", "{0} · {1} 分"],
+  ["定期目录扫描已开启", "Scheduled directory scans enabled", "フォルダの定期スキャンは有効です"],
+  [
+    "定期目录扫描已暂停",
+    "Scheduled directory scans paused",
+    "フォルダの定期スキャンは一時停止中です"
+  ],
+  ["分钟", "minutes", "分"],
+  ["上次尝试：{0}", "Last attempt: {0}", "前回の試行：{0}"],
+  ["上次尝试：", "Last attempt:", "前回の試行："],
+  ["立即扫描", "Scan now", "今すぐスキャン"],
+  ["暂停扫描", "Pause scans", "スキャンを一時停止"],
+  ["启用扫描", "Enable scans", "スキャンを有効化"],
+  ["编辑范围与周期", "Edit scope and interval", "範囲と間隔を編集"],
+  ["查看并整理", "Review and organize", "確認して整理"],
+  ["移除扫描任务", "Remove scan task", "スキャンタスクを削除"],
+  [
+    "尚未配置扫描目录。添加目录并保存后，可单次扫描或明确开启定期扫描。",
+    "No scan directories configured. Add and save a directory to scan once or explicitly enable scheduled scans.",
+    "スキャンするフォルダは未設定です。追加して保存すると、単発スキャンや定期スキャンの有効化ができます。"
+  ],
+  [
+    "目录扫描正在运行，可以停止；部分结果不会替换完整比较基线。",
+    "A directory scan is running and can be stopped. Partial results will not replace the complete baseline.",
+    "フォルダのスキャン中です。停止できます。部分的な結果で完全な比較基準は置き換えません。"
+  ],
+  ["停止目录扫描", "Stop directory scan", "フォルダのスキャンを停止"],
+  ["目录扫描记录", "Directory scan records", "フォルダのスキャン記録"],
+  [
+    "“查看并整理”只传递目录。请重新扫描、预览和选择，再按独立确认执行移动、归档或废纸篓处理；历史扫描不是文件操作许可。",
+    "Review and organize passes only the directory. Scan again, preview and select files, then confirm moves, archives or Trash separately. Historical scans do not authorize file operations.",
+    "「確認して整理」はフォルダのみを引き継ぎます。再スキャン、プレビュー、選択後に、移動、アーカイブ、ゴミ箱への移動を個別に確認します。過去のスキャンはファイル操作の許可ではありません。"
+  ],
+  ["目录扫描范围与周期", "Directory scan scope and interval", "フォルダスキャンの範囲と間隔"],
+  ["定期扫描目录", "Scheduled scan directory", "定期スキャンのフォルダ"],
+  ["选择扫描目录…", "Choose scan directory…", "スキャンするフォルダを選択…"],
+  ["扫描间隔", "Scan interval", "スキャン間隔"],
+  ["目录扫描间隔", "Directory scan interval", "フォルダのスキャン間隔"],
+  ["每天", "Daily", "毎日"],
+  ["启用定期目录扫描", "Enable scheduled directory scans", "フォルダの定期スキャンを有効化"],
+  [
+    "保存范围只授权扫描观察，不授权自动处理文件。暂停时仍可手动扫描；退出 App 后停止，下次打开按已保存设置继续。",
+    "Saving authorizes observation within this scope, not automatic file processing. Manual scans remain available while paused. Quitting stops scans; saved settings resume on the next launch.",
+    "範囲の保存はスキャンによる観測のみを許可し、ファイルの自動処理は許可しません。一時停止中も手動スキャンは可能です。終了すると停止し、次回起動時に保存済み設定に従って再開します。"
+  ],
+  ["保存扫描范围", "Save scan scope", "スキャン範囲を保存"],
+  [
+    "目录定期扫描数据无法核对，未发起新的扫描或文件操作。",
+    "Scheduled scan data could not be verified. No new scan or file operation was started.",
+    "定期スキャンのデータを確認できません。新しいスキャンやファイル操作は開始していません。"
+  ],
+  ["正在扫描目录", "Scanning directory", "フォルダをスキャン中"],
+  ["本次扫描已完成", "Scan completed", "スキャン完了"],
+  ["仅扫描了部分内容", "Only part of the scope was scanned", "範囲の一部のみスキャン済み"],
+  ["目录扫描已取消", "Directory scan cancelled", "フォルダのスキャンをキャンセルしました"],
+  ["目录扫描未完成", "Directory scan failed", "フォルダのスキャンは未完了です"],
+  [
+    "设置变化，旧结果未保存",
+    "Settings changed; old results not saved",
+    "設定が変更されたため、以前の結果は保存していません"
+  ],
+  ["目录扫描曾中断", "Directory scan was interrupted", "フォルダのスキャンが中断されました"],
+  [
+    "请等待目录扫描设置操作结束。",
+    "Wait for the directory scan settings operation to finish.",
+    "フォルダスキャン設定の操作が終了するまでお待ちください。"
   ]
 ]
