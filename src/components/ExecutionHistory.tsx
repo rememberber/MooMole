@@ -12,6 +12,7 @@ import { ExecutionReason } from './ExecutionReason'
 import { CleanupResultSummary } from './CleanupResultSummary'
 import type { RestorationTarget } from '../lib/file-restoration'
 import type { RestorationBatchTarget } from '../lib/file-restoration-batch'
+import { ScheduledRuleSummary } from './ScheduledFiles'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -353,7 +354,9 @@ function ExecutionResults({
     !!onRestoreBatch &&
     detail.state !== 'running' &&
     ['trash', 'move'].includes(detail.method) &&
-    ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(detail.origin ?? '') &&
+    ['personalFiles', 'duplicateFiles', 'similarPhotos', 'scheduledFiles'].includes(
+      detail.origin ?? '',
+    ) &&
     item.state === 'moved' &&
     !!item.receipt
   const [query, setQuery] = useState('')
@@ -397,6 +400,18 @@ function ExecutionResults({
         <p className="notice">
           来源：文件恢复。按原处理收据重新确认，将文件移回原位置；原处理记录保持不变。
         </p>
+      )}
+      {detail.origin === 'scheduledFiles' && (
+        <div className="notice">
+          <strong>来源：明确启用的定期文件处理。</strong>
+          <p>恢复前请先暂停原位置的定期处理规则，避免再次处理。</p>
+          {detail.automation && (
+            <details>
+              <summary>查看当时的处理规则</summary>
+              <ScheduledRuleSummary rule={detail.automation} />
+            </details>
+          )}
+        </div>
       )}
       <p className="muted">
         {stateName(detail.state, detail.method)} · {detail.method === 'move' ? '已移动' : '已移入'}{' '}
@@ -514,16 +529,19 @@ function ExecutionResults({
                       !!onRestore &&
                       item.state === 'moved' &&
                       detail.state !== 'running' &&
-                      ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(
-                        detail.origin ?? '',
-                      )
+                      [
+                        'personalFiles',
+                        'duplicateFiles',
+                        'similarPhotos',
+                        'scheduledFiles',
+                      ].includes(detail.origin ?? '')
                     }
                   />
                 )}
                 {onRestore &&
                   item.state === 'moved' &&
                   detail.state !== 'running' &&
-                  ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(
+                  ['personalFiles', 'duplicateFiles', 'similarPhotos', 'scheduledFiles'].includes(
                     detail.origin ?? '',
                   ) && (
                     <button

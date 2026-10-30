@@ -38,6 +38,7 @@ test('recovered uncertainty is visible on startup and leads to focused execution
     'list_quicklook_refreshes',
     'plugin:event|listen',
     'get_folder_schedules',
+    'get_scheduled_files',
     'get_personal_transfers',
     'get_personal_archives',
     'get_startup_management',

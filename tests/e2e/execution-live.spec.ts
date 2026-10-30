@@ -59,6 +59,7 @@ test('reload follows existing execution and cancellation waits for durable resul
         'list_quicklook_refreshes',
         'plugin:event|listen',
         'get_folder_schedules',
+        'get_scheduled_files',
         'get_personal_transfers',
         'get_personal_archives',
         'get_startup_management',

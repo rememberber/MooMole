@@ -81,6 +81,10 @@ impl Plan {
             .validate_record(std::slice::from_ref(&self.item))
     }
     fn validate_source(&self, database: &db::Database) -> Result<(), String> {
+        crate::personal_files::automation::allow_restoration(
+            database,
+            &self.movement.witness.nodes,
+        )?;
         let current = execution::detail(database, &self.source.run_id)?;
         let source = source(&current, &self.source.item_id)?;
         if source.snapshot_sha256 != self.source.snapshot_sha256
@@ -139,7 +143,7 @@ fn source(detail: &execution::Detail, item_id: &str) -> Result<Source, String> {
     if detail.summary.state == "running"
         || !matches!(
             detail.origin,
-            "personalFiles" | "duplicateFiles" | "similarPhotos"
+            "personalFiles" | "duplicateFiles" | "similarPhotos" | "scheduledFiles"
         )
         || !matches!(detail.summary.method.as_str(), "trash" | "move")
     {

@@ -1,3 +1,4 @@
+import type { ScheduledFileRule } from './lib/scheduled-files'
 export type Page =
   | 'storageMonitor'
   | 'overview'
@@ -565,6 +566,8 @@ export interface ExecutionDetail extends ExecutionSummary {
     | 'similarPhotos'
     | 'softwareContent'
     | 'fileRestoration'
+    | 'scheduledFiles'
+  automation?: ScheduledFileRule
   spaceObservation?: CleanupSpaceObservation | null
   revision: string
   protocol: number

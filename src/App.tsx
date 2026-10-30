@@ -67,6 +67,9 @@ import { MenuBarSettings } from './components/MenuBarSettings'
 import { FolderSchedules } from './components/FolderSchedules'
 import { folderScheduleTransport } from './lib/folder-schedules'
 import { useFolderSchedules } from './lib/use-folder-schedules'
+import { useScheduledFiles } from './lib/use-scheduled-files'
+import { scheduledFilesTransport } from './lib/scheduled-files'
+import { ScheduledFiles } from './components/ScheduledFiles'
 import type { UninstallTarget } from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
@@ -268,6 +271,7 @@ export default function App() {
   }, [language])
   const [data, setData] = useState<Bootstrap | null>(null)
   const folderSchedules = useFolderSchedules(api.desktop && !!data, folderScheduleTransport)
+  const scheduledFiles = useScheduledFiles(api.desktop && !!data, scheduledFilesTransport)
   const [page, setPage] = useState<Page>('overview')
   useEffect(() => {
     if (!api.desktop) return
@@ -938,6 +942,7 @@ export default function App() {
     !fileArchiveActive &&
     !transferActive &&
     !folderSchedules.running &&
+    !scheduledFiles.running &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const disk = systemDisk(snapshot?.disks)
@@ -2353,6 +2358,12 @@ export default function App() {
                 onAnalyze={() => changePage('analyze')}
               />
               <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
+              <ScheduledFiles
+                enabled={api.desktop && data.engine.available}
+                controller={scheduledFiles}
+                chooseDirectory={() => api.chooseDirectory('选择定期处理目录')}
+                onHistory={() => changePage('history')}
+              />
               <FolderSchedules
                 enabled={api.desktop}
                 controller={folderSchedules}

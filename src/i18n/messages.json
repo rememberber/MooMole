@@ -1,5 +1,228 @@
 [
   [
+    "所选卷为只读或无法核对写入状态，不能启用定期处理。",
+    "The selected volume is read-only or its write state could not be verified. Recurring processing cannot be enabled.",
+    "選択したボリュームは読み取り専用、または書き込み状態を確認できないため、定期処理を有効にできません。"
+  ],
+  [
+    "仅处理本账户拥有的本地普通文件；目录、点开头名称、链接、硬链接文件、云占位和其他卷不纳入。",
+    "Only local ordinary files owned by this account are processed. Folders, dot-prefixed names, links, hard-linked files, cloud placeholders, and other volumes are excluded.",
+    "このアカウント所有のローカル通常ファイルだけを処理します。フォルダ、ドットで始まる名前、リンク、ハードリンクのファイル、クラウドのプレースホルダ、他のボリュームは対象外です。"
+  ],
+  [
+    "恢复前请先暂停原位置的定期处理规则，避免再次处理。",
+    "Pause recurring rules for the original location before restoring to avoid processing the file again.",
+    "復元後に再処理されないよう、元の場所の定期処理ルールを先に一時停止してください。"
+  ],
+  [
+    "原位置仍有启用的定期处理规则，请先暂停，避免恢复后再次处理。",
+    "A recurring rule is enabled for the original location. Pause it before restoring to avoid processing the file again.",
+    "元の場所で定期処理ルールが有効です。復元後の再処理を防ぐため、先に一時停止してください。"
+  ],
+  [
+    "请选择具体目录、30 天以上的修改日期条件、确切扩展名及有效处理上限。",
+    "Choose a specific folder, at least 30 days without modification, exact extensions, and valid processing limits.",
+    "具体的なフォルダ、30日以上未変更の条件、拡張子、有効な処理上限を指定してください。"
+  ],
+  [
+    "本轮定期移动仅支持同一磁盘，跨盘请使用手动复制核验流程。",
+    "Recurring moves currently require the same disk. Use the manual verified-copy flow across disks.",
+    "今回の定期移動は同じディスク内のみ対応しています。ディスク間では手動のコピー検証を使用してください。"
+  ],
+  ["选择定期处理目录", "Choose recurring processing folder", "定期処理のフォルダを選択"],
+  [
+    "来源：明确启用的定期文件处理。",
+    "Source: explicitly enabled recurring file processing.",
+    "提供元：明示的に有効にした定期ファイル処理。"
+  ],
+  ["查看当时的处理规则", "View the rule used for this run", "実行時の処理ルールを表示"],
+  [
+    "同卷移动到所选目录，不覆盖同名文件。",
+    "Move to the selected folder on the same volume without overwriting files.",
+    "同じボリュームの選択フォルダへ移動します。同名ファイルは上書きしません。"
+  ],
+  [
+    "移入 macOS 废纸篓，不清空废纸篓。",
+    "Move to macOS Trash without emptying it.",
+    "macOSのゴミ箱へ移動します。ゴミ箱は空にしません。"
+  ],
+  ["{0} 天未修改 ·", "Not modified for {0} days ·", "{0}日間未変更 ·"],
+  [
+    "· 每次最多 {0} 项 / {1} · 每 {2} 分钟检查",
+    "· Up to {0} items / {1} per run · Check every {2} minutes",
+    "· 1回に最大{0}項目 / {1} · {2}分ごとに確認"
+  ],
+  ["天未修改 ·", "days without modification ·", "日間未変更 ·"],
+  ["· 每次最多", "· Per run, up to", "· 1回に最大"],
+  ["项 /", "items /", "項目 /"],
+  ["· 每", "· Every", "·"],
+  ["分钟检查", "minutes between checks", "分ごとに確認"],
+  ["定期文件处理", "Recurring file processing", "定期ファイル処理"],
+  ["添加处理规则…", "Add processing rule…", "処理ルールを追加…"],
+  ["刷新定期处理", "Refresh recurring processing", "定期処理を更新"],
+  [
+    "默认不启用。仅在 App 运行期间按明确规则处理；退出重开后暂停，不补跑。重新启用须再次预览确认，扫描任务不会自动变成处理规则。",
+    "Off by default. Rules run only while the app is running. Reopening pauses them without catching up. Enabling again requires a new preview and confirmation; scan schedules never become processing rules automatically.",
+    "既定では無効です。明示したルールに従い、アプリ起動中だけ処理します。終了して開き直すと一時停止し、未実行分は補いません。再度有効にするにはプレビューと確認が必要です。スキャン設定が自動で処理ルールになることはありません。"
+  ],
+  ["本次运行已启用", "Enabled for this app session", "今回のアプリ起動中は有効"],
+  [
+    "已暂停，需重新预览启用",
+    "Paused; preview again to enable",
+    "一時停止中。再度プレビューして有効化"
+  ],
+  ["预览并重新启用…", "Preview and enable again…", "プレビューして再有効化…"],
+  ["暂停此处理规则", "Pause this rule", "この処理ルールを一時停止"],
+  ["按规则处理一次", "Process once using this rule", "このルールで1回処理"],
+  ["移除此处理规则", "Remove this rule", "この処理ルールを削除"],
+  [
+    "尚未配置定期处理，不会自动移动或删除文件。",
+    "No recurring processing is configured. Files will not be moved or deleted automatically.",
+    "定期処理は未設定です。ファイルを自動で移動・削除しません。"
+  ],
+  [
+    "定期处理正在收集实际结果。",
+    "Recurring processing is collecting actual results.",
+    "定期処理の実際の結果を収集中です。"
+  ],
+  ["停止本次处理", "Stop this run", "今回の処理を停止"],
+  ["最近定期处理结果", "Recent recurring processing results", "最近の定期処理結果"],
+  ["正在处理", "Processing", "処理中"],
+  ["本次处理已结束", "This run has ended", "今回の処理は終了しました"],
+  [
+    "已中断，未自动重放",
+    "Interrupted; not replayed automatically",
+    "中断済み。自動再実行していません"
+  ],
+  [
+    "未全部完成，规则已暂停",
+    "Not fully completed; rule paused",
+    "未完了の項目があり、ルールを一時停止しました"
+  ],
+  [
+    "符合 {0} 项 · 本次选择 {1} 项 · 上限保留 {2} 项",
+    "{0} matched · {1} selected · {2} retained by limits",
+    "{0}項目が一致 · {1}項目を選択 · 上限により{2}項目を保持"
+  ],
+  ["符合", "Matched", "一致"],
+  ["项 · 本次选择", "items · Selected", "項目 · 今回の選択"],
+  ["项 · 上限保留", "items · Retained by limits", "項目 · 上限により保持"],
+  ["查看执行历史", "View execution history", "実行履歴を表示"],
+  [
+    "预览并启用定期处理",
+    "Preview and enable recurring processing",
+    "定期処理をプレビューして有効化"
+  ],
+  [
+    "启用后，本次 App 运行期间，后续符合条件的文件也会按规则处理，无需逐次确认。只按修改日期和扩展名判断，不代表文件近期没用或可以丢弃；新复制但保留旧修改日期的文件也可能命中。请使用用途明确的具体目录。",
+    "Once enabled, future matching files may also be processed during this app session without confirmation for each run. Modification dates and extensions do not prove that a file is unused or disposable. Newly copied files with old modification dates may also match. Choose a specific folder with a clear purpose.",
+    "有効にすると、今回のアプリ起動中に条件へ一致する今後のファイルも、毎回の確認なしで処理します。更新日と拡張子だけでは、最近使っていないことや不要なことは判断できません。古い更新日を保持してコピーされた新しいファイルも対象になる場合があります。用途が明確なフォルダを指定してください。"
+  ],
+  ["编辑处理条件", "Edit processing conditions", "処理条件を編集"],
+  ["处理源目录", "Source folder", "処理元フォルダ"],
+  ["选择源目录…", "Choose source folder…", "処理元フォルダを選択…"],
+  ["定期操作", "Recurring action", "定期的な操作"],
+  ["移动到独立目录", "Move to a separate folder", "別のフォルダへ移動"],
+  ["处理目标目录", "Destination folder", "処理先フォルダ"],
+  ["选择目标目录…", "Choose destination folder…", "処理先フォルダを選択…"],
+  [
+    "确切扩展名（逗号分隔，不含点）",
+    "Exact extensions (comma-separated, without dots)",
+    "拡張子（ドットなし、カンマ区切り）"
+  ],
+  ["至少多少天未修改", "Minimum days without modification", "更新されていない最低日数"],
+  ["每次最多文件数", "Maximum files per run", "1回の最大ファイル数"],
+  ["每次大小上限（MiB）", "Size limit per run (MiB)", "1回のサイズ上限（MiB）"],
+  ["处理检查间隔", "Processing check interval", "処理の確認間隔"],
+  ["每六小时", "Every six hours", "6時間ごと"],
+  ["只读预览规则", "Preview rule without changes", "変更せずにルールをプレビュー"],
+  [
+    "正在检查或保存定期规则…",
+    "Checking or saving the recurring rule…",
+    "定期ルールを確認・保存中…"
+  ],
+  ["定期处理预览", "Recurring processing preview", "定期処理のプレビュー"],
+  [
+    "当前符合 {0} 项 · 按上限选择 {1} 项 · 保留 {2} 项",
+    "{0} currently match · {1} selected within limits · {2} retained",
+    "現在{0}項目が一致 · 上限内で{1}項目を選択 · {2}項目を保持"
+  ],
+  ["当前符合", "Currently matched", "現在の一致"],
+  ["项 · 按上限选择", "items · Selected within limits", "項目 · 上限内の選択"],
+  ["项 · 保留", "items · Retained", "項目 · 保持"],
+  [
+    "本次没有符合项；启用后仍会处理后续符合规则的文件。",
+    "Nothing matches now. Enabling still authorizes processing of future matching files.",
+    "現在一致する項目はありません。有効にすると、今後一致するファイルも処理します。"
+  ],
+  [
+    "规则预览已过期，请重新检查。",
+    "The rule preview expired. Check again.",
+    "ルールのプレビューが期限切れです。再確認してください。"
+  ],
+  [
+    "我已核对规则和目录，允许本次 App 运行期间自动处理后续符合条件的文件。",
+    "I have checked the rule and folders and authorize automatic processing of future matching files during this app session.",
+    "ルールとフォルダを確認し、今回のアプリ起動中に今後一致するファイルを自動処理することに同意します。"
+  ],
+  [
+    "保存不会立即处理文件。移动仅支持同卷且不覆盖；废纸篓不会自动清空。失败、未知、中断或时间基准变化时暂停，已经完成的项目不会自动撤销。",
+    "Saving does not process files immediately. Moves stay on the same volume without overwriting; Trash is never emptied automatically. Failure, uncertainty, interruption, or clock changes pause the rule. Completed actions are not undone automatically.",
+    "保存直後にファイルは処理しません。移動は同じボリューム内で上書きせずに行い、ゴミ箱は自動で空にしません。失敗、不明な結果、中断、時刻基準の変化時には一時停止します。完了した操作は自動では取り消しません。"
+  ],
+  ["返回持续管理", "Back to ongoing management", "継続管理に戻る"],
+  ["确认启用此处理规则", "Confirm enabling this rule", "この処理ルールの有効化を確認"],
+  [
+    "定期处理数据无法核对，未自动处理或重试。",
+    "Recurring processing data could not be verified. No automatic processing or retry was requested.",
+    "定期処理データを確認できません。自動処理や再試行は要求していません。"
+  ],
+  [
+    "规则保存结果无法核对，可能已保存；请刷新并暂停核查，不会自动重试。",
+    "The save result could not be verified and the rule may have been saved. Refresh and pause it for review; no automatic retry.",
+    "ルールの保存結果を確認できません。保存されている可能性があるため、更新して一時停止し確認してください。自動再試行はしません。"
+  ],
+  [
+    "请等待定期处理设置操作结束。",
+    "Wait for the recurring processing settings operation to finish.",
+    "定期処理設定の操作が終了するまでお待ちください。"
+  ],
+  [
+    "本次处理未全部完成，规则已暂停；请先核对逐项历史，不会自动重试。",
+    "This run did not complete fully and the rule is paused. Check individual results in history; no automatic retry.",
+    "今回の処理は一部未完了のため一時停止しました。項目ごとの履歴を確認してください。自動再試行はしません。"
+  ],
+  [
+    "没有符合本次规则及上限的文件，未作修改。",
+    "No files matched this rule and its limits; no changes were made.",
+    "今回のルールと上限に一致するファイルがないため、変更していません。"
+  ],
+  [
+    "本次所选处理已完成，请在逐项历史核对实际收据。",
+    "The selected processing completed. Check actual receipts in individual history.",
+    "選択した処理が完了しました。項目ごとの履歴で実際の記録を確認してください。"
+  ],
+  [
+    "上次处理已中断，规则已暂停；请核对执行历史，不会自动重放。",
+    "The previous run was interrupted and the rule is paused. Check execution history; no automatic replay.",
+    "前回の処理が中断したため一時停止しました。実行履歴を確認してください。自動再実行はしません。"
+  ],
+  [
+    "扫描未完整结束，不能启用自动处理；请选择更具体的目录。",
+    "The scan was incomplete, so automatic processing cannot be enabled. Choose a more specific folder.",
+    "スキャンが不完全なため自動処理を有効にできません。より具体的なフォルダを選択してください。"
+  ],
+  [
+    "扫描未完整结束或已取消，未按不完整结果处理文件。",
+    "The scan was incomplete or cancelled. No files were processed from incomplete results.",
+    "スキャンが不完全または中止済みです。不完全な結果に基づくファイル処理は行っていません。"
+  ],
+  [
+    "时间或运行基准明显变化，定期处理已暂停；请重新预览启用。",
+    "The clock or runtime reference changed significantly. Recurring processing is paused; preview again to enable.",
+    "時刻または実行時間の基準が大きく変化したため、定期処理を一時停止しました。再度プレビューして有効化してください。"
+  ],
+  [
     "根目录仅供分析；请进入具体个人文件夹后再整理。",
     "The root directory is for analysis. Enter a specific personal folder before organizing files.",
     "ルートディレクトリは分析のみです。具体的な個人フォルダに移動してから整理してください。"

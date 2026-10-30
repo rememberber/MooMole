@@ -23,6 +23,7 @@ impl Fixture {
         }
         let m = path.metadata().unwrap();
         let detail = execution::Detail {
+            automation: None,
             summary: execution::Summary {
                 id: uuid::Uuid::new_v4().to_string(),
                 plan_id: uuid::Uuid::new_v4().to_string(),

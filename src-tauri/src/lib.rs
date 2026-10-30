@@ -107,6 +107,7 @@ struct AppState {
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
     folder_schedules: Arc<personal_files::schedule::runtime::Controller>,
+    scheduled_files: Arc<personal_files::automation::runtime::Controller>,
     startup_management: Arc<Mutex<startup_management::Store>>,
     cleanup_confirmations: Arc<Mutex<log_cleanup::Confirmations>>,
     uninstall_plans: Arc<Mutex<uninstall_plan::Store>>,
@@ -2370,6 +2371,9 @@ pub fn run() {
                         personal_files::transfer::Store::default(),
                     )),
                     storage_monitor: Arc::new(storage_monitor::Controller::default()),
+                    scheduled_files: Arc::new(
+                        personal_files::automation::runtime::Controller::default(),
+                    ),
                     folder_schedules: Arc::new(
                         personal_files::schedule::runtime::Controller::default(),
                     ),
@@ -2398,6 +2402,7 @@ pub fn run() {
                 });
             storage_monitor::start(app.state::<AppState>().inner().clone());
             personal_files::schedule::runtime::start(app.state::<AppState>().inner().clone());
+            personal_files::automation::runtime::start(app.state::<AppState>().inner().clone());
             personal_files::preview::stream::start(app.state::<AppState>().inner().clone());
             menu_bar::start(app.handle());
             let preference = language::saved(&app.state::<AppState>());
@@ -2419,6 +2424,13 @@ pub fn run() {
             menu_bar::get_menu_bar,
             menu_bar::configure_menu_bar,
             personal_files::schedule::runtime::get_folder_schedules,
+            personal_files::automation::runtime::get_scheduled_files,
+            personal_files::automation::runtime::prepare_scheduled_files,
+            personal_files::automation::runtime::discard_scheduled_files,
+            personal_files::automation::runtime::enable_scheduled_files,
+            personal_files::automation::runtime::pause_scheduled_files,
+            personal_files::automation::runtime::remove_scheduled_files,
+            personal_files::automation::runtime::run_scheduled_files,
             personal_files::schedule::runtime::configure_folder_schedule,
             personal_files::schedule::runtime::remove_folder_schedule,
             personal_files::schedule::runtime::start_folder_scan,

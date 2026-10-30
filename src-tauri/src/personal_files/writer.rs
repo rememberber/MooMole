@@ -135,7 +135,7 @@ pub(super) async fn run(
     .await
 }
 
-async fn run_with<F, Fut>(
+pub(super) async fn run_with<F, Fut>(
     database: Arc<std::sync::Mutex<db::Database>>,
     home: PathBuf,
     plan: Plan,
@@ -181,8 +181,13 @@ where
                 continue;
             }
             let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
-            let preliminary = validate(item, &plan, &settings, db::now(), &home)
-                .and_then(|_| policy_stamp(&home));
+            let preliminary = super::automation::current(
+                &*database.lock().map_err(|e| e.to_string())?,
+                &plan,
+                &home,
+            )
+            .and_then(|_| validate(item, &plan, &settings, db::now(), &home))
+            .and_then(|_| policy_stamp(&home));
             let mut stamp = match preliminary {
                 Ok(stamp) => stamp,
                 Err(reason) => {
@@ -277,6 +282,11 @@ where
                         return Err("本批个人文件处理已超时，本项保留。".into());
                     }
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
+                    super::automation::current(
+                        &*db.lock().map_err(|e| e.to_string())?,
+                        &saved,
+                        &own_home,
+                    )?;
                     validate(&one, &saved, &settings, db::now(), &own_home)?;
                     if saved.software_content.is_some() {
                         software_content::execution_gate(
@@ -340,6 +350,11 @@ where
                         return Err("系统处理开始前已取消。".into());
                     }
                     let settings = db::settings(&*db.lock().map_err(|e| e.to_string())?)?;
+                    super::automation::current(
+                        &*db.lock().map_err(|e| e.to_string())?,
+                        &saved,
+                        &own_home,
+                    )?;
                     validate(&one, &saved, &settings, db::now(), &own_home)?;
                     if saved.software_content.is_some() {
                         software_content::execution_gate(
@@ -389,7 +404,7 @@ where
     }
     execution::detail(&*database.lock().map_err(|e| e.to_string())?, &run)
 }
-fn bounded(value: &str) -> String {
+pub(super) fn bounded(value: &str) -> String {
     let mut end = value.len().min(1000);
     while !value.is_char_boundary(end) {
         end -= 1;

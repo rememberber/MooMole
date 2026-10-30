@@ -3820,7 +3820,8 @@ input[type='checkbox'] {
 }
 .maintenance-refresh-modal,
 .file-restoration-modal,
-.mounted-volume-modal {
+.mounted-volume-modal,
+.scheduled-file-modal {
   width: min(600px, calc(100vw - 48px));
   padding: 24px;
   max-height: calc(100dvh - 40px);
@@ -3828,24 +3829,66 @@ input[type='checkbox'] {
 }
 .maintenance-refresh-modal h2,
 .file-restoration-modal h2,
-.mounted-volume-modal h2 {
+.mounted-volume-modal h2,
+.scheduled-file-modal h2 {
   padding-right: 32px;
   margin-bottom: 12px;
 }
 .maintenance-refresh-modal > p,
 .file-restoration-modal > p,
-.mounted-volume-modal > p {
+.mounted-volume-modal > p,
+.scheduled-file-modal > p {
   line-height: 1.7;
   margin: 12px 0;
 }
 .maintenance-refresh-modal .modal-actions,
 .file-restoration-modal .modal-actions,
-.mounted-volume-modal .modal-actions {
+.mounted-volume-modal .modal-actions,
+.scheduled-file-modal .modal-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
+}
+.scheduled-file-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.scheduled-file-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.scheduled-file-form input,
+.scheduled-file-form select {
+  min-width: 0;
+  width: 100%;
+}
+.scheduled-file-path,
+.scheduled-wide {
+  grid-column: 1 / -1;
+}
+.scheduled-file-path {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+.scheduled-file-path > label {
+  flex: 1;
+}
+.scheduled-file-path > button {
+  flex: none;
+}
+.scheduled-file-policy {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.scheduled-file-policy p {
+  margin: 8px 0;
 }
 .mounted-volume-list {
   list-style: none;

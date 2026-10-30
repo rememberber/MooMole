@@ -9,6 +9,7 @@ use std::{
 };
 
 pub(crate) mod archive;
+pub(crate) mod automation;
 pub(crate) mod commands;
 pub(crate) mod duplicates;
 mod media;
@@ -98,10 +99,14 @@ pub(crate) struct Plan {
     pub similar_photos: Option<Vec<similar_photos::Keep>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub software_content: Option<software_content::Binding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automation: Option<automation::Binding>,
 }
 impl Plan {
     pub(crate) fn origin(&self) -> &'static str {
-        if self.software_content.is_some() {
+        if self.automation.is_some() {
+            automation::MODULE
+        } else if self.software_content.is_some() {
             software_content::MODULE
         } else if self.similar_photos.is_some() {
             similar_photos::MODULE
@@ -120,7 +125,9 @@ impl Plan {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
         if self.module
-            != if self.software_content.is_some() {
+            != if self.automation.is_some() {
+                automation::MODULE
+            } else if self.software_content.is_some() {
                 software_content::MODULE
             } else if self.similar_photos.is_some() {
                 similar_photos::MODULE
@@ -131,7 +138,9 @@ impl Plan {
             }
             || self.protocol != 1
             || self.revision
-                != if self.software_content.is_some() {
+                != if self.automation.is_some() {
+                    automation::REVISION
+                } else if self.software_content.is_some() {
                     software_content::REVISION
                 } else if self.similar_photos.is_some() {
                     similar_photos::REVISION
@@ -166,6 +175,15 @@ impl Plan {
             })
         {
             return Err("个人文件计划无法核对，请重新扫描。".into());
+        }
+        if let Some(binding) = &self.automation {
+            if self.software_content.is_some()
+                || self.duplicates.is_some()
+                || self.similar_photos.is_some()
+            {
+                return Err("定期处理不能混入其他来源计划。".into());
+            }
+            binding.validate_record(self)?;
         }
         if let Some(source) = &self.software_content {
             if self.movement.is_some() || self.duplicates.is_some() || self.similar_photos.is_some()
@@ -320,6 +338,7 @@ impl Store {
             duplicates: proof,
             similar_photos: similar,
             software_content: scan.software_content.clone(),
+            automation: None,
         };
         plan.validate_record()?;
         let confirmation = Confirmation {

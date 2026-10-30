@@ -115,6 +115,8 @@ pub struct Detail {
     pub events: Vec<Event>,
     pub space_observation: Option<crate::cleanup_space::Report>,
     pub origin: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub automation: Option<crate::personal_files::automation::Rule>,
 }
 
 struct SavedItem {
@@ -124,6 +126,7 @@ struct SavedItem {
     target_path: Option<String>,
 }
 struct SavedPlan {
+    automation: Option<crate::personal_files::automation::Rule>,
     id: String,
     revision: String,
     protocol: u64,
@@ -138,6 +141,7 @@ impl From<&Plan> for SavedPlan {
             revision: plan.revision.clone(),
             protocol: plan.protocol,
             origin: "mole",
+            automation: None,
             method: "trash",
             items: plan
                 .items
@@ -159,6 +163,7 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
             revision: plan.revision.clone(),
             protocol: plan.protocol,
             origin: plan.origin(),
+            automation: plan.automation.as_ref().map(|b| b.rule()),
             method: if plan.movement.is_some() {
                 "move"
             } else {
@@ -213,6 +218,7 @@ fn restoration_saved(plan: &crate::file_restoration::Plan) -> SavedPlan {
         revision: plan.revision.clone(),
         protocol: plan.protocol,
         origin: crate::file_restoration::MODULE,
+        automation: None,
         method: "move",
         items: vec![SavedItem {
             id: plan.item.id.clone(),
@@ -244,6 +250,7 @@ fn batch_restoration_saved(plan: &crate::file_restoration::batch::Plan) -> Saved
         revision: plan.revision.clone(),
         protocol: plan.protocol,
         origin: crate::file_restoration::MODULE,
+        automation: None,
         method: "move",
         items: plan
             .plans
@@ -785,6 +792,7 @@ pub(crate) fn detail_in_snapshot(db: &Connection, id: &str) -> Result<Detail, St
         events,
         space_observation,
         origin: plan.origin,
+        automation: plan.automation,
     })
 }
 fn decode_receipt(body: Option<String>) -> Result<Option<Receipt>, String> {
