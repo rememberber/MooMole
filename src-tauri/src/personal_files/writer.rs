@@ -7,7 +7,7 @@ use std::{
 
 // Bind the real whitelist (or its physical absence) around the rules runner
 // and final native gate. It is never parsed as a list of deletion targets.
-pub(super) fn policy_stamp(home: &Path) -> Result<(PathBuf, Witness, bool), String> {
+pub(crate) fn policy_stamp(home: &Path) -> Result<(PathBuf, Witness, bool), String> {
     let path = home.join(".config/mole/whitelist");
     let mut nearest = path.as_path();
     loop {

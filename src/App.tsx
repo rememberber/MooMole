@@ -47,6 +47,7 @@ import { statusPercent } from './lib/status-metrics'
 import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
+import { DeviceBackups } from './components/DeviceBackups'
 import type { AppControlTarget } from './lib/app-control'
 import { SearchRepairCenter } from './components/SearchRepairCenter'
 import { ProblemRepairs } from './components/ProblemRepairs'
@@ -414,6 +415,8 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [deviceBackupsActive, setDeviceBackupsActive] = useState(false)
+  const [deviceBackupsOpenSignal, setDeviceBackupsOpenSignal] = useState(0)
   const [registrationIntent, setRegistrationIntent] = useState(false)
   const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
   const [startupActive, setStartupActive] = useState(false)
@@ -936,6 +939,7 @@ export default function App() {
     !softwareFiles.running &&
     !uninstallActive &&
     !appControlActive &&
+    !deviceBackupsActive &&
     !startupActive &&
     !searchRepairActive &&
     !restorationActive &&
@@ -1100,6 +1104,13 @@ export default function App() {
                   onClick={() => setVolumePickerOpenSignal((n) => n + 1)}
                 >
                   <HardDrive size={17} />
+                </button>
+                <button
+                  className="button secondary compact"
+                  disabled={!api.desktop}
+                  onClick={() => setDeviceBackupsOpenSignal((n) => n + 1)}
+                >
+                  设备备份…
                 </button>
                 {busy?.kind === 'analyze' && (
                   <button
@@ -1634,6 +1645,11 @@ export default function App() {
               changePage('analyze')
               void execute('analyze', target)
             }}
+          />
+          <DeviceBackups
+            openSignal={deviceBackupsOpenSignal}
+            enabled={canRun}
+            onActiveChange={setDeviceBackupsActive}
           />
           <SearchRepairCenter
             openSignal={searchRepairOpenSignal}

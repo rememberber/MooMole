@@ -8104,5 +8104,126 @@
     "不是本轮支持的自包含 MP4/MOV 文件。",
     "This is not a supported self-contained MP4/MOV file.",
     "対応する自己完結型の MP4/MOV ファイルではありません。"
-  ]
+  ],
+  ["设备备份…", "Device backups…", "デバイスのバックアップ…"],
+  ["设备备份", "Device backups", "デバイスのバックアップ"],
+  [
+    "管理本机 iPhone、iPad 的整份备份或已复制的备份目录。备份可能是唯一恢复来源，较旧不代表可以删除；不拆删内部文件，不访问 iCloud 备份。",
+    "Manage whole local iPhone and iPad backups or copied backup folders. A backup may be the only recovery source; age does not make it disposable. No partial deletion or iCloud backup access.",
+    "Mac 上の iPhone・iPad のバックアップ全体やコピーを管理します。唯一の復元元である可能性があり、古さは削除の根拠になりません。内部ファイルの一部削除や iCloud バックアップへのアクセスは行いません。"
+  ],
+  ["扫描本机备份", "Scan local backups", "Mac のバックアップを調べる"],
+  [
+    "选择包含设备备份副本的目录",
+    "Choose a folder containing device backup copies",
+    "デバイスのバックアップコピーを含むフォルダを選択"
+  ],
+  ["选择备份副本目录…", "Choose backup copies folder…", "バックアップコピーのフォルダを選択…"],
+  [
+    "仅检查所选目录的直属备份。读取设备名称、状态清单与目录元数据，不解密或打开备份中的个人内容。大小是普通文件逻辑大小，不是可释放空间。",
+    "Checks only direct child backups. Reads device names, status manifests and directory metadata, without decrypting or opening personal backup content. Size is logical file size, not reclaimable space.",
+    "選択フォルダの直下だけを調べます。デバイス名、状態ファイル、ディレクトリのメタデータを読み取り、個人データの復号や閲覧はしません。サイズは論理サイズで、解放できる容量ではありません。"
+  ],
+  [
+    "正在复查或处理整份备份；取消只停止尚未发出的请求。",
+    "Checking or processing the whole backup; cancellation stops requests that have not been sent.",
+    "バックアップ全体を確認または処理中です。キャンセルは未送信の要求を停止します。"
+  ],
+  [
+    "正在检查备份目录，可取消。",
+    "Checking backup folders; you can cancel.",
+    "バックアップフォルダを確認中です。キャンセルできます。"
+  ],
+  [
+    "列表或部分项目未完整核对，未知项目保留；不代表没有其他备份。{0}",
+    "The list or some items were not fully verified. Unknown items are kept; other backups may exist.{0}",
+    "一覧または一部の項目の確認が不完全です。不明な項目は保持します。他にもバックアップがある可能性があります。{0}"
+  ],
+  [
+    "列表或部分项目未完整核对，未知项目保留；不代表没有其他备份。",
+    "The list or some items were not fully verified. Unknown items are kept; other backups may exist.",
+    "一覧または一部の項目の確認が不完全です。不明な項目は保持します。他にもバックアップがある可能性があります。"
+  ],
+  [
+    "扫描已取消，已取得的列表不代表完整。",
+    "Scan cancelled. The available list is incomplete.",
+    "スキャンをキャンセルしました。一覧は不完全です。"
+  ],
+  [
+    "备份扫描已过期，请重新扫描后选择。",
+    "Backup scan expired. Scan again before selecting.",
+    "バックアップのスキャンが期限切れです。再度調べてから選択してください。"
+  ],
+  [
+    "本次未列出备份；缺失、权限受限和未知格式不表示备份不存在。",
+    "No backups were listed. Missing locations, permissions or unknown formats do not prove that no backups exist.",
+    "バックアップは一覧に表示されませんでした。場所の不在、権限、未対応形式は、バックアップが存在しない証拠にはなりません。"
+  ],
+  ["设备备份列表", "Device backup list", "デバイスのバックアップ一覧"],
+  ["大小未完整核对", "Size not fully verified", "サイズの確認が不完全"],
+  ["加密状态未知", "Encryption status unknown", "暗号化状態が不明"],
+  ["清单标记已加密", "Manifest marks encrypted", "暗号化済みと記録"],
+  ["清单标记未加密", "Manifest marks unencrypted", "未暗号化と記録"],
+  ["状态文件标记完成", "Status file marks finished", "状態ファイルは完了と記録"],
+  ["状态未确认完成", "Completion status unverified", "完了状態が未確認"],
+  ["修改时间未知", "Modification time unknown", "変更日時が不明"],
+  ["审阅整份处理…", "Review whole backup…", "全体の処理を確認…"],
+  ["设备备份处理历史", "Device backup history", "デバイスバックアップの処理履歴"],
+  ["处理历史", "Processing history", "処理履歴"],
+  ["实际收据位置", "Actual receipt location", "実際の移動先"],
+  ["在 Finder 中核对收据", "Check receipt in Finder", "Finder で移動先を確認"],
+  [
+    "当前没有备份的应用内恢复。请在 Finder 按实际收据取回整份目录，原位置有同名项目时不要覆盖；不得将备份内部文件单独拼回。",
+    "In-app backup recovery is not available. Use Finder and the actual receipt to return the entire folder without overwriting an existing item. Do not assemble a backup by returning individual internal files.",
+    "バックアップの App 内復元は未対応です。Finder で実際の移動先を確認し、同名の項目を上書きせずフォルダ全体を戻してください。内部のファイルだけを組み合わせて戻さないでください。"
+  ],
+  [
+    "已人工核对，原未知结果保持；不会重试。",
+    "Manually reviewed; the original unknown outcome remains. No retry.",
+    "手動確認を記録しました。不明な結果はそのままで、再実行しません。"
+  ],
+  ["核对中断结果…", "Review interrupted result…", "中断した結果を確認…"],
+  [
+    "将整份备份移入废纸篓，设备恢复时暂时不可用。请确认已有所需独立副本，并先结束 Finder、iTunes 或其他工具的备份、同步和恢复任务；本次不能完整确认所有程序占用。",
+    "Moves the entire backup to Trash, making it temporarily unavailable for device recovery. Confirm the independent copies you need, and finish backup, sync and restore tasks in Finder, iTunes or other tools first. This does not fully check usage by all programs.",
+    "バックアップ全体をゴミ箱へ移動すると、デバイス復元に一時的に使えなくなります。必要な別のコピーを確保し、Finder、iTunes などのバックアップ、同期、復元を終了してください。すべてのプログラムの使用状況は確認できません。"
+  ],
+  [
+    "不清空废纸篓，不立即释放空间。取消不能撤销已发出的系统请求；结果未知时请核对原位置和收据，不自动重试。",
+    "Does not empty Trash or immediately free space. Cancellation cannot undo a system request already sent. For unknown outcomes, check the original location and receipt; no automatic retry.",
+    "ゴミ箱は空にせず、容量はすぐには解放されません。送信済みの要求はキャンセルで取り消せません。不明な結果は元の場所と移動先を確認してください。自動再実行はしません。"
+  ],
+  [
+    "备份确认已过期，请返回重新审阅。",
+    "Backup confirmation expired. Return and review again.",
+    "確認の期限が切れました。戻って再度確認してください。"
+  ],
+  [
+    "我已核对整份备份、所需副本及恢复边界，并确认没有备份或同步任务正在使用它。",
+    "I checked the whole backup, required copies and recovery limits, and confirm that no backup or sync task is using it.",
+    "バックアップ全体、必要なコピー、復元の制限を確認し、バックアップや同期処理が使用していないことを確認しました。"
+  ],
+  ["返回备份列表", "Back to backups", "バックアップ一覧へ戻る"],
+  ["确认整份移入废纸篓", "Move whole backup to Trash", "全体をゴミ箱へ移動"],
+  [
+    "请在 Finder 检查原位置、废纸篓和实际收据；此确认只记录已核查，不会补发操作或把未知改成成功。",
+    "Check the original location, Trash and actual receipt in Finder. This only records your review; it does not resend an operation or change unknown to success.",
+    "Finder で元の場所、ゴミ箱、実際の移動先を確認してください。確認の記録のみ行い、処理の再送や不明な結果の成功扱いはしません。"
+  ],
+  [
+    "我已核对这条记录的实际文件状态。",
+    "I checked the actual file state for this record.",
+    "この記録の実際のファイル状態を確認しました。"
+  ],
+  ["停止当前备份任务", "Stop current backup task", "現在のバックアップ処理を停止"],
+  [
+    "设备备份数据无法核对，请检查实际状态；不会自动重试处理。",
+    "Device backup data could not be verified. Check the actual state; processing will not retry automatically.",
+    "デバイスのバックアップ情報を確認できません。実際の状態を確認してください。処理は自動再実行しません。"
+  ],
+  ["正在检查或处理", "Checking or processing", "確認または処理中"],
+  ["整份备份已移入废纸篓", "Whole backup moved to Trash", "バックアップ全体をゴミ箱へ移動済み"],
+  ["备份保留", "Backup kept", "バックアップを保持"],
+  ["处理已取消", "Processing cancelled", "処理をキャンセル済み"],
+  ["先前处理已中断", "Previous processing interrupted", "以前の処理が中断"]
 ]

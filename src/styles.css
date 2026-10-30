@@ -4521,3 +4521,21 @@ input[type='checkbox'] {
   margin-bottom: 14px;
   font-size: 13px;
 }
+
+.device-backups-modal .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.device-backups-modal .personal-list article > div {
+  min-width: 0;
+}
+.device-backups-modal details.card {
+  padding: 12px;
+  margin: 8px 0;
+}
+.device-backups-modal summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}

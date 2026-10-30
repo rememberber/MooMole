@@ -18,6 +18,7 @@ mod cleanup_space;
 mod cleanup_target;
 mod db;
 mod descendant_rules;
+mod device_backups;
 mod diagnostics;
 mod directory_probe;
 mod engine;
@@ -103,6 +104,7 @@ struct AppState {
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
     mounted_volumes: Arc<Mutex<mounted_volumes::Store>>,
+    device_backups: Arc<Mutex<device_backups::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
@@ -2364,6 +2366,7 @@ pub fn run() {
                     search_repairs: Arc::new(Mutex::new(None)),
                     file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
                     mounted_volumes: Arc::new(Mutex::new(mounted_volumes::Store::default())),
+                    device_backups: Arc::new(Mutex::new(device_backups::Store::default())),
                     personal_archives: Arc::new(Mutex::new(
                         personal_files::archive::Store::default(),
                     )),
@@ -2558,6 +2561,12 @@ pub fn run() {
             reveal_path,
             open_official,
             check_updates,
+            device_backups::commands::get_device_backups,
+            device_backups::commands::scan_device_backups,
+            device_backups::commands::prepare_device_backup,
+            device_backups::commands::discard_device_backup,
+            device_backups::commands::execute_device_backup,
+            device_backups::commands::acknowledge_device_backup,
             get_update_snapshot,
             set_update_auto_download,
             download_update,
