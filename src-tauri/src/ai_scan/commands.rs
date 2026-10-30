@@ -231,6 +231,8 @@ async fn run(
         if let Some(s) = store.snapshot.as_mut().filter(|s| s.id == id) {
             s.scan_id = scan.as_ref().map(|s| s.id.clone());
             s.expires_at = scan.as_ref().map(|s| s.expires_at);
+            s.personal_expires_at = Some(db::now() + review::LIFETIME_MS);
+            s.personal_issued = Some(std::time::Instant::now());
             s.evidence = evidence.clone();
             s.limitations = limitations.clone();
         }

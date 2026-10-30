@@ -170,6 +170,7 @@ pub(super) fn collect(
         skipped,
         visited,
         items: items.iter().map(row).collect(),
+        ai_focus: None,
         duplicates: None,
         similar_photos: None,
         software_content: Some(Info {

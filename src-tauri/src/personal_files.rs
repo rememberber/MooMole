@@ -8,6 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub(crate) mod ai_handoff;
 pub(crate) mod archive;
 pub(crate) mod automation;
 pub(crate) mod commands;
@@ -72,6 +73,8 @@ pub(crate) struct Report {
     skipped: usize,
     visited: usize,
     items: Vec<FileRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ai_focus: Option<ai_handoff::Focus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     duplicates: Option<duplicates::Report>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -456,7 +459,7 @@ fn sensitive(name: &str) -> bool {
         .iter()
         .any(|suffix| name.to_ascii_lowercase().ends_with(suffix))
 }
-fn ordinary(path: &Path) -> bool {
+pub(crate) fn ordinary(path: &Path) -> bool {
     let Some(text) = path.to_str() else {
         return false;
     };

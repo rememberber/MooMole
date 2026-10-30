@@ -43,6 +43,7 @@ export function PersonalFiles({
   exportPath?: string
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
+  const [focusOnly, setFocusOnly] = useState(false)
   const language = useLanguage()
   const software =
     mode === 'software' || mode === 'downloads' || mode === 'offline' || mode === 'chat'
@@ -80,8 +81,12 @@ export function PersonalFiles({
       (item) => actionable && selected.includes(item.id) && !blocked(item.path) && fresh,
     ) ?? []
   const items = useMemo(
-    () => filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort),
-    [report, query, kind, minimum, older, now, sort, language],
+    () =>
+      filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort).filter(
+        (i) =>
+          !focusOnly || !report?.aiFocus || report.aiFocus.items.some((f) => f.itemId === i.id),
+      ),
+    [report, query, kind, minimum, older, now, sort, language, focusOnly],
   )
   const grouped = mode === 'duplicates' || mode === 'similar'
   const groups =
@@ -113,6 +118,7 @@ export function PersonalFiles({
     setSelected([])
     setLimit(100)
     setPreview(null)
+    setFocusOnly(!!report?.aiFocus)
   }, [report?.id])
   useEffect(() => setSelected([]), [c.root, softwareSource, playlistPath, exportPath])
   useEffect(() => {
@@ -271,6 +277,26 @@ export function PersonalFiles({
       )}
       {report && (
         <>
+          {fresh && report.aiFocus && (
+            <section className="notice" aria-label="AI 关注项说明">
+              <p>
+                已根据你带入的 AI 线索重新扫描，所有处理仍默认不选。AI
+                说明可能有误，不是删除依据；需要自行预览、选择并单独确认。
+              </p>
+              <p className="muted">
+                分析于 {dateTime(report.aiFocus.analyzedAt)} · {report.aiFocus.agentId}
+                。本轮说明仅随扫描保留在内存，退出后失效，不写入执行历史。
+              </p>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={focusOnly}
+                  onChange={(e) => setFocusOnly(e.target.checked)}
+                />
+                只显示本轮 AI 关注项
+              </label>
+            </section>
+          )}
           <div className="personal-summary">
             <span className="mono">{shortPath(report.root, home)}</span>
             <span>
@@ -528,6 +554,23 @@ export function PersonalFiles({
                             : '个人文件 · 需自行确认'}{' '}
                         · {dateTime(item.modifiedAt)}
                       </small>
+                      {report.aiFocus?.items.find((f) => f.itemId === item.id) && (
+                        <details className="ai-details">
+                          <summary>查看当时的 AI 说明</summary>
+                          <p>
+                            {report.aiFocus.items.find((f) => f.itemId === item.id)
+                              ?.recommendation === 'keep'
+                              ? 'AI 建议保留；整理不代表可以删除。'
+                              : 'AI 建议核实；尚不能确认可删除。'}
+                          </p>
+                          <p data-i18n="off">
+                            {report.aiFocus.items.find((f) => f.itemId === item.id)?.reason}
+                          </p>
+                          <p data-i18n="off">
+                            {report.aiFocus.items.find((f) => f.itemId === item.id)?.impact}
+                          </p>
+                        </details>
+                      )}
                     </div>
                     <span>
                       {photo && (

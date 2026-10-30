@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiReviewable, type AiSnapshot } from './ai-scan'
+import { aiReviewable, aiPersonalFiles, type AiSnapshot } from './ai-scan'
 const snapshot: AiSnapshot = {
   id: 'request',
   agentId: 'codex',
@@ -64,4 +64,18 @@ describe('AI review admission', () => {
     expect(aiReviewable({ ...snapshot, state: 'cancelled' }, [], 3)).toEqual([])
     expect(aiReviewable({ ...snapshot, scanId: null }, [], 3)).toEqual([])
   })
+})
+it('personal handoff uses independent metadata freshness and never converts metadata into a Mole review', () => {
+  const s = structuredClone(snapshot)
+  s.scanId = null
+  s.expiresAt = null
+  s.personalExpiresAt = 100
+  s.evidence[1].personalFile = true
+  s.report!.findings[1].recommendation = 'keep'
+  expect(aiPersonalFiles(s, [], 3).map((e) => e.id)).toEqual(['extra'])
+  expect(aiReviewable(s, [], 3)).toEqual([])
+  expect(aiPersonalFiles(s, [], 100)).toEqual([])
+  expect(aiPersonalFiles(s, ['/Users/demo/Downloads'], 3)).toEqual([])
+  s.evidence[1].isDirectory = true
+  expect(aiPersonalFiles(s, [], 3)).toEqual([])
 })

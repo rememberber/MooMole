@@ -25,7 +25,7 @@ export function usePersonalFiles(
 ) {
   const [awake, setAwake] = useState(false),
     [epoch, setEpoch] = useState(0)
-  const [root, setRoot] = useState(''),
+  const [root, setRootValue] = useState(''),
     [snapshot, setSnapshot] = useState(idle)
   const [result, setResult] = useState<ExecutionDetail | null>(null)
   const [starting, setStarting] = useState(false),
@@ -33,12 +33,17 @@ export function usePersonalFiles(
   const [error, setError] = useState(''),
     [trackingError, setTrackingError] = useState('')
   const lock = useRef(false),
-    generation = useRef(0)
+    generation = useRef(0),
+    rootTouched = useRef(false)
+  const setRoot = (value: string) => {
+    rootTouched.current = true
+    setRootValue(value)
+  }
   useEffect(() => {
     if (enabled) setAwake(true)
   }, [enabled])
   useEffect(() => {
-    setRoot((value) => value || (home ? `${home}/${initialDirectory}` : ''))
+    setRootValue((value) => value || (home ? `${home}/${initialDirectory}` : ''))
   }, [home, initialDirectory])
   useEffect(() => {
     if (!api.desktop || !awake) return
@@ -49,6 +54,7 @@ export function usePersonalFiles(
       try {
         const next = readPersonalSnapshot(await transport.read())
         if (closed || generation.current !== current) return
+        if (next.report && !rootTouched.current) setRootValue(next.report.root)
         setSnapshot(next)
         if (next.runId) {
           const detail = await transport.detail(next.runId)
@@ -130,6 +136,20 @@ export function usePersonalFiles(
     stopping,
     error: error || trackingError || snapshot.error || '',
     start: () => dispatch('scanning', (id) => transport.start(root.trim(), id)),
+    fromAi: (snapshotId: string, evidenceIds: string[]) =>
+      dispatch('scanning', async (requestId) => {
+        if (!transport.startFromAi || (transport.origin && transport.origin !== 'personalFiles'))
+          throw Error('此入口不能接收 AI 个人文件线索。')
+        const nextRoot = await transport.startFromAi(snapshotId, evidenceIds, requestId)
+        if (
+          typeof nextRoot !== 'string' ||
+          !nextRoot.startsWith('/') ||
+          nextRoot.length > 4096 ||
+          /[\x00-\x1f\x7f]/.test(nextRoot)
+        )
+          throw Error('AI 文件整理目录无法核对。')
+        setRoot(nextRoot)
+      }),
     execute: (confirmationId: string, moving = false) =>
       dispatch('processing', (id) => transport.execute(confirmationId, id, moving)),
     prepare,

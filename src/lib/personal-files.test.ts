@@ -295,3 +295,29 @@ describe('personal file boundaries', () => {
       ).toThrow()
   })
 })
+
+it('AI focus only annotates exact fresh file IDs and cannot add an execution object', () => {
+  const r = report()
+  r.aiFocus = {
+    snapshotId: first,
+    agentId: 'codex',
+    analyzedAt: at - 1,
+    items: [
+      {
+        evidenceId: 'e0',
+        itemId: first,
+        path: r.items[0].path,
+        recommendation: 'keep',
+        reason: 'May be unique',
+        impact: 'Unknown backup',
+      },
+    ],
+  }
+  const raw = { phase: 'ready', requestId: null, runId: null, report: r, error: null }
+  expect(readPersonalSnapshot(raw).report?.aiFocus?.items[0].recommendation).toBe('keep')
+  for (const patch of [{ itemId: 'e0' }, { path: '/outside' }, { recommendation: 'review' }]) {
+    const altered = structuredClone(raw)
+    Object.assign(altered.report.aiFocus!.items[0], patch)
+    expect(() => readPersonalSnapshot(altered)).toThrow()
+  }
+})

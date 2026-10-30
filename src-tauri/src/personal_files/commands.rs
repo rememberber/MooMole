@@ -80,6 +80,57 @@ pub(crate) fn start_personal_scan(
     start(root, request_id, Domain::PersonalFiles, state)
 }
 #[tauri::command]
+pub(crate) fn start_personal_from_ai(
+    snapshot_id: String,
+    evidence_ids: Vec<String>,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let operation = state.updates.installation.enter()?;
+    let slot = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "其他文件检查正在进行。")?;
+    let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+    let source = state
+        .ai_scan
+        .lock()
+        .map_err(|e| e.to_string())?
+        .personal_source(&snapshot_id, &evidence_ids, &settings.protected_paths)?;
+    let root = source.root.to_str().ok_or("AI 目录无法编码。")?.to_string();
+    let job = register(&state, &request_id, TaskKind::PersonalScan)?;
+    *state.personal_files.lock().map_err(|e| e.to_string())? = Store {
+        phase: "scanning",
+        request_id: Some(request_id.clone()),
+        ..Default::default()
+    };
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ownership = (operation, slot);
+        let result = ai_handoff::collect(source, &settings.protected_paths, job).and_then(|scan| {
+            if db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?.protected_paths
+                != settings.protected_paths
+            {
+                return Err("保护设置在重新扫描时变化，请重新检查。".into());
+            }
+            Ok(scan)
+        });
+        match result {
+            Ok(scan) => {
+                if let Ok(mut store) = state.personal_files.lock() {
+                    if store.request_id.as_deref() == Some(&request_id) {
+                        store.scan = Some(scan);
+                    }
+                }
+                finish(&state, &request_id, "ready", None);
+            }
+            Err(e) => finish(&state, &request_id, "failed", Some(e)),
+        }
+    });
+    Ok(root)
+}
+#[tauri::command]
 pub(crate) fn start_duplicate_scan(
     root: String,
     request_id: String,

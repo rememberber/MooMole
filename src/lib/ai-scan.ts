@@ -16,6 +16,7 @@ export interface AiEvidence {
   isDirectory: boolean
   category: string
   candidateId: string | null
+  personalFile?: boolean
 }
 export interface AiFinding {
   evidenceId: string
@@ -33,6 +34,7 @@ export interface AiSnapshot {
   finishedAt: number | null
   scanId: string | null
   expiresAt: number | null
+  personalExpiresAt?: number | null
   evidence: AiEvidence[]
   limitations: string[]
   report: { summary: string; findings: AiFinding[]; limitations: string[] } | null
@@ -68,3 +70,29 @@ export function aiReviewable(
   )
 }
 export const aiRecommendation = { review: '建议审阅', keep: '建议保留', investigate: '需要核实' }
+export function aiPersonalFiles(
+  snapshot: AiSnapshot,
+  protectedPaths: string[],
+  now: number,
+): AiEvidence[] {
+  if (
+    snapshot.state !== 'succeeded' ||
+    !snapshot.personalExpiresAt ||
+    now < snapshot.startedAt ||
+    now >= snapshot.personalExpiresAt
+  )
+    return []
+  const ids = new Set(
+    snapshot.report?.findings.filter((f) => f.recommendation !== 'review').map((f) => f.evidenceId),
+  )
+  return snapshot.evidence.filter(
+    (e) =>
+      e.source === 'metadata' &&
+      e.personalFile === true &&
+      !e.isDirectory &&
+      e.candidateId === null &&
+      ids.has(e.id) &&
+      e.path.startsWith(`${snapshot.root}/`) &&
+      !protectedPaths.some((p) => pathOverlaps(p, e.path)),
+  )
+}

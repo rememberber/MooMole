@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, FolderOpen, LoaderCircle, ShieldCheck } from 'lucide-react'
 import type { AiScanController } from '../lib/use-ai-scan'
-import { aiRecommendation, aiReviewable } from '../lib/ai-scan'
+import { aiRecommendation, aiReviewable, aiPersonalFiles } from '../lib/ai-scan'
 import { bytes, dateTime, shortPath } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import * as api from '../lib/api'
@@ -14,6 +14,7 @@ export function AiDeepScan({
   enabled,
   onCreatePlan,
   onReveal,
+  onOrganize,
 }: {
   controller: AiScanController
   home: string
@@ -21,9 +22,12 @@ export function AiDeepScan({
   enabled: boolean
   onCreatePlan: (scanId: string, ids: string[]) => Promise<void>
   onReveal: (path: string) => void
+  onOrganize?: (snapshotId: string, evidenceIds: string[]) => Promise<void>
 }) {
-  const now = useNow()
+  const tick = useNow()
+  const now = Date.now()
   const [selected, setSelected] = useState<string[]>([])
+  const [personalSelected, setPersonalSelected] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [pending, setPending] = useState(false)
@@ -31,14 +35,20 @@ export function AiDeepScan({
   const snapshot = ai.snapshot
   const reviewable = useMemo(
     () => (snapshot ? aiReviewable(snapshot, protectedPaths, now) : []),
-    [snapshot, protectedPaths, now],
+    [snapshot, protectedPaths, tick],
   )
   const chosen = reviewable.filter((e) => selected.includes(e.id))
+  const personal = useMemo(
+    () => (snapshot ? aiPersonalFiles(snapshot, protectedPaths, now) : []),
+    [snapshot, protectedPaths, tick],
+  )
+  const personalChosen = personal.filter((e) => personalSelected.includes(e.id))
   useEffect(() => {
     void ai.detect()
   }, [ai.detect])
   useEffect(() => {
     setSelected([])
+    setPersonalSelected([])
     setQuery('')
     setFilter('all')
     setError('')
@@ -46,6 +56,9 @@ export function AiDeepScan({
   useEffect(() => {
     setSelected((ids) => ids.filter((id) => reviewable.some((e) => e.id === id)))
   }, [reviewable])
+  useEffect(() => {
+    setPersonalSelected((ids) => ids.filter((id) => personal.some((e) => e.id === id)))
+  }, [personal])
   const findings = snapshot?.report?.findings ?? []
   const visible = findings.filter((f) => {
     const e = snapshot?.evidence.find((e) => e.id === f.evidenceId)
@@ -178,8 +191,8 @@ export function AiDeepScan({
       <div className="notice">
         <ShieldCheck size={17} />
         <span>
-          AI 建议可能有误，默认不勾选。只有来自本次 Mole
-          清单的建议可进入现有清理审阅；执行前仍需保护、身份、权限和占用检查及单独确认。移入废纸篓不会立即释放空间。
+          AI 建议可能有误，默认不勾选。Mole
+          建议进入原有清理审阅；个人文件线索可带入独立文件整理，先重新扫描，再自行选择、预览和确认。模型不能提交新路径或直接处理文件。移入废纸篓不会立即释放空间。
         </span>
       </div>
       {(ai.error || error || snapshot?.error) && (
@@ -224,7 +237,7 @@ export function AiDeepScan({
               ))}
             </ul>
           )}
-          {snapshot.state === 'succeeded' && !reviewable.length && (
+          {snapshot.state === 'succeeded' && !reviewable.length && !personal.length && (
             <p className="muted">
               没有当前可提交的建议，或清单已过期/受保护。可查看下方原因，必要时缩小目录重新扫描。
             </p>
@@ -256,6 +269,9 @@ export function AiDeepScan({
                   const e = snapshot.evidence.find((e) => e.id === f.evidenceId)
                   if (!e) return null
                   const allowed = reviewable.some((row) => row.id === e.id)
+                  const personalRow =
+                    !!onOrganize && e.source === 'metadata' && e.personalFile === true
+                  const personalAllowed = personalRow && personal.some((row) => row.id === e.id)
                   const protectedItem = protectedPaths.some(
                     (p) => e.path === p || e.path.startsWith(`${p}/`) || p.startsWith(`${e.path}/`),
                   )
@@ -264,11 +280,24 @@ export function AiDeepScan({
                       <div className="ai-finding-title">
                         <input
                           type="checkbox"
-                          aria-label={`选择 AI 建议 ${e.path}`}
-                          disabled={!allowed || !enabled || pending}
-                          checked={allowed && selected.includes(e.id)}
+                          aria-label={
+                            personalRow ? `带入文件整理 ${e.path}` : `选择 AI 建议 ${e.path}`
+                          }
+                          disabled={
+                            !(allowed || personalAllowed) ||
+                            !enabled ||
+                            pending ||
+                            (personalRow &&
+                              !personalSelected.includes(e.id) &&
+                              personalChosen.length >= 20)
+                          }
+                          checked={
+                            personalRow
+                              ? personalAllowed && personalSelected.includes(e.id)
+                              : allowed && selected.includes(e.id)
+                          }
                           onChange={(event) =>
-                            setSelected((ids) =>
+                            (personalRow ? setPersonalSelected : setSelected)((ids) =>
                               event.target.checked
                                 ? [...ids, e.id]
                                 : ids.filter((id) => id !== e.id),
@@ -285,7 +314,11 @@ export function AiDeepScan({
                       <p className="muted">影响：{f.impact}</p>
                       <div className="ai-finding-footer">
                         <span className="muted">
-                          {e.source === 'mole' ? 'Mole 候选 · 需独立复查' : '扩展线索 · 仅供核实'}
+                          {e.source === 'mole'
+                            ? 'Mole 候选 · 需独立复查'
+                            : personalRow
+                              ? '个人文件线索 · 先重新扫描'
+                              : '扩展线索 · 仅供核实'}
                           {protectedItem ? ' · 已保护' : ''}
                           {snapshot.expiresAt != null && now >= snapshot.expiresAt
                             ? ' · 清单已过期'
@@ -303,6 +336,40 @@ export function AiDeepScan({
                   )
                 })}
               </div>
+              {onOrganize &&
+                personal.some((e) =>
+                  snapshot.report?.findings.some((f) => f.evidenceId === e.id),
+                ) && (
+                  <div className="ai-review-actions">
+                    <span className="muted">
+                      带入 {personalChosen.length} 项关注线索（含筛选外项目），最多 20
+                      项。只重新检查，不自动选择或处理；保留建议也会带入说明。
+                    </span>
+                    <button
+                      className="button secondary compact"
+                      disabled={!enabled || pending || !personalChosen.length}
+                      onClick={() =>
+                        void (async () => {
+                          if (!onOrganize || pending || !snapshot) return
+                          setPending(true)
+                          setError('')
+                          try {
+                            await onOrganize(
+                              snapshot.id,
+                              personalChosen.map((e) => e.id),
+                            )
+                          } catch (e) {
+                            setError(String(e).replace(/^Error: /, ''))
+                          } finally {
+                            setPending(false)
+                          }
+                        })()
+                      }
+                    >
+                      去文件整理…
+                    </button>
+                  </div>
+                )}
               {!visible.length && <p className="muted">没有匹配的建议。</p>}
               <div className="ai-review-actions">
                 <span className="muted">

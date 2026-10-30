@@ -1887,6 +1887,10 @@ export default function App() {
               enabled={canRun && !executionActive}
               onCreatePlan={createPlan}
               onReveal={reveal}
+              onOrganize={async (snapshotId, evidenceIds) => {
+                await personalFiles.fromAi(snapshotId, evidenceIds)
+                changePage('personalFiles')
+              }}
             />
           )}
 

@@ -295,6 +295,8 @@ mod tests {
             is_directory: false,
             category: "file".into(),
             candidate_id: None,
+            personal_file: false,
+            witness: None,
         }];
         let report = analyze(
             "codex",

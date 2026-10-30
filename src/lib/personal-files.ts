@@ -20,6 +20,19 @@ export interface PersonalReport {
   skipped: number
   visited: number
   items: PersonalFile[]
+  aiFocus?: {
+    snapshotId: string
+    agentId: string
+    analyzedAt: number
+    items: {
+      evidenceId: string
+      itemId: string
+      path: string
+      recommendation: 'keep' | 'investigate'
+      reason: string
+      impact: string
+    }[]
+  }
   duplicates?: {
     groups: { id: string; size: number; itemIds: string[] }[]
     bytesRead: number
@@ -72,6 +85,7 @@ export interface PersonalTransport {
   origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'softwareContent'
   read: () => Promise<unknown>
   start: (root: string, requestId: string) => Promise<void>
+  startFromAi?: (snapshotId: string, evidenceIds: string[], requestId: string) => Promise<string>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
   discard: (confirmationId: string) => Promise<void>
   execute: (confirmationId: string, requestId: string, moving?: boolean) => Promise<void>
@@ -81,6 +95,8 @@ export interface PersonalTransport {
 export const personalTransport: PersonalTransport = {
   read: () => invoke('get_personal_files'),
   start: (root, requestId) => invoke('start_personal_scan', { root, requestId }),
+  startFromAi: (snapshotId, evidenceIds, requestId) =>
+    invoke('start_personal_from_ai', { snapshotId, evidenceIds, requestId }),
   prepare: (scanId, selectedIds, movement) =>
     movement
       ? invoke('prepare_personal_move', {
@@ -197,6 +213,52 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       skipped: number(r.skipped),
       visited: number(r.visited),
       items: files(r.items, root, 2000),
+    }
+    if (r.aiFocus !== undefined) {
+      const a = object(r.aiFocus)
+      if (
+        !['codex', 'claude'].includes(a.agentId as string) ||
+        !Array.isArray(a.items) ||
+        !a.items.length ||
+        a.items.length > 20 ||
+        r.duplicates !== undefined ||
+        r.similarPhotos !== undefined ||
+        r.softwareContent !== undefined
+      )
+        fail()
+      const seen = new Set<string>()
+      const items = (a.items as unknown[]).map((raw) => {
+        const f = object(raw),
+          item = report!.items.find((i) => i.id === f.itemId)
+        if (
+          !item ||
+          f.path !== item.path ||
+          typeof f.evidenceId !== 'string' ||
+          !/^e\d+$/.test(f.evidenceId) ||
+          seen.has(item.id) ||
+          !['keep', 'investigate'].includes(f.recommendation as string) ||
+          typeof f.reason !== 'string' ||
+          f.reason.length > 2000 ||
+          typeof f.impact !== 'string' ||
+          f.impact.length > 2000
+        )
+          fail()
+        seen.add(item!.id)
+        return {
+          evidenceId: f.evidenceId as string,
+          itemId: item!.id,
+          path: item!.path,
+          recommendation: f.recommendation as 'keep' | 'investigate',
+          reason: f.reason as string,
+          impact: f.impact as string,
+        }
+      })
+      report.aiFocus = {
+        snapshotId: id(a.snapshotId),
+        agentId: a.agentId as string,
+        analyzedAt: number(a.analyzedAt),
+        items,
+      }
     }
     if (r.softwareContent !== undefined) {
       const s = object(r.softwareContent)

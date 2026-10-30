@@ -2,6 +2,7 @@
 mod agents;
 mod commands;
 mod inventory;
+pub(crate) mod personal_handoff;
 use crate::{db, review};
 pub(crate) use commands::*;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,10 @@ pub(crate) struct Evidence {
     is_directory: bool,
     category: String,
     candidate_id: Option<String>,
+    #[serde(default)]
+    personal_file: bool,
+    #[serde(skip)]
+    witness: Option<crate::observation::Witness>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -89,6 +94,9 @@ pub(crate) struct Snapshot {
     finished_at: Option<i64>,
     scan_id: Option<String>,
     expires_at: Option<i64>,
+    personal_expires_at: Option<i64>,
+    #[serde(skip)]
+    personal_issued: Option<std::time::Instant>,
     evidence: Vec<Evidence>,
     limitations: Vec<String>,
     report: Option<Report>,
@@ -113,6 +121,8 @@ impl Store {
             finished_at: None,
             scan_id: None,
             expires_at: None,
+            personal_expires_at: None,
+            personal_issued: None,
             evidence: vec![],
             limitations: vec![],
             report: None,
@@ -145,6 +155,8 @@ mod tests {
             is_directory: false,
             category: "file".into(),
             candidate_id: None,
+            personal_file: false,
+            witness: None,
         }]
     }
     #[test]

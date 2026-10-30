@@ -8225,5 +8225,67 @@
   ["整份备份已移入废纸篓", "Whole backup moved to Trash", "バックアップ全体をゴミ箱へ移動済み"],
   ["备份保留", "Backup kept", "バックアップを保持"],
   ["处理已取消", "Processing cancelled", "処理をキャンセル済み"],
-  ["先前处理已中断", "Previous processing interrupted", "以前の処理が中断"]
+  ["先前处理已中断", "Previous processing interrupted", "以前の処理が中断"],
+  [
+    "AI 建议可能有误，默认不勾选。Mole 建议进入原有清理审阅；个人文件线索可带入独立文件整理，先重新扫描，再自行选择、预览和确认。模型不能提交新路径或直接处理文件。移入废纸篓不会立即释放空间。",
+    "AI advice may be wrong; nothing is selected by default. Mole suggestions enter cleanup review. Personal file hints can open independent file organization: scan again, then preview, select and confirm. Models cannot add paths or process files directly. Trash does not immediately free space.",
+    "AI の提案には誤りがあり、初期状態では未選択です。Mole の候補はクリーンアップ確認へ、個人ファイルの手がかりは再スキャン後の整理へ進めます。内容を確認して選択・確定してください。モデルは新しいパスの追加や直接処理をできません。ゴミ箱への移動では容量はすぐに解放されません。"
+  ],
+  ["带入文件整理 {0}", "Bring into file organization {0}", "ファイル整理に引き継ぐ {0}"],
+  [
+    "个人文件线索 · 先重新扫描",
+    "Personal file hint · rescan first",
+    "個人ファイルの手がかり · 再スキャンが必要"
+  ],
+  [
+    "带入 {0} 项关注线索（含筛选外项目），最多 20 项。只重新检查，不自动选择或处理；保留建议也会带入说明。",
+    "Bring {0} hints, including filtered-out items, up to 20. This only rescans; no automatic selection or processing. Keep advice is included.",
+    "絞り込み外を含む {0} 件の手がかりを引き継ぎます（最大 20 件）。再確認のみ行い、自動で選択・処理しません。保持の提案も表示します。"
+  ],
+  ["带入", "Bring", "引き継ぐ"],
+  [
+    "项关注线索（含筛选外项目），最多 20 项。只重新检查，不自动选择或处理；保留建议也会带入说明。",
+    "hints, including filtered-out items, up to 20. This only rescans; no automatic selection or processing. Keep advice is included.",
+    "件の手がかり（絞り込み外を含む、最大 20 件）。再確認のみで、自動選択・処理はしません。保持の提案も表示します。"
+  ],
+  ["去文件整理…", "Go to file organization…", "ファイル整理へ…"],
+  ["AI 关注项说明", "AI hints", "AI の手がかり"],
+  [
+    "已根据你带入的 AI 线索重新扫描，所有处理仍默认不选。AI 说明可能有误，不是删除依据；需要自行预览、选择并单独确认。",
+    "Rescanned the AI hints you chose. All processing remains unselected. AI advice may be wrong and is not a deletion basis; preview, select and confirm independently.",
+    "選択した AI の手がかりを再スキャンしました。処理対象はすべて未選択です。AI の説明は削除の根拠にはなりません。内容を確認し、自分で選択・確定してください。"
+  ],
+  [
+    "分析于 {0} · {1}。本轮说明仅随扫描保留在内存，退出后失效，不写入执行历史。",
+    "Analyzed at {0} · {1}. These notes stay in memory with this scan, expire on exit, and are excluded from execution history.",
+    "分析日時 {0} · {1}。説明はこのスキャンと共にメモリ内に保持し、終了時に失効します。実行履歴には保存しません。"
+  ],
+  ["分析于", "Analyzed at", "分析日時"],
+  [
+    "。本轮说明仅随扫描保留在内存，退出后失效，不写入执行历史。",
+    ". These notes stay in memory with this scan, expire on exit, and are excluded from execution history.",
+    "。説明はスキャンと共にメモリ内に保持し、終了時に失効します。実行履歴には保存しません。"
+  ],
+  ["只显示本轮 AI 关注项", "Show only these AI hints", "今回の AI の手がかりのみ表示"],
+  ["查看当时的 AI 说明", "View the original AI notes", "元の AI の説明を見る"],
+  [
+    "AI 建议保留；整理不代表可以删除。",
+    "AI advised keeping it; organization does not imply it can be deleted.",
+    "AI は保持を提案しています。整理可能でも削除してよいとは限りません。"
+  ],
+  [
+    "AI 建议核实；尚不能确认可删除。",
+    "AI advised investigation; deletion suitability is unverified.",
+    "AI は確認を提案しています。削除してよいかは未確認です。"
+  ],
+  [
+    "此入口不能接收 AI 个人文件线索。",
+    "This entry cannot receive AI personal file hints.",
+    "この入口では AI の個人ファイルの手がかりを受け取れません。"
+  ],
+  [
+    "AI 文件整理目录无法核对。",
+    "The AI file organization folder could not be verified.",
+    "AI のファイル整理フォルダを確認できません。"
+  ]
 ]

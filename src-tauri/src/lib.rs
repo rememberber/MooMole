@@ -2445,6 +2445,7 @@ pub fn run() {
             personal_files::commands::get_similar_photos,
             personal_files::commands::get_software_content,
             personal_files::commands::start_software_content,
+            personal_files::commands::start_personal_from_ai,
             personal_files::commands::prepare_software_trash,
             personal_files::commands::discard_software_trash,
             personal_files::commands::execute_software_trash,

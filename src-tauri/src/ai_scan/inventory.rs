@@ -100,6 +100,8 @@ pub(super) fn collect(
                     .map(|i| i.kind.clone())
                     .unwrap_or("unknown".into()),
                 candidate_id: Some(c.id.clone()),
+                personal_file: false,
+                witness: None,
             });
             count += 1;
         }
@@ -233,6 +235,34 @@ impl Inventory<'_> {
                 continue;
             }
             let is_dir = kind == libc::S_IFDIR;
+            let witness = if !is_dir
+                && stat.st_nlink == 1
+                && stat.st_uid == unsafe { libc::geteuid() }
+                && crate::personal_files::ordinary(&child_path)
+            {
+                AnchoredPath::open(&child_path)
+                    .ok()
+                    .filter(|held| {
+                        let w = &held.witness;
+                        held.local_materialized()
+                            && held.validate().is_ok()
+                            && w.nodes.last().is_some_and(|n| {
+                                n.dev == stat.st_dev as u64
+                                    && n.ino == stat.st_ino
+                                    && n.mode == stat.st_mode as u32
+                                    && n.uid == stat.st_uid
+                            })
+                            && w.size == stat.st_size as u64
+                            && w.mtime == stat.st_mtime
+                            && w.mtime_ns == stat.st_mtime_nsec
+                            && w.ctime == stat.st_ctime
+                            && w.ctime_ns == stat.st_ctime_nsec
+                            && w.links == 1
+                    })
+                    .map(|held| held.witness)
+            } else {
+                None
+            };
             self.push(Evidence {
                 id: String::new(),
                 source: "metadata".into(),
@@ -242,6 +272,8 @@ impl Inventory<'_> {
                 is_directory: is_dir,
                 category: if is_dir { "directory" } else { "file" }.into(),
                 candidate_id: None,
+                personal_file: witness.is_some(),
+                witness,
             });
             if is_dir {
                 if depth >= 2 {

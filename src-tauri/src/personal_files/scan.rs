@@ -64,6 +64,7 @@ pub(super) fn collect_scoped(
         skipped: walker.skipped,
         visited: walker.visited,
         items: walker.items.iter().map(row).collect(),
+        ai_focus: None,
         duplicates: None,
         similar_photos: None,
         software_content: None,
