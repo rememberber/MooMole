@@ -53,6 +53,7 @@ mod provenance;
 mod review;
 mod rules;
 mod shutdown;
+mod space_explanation;
 mod startup_management;
 mod status_watch;
 mod storage_monitor;
@@ -2560,6 +2561,8 @@ pub fn run() {
             get_status_watch,
             stop_status_watch,
             reveal_path,
+            space_explanation::inspect_space_item,
+            space_explanation::open_storage_settings,
             open_official,
             check_updates,
             device_backups::commands::get_device_backups,

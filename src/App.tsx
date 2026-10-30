@@ -48,6 +48,7 @@ import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
 import { DeviceBackups } from './components/DeviceBackups'
+import { SpaceExplanation } from './components/SpaceExplanation'
 import type { AppControlTarget } from './lib/app-control'
 import { SearchRepairCenter } from './components/SearchRepairCenter'
 import { ProblemRepairs } from './components/ProblemRepairs'
@@ -417,6 +418,7 @@ export default function App() {
   const [appControlActive, setAppControlActive] = useState(false)
   const [deviceBackupsActive, setDeviceBackupsActive] = useState(false)
   const [deviceBackupsOpenSignal, setDeviceBackupsOpenSignal] = useState(0)
+  const [spaceExplanation, setSpaceExplanation] = useState<{ path: string | null } | null>(null)
   const [registrationIntent, setRegistrationIntent] = useState(false)
   const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
   const [startupActive, setStartupActive] = useState(false)
@@ -1113,6 +1115,14 @@ export default function App() {
                 >
                   设备备份…
                 </button>
+                <button
+                  className="icon-button"
+                  aria-label="空间占用说明"
+                  title="空间占用说明"
+                  onClick={() => setSpaceExplanation({ path: null })}
+                >
+                  <Info size={17} />
+                </button>
                 {busy?.kind === 'analyze' && (
                   <button
                     className="button secondary compact"
@@ -1652,6 +1662,23 @@ export default function App() {
             enabled={canRun}
             onActiveChange={setDeviceBackupsActive}
           />
+          {spaceExplanation && (
+            <SpaceExplanation
+              key={spaceExplanation.path ?? 'guide'}
+              path={spaceExplanation.path}
+              desktop={api.desktop}
+              enabled={canRun}
+              onClose={() => setSpaceExplanation(null)}
+              onReveal={reveal}
+              onAction={(action) => {
+                if (action === 'backups') setDeviceBackupsOpenSignal((n) => n + 1)
+                else if (action === 'home') {
+                  changePage('analyze')
+                  void execute('analyze', data.home)
+                } else changePage(action === 'cleanup' ? 'quickCleanup' : 'storageMonitor')
+              }}
+            />
+          )}
           <SearchRepairCenter
             openSignal={searchRepairOpenSignal}
             transport={searchRepairTransport}
@@ -2059,6 +2086,7 @@ export default function App() {
                   refreshing={busy?.kind === 'analyze'}
                   onAnalyze={(target) => void execute('analyze', target)}
                   onReveal={reveal}
+                  onExplain={(target) => setSpaceExplanation({ path: target })}
                   onOrganize={(target, mode) => {
                     if (mode === 'duplicates') duplicates.setRoot(target)
                     else personalFiles.setRoot(target)

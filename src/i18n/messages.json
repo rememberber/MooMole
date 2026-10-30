@@ -8321,5 +8321,109 @@
     "本报告未记录分析范围，请按实际线索和未完成说明核对。",
     "This report did not record its scope. Check the actual evidence and coverage notes.",
     "このレポートには分析範囲の記録がありません。実際の手がかりと未完了の説明を確認してください。"
+  ],
+  ["空间占用说明", "Storage explanation", "ストレージ使用量の説明"],
+  ["解释空间占用", "Explain storage use", "使用量を確認"],
+  ["当前项目的空间属性", "Storage attributes of this item", "現在の項目の容量属性"],
+  [
+    "仅观察当前项目，不递归、不读取正文，不请求下载或移除本地副本。",
+    "Observes this item only. No recursion, content reading, download or local-copy removal requests.",
+    "現在の項目のみ確認します。再帰走査、内容の読み取り、ダウンロードやローカルコピー削除の要求は行いません。"
+  ],
+  ["正在读取空间属性…", "Reading storage attributes…", "容量属性を読み取り中…"],
+  ["本地分配量", "Locally allocated bytes", "ローカル割り当て量"],
+  [
+    "这是文件夹，未汇总内部内容；以上大小保持未知。可返回目录分析查看已测量的子项。",
+    "This is a folder. Its contents were not totaled, so sizes remain unknown. Return to analysis to see measured children.",
+    "フォルダの内容は集計していないため、サイズは不明のままです。ディレクトリ分析で測定済みの子項目を確認できます。"
+  ],
+  [
+    "检测到无本地完整数据的占位标记；本地分配量可能仅包含少量元数据。",
+    "A dataless placeholder flag was found; local allocation may contain only a little metadata.",
+    "ローカルの完全なデータがないプレースホルダのフラグを検出しました。割り当て量は少量のメタデータのみの場合があります。"
+  ],
+  [
+    "未发现无本地数据的占位标记；这不能证明同步完成、云端备份存在或文件可删除。",
+    "No dataless flag was found. This does not prove completed sync, a cloud backup, or that deletion is appropriate.",
+    "データなしフラグは見つかりませんでした。同期完了、クラウドバックアップの存在、削除してよいことの証明にはなりません。"
+  ],
+  [
+    "位置位于此账户的 iCloud 容器目录，不能据此确认具体应用的同步状态。",
+    "This is inside this account’s iCloud container location. App-specific sync status is not established.",
+    "このアカウントの iCloud コンテナ内です。個々のアプリの同期状態は確認できません。"
+  ],
+  [
+    "位置位于此账户的云文件提供程序目录，具体同步与下载状态请在 Finder 或对应软件中核对。",
+    "This is inside this account’s cloud file-provider location. Check sync and download status in Finder or the provider app.",
+    "このアカウントのクラウドファイルプロバイダの場所です。同期とダウンロードの状態は Finder または対応アプリで確認してください。"
+  ],
+  [
+    "位置位于账户资料库，可能包含应用设置、资料与缓存；不能整目录清理。",
+    "This is in the account Library, which may contain app settings, data and caches. Do not clear the whole folder.",
+    "アカウントのライブラリ内です。アプリ設定、データ、キャッシュが含まれるため、フォルダ全体を削除できません。"
+  ],
+  [
+    "位置位于系统管理范围；本页不提供该位置的删除操作。",
+    "This is a system-managed location. This page offers no deletion action for it.",
+    "システムが管理する場所です。このページでは削除操作を提供しません。"
+  ],
+  [
+    "未识别为固定云目录；其他位置仍可能被同步软件管理。",
+    "Not recognized as a standard cloud location. Other locations may still be managed by sync software.",
+    "既定のクラウドディレクトリとして認識されませんでした。他の場所も同期ソフトで管理されている場合があります。"
+  ],
+  [
+    "本地分配量可能受稀疏文件、压缩和 APFS 共享块影响，不等于独占空间或可释放空间。",
+    "Local allocation can reflect sparse files, compression and shared APFS blocks. It is not exclusive or reclaimable space.",
+    "割り当て量はスパースファイル、圧縮、APFS 共有ブロックの影響を受けるため、専有量や解放可能容量ではありません。"
+  ],
+  [
+    "属性读取时间：{0}；文件仍可能继续变化，后续处理需重新扫描和确认。",
+    "Attributes read: {0}. Files may keep changing; later processing needs a fresh scan and confirmation.",
+    "属性の読み取り時刻：{0}。ファイルは変化する可能性があります。処理には再走査と確認が必要です。"
+  ],
+  ["属性读取时间：", "Attributes read: ", "属性の読み取り時刻："],
+  [
+    "；文件仍可能继续变化，后续处理需重新扫描和确认。",
+    ". Files may keep changing; later processing needs a fresh scan and confirmation.",
+    "。ファイルは変化する可能性があります。処理には再走査と確認が必要です。"
+  ],
+  ["重新读取属性", "Read attributes again", "属性を再取得"],
+  ["在 Finder 中核对", "Check in Finder", "Finder で確認"],
+  ["云文件与本机空间", "Cloud files and local storage", "クラウドファイルとローカル容量"],
+  [
+    "文件显示的大小不一定都已下载到本机。占位状态、逻辑大小和本地分配量分别回答不同问题，也不能证明云端已有可恢复副本。",
+    "The displayed file size may not be fully downloaded. Placeholder state, logical length and local allocation describe different things; none proves a recoverable cloud copy.",
+    "表示サイズの全データがダウンロード済みとは限りません。占位状態、論理サイズ、ローカル割り当て量は異なる指標であり、クラウドに復元可能なコピーがある証明にはなりません。"
+  ],
+  [
+    "删除 iCloud Drive 文件可能同步删除其他设备上的文件。仅想减少本机副本时，请先在 Finder 或对应云盘软件核对同步状态，再使用其提供的移除下载功能；这里不会代为执行。",
+    "Deleting iCloud Drive files can also delete them on other devices. To reduce local copies only, check sync in Finder or the provider app and use its remove-download feature. This page does not perform that action.",
+    "iCloud Drive のファイルを削除すると、他のデバイスでも削除される場合があります。ローカルコピーだけを減らすには、Finder またはクラウドアプリで同期状態を確認し、そのダウンロード削除機能を使ってください。この画面では実行しません。"
+  ],
+  ["系统数据与下一步", "System Data and next steps", "システムデータと次の操作"],
+  [
+    "系统数据是 macOS 的归类，包含无法归入其他类别的系统与应用数据，不对应一个可以整体清空的文件夹。",
+    "System Data is a macOS category for system and app data not assigned elsewhere. It is not a folder that can be emptied as a whole.",
+    "システムデータは他の分類に属さないシステムやアプリのデータをまとめた macOS の分類であり、一括削除できるフォルダではありません。"
+  ],
+  [
+    "这里没有测量系统数据总量、快照占用或可清除空间，也不把目录测量差额算成系统数据。APFS 卷可能共享空间，废纸篓中的文件仍会占用空间。",
+    "System Data totals, snapshot usage and purgeable space are not measured here. Folder differences are not labeled System Data. APFS volumes can share space; Trash still uses storage.",
+    "ここではシステムデータ総量、スナップショット、消去可能領域を測定していません。フォルダの差額をシステムデータとはしません。APFS ボリュームは容量を共有する場合があり、ゴミ箱のファイルも容量を使います。"
+  ],
+  ["审阅常用清理候选", "Review common cleanup candidates", "一般的なクリーンアップ候補を確認"],
+  ["审阅整份设备备份", "Review whole device backups", "デバイスバックアップ全体を確認"],
+  ["查看可用空间趋势", "View available-space trends", "空き容量の推移を表示"],
+  ["打开系统设置核对分类", "Check categories in System Settings", "システム設定で分類を確認"],
+  [
+    "打开系统设置后，在通用 → 储存空间核对系统分类；入口名称可能随 macOS 版本变化。以上入口不会自动开始清理。",
+    "In System Settings, check General → Storage. Names may vary by macOS version. These entry points do not start cleanup automatically.",
+    "システム設定の「一般」→「ストレージ」で分類を確認してください。名称は macOS により異なります。これらの入口から自動で削除は開始しません。"
+  ],
+  [
+    "空间属性无法核对，请重新读取。",
+    "Storage attributes could not be verified. Read them again.",
+    "容量属性を確認できませんでした。再取得してください。"
   ]
 ]

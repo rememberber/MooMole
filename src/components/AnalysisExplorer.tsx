@@ -42,6 +42,7 @@ export function AnalysisExplorer({
   refreshing,
   onAnalyze,
   onReveal,
+  onExplain,
   onOrganize,
 }: {
   ref?: Ref<AnalysisExplorerHandle>
@@ -53,6 +54,7 @@ export function AnalysisExplorer({
   refreshing: boolean
   onAnalyze: (path: string) => void
   onReveal: (path: string) => void
+  onExplain?: (path: string) => void
   onOrganize?: (path: string, mode: 'files' | 'duplicates') => void
 }) {
   const [view, setView] = useState<'directory' | 'large'>(initialContext?.view ?? 'directory')
@@ -414,6 +416,15 @@ export function AnalysisExplorer({
               </div>
               <p className="mono">{selected.path}</p>
               <div className="analysis-inspector-actions">
+                {onExplain && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canReveal || refreshing}
+                    onClick={() => onExplain(selected.path)}
+                  >
+                    解释空间占用
+                  </button>
+                )}
                 {onOrganize && (
                   <>
                     <button
