@@ -7,6 +7,7 @@ use std::{
 };
 const IMAGE_LIMIT: u64 = 32 * 1024 * 1024;
 const TEXT_LIMIT: u64 = 64 * 1024;
+pub(crate) mod stream;
 #[derive(Serialize)]
 #[serde(
     tag = "kind",
@@ -28,6 +29,13 @@ pub(crate) enum Content {
     Text {
         text: String,
         truncated: bool,
+    },
+    Media {
+        url: String,
+        lease_id: String,
+        mime: String,
+        media_kind: String,
+        expires_at: i64,
     },
 }
 #[derive(Serialize)]
@@ -154,6 +162,14 @@ fn selected(
     scan_id: &str,
     item_id: &str,
 ) -> Result<Item, String> {
+    selected_context(state, domain, scan_id, item_id).map(|(item, _, _)| item)
+}
+fn selected_context(
+    state: &crate::AppState,
+    domain: Domain,
+    scan_id: &str,
+    item_id: &str,
+) -> Result<(Item, Option<software_content::Binding>, i64), String> {
     let store = match domain {
         Domain::PersonalFiles => &state.personal_files,
         Domain::DuplicateFiles => &state.duplicate_files,
@@ -170,6 +186,7 @@ fn selected(
         .iter()
         .find(|i| i.id == item_id)
         .cloned()
+        .map(|item| (item, scan.software_content.clone(), scan.expires_at))
         .ok_or("此项目不属于当前扫描。".into())
 }
 #[tauri::command]

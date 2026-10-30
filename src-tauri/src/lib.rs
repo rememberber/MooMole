@@ -91,6 +91,8 @@ struct AppState {
     archive_slots: Arc<tokio::sync::Semaphore>,
     icon_slots: Arc<tokio::sync::Semaphore>,
     preview_slots: Arc<tokio::sync::Semaphore>,
+    media_slots: Arc<tokio::sync::Semaphore>,
+    media_previews: Arc<personal_files::preview::stream::Store>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
     project_slots: Arc<tokio::sync::Semaphore>,
@@ -2207,6 +2209,10 @@ async fn open_update_releases() -> Result<(), String> {
 
 pub fn run() {
     let app = tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol(
+            personal_files::preview::stream::SCHEME,
+            personal_files::preview::stream::handle,
+        )
         .plugin(tauri_plugin_dialog::init())
         .on_menu_event(menu_bar::event)
         .on_window_event(|window, event| {
@@ -2340,6 +2346,8 @@ pub fn run() {
                     archive_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                     preview_slots: Arc::new(tokio::sync::Semaphore::new(1)),
+                    media_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                    media_previews: Arc::new(personal_files::preview::stream::Store::default()),
                     inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                     maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
@@ -2387,6 +2395,7 @@ pub fn run() {
                 });
             storage_monitor::start(app.state::<AppState>().inner().clone());
             personal_files::schedule::runtime::start(app.state::<AppState>().inner().clone());
+            personal_files::preview::stream::start(app.state::<AppState>().inner().clone());
             menu_bar::start(app.handle());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
@@ -2411,6 +2420,8 @@ pub fn run() {
             personal_files::schedule::runtime::remove_folder_schedule,
             personal_files::schedule::runtime::start_folder_scan,
             personal_files::preview::preview_personal_file,
+            personal_files::preview::stream::prepare_media_preview,
+            personal_files::preview::stream::release_media_preview,
             personal_files::commands::get_personal_files,
             personal_files::commands::get_duplicate_files,
             personal_files::commands::get_similar_photos,

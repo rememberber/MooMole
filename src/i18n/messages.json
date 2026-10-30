@@ -7498,5 +7498,108 @@
     "Telegram 聊天导出附件",
     "Telegram exported chat attachments",
     "Telegram のエクスポートしたチャット添付ファイル"
+  ],
+  [
+    "影音无法继续播放，可能是编码未支持、预览失效或文件已变化。请关闭预览后重新扫描查看。",
+    "Playback stopped. The codec may be unsupported, the preview may have expired, or the file changed. Close the preview and scan again.",
+    "再生を続けられません。未対応のコーデック、プレビューの失効、ファイルの変更などが考えられます。閉じて再スキャンしてください。"
+  ],
+  ["影音播放预览", "Media playback preview", "メディア再生プレビュー"],
+  ["视频内容预览", "Video preview", "動画プレビュー"],
+  ["音频内容预览", "Audio preview", "音声プレビュー"],
+  ["正在读取影音信息…", "Reading media information…", "メディア情報を読み取り中…"],
+  [
+    "无法开始播放，请关闭预览后重新查看。",
+    "Playback could not start. Close and reopen the preview.",
+    "再生を開始できません。プレビューを閉じて再度開いてください。"
+  ],
+  ["暂停", "Pause", "一時停止"],
+  ["播放", "Play", "再生"],
+  ["播放位置", "Playback position", "再生位置"],
+  [
+    "影音预览已过期，请关闭后重新扫描查看。",
+    "The media preview expired. Close it and scan again.",
+    "メディアプレビューの期限が切れました。閉じて再スキャンしてください。"
+  ],
+  [
+    "默认不自动播放。按需读取本地文件片段，关闭预览后停止；实际可播放格式取决于系统编码支持。",
+    "Playback does not start automatically. Local file segments are read as needed and stop when the preview closes. Playable formats depend on system codecs.",
+    "自動再生はしません。必要に応じてローカルファイルの一部を読み取り、閉じると停止します。再生可能な形式はシステムのコーデックに依存します。"
+  ],
+  [
+    "预览只读取当前扫描中的文件，不改变选择或授权处理。图片和 PDF 显示缩略内容，影音按需读取本地片段；实际文件请按需在对应应用中检查。",
+    "Previews read only the current scan item and do not change selection or authorize processing. Images and PDFs show reduced content; media reads local segments as needed. Check the original in its app when necessary.",
+    "現在のスキャン項目のみを読み取り、選択や処理の許可は変更しません。画像と PDF は縮小表示し、メディアは必要に応じてローカルの一部を読み取ります。必要に応じて元のアプリで確認してください。"
+  ],
+  [
+    "选择 VLC 导出的 M3U8 播放列表，找出其中的本地影音文件，默认不选。文件可能是唯一原件，无法保证可重新下载；移走后原播放列表可能无法继续播放。仅处理你选择的普通文件，播放列表及播放器数据库保持原样；流媒体、未列入的文件与未支持的格式保留。可预览部分普通影音，播放取决于系统编码支持。",
+    "Choose a VLC-exported M3U8 playlist to find its local media files, with none selected by default. Files may be unique and may not be downloadable again; moving them can break playback. Only selected ordinary files are processed. The playlist and player database are retained, as are streams, unlisted files and unsupported formats. Some ordinary media can be previewed, depending on system codecs.",
+    "VLC がエクスポートした M3U8 からローカルメディアを検出し、初期状態では選択しません。唯一の原本の可能性があり、再ダウンロードは保証できません。移動すると再生できなくなる場合があります。選択した通常ファイルのみを処理し、プレイリスト、データベース、ストリーム、未記載ファイル、未対応形式は保持します。一部のメディアをプレビューでき、再生はシステムのコーデックに依存します。"
+  ],
+  [
+    "文件已受保护，未读取影音内容。",
+    "The file is protected; media content was not read.",
+    "ファイルは保護されているため、メディア内容を読み取りませんでした。"
+  ],
+  [
+    "影音身份变化、未落地或超出本轮十六 GiB 范围。",
+    "The media changed, is not local, or exceeds the 16 GiB limit.",
+    "メディアが変更されたか、ローカルに存在しないか、16 GiB の制限を超えています。"
+  ],
+  [
+    "所选影音不可读取。",
+    "The selected media cannot be read.",
+    "選択したメディアを読み取れません。"
+  ],
+  [
+    "影音不是本账户单链接普通文件。",
+    "The media is not an ordinary single-link file owned by this account.",
+    "このアカウントが所有する単一リンクの通常ファイルではありません。"
+  ],
+  [
+    "本轮播放预览支持普通 WAV、MP3 和自包含 MP4/M4A/MOV；此格式或文件头未支持。",
+    "Playback preview supports ordinary WAV, MP3 and self-contained MP4/M4A/MOV files. This format or header is unsupported.",
+    "通常の WAV、MP3、自己完結した MP4/M4A/MOV に対応しています。この形式またはヘッダーは未対応です。"
+  ],
+  [
+    "影音检查未及时完成，原检查仍可能进行；不会重复读取。",
+    "The media check did not finish in time and may still be running. It will not be repeated.",
+    "メディアの確認が時間内に完了しませんでした。まだ実行中の可能性があるため、繰り返し読み取りません。"
+  ],
+  ["影音检查中断。", "Media check interrupted.", "メディアの確認が中断されました。"],
+  [
+    "外部引用、压缩元数据或受保护影音不在本轮播放范围。",
+    "External references, compressed metadata and protected media are unsupported.",
+    "外部参照、圧縮メタデータ、保護されたメディアは未対応です。"
+  ],
+  [
+    "影音轨道的数据来源无法核对。",
+    "The media track data source could not be verified.",
+    "メディアトラックのデータ元を確認できません。"
+  ],
+  [
+    "影音数据引用结构未知。",
+    "Unknown media data reference structure.",
+    "メディアのデータ参照構造が不明です。"
+  ],
+  [
+    "影音包含外部或未知数据引用。",
+    "The media contains external or unknown data references.",
+    "外部または不明なデータ参照が含まれています。"
+  ],
+  [
+    "加密或 DRM 影音不在本轮播放范围。",
+    "Encrypted or DRM media is unsupported.",
+    "暗号化または DRM 付きメディアは未対応です。"
+  ],
+  [
+    "影音元数据超过八 MiB 核验范围。",
+    "The media metadata exceeds the 8 MiB verification limit.",
+    "メディアのメタデータが 8 MiB の確認制限を超えています。"
+  ],
+  [
+    "不是本轮支持的自包含 MP4/MOV 文件。",
+    "This is not a supported self-contained MP4/MOV file.",
+    "対応する自己完結型の MP4/MOV ファイルではありません。"
   ]
 ]

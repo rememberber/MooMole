@@ -4390,6 +4390,16 @@ input[type='checkbox'] {
   justify-content: center;
   gap: 12px;
 }
+.file-preview-media video {
+  width: 100%;
+  max-height: 52vh;
+  background: #111;
+  object-fit: contain;
+}
+.file-preview-media input[type='range'] {
+  flex: 1;
+  min-width: 80px;
+}
 
 .similar-photo-list {
   display: grid;
