@@ -6,6 +6,7 @@ export function useAiScan(home: string, transport: AiTransport = api.aiTransport
   const [agents, setAgents] = useState<AiAgent[]>([])
   const [agentId, setAgentId] = useState('')
   const [root, setRoot] = useState('')
+  const [includeMole, setIncludeMoleValue] = useState(false)
   const [consent, setConsent] = useState(false)
   const [snapshot, setSnapshot] = useState<AiSnapshot | null>(null)
   const [error, setError] = useState('')
@@ -16,12 +17,16 @@ export function useAiScan(home: string, transport: AiTransport = api.aiTransport
   const startLock = useRef(false)
   const mounted = useRef(true)
   const detectLock = useRef(false)
+  const setIncludeMole = (value: boolean) => {
+    setIncludeMoleValue(value)
+    setConsent(false)
+  }
   useEffect(() => {
     setRoot((value) => value || (home ? `${home}/Downloads` : ''))
   }, [home])
   useEffect(() => {
     setConsent(false)
-  }, [root, agentId])
+  }, [root, agentId, includeMole])
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -90,7 +95,7 @@ export function useAiScan(home: string, transport: AiTransport = api.aiTransport
     setError('')
     setSnapshot(null)
     try {
-      const value = await transport.start(agentId, root.trim(), consent)
+      const value = await transport.start(agentId, root.trim(), consent, includeMole)
       if (mounted.current) setSnapshot(value)
     } catch (e) {
       if (mounted.current) setError(String(e).replace(/^Error: /, ''))
@@ -115,6 +120,8 @@ export function useAiScan(home: string, transport: AiTransport = api.aiTransport
     setAgentId,
     root,
     setRoot,
+    includeMole,
+    setIncludeMole,
     consent,
     setConsent,
     snapshot,

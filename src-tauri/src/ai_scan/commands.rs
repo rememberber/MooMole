@@ -1,4 +1,4 @@
-use super::{agents, inventory, Snapshot, SKILL};
+use super::{agents, inventory, scope, Snapshot, SKILL};
 use crate::{
     db,
     engine::{self, Job, TaskKind},
@@ -51,6 +51,7 @@ pub(crate) fn start_ai_scan(
     agent_id: String,
     root: String,
     metadata_consent: bool,
+    include_mole: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Snapshot, String> {
     if !metadata_consent {
@@ -60,6 +61,8 @@ pub(crate) fn start_ai_scan(
         return Err("该 Agent 尚未适配受限扫描。".into());
     }
     let operation = state.updates.installation.enter()?;
+    // Omitted scope is deliberately narrow, including old IPC callers.
+    let include_mole = include_mole.unwrap_or(false);
     // Follow the task registry lock order: database -> jobs -> module store.
     let database = state.db.lock().map_err(|_| "无法读取保护设置。")?;
     let settings = db::settings(&database)?;
@@ -78,7 +81,7 @@ pub(crate) fn start_ai_scan(
         return Err("请先等待当前任务完成，再开始 AI 扫描。".into());
     }
     let mut store = state.ai_scan.lock().map_err(|_| "无法开始 AI 扫描。")?;
-    let snapshot = store.begin(id.clone(), agent_id.clone(), root.clone())?;
+    let snapshot = store.begin(id.clone(), agent_id.clone(), root.clone(), include_mole)?;
     if let Err(error) = db::start(&database, &id, "aiscan", Some(&root)) {
         store.snapshot = None;
         return Err(error);
@@ -98,6 +101,7 @@ pub(crate) fn start_ai_scan(
             job.clone(),
             settings.protected_paths,
             settings.language,
+            include_mole,
         )
         .await;
         let cancelled = job.cancelled.load(Ordering::SeqCst);
@@ -121,9 +125,17 @@ pub(crate) fn start_ai_scan(
                     &db,
                     &id,
                     status,
-                    error
-                        .as_deref()
-                        .unwrap_or("AI 建议已生成，尚未执行清理。报告只在当前 App 会话短期保留。"),
+                    &format!(
+                        "{} {}",
+                        if include_mole {
+                            "范围：Mole 常用位置与所选目录。"
+                        } else {
+                            "范围：仅所选目录。"
+                        },
+                        error.as_deref().unwrap_or(
+                            "AI 建议已生成，尚未执行清理。报告只在当前 App 会话短期保留。"
+                        )
+                    ),
                 )
             });
         if let Ok(mut store) = state.ai_scan.lock() {
@@ -165,6 +177,7 @@ async fn run(
     job: Arc<Job>,
     protected: Vec<String>,
     language: String,
+    include_mole: bool,
 ) -> Result<super::Report, String> {
     let work_root = root.clone();
     let rules = protected.clone();
@@ -178,15 +191,17 @@ async fn run(
         .tempdir()
         .map_err(|_| "无法准备私有扫描目录。")?;
     let executable = agents::prepare(agent_id, &state.home, scratch.path(), job.clone()).await?;
-    stage(state, id, "正在读取 Mole 清理候选…");
-    let result =
-        engine::run_clean_preview(&state.engine_root, &state.home, job.clone(), &protected).await;
+    let result = scope::optional_mole(include_mole, || {
+        stage(state, id, "正在读取 Mole 清理候选…");
+        engine::run_clean_preview(&state.engine_root, &state.home, job.clone(), &protected)
+    })
+    .await;
     if job.cancelled.load(Ordering::SeqCst) {
         return Err("扫描已取消。".into());
     }
     let mut limitations = vec![];
     let scan = match result {
-        Ok(value) => {
+        Some(Ok(value)) => {
             let preview = serde_json::from_value(value).map_err(|_| "Mole 清单格式无效。")?;
             let scan_id = uuid::Uuid::new_v4().to_string();
             let scan = tauri::async_runtime::spawn_blocking(move || {
@@ -200,19 +215,26 @@ async fn run(
             )?;
             Some(scan)
         }
-        Err(error) => {
+        Some(Err(error)) => {
             limitations.push(format!(
                 "Mole 扫描未完成，当前仅有扩展元数据线索，不能提交清理审阅。{error}"
             ));
             None
         }
+        None => None,
     };
     stage(state, id, "正在扫描所选目录的本地线索…");
     let snapshot_scan = scan.clone();
     let work_job = job.clone();
     let work_rules = protected.clone();
     let (evidence, mut notes) = tauri::async_runtime::spawn_blocking(move || {
-        inventory::collect(snapshot_scan.as_ref(), &root, &work_rules, work_job)
+        scope::collect(
+            include_mole,
+            snapshot_scan.as_ref(),
+            &root,
+            &work_rules,
+            work_job,
+        )
     })
     .await
     .map_err(|_| "本地线索扫描未完成。")??;

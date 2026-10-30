@@ -15,6 +15,7 @@ export function AiDeepScan({
   onCreatePlan,
   onReveal,
   onOrganize,
+  canStart = enabled,
 }: {
   controller: AiScanController
   home: string
@@ -23,6 +24,7 @@ export function AiDeepScan({
   onCreatePlan: (scanId: string, ids: string[]) => Promise<void>
   onReveal: (path: string) => void
   onOrganize?: (snapshotId: string, evidenceIds: string[]) => Promise<void>
+  canStart?: boolean
 }) {
   const tick = useNow()
   const now = Date.now()
@@ -33,6 +35,7 @@ export function AiDeepScan({
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const snapshot = ai.snapshot
+  const displayedScope = ai.running && snapshot ? snapshot.includeMole : ai.includeMole
   const reviewable = useMemo(
     () => (snapshot ? aiReviewable(snapshot, protectedPaths, now) : []),
     [snapshot, protectedPaths, tick],
@@ -100,7 +103,7 @@ export function AiDeepScan({
         className="card ai-setup"
         onSubmit={(e) => {
           e.preventDefault()
-          if (enabled) void ai.start()
+          if (canStart) void ai.start()
         }}
       >
         <div className="ai-scope-row">
@@ -108,7 +111,7 @@ export function AiDeepScan({
             分析 Agent
             <select
               aria-label="分析 Agent"
-              value={ai.agentId}
+              value={ai.running && snapshot ? snapshot.agentId : ai.agentId}
               disabled={ai.running || ai.detecting}
               onChange={(e) => ai.setAgentId(e.target.value)}
             >
@@ -126,7 +129,7 @@ export function AiDeepScan({
             <span className="ai-path-input">
               <input
                 aria-label="扩展扫描目录"
-                value={ai.root}
+                value={ai.running && snapshot ? snapshot.root : ai.root}
                 disabled={ai.running}
                 onChange={(e) => ai.setRoot(e.target.value)}
                 placeholder="选择普通文件夹"
@@ -143,9 +146,29 @@ export function AiDeepScan({
             </span>
           </label>
         </div>
+        <label className="ai-scope-choice">
+          分析范围
+          <select
+            aria-label="AI 分析范围"
+            disabled={ai.running}
+            value={
+              displayedScope === undefined ? 'unknown' : displayedScope ? 'combined' : 'folder'
+            }
+            onChange={(e) => ai.setIncludeMole(e.target.value === 'combined')}
+          >
+            <option value="folder">只分析所选目录</option>
+            <option value="combined">Mole 常用清理位置与所选目录</option>
+            {ai.running && snapshot?.includeMole === undefined && (
+              <option value="unknown">原任务范围未报告</option>
+            )}
+          </select>
+        </label>
         <p className="muted">
-          Mole 扫描常用清理位置；扩展扫描读取所选目录的有界元数据，AI
-          结合模型知识解释用途、影响和保留建议。
+          {displayedScope === undefined
+            ? '原任务范围未报告'
+            : displayedScope
+              ? '本次将收集 Mole 常用清理位置的候选（可能超出所选目录），并补充所选目录的有界元数据。'
+              : '本次只收集所选目录的有界文件元数据，不运行 Mole 常用清理位置扫描，不收集其他清理位置的文件清单。'}
         </p>
         <label className="ai-consent">
           <input
@@ -206,6 +229,13 @@ export function AiDeepScan({
           data-scanning={ai.running && !ai.stopping}
           aria-label="AI 扫描结果"
         >
+          <p className="muted">
+            {snapshot.includeMole === true
+              ? '本报告范围：Mole 常用清理位置与所选目录。'
+              : snapshot.includeMole === false
+                ? '本报告范围：仅所选目录。'
+                : '本报告未记录分析范围，请按实际线索和未完成说明核对。'}
+          </p>
           <div className="ai-report-heading">
             <strong>
               {ai.running && <LoaderCircle size={15} className="spin" />}

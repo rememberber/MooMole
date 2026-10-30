@@ -3,6 +3,7 @@ mod agents;
 mod commands;
 mod inventory;
 pub(crate) mod personal_handoff;
+mod scope;
 use crate::{db, review};
 pub(crate) use commands::*;
 use serde::{Deserialize, Serialize};
@@ -87,6 +88,7 @@ fn parse_report(bytes: &[u8], evidence: &[Evidence]) -> Result<Report, String> {
 pub(crate) struct Snapshot {
     id: String,
     agent_id: String,
+    include_mole: bool,
     root: String,
     state: String,
     stage: String,
@@ -107,13 +109,20 @@ pub(crate) struct Store {
     snapshot: Option<Snapshot>,
 }
 impl Store {
-    fn begin(&mut self, id: String, agent_id: String, root: String) -> Result<Snapshot, String> {
+    fn begin(
+        &mut self,
+        id: String,
+        agent_id: String,
+        root: String,
+        include_mole: bool,
+    ) -> Result<Snapshot, String> {
         if self.snapshot.as_ref().is_some_and(|s| s.state == "running") {
             return Err("已有 AI 深度扫描，请等待完成或停止。".into());
         }
         let snapshot = Snapshot {
             id,
             agent_id,
+            include_mole,
             root,
             state: "running".into(),
             stage: "正在检查 Agent…".into(),
@@ -163,10 +172,10 @@ mod tests {
     fn active_snapshot_cannot_be_replaced_and_finished_reports_expire() {
         let mut store = Store::default();
         store
-            .begin("first".into(), "codex".into(), "/test".into())
+            .begin("first".into(), "codex".into(), "/test".into(), false)
             .unwrap();
         assert!(store
-            .begin("second".into(), "codex".into(), "/test".into())
+            .begin("second".into(), "codex".into(), "/test".into(), false)
             .is_err());
         assert_eq!(store.current().unwrap().id, "first");
         let snapshot = store.snapshot.as_mut().unwrap();
@@ -174,7 +183,7 @@ mod tests {
         snapshot.finished_at = Some(db::now() - review::LIFETIME_MS - 1);
         assert!(store.current().is_none());
         assert!(store
-            .begin("second".into(), "codex".into(), "/test".into())
+            .begin("second".into(), "codex".into(), "/test".into(), false)
             .is_ok());
     }
     #[test]

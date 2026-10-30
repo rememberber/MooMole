@@ -27,6 +27,7 @@ export interface AiFinding {
 export interface AiSnapshot {
   id: string
   agentId: string
+  includeMole?: boolean
   root: string
   state: 'running' | 'succeeded' | 'failed' | 'cancelled'
   stage: string
@@ -43,7 +44,12 @@ export interface AiSnapshot {
 export interface AiTransport {
   detect: () => Promise<AiAgent[]>
   read: () => Promise<AiSnapshot | null>
-  start: (agentId: string, root: string, metadataConsent: boolean) => Promise<AiSnapshot>
+  start: (
+    agentId: string,
+    root: string,
+    metadataConsent: boolean,
+    includeMole?: boolean,
+  ) => Promise<AiSnapshot>
   cancel: (requestId: string) => Promise<void>
 }
 export function aiReviewable(

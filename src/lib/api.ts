@@ -320,8 +320,8 @@ export { archiveTransport } from './execution-archive'
 export const aiTransport: import('./ai-scan').AiTransport = {
   detect: () => invoke('detect_ai_agents'),
   read: () => invoke('get_ai_scan'),
-  start: (agentId, root, metadataConsent) =>
-    invoke('start_ai_scan', { agentId, root, metadataConsent }),
+  start: (agentId, root, metadataConsent, includeMole = false) =>
+    invoke('start_ai_scan', { agentId, root, metadataConsent, includeMole }),
   cancel: (requestId) => invoke('cancel_ai_scan', { requestId }),
 }
 

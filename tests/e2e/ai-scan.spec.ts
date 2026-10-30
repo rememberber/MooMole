@@ -144,7 +144,12 @@ test('native transport requires consent, retains running scan across navigation 
   await expect(page.getByText('Agent 正在分析…', { exact: true })).toBeVisible()
   expect(
     await page.evaluate(() => JSON.parse(sessionStorage.getItem('ai-start-payload')!)),
-  ).toEqual({ agentId: 'codex', root: '/Users/demo/Downloads/synthetic', metadataConsent: true })
+  ).toEqual({
+    agentId: 'codex',
+    root: '/Users/demo/Downloads/synthetic',
+    metadataConsent: true,
+    includeMole: false,
+  })
   await nav.getByRole('button', { name: '概览', exact: true }).click()
   await nav.getByRole('button', { name: 'AI 深度扫描' }).click()
   await expect(page.getByRole('button', { name: '停止扫描' })).toBeVisible()

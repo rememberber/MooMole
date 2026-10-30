@@ -8287,5 +8287,39 @@
     "AI 文件整理目录无法核对。",
     "The AI file organization folder could not be verified.",
     "AI のファイル整理フォルダを確認できません。"
+  ],
+  ["分析范围", "Analysis scope", "分析範囲"],
+  ["AI 分析范围", "AI analysis scope", "AI 分析範囲"],
+  ["只分析所选目录", "Selected folder only", "選択フォルダのみ"],
+  [
+    "Mole 常用清理位置与所选目录",
+    "Mole cleanup locations and selected folder",
+    "Mole のクリーンアップ場所と選択フォルダ"
+  ],
+  ["原任务范围未报告", "Original task scope was not reported", "元の処理範囲は未報告です"],
+  [
+    "本次将收集 Mole 常用清理位置的候选（可能超出所选目录），并补充所选目录的有界元数据。",
+    "Collects candidates from Mole cleanup locations, potentially outside the selected folder, plus bounded metadata from the selected folder.",
+    "選択フォルダ外を含む Mole の候補と、選択フォルダ内の限定的なメタデータを収集します。"
+  ],
+  [
+    "本次只收集所选目录的有界文件元数据，不运行 Mole 常用清理位置扫描，不收集其他清理位置的文件清单。",
+    "Collects bounded file metadata only from the selected folder. Does not run Mole cleanup discovery or collect other cleanup location inventories.",
+    "選択フォルダ内の限定的なファイルメタデータのみを収集します。Mole のスキャンや他の場所のファイル一覧の収集は行いません。"
+  ],
+  [
+    "本报告范围：Mole 常用清理位置与所选目录。",
+    "Report scope: Mole cleanup locations and selected folder.",
+    "このレポートの範囲：Mole のクリーンアップ場所と選択フォルダ。"
+  ],
+  [
+    "本报告范围：仅所选目录。",
+    "Report scope: selected folder only.",
+    "このレポートの範囲：選択フォルダのみ。"
+  ],
+  [
+    "本报告未记录分析范围，请按实际线索和未完成说明核对。",
+    "This report did not record its scope. Check the actual evidence and coverage notes.",
+    "このレポートには分析範囲の記録がありません。実際の手がかりと未完了の説明を確認してください。"
   ]
 ]

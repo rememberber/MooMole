@@ -927,9 +927,8 @@ export default function App() {
       </div>
     )
 
-  const canRun =
+  const canRunWithoutEngine =
     api.desktop &&
-    data.engine.available &&
     !busy &&
     !quickScanning &&
     !aiScan.running &&
@@ -949,6 +948,8 @@ export default function App() {
     !scheduledFiles.running &&
     !refreshActive &&
     analysisTask?.state !== 'starting'
+  const canRun = data.engine.available && canRunWithoutEngine
+  const canStartAi = (aiScan.includeMole ? canRun : canRunWithoutEngine) && !executionActive
   const disk = systemDisk(snapshot?.disks)
   const diskPercent = disk?.percent ?? null
   const pageName = navigation.find(([id]) => id === page)![2]
@@ -1248,7 +1249,7 @@ export default function App() {
                         form="ai-scan-form"
                         className="button primary compact"
                         disabled={
-                          !canRun ||
+                          !canStartAi ||
                           executionActive ||
                           !aiScan.ready ||
                           !aiScan.consent ||
@@ -1882,6 +1883,7 @@ export default function App() {
           {page === 'aiScan' && (
             <AiDeepScan
               controller={aiScan}
+              canStart={canStartAi}
               home={data.home}
               protectedPaths={data.settings.protectedPaths}
               enabled={canRun && !executionActive}

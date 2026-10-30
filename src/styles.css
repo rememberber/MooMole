@@ -4539,3 +4539,13 @@ input[type='checkbox'] {
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+.ai-scope-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 12px;
+}
+.ai-scope-choice select {
+  max-width: 100%;
+}

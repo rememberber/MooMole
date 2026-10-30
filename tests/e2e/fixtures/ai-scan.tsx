@@ -13,6 +13,7 @@ export function mount() {
   function Fixture() {
     const [protectedPaths, setProtectedPaths] = useState<string[]>([])
     const [consent, setConsent] = useState(false)
+    const [includeMole, setIncludeMole] = useState(false)
     const [agentId, setAgentId] = useState('codex')
     const [root, setRoot] = useState('/Users/demo/Downloads')
     const [snapshot, setSnapshot] = useState<AiSnapshot | null>({
@@ -90,6 +91,8 @@ export function mount() {
       setAgentId,
       root,
       setRoot,
+      includeMole,
+      setIncludeMole,
       consent,
       setConsent,
       snapshot,

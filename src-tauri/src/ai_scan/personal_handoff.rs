@@ -136,6 +136,7 @@ fn snapshot(
     Snapshot {
         id: uuid::Uuid::new_v4().to_string(),
         agent_id: "codex".into(),
+        include_mole: false,
         root: root.to_str().unwrap().into(),
         state: "succeeded".into(),
         stage: "test".into(),
@@ -202,7 +203,7 @@ pub(crate) async fn live_owned_source(
         .tempdir()
         .map_err(|e| e.to_string())?;
     let executable = agents::prepare("codex", home, scratch.path(), job.clone()).await?;
-    let (evidence, limits) = inventory::collect(None, root, &[], job.clone())?;
+    let (evidence, limits) = super::scope::collect(false, None, root, &[], job.clone())?;
     let issued = Instant::now();
     let created_at = db::now();
     let wire = serde_json::to_value(&evidence).map_err(|e| e.to_string())?;
