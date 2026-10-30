@@ -8425,5 +8425,41 @@
     "空间属性无法核对，请重新读取。",
     "Storage attributes could not be verified. Read them again.",
     "容量属性を確認できませんでした。再取得してください。"
+  ],
+  [
+    "正在检查所选目录的访问…",
+    "Checking access to the selected folder…",
+    "選択したフォルダへのアクセスを確認中…"
+  ],
+  ["已停止后续分析", "Further analysis stopped", "以降の分析を停止しました"],
+  [
+    "本地读取已取消，本次元数据未交给模型。",
+    "Local reading was cancelled. This metadata was not sent to the model.",
+    "ローカル読み取りをキャンセルしました。今回のメタデータはモデルに送信していません。"
+  ],
+  [
+    "仍有本地读取尚未返回，请处理系统访问提示或稍后重试。",
+    "A local read is still pending. Check the system access prompt or try again later.",
+    "ローカル読み取りがまだ終了していません。システムのアクセス確認を処理するか、後で再試行してください。"
+  ],
+  [
+    "本地只读检查未完成。",
+    "The local read-only check did not complete.",
+    "ローカルの読み取り専用チェックが完了しませんでした。"
+  ],
+  [
+    "已停止等待本地读取；系统中的只读检查可能仍在返回，本次元数据未交给模型。",
+    "Stopped waiting for the local read. A system read-only check may still be returning. This metadata was not sent to the model.",
+    "ローカル読み取りの待機を停止しました。システム内の読み取り専用チェックはまだ終了中の可能性があります。今回のメタデータはモデルに送信していません。"
+  ],
+  [
+    "本地目录读取超过等待时限，请检查系统文件访问提示，或选择已授权的目录后重试。本次元数据未交给模型。",
+    "The local folder read timed out. Check the system file-access prompt or choose an authorized folder and retry. This metadata was not sent to the model.",
+    "ローカルフォルダの読み取りがタイムアウトしました。システムのファイルアクセス確認を処理するか、許可済みのフォルダを選んで再試行してください。今回のメタデータはモデルに送信していません。"
+  ],
+  [
+    "已停止后续分析；尚未返回的本机只读检查可能仍在结束中。没有执行清理，已发送给模型的信息无法撤回。",
+    "Further analysis stopped. Pending local read-only checks may still be finishing. No cleanup was performed; information already sent to a model cannot be recalled.",
+    "以降の分析を停止しました。未完了のローカル読み取り専用チェックは終了中の可能性があります。削除は実行していません。モデルに送信済みの情報は取り消せません。"
   ]
 ]

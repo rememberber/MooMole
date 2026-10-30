@@ -1,4 +1,4 @@
-use super::{agents, inventory, scope, Snapshot, SKILL};
+use super::{agents, inventory, readonly_wait, scope, Snapshot, SKILL};
 use crate::{
     db,
     engine::{self, Job, TaskKind},
@@ -7,6 +7,7 @@ use crate::{
 use std::{
     path::PathBuf,
     sync::{atomic::Ordering, Arc},
+    time::Duration,
 };
 
 #[tauri::command]
@@ -108,7 +109,7 @@ pub(crate) fn start_ai_scan(
         let (status, error) = if cancelled {
             (
                 "cancelled",
-                Some("扫描已停止；没有执行清理。已发送给模型的信息无法撤回。".into()),
+                Some("已停止后续分析；尚未返回的本机只读检查可能仍在结束中。没有执行清理，已发送给模型的信息无法撤回。".into()),
             )
         } else {
             match &outcome {
@@ -143,7 +144,7 @@ pub(crate) fn start_ai_scan(
                 s.state = status.into();
                 s.finished_at = Some(db::now());
                 s.stage = if cancelled {
-                    "扫描已停止"
+                    "已停止后续分析"
                 } else if outcome.is_ok() {
                     "分析完成，等待审阅"
                 } else {
@@ -181,11 +182,16 @@ async fn run(
 ) -> Result<super::Report, String> {
     let work_root = root.clone();
     let rules = protected.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        inventory::validate_root(work_root.to_str().ok_or("目录名称无法编码。")?, &rules)
-    })
-    .await
-    .map_err(|_| "目录检查未完成。")??;
+    stage(state, id, "正在检查所选目录的访问…");
+    readonly_wait::run(
+        state.updates.installation.clone(),
+        state.inspection_slots.clone(),
+        job.clone(),
+        Duration::from_secs(5),
+        move |_| inventory::validate_root(work_root.to_str().ok_or("目录名称无法编码。")?, &rules),
+    )
+    .await?;
+    stage(state, id, "正在检查 Agent…");
     let scratch = tempfile::Builder::new()
         .prefix("moomole-ai-")
         .tempdir()
@@ -225,19 +231,23 @@ async fn run(
     };
     stage(state, id, "正在扫描所选目录的本地线索…");
     let snapshot_scan = scan.clone();
-    let work_job = job.clone();
     let work_rules = protected.clone();
-    let (evidence, mut notes) = tauri::async_runtime::spawn_blocking(move || {
-        scope::collect(
-            include_mole,
-            snapshot_scan.as_ref(),
-            &root,
-            &work_rules,
-            work_job,
-        )
-    })
-    .await
-    .map_err(|_| "本地线索扫描未完成。")??;
+    let (evidence, mut notes) = readonly_wait::run(
+        state.updates.installation.clone(),
+        state.inspection_slots.clone(),
+        job.clone(),
+        Duration::from_secs(8),
+        move |work_job| {
+            scope::collect(
+                include_mole,
+                snapshot_scan.as_ref(),
+                &root,
+                &work_rules,
+                work_job,
+            )
+        },
+    )
+    .await?;
     limitations.append(&mut notes);
     // Do not send a stale protection snapshot after a settings change.
     if db::settings(&*state.db.lock().map_err(|_| "无法复查保护设置。")?)?.protected_paths

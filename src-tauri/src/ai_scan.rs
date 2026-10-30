@@ -3,6 +3,7 @@ mod agents;
 mod commands;
 mod inventory;
 pub(crate) mod personal_handoff;
+mod readonly_wait;
 mod scope;
 use crate::{db, review};
 pub(crate) use commands::*;
