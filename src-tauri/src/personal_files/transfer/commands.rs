@@ -61,10 +61,11 @@ pub(crate) async fn prepare_personal_transfer(
     })
     .await
     .map_err(|e| e.to_string())??;
+    let (expires_at, deadline) = confirmation_window(&plan.source, db::now())?;
     let draft = Draft {
         id: plan.source.id.clone(),
         scan_id: plan.source.scan_id.clone(),
-        expires_at: plan.source.expires_at,
+        expires_at,
         directory: plan.movement.directory.clone(),
         conflict,
         items: plan.source.items.iter().map(row).collect(),
@@ -77,10 +78,7 @@ pub(crate) async fn prepare_personal_transfer(
     if store.plans.len() >= 8 {
         return Err("请先关闭旧的跨磁盘确认。".into());
     }
-    store.plans.insert(
-        draft.id.clone(),
-        (plan, Instant::now() + Duration::from_secs(30)),
-    );
+    store.plans.insert(draft.id.clone(), (plan, deadline));
     Ok(draft)
 }
 #[tauri::command]
@@ -148,7 +146,7 @@ pub(crate) async fn execute_personal_transfer(
         .plans
         .remove(&id)
         .ok_or("跨磁盘确认已使用或撤销。")?;
-    if Instant::now() >= deadline {
+    if Instant::now() >= deadline || confirmation_window(&plan.source, db::now()).is_err() {
         return Err("跨磁盘确认已过期。".into());
     }
     let job = Arc::new(Job::new(TaskKind::PersonalTransfer));

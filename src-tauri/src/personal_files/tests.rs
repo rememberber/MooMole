@@ -13,6 +13,30 @@ fn fixture() -> (tempfile::TempDir, Scan) {
     (t, scan)
 }
 #[test]
+fn derived_confirmation_uses_remaining_time_and_refuses_expiry_or_clock_rollback() {
+    let (_t, scan) = fixture();
+    let ids = vec![scan.items[0].id.clone()];
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let now = crate::db::now();
+    let offer = store.offer(&ids, now).unwrap();
+    let mut plan = store.take(&offer.id, now).unwrap();
+    assert!(plan.expires_at > now + 30_000);
+    let (expires, deadline) = confirmation_window(&plan, now + 5_000).unwrap();
+    assert_eq!(expires, offer.expires_at);
+    assert!(deadline.duration_since(Instant::now()) <= Duration::from_secs(25));
+    assert!(confirmation_window(&plan, now - 1).is_err());
+    assert!(confirmation_window(&plan, now + 30_000).is_err());
+    plan.expires_at = now + 2_000;
+    assert_eq!(
+        confirmation_window(&plan, now + 1_000).unwrap().0,
+        now + 2_000
+    );
+    assert!(confirmation_window(&plan, now + 2_000).is_err());
+}
+#[test]
 fn independent_confirmation_binds_exact_scan_ids_and_expires_without_replay() {
     let (_t, scan) = fixture();
     let now = crate::db::now();

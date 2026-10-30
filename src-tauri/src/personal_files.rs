@@ -411,6 +411,19 @@ fn row(item: &Item) -> FileRow {
         modified_at: item.modified_at,
     }
 }
+// A scan remains useful for fifteen minutes; a new action confirmation does
+// not. Preparation time consumes the same thirty-second window, and publishing
+// a derived action must not restart it or expose the scan expiry to the UI.
+fn confirmation_window(plan: &Plan, now: i64) -> Result<(i64, Instant), String> {
+    let expires = plan.created_at.saturating_add(30_000).min(plan.expires_at);
+    if now < plan.created_at || now >= expires {
+        return Err("文件操作确认已过期，请重新检查。".into());
+    }
+    Ok((
+        expires,
+        Instant::now() + Duration::from_millis((expires - now) as u64),
+    ))
+}
 fn sensitive(name: &str) -> bool {
     name.starts_with('.')
         || [

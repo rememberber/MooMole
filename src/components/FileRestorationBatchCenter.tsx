@@ -48,8 +48,11 @@ function Batch({
     [error, setError] = useState(''),
     [result, setResult] = useState<ExecutionDetail | null>(null)
   const busy = useRef(false),
-    request = useRef<string | null>(null),
-    now = useNow()
+    request = useRef<string | null>(null)
+  useNow()
+  // Preparation can finish between timer ticks. Use the render's clock so a
+  // freshly returned confirmation is not briefly labelled as expired.
+  const now = Date.now()
   useEffect(() => {
     let live = true,
       prepared: RestorationBatchDraft | null = null

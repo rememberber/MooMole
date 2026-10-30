@@ -64,6 +64,17 @@ for (const mode of ['normal', 'conflict'])
     expect(calls[0].args).not.toHaveProperty('path')
     await expect(result.getByRole('button', { name: '确认恢复所选文件' })).toHaveCount(0)
   })
+test('a newly prepared batch is immediately usable before the next clock tick', async ({
+  page,
+}) => {
+  const dialog = await select(page, 'fresh')
+  await expect(dialog.getByRole('checkbox')).toHaveCount(1)
+  expect(await dialog.getByRole('checkbox').isEnabled()).toBe(true)
+  expect(await dialog.textContent()).not.toContain('恢复确认已过期')
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认恢复所选文件' }).click()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('已恢复 2 / 2 项')
+})
 test('batch cancellation targets the request and preserves completed files', async ({ page }) => {
   const dialog = await select(page, 'pending')
   await dialog.getByRole('checkbox').check()

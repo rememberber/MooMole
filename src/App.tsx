@@ -2601,7 +2601,7 @@ export default function App() {
           </p>
           <div className="welcome-note">
             <ShieldCheck size={16} />
-            符合条件的用户缓存和日志可确认移入废纸篓，其他范围需分别审阅。暂无应用内恢复。
+            清理和文件操作均需分别审阅与确认。个人文件等可靠记录可在适用范围内恢复，其他操作请按结果说明取回或重建。
           </div>
           <label className="acceptance">
             <input

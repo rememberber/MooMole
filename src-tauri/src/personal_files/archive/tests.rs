@@ -42,6 +42,29 @@ fn fixture() -> (tempfile::TempDir, Arc<Mutex<db::Database>>, Plan) {
     (temp, Arc::new(Mutex::new(database)), plan)
 }
 #[test]
+fn published_confirmation_exposes_action_expiry_and_cannot_extend_the_scan() {
+    let (_temp, _db, mut plan) = fixture();
+    let now = db::now();
+    plan.source.created_at = now - 5_000;
+    plan.source.expires_at = now + 600_000;
+    let mut store = Store::default();
+    let draft = store.publish(plan.clone()).unwrap();
+    let wire = serde_json::to_value(&draft).unwrap();
+    assert_eq!(wire["expiresAt"], now + 25_000);
+    assert!(draft.expires_at <= db::now() + 30_000);
+    assert!(store.take(&draft.id).is_ok());
+    assert!(store.take(&draft.id).is_err());
+
+    // A wall-clock expiry must still refuse even if the monotonic deadline
+    // has not elapsed. The rejected plan is consumed, never retried.
+    let draft = store.publish(plan.clone()).unwrap();
+    store.plans.get_mut(&draft.id).unwrap().0.source.created_at = now - 31_000;
+    assert!(store.take(&draft.id).is_err());
+    assert!(!store.plans.contains_key(&draft.id));
+    plan.source.created_at = now - 31_000;
+    assert!(store.publish(plan).is_err());
+}
+#[test]
 fn verified_zip_preserves_originals_nested_names_and_persistent_history() {
     let (_temp, db, plan) = fixture();
     let originals = plan

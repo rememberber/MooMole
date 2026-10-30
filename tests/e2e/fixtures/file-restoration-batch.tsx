@@ -41,7 +41,8 @@ export function mount(mode = 'normal') {
         calls.push({ command, args })
         host.dataset.calls = JSON.stringify(calls)
         if (command === 'prepare_file_restoration_batch') {
-          const createdAt = Date.now() - 1000
+          if (mode === 'fresh') await new Promise((resolve) => setTimeout(resolve, 100))
+          const createdAt = Date.now()
           return {
             id: planId,
             sourceRunId: record.id,

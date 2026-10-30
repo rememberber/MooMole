@@ -82,18 +82,16 @@ impl Store {
             return Err("归档确认过多，请关闭旧确认后重试。".into());
         }
         let s = &plan.source;
+        let (expires_at, deadline) = confirmation_window(s, db::now())?;
         let draft = Draft {
             id: s.id.clone(),
             scan_id: s.scan_id.clone(),
-            expires_at: s.expires_at,
+            expires_at,
             output_path: plan.output_path.clone(),
             items: s.items.iter().map(row).collect(),
             names: plan.names.clone(),
         };
-        self.plans.insert(
-            s.id.clone(),
-            (plan, Instant::now() + Duration::from_secs(30)),
-        );
+        self.plans.insert(s.id.clone(), (plan, deadline));
         Ok(draft)
     }
     fn take(&mut self, id: &str) -> Result<Plan, String> {
@@ -101,10 +99,7 @@ impl Store {
             .plans
             .remove(id)
             .ok_or("归档确认已使用或撤销，请重新检查。")?;
-        if Instant::now() >= deadline
-            || db::now() < p.source.created_at
-            || db::now() >= p.source.expires_at
-        {
+        if Instant::now() >= deadline || confirmation_window(&p.source, db::now()).is_err() {
             return Err("归档确认已过期，请重新检查。".into());
         }
         Ok(p)

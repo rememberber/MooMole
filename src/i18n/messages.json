@@ -815,9 +815,9 @@
     "一部の機能は Mole CLI に基づきます。作者と貢献者に感謝します。開発成果を尊重し、日常利用には公式製品をご検討ください。"
   ],
   [
-    "符合条件的用户缓存和日志可确认移入废纸篓，其他范围需分别审阅。暂无应用内恢复。",
-    "Eligible user caches and logs can be moved to Trash after confirmation. Other scopes require separate review. In-app recovery is not available yet.",
-    "対象のユーザーキャッシュとログは確認後にゴミ箱へ移動できます。他の範囲は個別確認が必要です。App 内の復元機能はまだありません。"
+    "清理和文件操作均需分别审阅与确认。个人文件等可靠记录可在适用范围内恢复，其他操作请按结果说明取回或重建。",
+    "Review and confirm each cleanup or file operation. Reliable personal file records support recovery within the stated scope; follow the results for other recovery or rebuilding steps.",
+    "クリーンアップやファイル操作は個別に確認が必要です。個人ファイルなどの確実な記録は対応範囲内で復元できます。その他は結果に記載の取り戻し方や再構築の手順に従ってください。"
   ],
   [
     "我已了解项目用途及使用风险",
