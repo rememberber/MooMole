@@ -16,6 +16,7 @@ use std::{
 };
 
 pub(crate) const MODULE: &str = "fileRestoration";
+pub(crate) mod batch;
 pub(crate) const REVISION: &str = "MooMole.file-restoration.v1";
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -179,8 +180,16 @@ struct Offered {
 #[derive(Default)]
 pub(crate) struct Store {
     offer: Option<Offered>,
+    generation: u64,
+    batch: Option<batch::Plan>,
 }
 impl Store {
+    fn begin(&mut self) -> Result<u64, String> {
+        self.generation = self.generation.checked_add(1).ok_or("请重新打开应用。")?;
+        self.offer = None;
+        self.batch = None;
+        Ok(self.generation)
+    }
     fn publish(&mut self, plan: Plan) -> Draft {
         let d = Draft {
             id: plan.id.clone(),
@@ -207,6 +216,9 @@ impl Store {
         Ok(o.plan)
     }
     fn discard(&mut self, id: &str) {
+        if self.batch.as_ref().is_some_and(|p| p.id == id) {
+            self.batch = None;
+        }
         if self.offer.as_ref().is_some_and(|o| o.plan.id == id) {
             self.offer.take();
         }

@@ -2493,6 +2493,8 @@ pub fn run() {
             file_restoration::commands::prepare_file_restoration,
             file_restoration::commands::discard_file_restoration,
             file_restoration::commands::execute_file_restoration,
+            file_restoration::batch::prepare_file_restoration_batch,
+            file_restoration::batch::execute_file_restoration_batch,
             maintenance::search_repair::prepare_search_repair,
             maintenance::search_repair::discard_search_repair,
             maintenance::search_repair::execute_search_repair,

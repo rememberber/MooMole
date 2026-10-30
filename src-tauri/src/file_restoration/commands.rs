@@ -18,6 +18,11 @@ pub(crate) async fn prepare_file_restoration(
         (execution::detail(&db, &run_id)?, db::settings(&db)?)
     };
     let home = state.home.clone();
+    let ticket = state
+        .file_restorations
+        .lock()
+        .map_err(|e| e.to_string())?
+        .begin()?;
     let plan = tauri::async_runtime::spawn_blocking(move || {
         let (_operation, _permit) = (operation, permit);
         prepare(&detail, &item_id, &home, &settings)
@@ -29,11 +34,11 @@ pub(crate) async fn prepare_file_restoration(
         plan.validate_source(&db)?;
         plan.validate(&state.home, &db::settings(&db)?)?;
     }
-    Ok(state
-        .file_restorations
-        .lock()
-        .map_err(|e| e.to_string())?
-        .publish(plan))
+    let mut store = state.file_restorations.lock().map_err(|e| e.to_string())?;
+    if store.generation != ticket {
+        return Err("恢复检查已被取代，请重新选择。".into());
+    }
+    Ok(store.publish(plan))
 }
 #[tauri::command]
 pub(crate) fn discard_file_restoration(

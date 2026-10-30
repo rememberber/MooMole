@@ -3320,14 +3320,18 @@ input[type='checkbox'] {
   gap: 14px;
   cursor: pointer;
 }
-.execution-item summary > span:first-child {
+.execution-item summary > span:first-of-type {
   flex: 1;
   min-width: 0;
 }
 .execution-item p,
-.execution-item summary > span:first-child {
+.execution-item summary > span:first-of-type {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.execution-item summary > input[type='checkbox'] {
+  flex: 0 0 auto;
+  margin: 2px 0 0;
 }
 .execution-item > p,
 .execution-receipt,
@@ -3814,21 +3818,25 @@ input[type='checkbox'] {
   border-top: 1px solid var(--border);
   padding-top: 8px;
 }
-.maintenance-refresh-modal {
+.maintenance-refresh-modal,
+.file-restoration-modal {
   width: min(600px, calc(100vw - 48px));
   padding: 24px;
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
 }
-.maintenance-refresh-modal h2 {
+.maintenance-refresh-modal h2,
+.file-restoration-modal h2 {
   padding-right: 32px;
   margin-bottom: 12px;
 }
-.maintenance-refresh-modal > p {
+.maintenance-refresh-modal > p,
+.file-restoration-modal > p {
   line-height: 1.7;
   margin: 12px 0;
 }
-.maintenance-refresh-modal .modal-actions {
+.maintenance-refresh-modal .modal-actions,
+.file-restoration-modal .modal-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;

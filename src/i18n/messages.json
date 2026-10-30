@@ -1,4 +1,88 @@
 [
+  ["选择恢复 {0}", "Select for restoration {0}", "復元する項目を選択 {0}"],
+  [
+    "已选恢复 {0} 项（含筛选外项目），每批最多 20 项。",
+    "{0} items selected for restoration (including filtered items), up to 20 per batch.",
+    "復元に{0}項目を選択済み（絞り込み外を含む）。1回に最大20項目。"
+  ],
+  ["已选恢复", "Selected for restoration", "復元に選択済み"],
+  [
+    "项（含筛选外项目），每批最多 20 项。",
+    "items (including filtered items), up to 20 per batch.",
+    "項目（絞り込み外を含む）。1回に最大20項目。"
+  ],
+  ["清空恢复选择", "Clear restoration selection", "復元の選択を解除"],
+  ["恢复所选原位置…", "Restore selected to original locations…", "選択した項目を元の場所へ復元…"],
+  ["批量恢复结果", "Batch restoration results", "一括復元の結果"],
+  ["批量恢复原位置", "Restore original locations", "元の場所へ一括復元"],
+  ["批量恢复选择", "Selected restoration files", "一括復元の選択項目"],
+  [
+    "逐项核对收据和原位置，同卷移回普通文件；不覆盖、不改名、不创建目录。检查未通过时请返回调整选择；执行时遇到冲突或变化则保留该项，继续处理其余项。取消会保留已经恢复的文件，没有整批撤销。",
+    "Verify each receipt and original location, then move ordinary files back on the same volume. No overwriting, renaming, or directory creation. If checks fail, return and adjust the selection. During execution, conflicting or changed files are kept while other files continue. Cancellation keeps completed restorations; there is no batch undo.",
+    "各項目の記録と元の場所を確認し、同じボリューム内で通常ファイルを戻します。上書き、改名、フォルダ作成は行いません。確認に失敗した場合は戻って選択を変更してください。実行時に競合・変更された項目は残し、他の項目は続行します。中止しても復元済みファイルはそのまま残り、一括取り消しはありません。"
+  ],
+  [
+    "正在逐项核对收据与原位置…",
+    "Checking each receipt and original location…",
+    "各項目の記録と元の場所を確認中…"
+  ],
+  [
+    "我已核对全部所选文件及原位置，确认批量移回。",
+    "I have checked every selected file and original location and confirm moving them back.",
+    "選択したすべてのファイルと元の場所を確認し、一括で戻すことに同意します。"
+  ],
+  [
+    "正在逐项恢复；停止后不会移回已经完成的项目。",
+    "Restoring files individually; stopping does not undo completed restorations.",
+    "項目ごとに復元しています。停止しても復元済みの項目は元に戻しません。"
+  ],
+  [
+    "已恢复 {0} / {1} 项；逐项结果已保存在同一条恢复历史中，原处理记录保持不变。",
+    "Restored {0} / {1} items. Individual results are saved in one restoration record; the original operation record is preserved.",
+    "{0} / {1}項目を復元しました。項目ごとの結果は1件の復元履歴に保存され、元の処理記録は保持されます。"
+  ],
+  ["已恢复", "Restored", "復元済み"],
+  [
+    "项；逐项结果已保存在同一条恢复历史中，原处理记录保持不变。",
+    "items. Individual results are saved in one restoration record; the original operation record is preserved.",
+    "項目。項目ごとの結果は1件の復元履歴に保存され、元の処理記録は保持されます。"
+  ],
+  ["确认恢复所选文件", "Confirm restoring selected files", "選択したファイルの復元を確認"],
+  [
+    "批量恢复确认无法核对，请重新选择；不会操作文件。",
+    "The batch restoration confirmation could not be verified. Select again; no files were changed.",
+    "一括復元の確認を照合できません。選択し直してください。ファイルは変更していません。"
+  ],
+  [
+    "批量恢复结果无法核对，请在历史检查实际状态；不会重复恢复。",
+    "Batch restoration results could not be verified. Check the actual state in history; restoration will not be repeated.",
+    "一括復元の結果を照合できません。履歴で実際の状態を確認してください。復元を繰り返しません。"
+  ],
+  [
+    "批量恢复确认已过期，请重新选择。",
+    "Batch restoration confirmation expired. Select again.",
+    "一括復元の確認が期限切れです。選択し直してください。"
+  ],
+  [
+    "请选择 1 至 20 个不同的可靠完成项目。",
+    "Select 1 to 20 distinct items with reliable completion receipts.",
+    "完了を確認できる異なる項目を1〜20件選択してください。"
+  ],
+  [
+    "每批最多恢复 20 项。",
+    "Restore up to 20 items per batch.",
+    "1回に復元できる項目は最大20件です。"
+  ],
+  [
+    "恢复检查已被取代，请重新选择。",
+    "This restoration check was superseded. Select again.",
+    "復元の確認が置き換えられました。選択し直してください。"
+  ],
+  [
+    "请先逐项核对当前文件与原位置并确认批量恢复。",
+    "Check each current file and original location before confirming batch restoration.",
+    "各ファイルの現在位置と元の場所を確認してから、一括復元を確定してください。"
+  ],
   [
     "系统请求前已取消，未执行应用操作。",
     "Cancelled before the system request; no application action was performed.",

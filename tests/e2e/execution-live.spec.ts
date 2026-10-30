@@ -57,6 +57,11 @@ test('reload follows existing execution and cancellation waits for durable resul
         'cancel_log_cleanup',
         'list_application_uninstalls',
         'list_quicklook_refreshes',
+        'plugin:event|listen',
+        'get_folder_schedules',
+        'get_personal_transfers',
+        'get_personal_archives',
+        'get_startup_management',
       ].includes(c.command),
     ),
   ).toBe(true)

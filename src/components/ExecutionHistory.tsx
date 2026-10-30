@@ -11,6 +11,7 @@ import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
 import { CleanupResultSummary } from './CleanupResultSummary'
 import type { RestorationTarget } from '../lib/file-restoration'
+import type { RestorationBatchTarget } from '../lib/file-restoration-batch'
 
 const stateNames: Record<string, string> = {
   running: '进行中',
@@ -45,6 +46,7 @@ export function ExecutionHistory({
   onAcknowledge,
   onReady,
   onRestore,
+  onRestoreBatch,
 }: {
   onAcknowledge?: (record: ExecutionDetail) => Promise<ExecutionDetail>
   onReady?: (section: HTMLElement | null) => void
@@ -55,6 +57,7 @@ export function ExecutionHistory({
   onCancel?: (id: string) => Promise<void>
   onRevealReceipt?: RevealExecutionItem
   onRestore?: (target: RestorationTarget) => void
+  onRestoreBatch?: (target: RestorationBatchTarget) => void
 }) {
   const [records, setRecords] = useState(initialRecords)
   const [refreshing, setRefreshing] = useState(false)
@@ -316,6 +319,14 @@ export function ExecutionHistory({
                     }
                   : undefined
               }
+              onRestoreBatch={
+                onRestoreBatch
+                  ? (target) => {
+                      close()
+                      onRestoreBatch(target)
+                    }
+                  : undefined
+              }
             />
           ) : (
             !detailError && <p role="status">正在读取本地记录…</p>
@@ -330,11 +341,21 @@ function ExecutionResults({
   detail,
   onRevealReceipt,
   onRestore,
+  onRestoreBatch,
 }: {
   detail: ExecutionDetail
   onRevealReceipt?: RevealExecutionItem
   onRestore?: (target: RestorationTarget) => void
+  onRestoreBatch?: (target: RestorationBatchTarget) => void
 }) {
+  const [restoreIds, setRestoreIds] = useState<Set<string>>(new Set())
+  const restorable = (item: ExecutionDetail['items'][number]) =>
+    !!onRestoreBatch &&
+    detail.state !== 'running' &&
+    ['trash', 'move'].includes(detail.method) &&
+    ['personalFiles', 'duplicateFiles', 'similarPhotos'].includes(detail.origin ?? '') &&
+    item.state === 'moved' &&
+    !!item.receipt
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [limit, setLimit] = useState(50)
@@ -450,6 +471,23 @@ function ExecutionResults({
         {items.slice(0, limit).map((item) => (
           <details key={item.id} className="execution-item">
             <summary>
+              {restorable(item) && (
+                <input
+                  type="checkbox"
+                  aria-label={`选择恢复 ${item.path}`}
+                  checked={restoreIds.has(item.id)}
+                  disabled={!restoreIds.has(item.id) && restoreIds.size >= 20}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) =>
+                    setRestoreIds((previous) => {
+                      const next = new Set(previous)
+                      if (e.target.checked) next.add(item.id)
+                      else next.delete(item.id)
+                      return next
+                    })
+                  }
+                />
+              )}
               <span data-i18n="off">{item.path}</span>
               <span
                 className={`state-tag ${item.state === 'moved' ? 'succeeded' : item.state === 'uncertain' ? 'failed' : ''}`}
@@ -516,6 +554,37 @@ function ExecutionResults({
         ))}
         {!items.length && <p className="muted">没有匹配的项目。</p>}
       </div>
+      {onRestoreBatch && detail.items.some(restorable) && (
+        <div className="modal-actions">
+          <span>已选恢复 {restoreIds.size} 项（含筛选外项目），每批最多 20 项。</span>
+          <button
+            className="button secondary"
+            disabled={!restoreIds.size}
+            onClick={() => setRestoreIds(new Set())}
+          >
+            清空恢复选择
+          </button>
+          <button
+            className="button primary"
+            disabled={!restoreIds.size}
+            onClick={() =>
+              onRestoreBatch({
+                runId: detail.id,
+                items: detail.items
+                  .filter((i) => restoreIds.has(i.id) && restorable(i))
+                  .map((i) => ({
+                    runId: detail.id,
+                    itemId: i.id,
+                    currentPath: i.receipt!.destination,
+                    originalPath: i.path,
+                  })),
+              })
+            }
+          >
+            恢复所选原位置…
+          </button>
+        </div>
+      )}
       {items.length > limit && (
         <button className="button secondary" onClick={() => setLimit((n) => n + 50)}>
           再显示 50 项

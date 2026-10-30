@@ -184,7 +184,14 @@ impl From<&crate::personal_files::Plan> for SavedPlan {
 fn saved_plan(body: &str) -> Result<SavedPlan, String> {
     let value: serde_json::Value =
         serde_json::from_str(body).map_err(|_| "执行计划快照无法读取。")?;
-    if value.get("module").and_then(|v| v.as_str()) == Some(crate::file_restoration::MODULE) {
+    if value.get("module").and_then(|v| v.as_str()) == Some(crate::file_restoration::batch::MODULE)
+    {
+        let plan: crate::file_restoration::batch::Plan =
+            serde_json::from_value(value).map_err(|_| "批量恢复快照无法读取。")?;
+        plan.validate_record()?;
+        Ok(batch_restoration_saved(&plan))
+    } else if value.get("module").and_then(|v| v.as_str()) == Some(crate::file_restoration::MODULE)
+    {
         let plan: crate::file_restoration::Plan =
             serde_json::from_value(value).map_err(|_| "恢复执行快照无法读取。")?;
         plan.validate_record()?;
@@ -231,6 +238,40 @@ pub(crate) fn begin_restoration(
     begin_saved(db, &restoration_saved(plan), body, at)
 }
 
+fn batch_restoration_saved(plan: &crate::file_restoration::batch::Plan) -> SavedPlan {
+    SavedPlan {
+        id: plan.id.clone(),
+        revision: plan.revision.clone(),
+        protocol: plan.protocol,
+        origin: crate::file_restoration::MODULE,
+        method: "move",
+        items: plan
+            .plans
+            .iter()
+            .map(|p| SavedItem {
+                id: p.item.id.clone(),
+                path: p.item.path.clone(),
+                size: Some(p.item.size),
+                target_path: Some(p.source.original_path.clone()),
+            })
+            .collect(),
+    }
+}
+pub(crate) fn begin_batch_restoration(
+    db: &mut Connection,
+    plan: &crate::file_restoration::batch::Plan,
+    at: i64,
+) -> Result<String, String> {
+    plan.validate_record()?;
+    if at < plan.created_at || at >= plan.expires_at {
+        return Err("批量恢复确认已过期，请重新选择。".into());
+    }
+    let body = serde_json::to_string(plan).map_err(|e| e.to_string())?;
+    if body.len() > MAX_PLAN {
+        return Err("恢复计划超过记录上限。".into());
+    }
+    begin_saved(db, &batch_restoration_saved(plan), body, at)
+}
 fn sql(error: rusqlite::Error) -> String {
     format!("执行记录无法写入或读取；停止后续操作：{error}")
 }

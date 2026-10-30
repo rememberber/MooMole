@@ -58,6 +58,8 @@ import { FileTransferCenter, FileTransferHistory } from './components/FileTransf
 import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
+import { FileRestorationBatchCenter } from './components/FileRestorationBatchCenter'
+import type { RestorationBatchTarget } from './lib/file-restoration-batch'
 import { storageMonitorTransport } from './lib/storage-monitor'
 import { menuBarTransport, listenMenuBar } from './lib/menu-bar'
 import { MenuBarSettings } from './components/MenuBarSettings'
@@ -412,6 +414,8 @@ export default function App() {
   const [startupActive, setStartupActive] = useState(false)
   const [startupToolbar, setStartupToolbar] = useState<HTMLElement | null>(null)
   const [restorationTarget, setRestorationTarget] = useState<RestorationTarget | null>(null)
+  const [restorationBatchTarget, setRestorationBatchTarget] =
+    useState<RestorationBatchTarget | null>(null)
   const [restorationActive, setRestorationActive] = useState(false)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
   const [transferActive, setTransferActive] = useState(false)
@@ -1599,6 +1603,14 @@ export default function App() {
               void refreshRecords(true)
             }}
           />
+          <FileRestorationBatchCenter
+            target={restorationBatchTarget}
+            onClose={() => setRestorationBatchTarget(null)}
+            onActiveChange={setRestorationActive}
+            onOutcome={() => {
+              void refreshRecords(true)
+            }}
+          />
           <SearchRepairCenter
             openSignal={searchRepairOpenSignal}
             transport={searchRepairTransport}
@@ -2445,6 +2457,9 @@ export default function App() {
                 onRevealReceipt={api.revealExecutionItem}
                 onRestore={
                   api.desktop && canRun && !executionActive ? setRestorationTarget : undefined
+                }
+                onRestoreBatch={
+                  api.desktop && canRun && !executionActive ? setRestorationBatchTarget : undefined
                 }
                 onRecordsChange={(executions) => {
                   setExecutionTrackingError('')
