@@ -407,6 +407,7 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [registrationIntent, setRegistrationIntent] = useState(false)
   const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
   const [startupActive, setStartupActive] = useState(false)
   const [startupToolbar, setStartupToolbar] = useState<HTMLElement | null>(null)
@@ -2155,13 +2156,18 @@ export default function App() {
 
           {page === 'apps' && appsTab === 'installed' && (
             <>
+              {registrationIntent && (
+                <p className="notice">
+                  选择需要修复的确切应用，展开“位置与来源”，点击“重新注册此副本…”。请确认安装路径；结果需要回到原来的图标或打开方式中验证。
+                </p>
+              )}
               <div className="inline-note">
                 <Info size={14} />
                 列表来自 Mole CLI。卸载需单独检查范围并明确确认；勾选仅用于对比。
               </div>
               {appsStale && (
                 <p className="notice warning" role="status">
-                  卸载后清单可能已过期，请刷新应用清单后再检查；不会自动重复处理。
+                  应用操作后清单可能已过期，请刷新应用清单后再检查；不会自动重复处理。
                 </p>
               )}
               {apps ? (
@@ -2289,6 +2295,11 @@ export default function App() {
                 enabled={canRun}
                 onPreview={() => setRefreshOpenSignal((n) => n + 1)}
                 onSearch={() => setSearchRepairOpenSignal((n) => n + 1)}
+                onRegistration={() => {
+                  setRegistrationIntent(true)
+                  setAppsTab('installed')
+                  changePage('apps')
+                }}
               />
               <MaintenanceCatalog
                 query={maintenanceQuery}

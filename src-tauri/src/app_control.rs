@@ -18,12 +18,14 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
+mod registration;
 
 #[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Action {
     Open,
     Quit,
+    Register,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +38,10 @@ pub(crate) struct Report {
     pub requested: bool,
     pub pids: Vec<i32>,
     pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registration_status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registered_path_observed: Option<bool>,
 }
 struct Plan {
     source: Source,
@@ -59,7 +65,7 @@ impl Plan {
     }
     fn validate(&self, ctx: &Context) -> Result<(), String> {
         let (path, id, _, _) = self.source.control_target();
-        if self.action == Action::Quit {
+        if matches!(self.action, Action::Quit | Action::Register) {
             let protection = crate::app_protection::check(
                 path,
                 Some(id),
@@ -72,12 +78,19 @@ impl Plan {
                 || crate::app_uninstall_rules::observe(Some(&policy), Some(id), "matching").code
                     != "notMatched"
             {
-                return Err("所选应用受保护或属于系统/当前客户端，不能从这里请求退出。".into());
+                return Err(if self.action == Action::Register {
+                    "所选应用受保护或属于系统/当前客户端，不能从这里重新注册。"
+                } else {
+                    "所选应用受保护或属于系统/当前客户端，不能从这里请求退出。"
+                }
+                .into());
             }
-            if !matches!(
-                self.snapshot.background,
-                crate::app_background::Marker::Absent | crate::app_background::Marker::Disabled
-            ) {
+            if self.action == Action::Quit
+                && !matches!(
+                    self.snapshot.background,
+                    crate::app_background::Marker::Absent | crate::app_background::Marker::Disabled
+                )
+            {
                 return Err("后台专用或身份未知的应用请通过其管理工具停止。".into());
             }
         }
@@ -150,11 +163,16 @@ fn perform(
         requested: false,
         pids: vec![],
         reason: String::new(),
+        registration_status: None,
+        registered_path_observed: None,
     };
     if job.cancelled.load(Ordering::SeqCst) {
         report.outcome = "cancelled";
-        report.reason = "系统请求前已取消，未请求打开或退出应用。".into();
+        report.reason = "系统请求前已取消，未执行应用操作。".into();
         return Ok(report);
+    }
+    if plan.action == Action::Register {
+        return registration::perform(plan, ctx, job, report);
     }
     let apps = running(Path::new(path), id)?;
     report.pids = apps.iter().map(|a| a.processIdentifier()).collect();
@@ -211,6 +229,7 @@ fn perform(
             // may ask the user to save documents, refuse or exit much later.
             report.requested = apps.iter().fold(false, |sent, app| app.terminate() || sent);
         }
+        Action::Register => unreachable!(),
     }
     let began = Instant::now();
     loop {
@@ -301,17 +320,17 @@ pub(crate) async fn control_application(
         db::start(
             &database,
             &request_id,
-            if action == Action::Open {
-                "appopen"
-            } else {
-                "appquit"
+            match action {
+                Action::Open => "appopen",
+                Action::Quit => "appquit",
+                Action::Register => "appregistration",
             },
             Some(source.path()),
         )?;
         jobs.insert(request_id.clone(), job.clone());
     }
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let worker = tauri::async_runtime::spawn_blocking(move || {
         let _operation = operation;
         let result = autoreleasepool(|_| {
             let plan = Plan::prepare(source, action, &context(&state, &current_id)?)?;
@@ -320,7 +339,9 @@ pub(crate) async fn control_application(
         let (state_name, message) = match &result {
             Ok(r) => (
                 match r.outcome {
-                    "opened" | "alreadyRunning" | "quit" | "notRunning" => "succeeded",
+                    "opened" | "alreadyRunning" | "quit" | "notRunning" | "registered" => {
+                        "succeeded"
+                    }
                     "cancelled" => "cancelled",
                     _ => "failed",
                 },
@@ -338,9 +359,18 @@ pub(crate) async fn control_application(
         }
         saved?;
         result
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    });
+    if action == Action::Register {
+        tokio::time::timeout(Duration::from_secs(12), worker)
+            .await
+            .map_err(|_| {
+                "系统注册请求尚未返回，后台任务仍在结束。请从历史核对所选路径；不会自动重试。"
+                    .to_string()
+            })?
+            .map_err(|e| e.to_string())?
+    } else {
+        worker.await.map_err(|e| e.to_string())?
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,11 @@
 import { expect, test } from '@playwright/test'
+test('application repair enters selection without any registration request', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(async () => (await import('/tests/e2e/fixtures/search-repair.tsx')).mount())
+  await page.getByRole('button', { name: '选择应用修复…' }).click()
+  await expect(page.locator('#search-repair-fixture')).toHaveAttribute('data-route', 'applications')
+  await expect(page.locator('#search-repair-fixture')).toHaveAttribute('data-calls', '[]')
+})
 async function mount(page: import('@playwright/test').Page, mode = 'normal') {
   await page.goto('/')
   await page.evaluate(

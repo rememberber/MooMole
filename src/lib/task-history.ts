@@ -14,6 +14,7 @@ export const taskStates = [
 export function taskKindName(kind: string): string {
   if (kind === 'appopen') return '打开应用'
   if (kind === 'appquit') return '正常退出应用'
+  if (kind === 'appregistration') return '重新注册应用'
   if (kind === 'searchrepair') return '更新文件搜索索引'
   if (kind === 'aiscan') return 'AI 深度扫描'
   if (kind === 'statuswatch') return '系统状态持续采集'

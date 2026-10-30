@@ -135,6 +135,25 @@ export function ApplicationRow({
         >
           <ExternalLink size={13} />在 Finder 中显示
         </button>
+        {onControl && (
+          <button
+            className="button secondary compact"
+            disabled={!canControl || !taskId || app.source !== 'App'}
+            onClick={() => {
+              if (taskId)
+                onControl({
+                  taskId,
+                  index,
+                  name: app.name,
+                  path: app.path,
+                  bundleId: app.bundle_id,
+                  action: 'register',
+                })
+            }}
+          >
+            重新注册此副本…
+          </button>
+        )}
       </details>
     </article>
   )

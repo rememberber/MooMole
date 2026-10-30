@@ -1,4 +1,103 @@
 [
+  [
+    "系统请求前已取消，未执行应用操作。",
+    "Cancelled before the system request; no application action was performed.",
+    "システム要求前に中止しました。アプリ操作は実行していません。"
+  ],
+  [
+    "所选应用受保护或属于系统/当前客户端，不能从这里重新注册。",
+    "This application is protected or belongs to the system/current client and cannot be re-registered here.",
+    "保護対象、システムまたは現在のクライアントのアプリは、ここから再登録できません。"
+  ],
+  [
+    "系统请求前已取消，未重新注册应用。",
+    "Cancelled before the system request; the application was not re-registered.",
+    "システム要求前に中止しました。アプリは再登録していません。"
+  ],
+  [
+    "注册调用未能取得明确结果，请核对所选副本；不会自动重试。",
+    "Registration returned no definite result. Check the selected copy; no automatic retry.",
+    "登録の結果を確認できませんでした。選択したコピーを確認してください。自動再試行はしません。"
+  ],
+  [
+    "系统未确认注册成功，请核对图标和打开方式候选；不会自动重试。",
+    "The system did not confirm registration. Check the icon and Open With candidates; no automatic retry.",
+    "システムで登録成功を確認できませんでした。アイコンと開く方法の候補を確認してください。自動再試行はしません。"
+  ],
+  [
+    "注册请求后应用或保护状态变化，请核对实际结果；未自动撤销或重试。",
+    "The application or protection changed after registration was requested. Check the actual result; no automatic undo or retry.",
+    "登録要求後にアプリまたは保護状態が変わりました。実際の結果を確認してください。自動取り消しや再試行はしません。"
+  ],
+  [
+    "系统接受重新注册，已观察到所选安装路径。请刷新列表并检查图标或打开方式；不代表问题一定修复。",
+    "The system accepted re-registration and the selected installation path was observed. Refresh the list and check the icon or Open With; this does not prove the issue is fixed.",
+    "システムが再登録を受け付け、選択したインストール先を確認しました。一覧を更新し、アイコンや開く方法を確認してください。問題の解決を保証するものではありません。"
+  ],
+  [
+    "注册调用已返回，但系统注册位置无法核对；请检查实际状态，不会自动重试。",
+    "Registration returned, but the registered path could not be verified. Check the actual state; no automatic retry.",
+    "登録呼び出しは戻りましたが、登録先を確認できません。実際の状態を確認してください。自動再試行はしません。"
+  ],
+  [
+    "已停止后续注册核对，已发出的注册请求可能生效且不能自动撤销。",
+    "Further registration checks stopped. The submitted request may take effect and cannot be undone automatically.",
+    "登録の確認を停止しました。送信済みの要求は有効になる場合があり、自動では取り消せません。"
+  ],
+  [
+    "系统已接受注册，但尚未观察到所选安装路径。请稍后手动检查，不会自动重试。",
+    "The system accepted registration, but the selected installation path has not been observed. Check manually later; no automatic retry.",
+    "システムは登録を受け付けましたが、選択したインストール先はまだ確認できません。後で手動で確認してください。自動再試行はしません。"
+  ],
+  [
+    "系统注册请求尚未返回，后台任务仍在结束。请从历史核对所选路径；不会自动重试。",
+    "The system registration request has not returned; the background task is still finishing. Check the selected path in history; no automatic retry.",
+    "システム登録要求が戻っておらず、バックグラウンド処理が続いています。履歴から選択した場所を確認してください。自動再試行はしません。"
+  ],
+  ["重新注册应用", "Re-register application", "アプリを再登録"],
+  ["确认重新注册", "Confirm re-registration", "再登録を確認"],
+  ["重新注册此副本…", "Re-register this copy…", "このコピーを再登録…"],
+  ["应用图标或打开方式异常", "App icon or Open With problems", "アプリアイコン・開く方法の問題"],
+  ["选择应用修复…", "Choose application…", "アプリを選択…"],
+  ["已观察到所选副本注册", "Selected copy observed in registration", "選択したコピーの登録を確認"],
+  ["系统注册返回信息", "System registration details", "システム登録の詳細"],
+  ["系统状态：{0}", "System status: {0}", "システム状態：{0}"],
+  ["系统状态：", "System status: ", "システム状態："],
+  [
+    "已核对所选安装路径。",
+    "The selected installation path was verified.",
+    "選択したインストール先を確認しました。"
+  ],
+  [
+    "所选安装路径尚未确认。",
+    "The selected installation path is not yet confirmed.",
+    "選択したインストール先は未確認です。"
+  ],
+  [
+    "选择确切应用副本重新注册，再检查图标和“打开方式”候选；不重置整个系统注册库。",
+    "Re-register an exact application copy, then check its icon and Open With candidates. The system registration database is not reset.",
+    "対象のアプリコピーを再登録し、アイコンと「このアプリケーションで開く」の候補を確認します。システム登録データベース全体はリセットしません。"
+  ],
+  [
+    "选择需要修复的确切应用，展开“位置与来源”，点击“重新注册此副本…”。请确认安装路径；结果需要回到原来的图标或打开方式中验证。",
+    "Choose the exact application, expand Location and source, then select Re-register this copy. Check the installation path and verify the original icon or Open With problem afterwards.",
+    "対象のアプリを選び、「場所と提供元」を展開して「このコピーを再登録…」を押してください。インストール先を確認し、元のアイコンや開く方法で結果を検証してください。"
+  ],
+  [
+    "更新所选安装副本的图标和文档/网址类型注册，可能改变“打开方式”候选；不清空系统注册库，不主动设置默认应用。不会启动、退出应用或重启 Finder，也不修改应用包。注册没有自动撤销，不能保证图标或打开方式问题一定修复。",
+    "Update icon and document/URL type registration for this installed copy. This may change Open With candidates; it does not reset the database or explicitly set default applications. It does not launch or quit apps, restart Finder, or modify the bundle. Registration has no automatic undo and may not fix the original issue.",
+    "選択したコピーのアイコンと書類・URL種別の登録を更新します。「このアプリケーションで開く」の候補が変わる場合があります。登録全体の消去や既定アプリの明示設定は行いません。アプリの起動・終了、Finderの再起動、アプリ内容の変更は行いません。自動取り消しはなく、問題の解決を保証するものではありません。"
+  ],
+  [
+    "正在等待系统注册与位置核对。停止不能撤销已发出的请求，系统调用本身可能仍需等待返回。",
+    "Waiting for system registration and path verification. Stopping cannot undo the submitted request; the system call may still need time to return.",
+    "システム登録と場所の確認を待っています。停止しても送信済みの要求は取り消せず、システム呼び出しの完了を待つ場合があります。"
+  ],
+  [
+    "请刷新应用列表，再检查原来的图标或“打开方式”候选；注册记录保存在操作历史中，不自动重试或回滚。",
+    "Refresh the application list, then check the original icon or Open With candidates. Registration is recorded in activity history with no automatic retry or rollback.",
+    "アプリ一覧を更新し、元のアイコンや開く方法の候補を確認してください。登録は操作履歴に保存され、自動再試行やロールバックは行いません。"
+  ],
   ["概览", "Overview", "概要"],
   ["速战速决", "Quick cleanup", "クイッククリーン"],
   ["AI 深度扫描", "AI deep scan", "AI 詳細スキャン"],
@@ -236,9 +335,9 @@
     "一覧は Mole CLI から取得します。アンインストールには別途範囲確認と明示的な同意が必要です。チェックは比較用です。"
   ],
   [
-    "卸载后清单可能已过期，请刷新应用清单后再检查；不会自动重复处理。",
-    "The list may be outdated after uninstalling. Refresh before checking again; no automatic repeat.",
-    "アンインストール後の一覧は古い場合があります。更新してから再確認してください。自動で再実行しません。"
+    "应用操作后清单可能已过期，请刷新应用清单后再检查；不会自动重复处理。",
+    "The list may be outdated after an application operation. Refresh before checking again; no automatic repeat.",
+    "アプリ操作後の一覧は古い場合があります。更新してから再確認してください。自動で再実行しません。"
   ],
   ["尚未读取应用", "Applications not loaded", "アプリ未読み込み"],
   [

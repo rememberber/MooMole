@@ -24,9 +24,22 @@ export function mount(mode = 'normal') {
           path: mode === 'mismatch' ? '/Applications/Other.app' : applications[0].path,
           bundleId: applications[0].bundle_id,
           requested: true,
-          pids: [12345],
-          outcome: args.action === 'quit' ? 'quit' : 'opened',
+          pids: args.action === 'register' ? [] : [12345],
+          outcome:
+            args.action === 'register'
+              ? mode === 'pending'
+                ? 'pending'
+                : 'registered'
+              : args.action === 'quit'
+                ? 'quit'
+                : 'opened',
           reason: 'fixture result',
+          ...(args.action === 'register'
+            ? {
+                registrationStatus: 0,
+                registeredPathObserved: !['pending', 'unobserved'].includes(mode),
+              }
+            : {}),
         }
       },
     },

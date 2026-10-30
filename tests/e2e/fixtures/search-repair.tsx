@@ -66,6 +66,9 @@ export function mount(mode = 'normal') {
           enabled={!active}
           onPreview={() => {}}
           onSearch={() => setSignal((n) => n + 1)}
+          onRegistration={() => {
+            host.dataset.route = 'applications'
+          }}
         />
         <SearchRepairCenter
           openSignal={signal}
