@@ -59,6 +59,7 @@ import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
 import { FileRestorationBatchCenter } from './components/FileRestorationBatchCenter'
+import { MountedVolumePicker } from './components/MountedVolumePicker'
 import type { RestorationBatchTarget } from './lib/file-restoration-batch'
 import { storageMonitorTransport } from './lib/storage-monitor'
 import { menuBarTransport, listenMenuBar } from './lib/menu-bar'
@@ -417,6 +418,7 @@ export default function App() {
   const [restorationBatchTarget, setRestorationBatchTarget] =
     useState<RestorationBatchTarget | null>(null)
   const [restorationActive, setRestorationActive] = useState(false)
+  const [volumePickerOpenSignal, setVolumePickerOpenSignal] = useState(0)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
   const [transferActive, setTransferActive] = useState(false)
   const [transferTarget, setTransferTarget] = useState<TransferTarget | null>(null)
@@ -1085,6 +1087,15 @@ export default function App() {
                 >
                   <FolderOpen size={17} />
                 </button>
+                <button
+                  className="icon-button"
+                  disabled={!api.desktop || !canRun}
+                  aria-label="选择磁盘"
+                  title="选择磁盘"
+                  onClick={() => setVolumePickerOpenSignal((n) => n + 1)}
+                >
+                  <HardDrive size={17} />
+                </button>
                 {busy?.kind === 'analyze' && (
                   <button
                     className="button secondary compact"
@@ -1609,6 +1620,14 @@ export default function App() {
             onActiveChange={setRestorationActive}
             onOutcome={() => {
               void refreshRecords(true)
+            }}
+          />
+          <MountedVolumePicker
+            openSignal={volumePickerOpenSignal}
+            enabled={canRun}
+            onAnalyze={(target) => {
+              changePage('analyze')
+              void execute('analyze', target)
             }}
           />
           <SearchRepairCenter

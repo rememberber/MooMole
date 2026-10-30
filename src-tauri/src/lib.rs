@@ -40,6 +40,7 @@ mod log_cleanup;
 mod maintenance;
 mod menu_bar;
 mod mole_history;
+mod mounted_volumes;
 #[cfg(test)]
 mod native_trash_tests;
 mod observation;
@@ -101,6 +102,7 @@ struct AppState {
     refresh_plans: Arc<Mutex<maintenance::refresh_plan::Store>>,
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
+    mounted_volumes: Arc<Mutex<mounted_volumes::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
@@ -2360,6 +2362,7 @@ pub fn run() {
                     ),
                     search_repairs: Arc::new(Mutex::new(None)),
                     file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
+                    mounted_volumes: Arc::new(Mutex::new(mounted_volumes::Store::default())),
                     personal_archives: Arc::new(Mutex::new(
                         personal_files::archive::Store::default(),
                     )),
@@ -2491,6 +2494,8 @@ pub fn run() {
             startup_management::commands::acknowledge_startup_management,
             startup_management::commands::open_login_item_settings,
             file_restoration::commands::prepare_file_restoration,
+            mounted_volumes::get_mounted_volumes,
+            mounted_volumes::resolve_mounted_volume,
             file_restoration::commands::discard_file_restoration,
             file_restoration::commands::execute_file_restoration,
             file_restoration::batch::prepare_file_restoration_batch,

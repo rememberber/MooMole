@@ -2,6 +2,23 @@ import { test, expect } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { analysis } from './fixtures/analysis-explorer'
 
+test('startup root analysis does not offer root file mutations and directs users to a personal folder', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/analysis-explorer.tsx')).mount(false, undefined, true),
+  )
+  await page.getByRole('button', { name: '模拟根目录不可读' }).click()
+  const explorer = page.getByRole('region', { name: 'Mole 空间分析结果' })
+  await expect(explorer.getByRole('button', { name: '整理当前目录', exact: true })).toBeDisabled()
+  await expect(
+    explorer.getByRole('button', { name: '查找当前目录的重复文件', exact: true }),
+  ).toBeDisabled()
+  await expect(explorer).toContainText('请进入具体个人文件夹后再整理')
+  await expect(page.getByLabel('fixture 路径请求')).toHaveText('')
+})
+
 test('analysis hands the exact directory to file organization and duplicates without starting file operations', async ({
   page,
 }) => {

@@ -1,4 +1,101 @@
 [
+  [
+    "根目录仅供分析；请进入具体个人文件夹后再整理。",
+    "The root directory is for analysis. Enter a specific personal folder before organizing files.",
+    "ルートディレクトリは分析のみです。具体的な個人フォルダに移動してから整理してください。"
+  ],
+  ["选择磁盘", "Choose disk", "ディスクを選択"],
+  ["选择磁盘分析", "Choose a disk to analyze", "分析するディスクを選択"],
+  [
+    "从启动卷根目录、账户目录或已挂载的本地卷开始分析；列表也可能包含磁盘映像。容量是本次读取的观察值，APFS 卷可能共享空间，不能直接相加。分析后需重新扫描、选择并确认，才会移动或清理文件。",
+    "Start from the startup volume root, your account directory, or a mounted local volume; the list may include disk images. Capacity is an observation from this read. APFS volumes may share space and must not be added together. Moving or cleaning files requires a new scan, selection, and confirmation after analysis.",
+    "起動ボリュームのルート、アカウントのフォルダ、またはマウント済みのローカルボリュームから分析します。ディスクイメージも含まれる場合があります。容量は今回の読み取り時の観測値です。APFSボリュームは領域を共有する場合があり、単純に合計できません。分析後に移動・削除するには、改めてスキャン、選択、確認が必要です。"
+  ],
+  ["正在读取或核对磁盘…", "Reading or verifying disks…", "ディスクを読み取り・確認中…"],
+  [
+    "磁盘列表不完整，离线、权限受限或超出读取上限的卷可能未列出；请刷新或选择具体文件夹。",
+    "The disk list is incomplete. Offline, inaccessible, or excess volumes may be omitted. Refresh or choose a specific folder.",
+    "ディスク一覧は不完全です。オフライン、権限制限、読み取り上限を超えるボリュームが表示されない場合があります。更新するかフォルダを選択してください。"
+  ],
+  [
+    "磁盘观察已过期，请刷新列表后选择。",
+    "Disk observations expired. Refresh the list before selecting.",
+    "ディスクの観測情報は期限切れです。一覧を更新して選択してください。"
+  ],
+  [
+    "本地磁盘与账户目录",
+    "Local disks and account directory",
+    "ローカルディスクとアカウントのフォルダ"
+  ],
+  ["当前账户目录", "Current account directory", "現在のアカウントのフォルダ"],
+  ["启动卷根目录", "Startup volume root", "起動ボリュームのルート"],
+  ["可用 {0} / 总量 {1} ·", "Available {0} / Total {1} ·", "空き {0} / 合計 {1} ·"],
+  ["可用", "Available", "空き"],
+  ["/ 总量", "/ Total", "/ 合計"],
+  ["· 只读卷", "· Read-only volume", "· 読み取り専用ボリューム"],
+  [
+    "当前位置无法核对，暂不能从这里分析。",
+    "This location could not be verified and cannot be analyzed here yet.",
+    "現在の場所を確認できないため、ここからは分析できません。"
+  ],
+  ["分析 {0}", "Analyze {0}", "{0}を分析"],
+  [
+    "未读到可列出的磁盘，请刷新或选择文件夹。",
+    "No disks could be listed. Refresh or choose a folder.",
+    "一覧に表示できるディスクを読み取れませんでした。更新するかフォルダを選択してください。"
+  ],
+  ["返回空间分析", "Back to space analysis", "容量分析に戻る"],
+  ["刷新磁盘列表", "Refresh disk list", "ディスク一覧を更新"],
+  [
+    "磁盘列表无法核对，请刷新后重新选择。",
+    "The disk list could not be verified. Refresh and select again.",
+    "ディスク一覧を確認できません。更新して選択し直してください。"
+  ],
+  [
+    "磁盘位置与所选记录不一致；未自动开始分析，请刷新列表。",
+    "The disk location does not match the selection. Analysis was not started. Refresh the list.",
+    "ディスクの場所が選択内容と一致しません。分析は開始していません。一覧を更新してください。"
+  ],
+  [
+    "磁盘选择已过期、使用或被刷新，请重新读取。",
+    "The disk selection expired, was used, or was refreshed. Read the list again.",
+    "ディスクの選択は期限切れ、使用済み、または更新済みです。一覧を読み直してください。"
+  ],
+  [
+    "磁盘选择已过期，请刷新列表。",
+    "The disk selection expired. Refresh the list.",
+    "ディスクの選択が期限切れです。一覧を更新してください。"
+  ],
+  [
+    "磁盘已离线或位置无法核对，请刷新列表。",
+    "The disk is offline or its location could not be verified. Refresh the list.",
+    "ディスクがオフラインか、場所を確認できません。一覧を更新してください。"
+  ],
+  [
+    "磁盘或挂载位置已变化，请刷新后重新选择。",
+    "The disk or mount location changed. Refresh and select again.",
+    "ディスクまたはマウント先が変わりました。更新して選択し直してください。"
+  ],
+  [
+    "磁盘读取尚未返回，原读取仍可能在结束；不会自动重试。",
+    "The disk read has not returned and may still be finishing. No automatic retry.",
+    "ディスクの読み取りが戻っておらず、処理が続いている場合があります。自動再試行はしません。"
+  ],
+  [
+    "磁盘复查尚未返回，请稍后刷新列表；不会自动开始分析。",
+    "Disk verification has not returned. Refresh the list later; analysis will not start automatically.",
+    "ディスクの再確認が戻っていません。後で一覧を更新してください。分析は自動で開始しません。"
+  ],
+  [
+    "文件读取仍在进行，请稍后刷新磁盘。",
+    "File reading is still in progress. Refresh disks later.",
+    "ファイルの読み取り中です。後でディスクを更新してください。"
+  ],
+  [
+    "文件读取仍在进行，请稍后选择磁盘。",
+    "File reading is still in progress. Select a disk later.",
+    "ファイルの読み取り中です。後でディスクを選択してください。"
+  ],
   ["选择恢复 {0}", "Select for restoration {0}", "復元する項目を選択 {0}"],
   [
     "已选恢复 {0} 项（含筛选外项目），每批最多 20 项。",

@@ -1,6 +1,152 @@
 use super::*;
 
 #[tokio::test]
+#[ignore = "explicit mounted-volume selection, real Mole analysis/rules and native move inside a unique owned external-volume fixture only"]
+async fn real_mounted_volume_analysis_to_personal_move_keeps_unselected_files_and_history() {
+    use crate::engine::{self, TaskKind};
+    let requested = PathBuf::from(
+        std::env::var_os("MOOMOLE_OWNED_VOLUME_ROOT")
+            .expect("set the explicit mounted local volume root"),
+    );
+    let mount = PathBuf::from(crate::mounted_volumes::owned_selected_mount(&requested).unwrap());
+    let internal = tempfile::Builder::new()
+        .prefix("MooMole-volume-ledger-owned-")
+        .tempdir()
+        .unwrap();
+    let home = internal.path().canonicalize().unwrap();
+    let external = tempfile::Builder::new()
+        .prefix("MooMole-volume-owned-")
+        .tempdir_in(&mount)
+        .unwrap();
+    let fixture = external.path().canonicalize().unwrap();
+    let root = fixture.join("Source");
+    let target = fixture.join("Organized");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::create_dir(&target).unwrap();
+    let chosen = root.join("chosen.txt");
+    let kept = root.join("keep.txt");
+    let chosen_bytes = vec![b'A'; 8192];
+    let kept_bytes = vec![b'K'; 4096];
+    std::fs::write(&chosen, &chosen_bytes).unwrap();
+    std::fs::write(&kept, &kept_bytes).unwrap();
+    assert_ne!(
+        std::fs::metadata(&home).unwrap().dev(),
+        std::fs::metadata(&root).unwrap().dev(),
+        "fixture must be on a genuinely separate mounted device"
+    );
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let analysis = engine::run(
+        &engine,
+        &home,
+        Arc::new(Job::new(TaskKind::Analyze)),
+        Some(root.clone()),
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(analysis["path"].as_str(), root.to_str());
+    assert!(analysis["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["path"].as_str() == chosen.to_str()));
+    let scan = super::super::scan::collect(&root, &[], Arc::new(Job::new(TaskKind::PersonalScan)))
+        .unwrap();
+    let id = scan
+        .items
+        .iter()
+        .find(|i| Path::new(&i.path) == chosen)
+        .unwrap()
+        .id
+        .clone();
+    let mut store = Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let settings = db::Settings {
+        acknowledged: true,
+        ..Default::default()
+    };
+    let offer = store
+        .offer_move(
+            &[id],
+            target.to_str().unwrap(),
+            movement::Conflict::Skip,
+            &settings,
+            db::now(),
+        )
+        .unwrap();
+    let plan = store.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    db::save_settings(&database, &settings).unwrap();
+    let database = Arc::new(std::sync::Mutex::new(database));
+    let rule_home = home.clone();
+    let rule_engine = engine.clone();
+    let result = run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalMove)),
+        move |requested, job| {
+            let h = rule_home.clone();
+            let e = rule_engine.clone();
+            async move { rules::run(&e, &h, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert!(!chosen.exists());
+    assert_eq!(
+        std::fs::read(target.join("chosen.txt")).unwrap(),
+        chosen_bytes
+    );
+    assert_eq!(std::fs::read(&kept).unwrap(), kept_bytes);
+    let expected = serde_json::to_value(&result).unwrap();
+    drop(
+        Arc::try_unwrap(database)
+            .ok()
+            .unwrap()
+            .into_inner()
+            .unwrap(),
+    );
+    let mut reopened = db::open_owned(&home.join("app.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(execution::detail(&reopened, &result.summary.id).unwrap()).unwrap(),
+        expected
+    );
+    let preview = crate::execution_archive::prepare(&mut reopened).unwrap();
+    let archive_home = home.join("Archives");
+    let archived = crate::execution_archive::archive(
+        &mut reopened,
+        &archive_home,
+        &preview.fingerprint,
+        db::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::execution_archive::detail(
+            &archive_home,
+            &archived.id,
+            crate::execution_archive::Kind::Cleanup,
+            &result.summary.id
+        )
+        .unwrap(),
+        expected
+    );
+    std::fs::create_dir_all("../.cache").unwrap();
+    external.close().unwrap();
+    assert!(!fixture.exists());
+    std::fs::write("../.cache/mounted-volume-native.json",serde_json::to_vec_pretty(&serde_json::json!({"selectedMountedRoot":mount,"analysis":analysis,"result":expected,"unselectedBytesPreserved":true,"databaseReopened":true,"archiveReadback":true,"ownedFixtureRemoved":true})).unwrap()).unwrap();
+}
+
+#[tokio::test]
 #[ignore = "real playlist media, Mole rules and native Trash on self-created media/manifest only"]
 async fn real_playlist_media_trash_preserves_manifest_and_unlisted_files() {
     use crate::engine::TaskKind;

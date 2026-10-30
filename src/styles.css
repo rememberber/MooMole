@@ -3819,29 +3819,56 @@ input[type='checkbox'] {
   padding-top: 8px;
 }
 .maintenance-refresh-modal,
-.file-restoration-modal {
+.file-restoration-modal,
+.mounted-volume-modal {
   width: min(600px, calc(100vw - 48px));
   padding: 24px;
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
 }
 .maintenance-refresh-modal h2,
-.file-restoration-modal h2 {
+.file-restoration-modal h2,
+.mounted-volume-modal h2 {
   padding-right: 32px;
   margin-bottom: 12px;
 }
 .maintenance-refresh-modal > p,
-.file-restoration-modal > p {
+.file-restoration-modal > p,
+.mounted-volume-modal > p {
   line-height: 1.7;
   margin: 12px 0;
 }
 .maintenance-refresh-modal .modal-actions,
-.file-restoration-modal .modal-actions {
+.file-restoration-modal .modal-actions,
+.mounted-volume-modal .modal-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
+}
+.mounted-volume-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.mounted-volume-list > li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mounted-volume-list > li > div {
+  flex: 1;
+  min-width: 0;
+}
+.mounted-volume-list > li > button {
+  flex: none;
+}
+.mounted-volume-list p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
 }
 .refresh-step-choices {
   display: flex;

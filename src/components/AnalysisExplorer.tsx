@@ -214,20 +214,22 @@ export function AnalysisExplorer({
         <div className="analysis-next-actions">
           <button
             className="button secondary compact"
-            disabled={!canAnalyze || !canReveal || refreshing}
+            disabled={!canAnalyze || !canReveal || refreshing || analysis.path === '/'}
             onClick={() => onOrganize(analysis.path, 'files')}
           >
             整理当前目录
           </button>
           <button
             className="button secondary compact"
-            disabled={!canAnalyze || !canReveal || refreshing}
+            disabled={!canAnalyze || !canReveal || refreshing || analysis.path === '/'}
             onClick={() => onOrganize(analysis.path, 'duplicates')}
           >
             查找当前目录的重复文件
           </button>
           <span className="muted">
-            进入后重新扫描并选择，再确认移动或清理；分析结果不会直接修改文件。
+            {analysis.path === '/'
+              ? '根目录仅供分析；请进入具体个人文件夹后再整理。'
+              : '进入后重新扫描并选择，再确认移动或清理；分析结果不会直接修改文件。'}
           </span>
         </div>
       )}
