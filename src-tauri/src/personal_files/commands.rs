@@ -121,7 +121,14 @@ fn start_with_source(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _ownership = (operation, slot);
-        let collected = if source == Some(software_content::Source::VlcPlaylist) {
+        let collected = if source == Some(software_content::Source::TelegramExport) {
+            software_content::collect_telegram(
+                &state.home,
+                &PathBuf::from(root),
+                &settings.protected_paths,
+                job.clone(),
+            )
+        } else if source == Some(software_content::Source::VlcPlaylist) {
             software_content::collect_playlist(
                 &state.home,
                 &PathBuf::from(root),
@@ -426,9 +433,19 @@ pub(crate) fn start_software_content(
     source: software_content::Source,
     request_id: String,
     playlist_path: Option<String>,
+    export_path: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let root = if source == software_content::Source::VlcPlaylist {
+    if (source != software_content::Source::TelegramExport && export_path.is_some())
+        || (source != software_content::Source::VlcPlaylist && playlist_path.is_some())
+    {
+        return Err("软件内容来源与清单类型不匹配。".into());
+    }
+    let root = if source == software_content::Source::TelegramExport {
+        export_path
+            .filter(|s| !s.is_empty() && s.len() <= 4096)
+            .ok_or("请先选择 Telegram Desktop 导出的 result.json。")?
+    } else if source == software_content::Source::VlcPlaylist {
         playlist_path
             .filter(|s| !s.is_empty() && s.len() <= 4096)
             .ok_or("请先选择 VLC 导出的 M3U8 播放列表。")?

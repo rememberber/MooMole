@@ -272,6 +272,16 @@ export const chooseMediaPlaylist = async (): Promise<string | null> => {
   })
   return typeof selected === 'string' ? selected : null
 }
+export const chooseTelegramExport = async (): Promise<string | null> => {
+  if (!desktop) return null
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title: translate('选择 Telegram Desktop 导出的 result.json'),
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  })
+  return typeof selected === 'string' ? selected : null
+}
 
 export async function runTask<K extends TaskKind>(
   kind: K,

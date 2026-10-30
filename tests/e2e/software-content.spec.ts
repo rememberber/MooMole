@@ -7,6 +7,72 @@ async function open(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: '附件、下载与离线', exact: true }).click()
   return page.getByRole('main', { name: '软件清理内容' })
 }
+test('chat exports require a selected JSON manifest, scoped previews and separately confirmed attachments', async ({
+  page,
+}) => {
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('telegramExport')
+  const scan = page.getByRole('button', { name: '扫描聊天导出附件', exact: true })
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('export-picker-cancelled', '1'))
+  await main.getByRole('button', { name: '选择聊天导出清单' }).click()
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('export-picker-cancelled'))
+  await main.getByRole('button', { name: '选择聊天导出清单' }).click()
+  await expect(main.getByRole('textbox', { name: '聊天导出来源' })).toHaveValue(
+    '/Users/demo/Downloads/ChatExport/result.json',
+  )
+  await expect(main.getByRole('textbox', { name: '聊天导出附件目录' })).toHaveValue(
+    '/Users/demo/Downloads/ChatExport',
+  )
+  await scan.click()
+  await expect(main).toContainText('不扫描软件内部资料库')
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  const notes = list.getByRole('article').filter({ hasText: 'notes.txt' })
+  await notes.getByRole('button', { name: '预览内容' }).click()
+  await expect(page.getByRole('dialog', { name: '文件内容预览' }).locator('pre')).toHaveText(
+    'owned attachment preview',
+  )
+  await page.getByRole('button', { name: '返回文件列表' }).click()
+  await notes.getByRole('checkbox').check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认处理聊天导出附件' })
+  await expect(dialog).toContainText('导出正文清单保留')
+  await expect(dialog.getByRole('button', { name: '确认移入废纸篓', exact: true })).toBeDisabled()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  const started = calls.find((c: any) => c.command === 'start_software_content')
+  expect(started.args).toMatchObject({
+    source: 'telegramExport',
+    exportPath: '/Users/demo/Downloads/ChatExport/result.json',
+  })
+  expect(started.args).not.toHaveProperty('playlistPath')
+  expect(
+    calls.find((c: any) => c.command === 'prepare_software_trash').args.selectedIds,
+  ).toHaveLength(1)
+})
+test('changing chat exports withdraws old selections even within the same account root', async ({
+  page,
+}) => {
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('telegramExport')
+  await main.getByRole('button', { name: '选择聊天导出清单' }).click()
+  await page.getByRole('button', { name: '扫描聊天导出附件', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await list.getByRole('checkbox').first().check()
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeEnabled()
+  await page.evaluate(() =>
+    sessionStorage.setItem('export-picker-path', '/Users/demo/Downloads/OtherExport/result.json'),
+  )
+  await main.getByRole('button', { name: '选择聊天导出清单' }).click()
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await page.getByRole('button', { name: '扫描聊天导出附件', exact: true }).click()
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+})
 test('protected modern Mail content is previewable and cannot be selected or submitted', async ({
   page,
 }) => {

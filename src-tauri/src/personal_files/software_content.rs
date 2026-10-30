@@ -5,6 +5,7 @@ use crate::{db, engine::Job, observation::AnchoredPath};
 use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc};
 mod chromium;
 mod playlist;
+mod telegram;
 pub(crate) const MODULE: &str = "softwareContent";
 pub(super) const REVISION: &str = "MooMole.software-content.v1";
 const MINIMUM: u64 = 5 * 1024 * 1024;
@@ -24,10 +25,14 @@ pub(crate) enum Source {
     MailSandboxDownloads,
     ChromeDownloads,
     VlcPlaylist,
+    TelegramExport,
 }
 impl Source {
     fn recorded_files(self) -> bool {
-        matches!(self, Self::ChromeDownloads | Self::VlcPlaylist)
+        matches!(
+            self,
+            Self::ChromeDownloads | Self::VlcPlaylist | Self::TelegramExport
+        )
     }
     pub(super) fn path(self, home: &Path) -> PathBuf {
         if self.recorded_files() {
@@ -38,7 +43,7 @@ impl Source {
             Self::MailSandboxDownloads => {
                 "Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
             }
-            Self::ChromeDownloads | Self::VlcPlaylist => unreachable!(),
+            Self::ChromeDownloads | Self::VlcPlaylist | Self::TelegramExport => unreachable!(),
         })
     }
     fn history(self, home: &Path) -> Option<PathBuf> {
@@ -57,6 +62,8 @@ pub(crate) struct Binding {
     pub history: Option<Witness>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playlist: Option<Witness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub telegram_export: Option<Witness>,
 }
 impl Binding {
     pub(super) fn root(&self) -> PathBuf {
@@ -64,6 +71,14 @@ impl Binding {
     }
     pub(super) fn allows(&self, path: &Path) -> bool {
         let root = self.root();
+        if self.source == Source::TelegramExport {
+            return path == root
+                || self
+                    .telegram_export
+                    .as_ref()
+                    .and_then(|w| w.nodes.last())
+                    .is_some_and(|n| telegram::attachment_allowed(path, &n.path));
+        }
         if self.source.recorded_files() {
             return path.starts_with(&root)
                 && ordinary(path)
@@ -98,6 +113,14 @@ impl Binding {
                         })
                 }))
             || (self.source != Source::VlcPlaylist && self.playlist.is_some())
+            || (self.source != Source::TelegramExport && self.telegram_export.is_some())
+            || (self.source == Source::TelegramExport
+                && self.telegram_export.as_ref().is_none_or(|w| {
+                    w.version != crate::observation::VERSION
+                        || w.nodes.last().is_none_or(|n| {
+                            !telegram::manifest_allowed(&n.path, Path::new(&self.home))
+                        })
+                }))
             || (self.source != Source::ChromeDownloads && self.history.is_some())
             || (self.source == Source::ChromeDownloads
                 && self.history.as_ref().is_none_or(|w| {
@@ -141,6 +164,17 @@ impl Binding {
                 return Err("播放列表已变化，请重新扫描；本项保留。".into());
             }
         }
+        if self.source == Source::TelegramExport {
+            let witness = self
+                .telegram_export
+                .as_ref()
+                .ok_or("聊天导出来源缺失，本项保留。")?;
+            let path = &witness.nodes.last().ok_or("聊天导出路径缺失。")?.path;
+            let manifest = AnchoredPath::open(path)?;
+            if manifest.witness != *witness || !manifest.local_materialized() {
+                return Err("聊天导出清单已变化，请重新扫描；本项保留。".into());
+            }
+        }
         Ok(())
     }
 }
@@ -154,6 +188,16 @@ pub(crate) struct Info {
     pub execution_supported: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub playlist_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub export_path: Option<String>,
+}
+pub(super) fn collect_telegram(
+    home: &Path,
+    manifest: &Path,
+    rules: &[String],
+    job: Arc<Job>,
+) -> Result<Scan, String> {
+    telegram::collect(home, manifest, rules, job)
 }
 pub(super) fn collect_playlist(
     home: &Path,
@@ -175,6 +219,9 @@ pub(super) fn collect(
     if source == Source::VlcPlaylist {
         return Err("请先选择 VLC 导出的 M3U8 播放列表。".into());
     }
+    if source == Source::TelegramExport {
+        return Err("请先选择 Telegram Desktop 导出的 result.json。".into());
+    }
     let path = source.path(home);
     let held = AnchoredPath::open(&path)
         .map_err(|_| "附件目录不存在或无法访问；未检查的范围保持未知，不会请求提升权限。")?;
@@ -185,6 +232,7 @@ pub(super) fn collect(
         allocated_at_scan: 0,
         history: None,
         playlist: None,
+        telegram_export: None,
     };
     let mut scan = super::scan::collect_scoped(&path, rules, job, Some(binding))?;
     let enough = scan.allocated_bytes >= MINIMUM;
@@ -201,6 +249,7 @@ pub(super) fn collect(
         minimum_size_met: enough,
         execution_supported: source == Source::MailDownloads,
         playlist_path: None,
+        export_path: None,
     });
     Ok(scan)
 }

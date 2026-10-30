@@ -34,12 +34,18 @@ export interface PersonalReport {
     bytesRead: number
   }
   softwareContent?: {
-    source: 'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads' | 'vlcPlaylist'
+    source:
+      | 'mailDownloads'
+      | 'mailSandboxDownloads'
+      | 'chromeDownloads'
+      | 'vlcPlaylist'
+      | 'telegramExport'
     minimumAgeDays: number
     minimumDirectoryBytes: number
     minimumSizeMet: boolean
     executionSupported: boolean
     playlistPath?: string
+    exportPath?: string
   }
 }
 export interface PersonalSnapshot {
@@ -197,13 +203,21 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       if (
         r.duplicates !== undefined ||
         r.similarPhotos !== undefined ||
-        !['mailDownloads', 'mailSandboxDownloads', 'chromeDownloads', 'vlcPlaylist'].includes(
-          s.source as string,
-        ) ||
+        ![
+          'mailDownloads',
+          'mailSandboxDownloads',
+          'chromeDownloads',
+          'vlcPlaylist',
+          'telegramExport',
+        ].includes(s.source as string) ||
         s.minimumAgeDays !==
-          (['chromeDownloads', 'vlcPlaylist'].includes(s.source as string) ? 0 : 31) ||
+          (['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(s.source as string)
+            ? 0
+            : 31) ||
         s.minimumDirectoryBytes !==
-          (['chromeDownloads', 'vlcPlaylist'].includes(s.source as string) ? 0 : 5242880) ||
+          (['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(s.source as string)
+            ? 0
+            : 5242880) ||
         typeof s.minimumSizeMet !== 'boolean' ||
         typeof s.executionSupported !== 'boolean' ||
         s.executionSupported !== (s.source !== 'mailSandboxDownloads') ||
@@ -211,17 +225,33 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         (s.source === 'vlcPlaylist'
           ? !path(s.playlistPath).startsWith(`${root}/`) ||
             !/\.m3u8$/i.test(s.playlistPath as string)
-          : s.playlistPath !== undefined)
+          : s.playlistPath !== undefined) ||
+        (s.source === 'telegramExport'
+          ? !path(s.exportPath).startsWith(`${root}/`) ||
+            !path(s.exportPath).endsWith('/result.json') ||
+            report.items.some(
+              (i) =>
+                i.path === s.exportPath ||
+                !i.path.startsWith(
+                  path(s.exportPath).slice(0, path(s.exportPath).lastIndexOf('/')) + '/',
+                ),
+            )
+          : s.exportPath !== undefined)
       )
         fail()
       report.softwareContent = {
         source: s.source as
-          'mailDownloads' | 'mailSandboxDownloads' | 'chromeDownloads' | 'vlcPlaylist',
+          | 'mailDownloads'
+          | 'mailSandboxDownloads'
+          | 'chromeDownloads'
+          | 'vlcPlaylist'
+          | 'telegramExport',
         minimumAgeDays: s.minimumAgeDays as number,
         minimumDirectoryBytes: s.minimumDirectoryBytes as number,
         minimumSizeMet: s.minimumSizeMet as boolean,
         executionSupported: s.executionSupported as boolean,
         ...(s.source === 'vlcPlaylist' ? { playlistPath: path(s.playlistPath) } : {}),
+        ...(s.source === 'telegramExport' ? { exportPath: path(s.exportPath) } : {}),
       }
     }
     if (r.similarPhotos !== undefined) {

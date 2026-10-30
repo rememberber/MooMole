@@ -7456,5 +7456,47 @@
     "请等待目录扫描设置操作结束。",
     "Wait for the directory scan settings operation to finish.",
     "フォルダスキャン設定の操作が終了するまでお待ちください。"
+  ],
+  [
+    "扫描聊天导出附件",
+    "Scan exported chat attachments",
+    "チャットのエクスポート添付ファイルをスキャン"
+  ],
+  ["聊天导出来源", "Chat export source", "チャットのエクスポート元"],
+  ["选择聊天导出清单", "Choose chat export manifest", "チャットのエクスポート一覧を選択"],
+  [
+    "确认处理聊天导出附件",
+    "Confirm exported chat attachment processing",
+    "エクスポートしたチャット添付ファイルの処理を確認"
+  ],
+  [
+    "聊天导出附件目录",
+    "Exported chat attachment directory",
+    "エクスポートしたチャットの添付フォルダ"
+  ],
+  [
+    "只根据所选 Telegram Desktop JSON 导出清单定位包内附件，默认不选，不扫描软件内部资料库。导出附件可能是唯一副本，无法保证可重新下载；移走会使导出包中的对应链接失效。聊天正文清单、未列入文件和未知格式保留，不影响线上聊天或发送删除消息；先预览并关闭相关文件，再逐项确认。",
+    "Finds only attachments inside the selected Telegram Desktop JSON export, with none selected by default. App databases are not scanned. These may be unique copies and may not be downloadable again; moving them breaks export links. Chat manifests, unlisted files and unknown formats are retained. No online chats are changed or deletion messages sent. Preview and close files before confirming each selection.",
+    "選択した Telegram Desktop の JSON エクスポート内の添付ファイルのみを検出し、初期状態では選択しません。アプリ内部のデータベースはスキャンしません。唯一のコピーの可能性があり、再ダウンロードは保証できません。移動するとエクスポート内のリンクが切れます。チャット本文の一覧、未記載ファイル、不明な形式は保持します。オンラインのチャット変更や削除メッセージ送信は行いません。プレビューし、関連ファイルを閉じてから確認してください。"
+  ],
+  [
+    "选择 Telegram Desktop 导出的 result.json，再点击顶部“扫描聊天导出附件”。",
+    "Choose result.json exported by Telegram Desktop, then click Scan exported chat attachments in the toolbar.",
+    "Telegram Desktop がエクスポートした result.json を選択し、上部の添付ファイルスキャンを実行してください。"
+  ],
+  [
+    "仅处理导出包中的所选附件，可能令导出链接失效；不发送线上聊天删除请求。导出正文清单保留，附件是否可重新取得未知。",
+    "Only selected attachments in the export are processed; export links may stop working. No online chat deletion is requested. The chat manifest is retained; attachment availability elsewhere is unknown.",
+    "エクスポート内で選択した添付ファイルのみを処理するため、リンクが切れる場合があります。オンラインのチャット削除は要求しません。本文の一覧は保持し、添付ファイルを再取得できるかは不明です。"
+  ],
+  [
+    "选择 Telegram Desktop 导出的 result.json",
+    "Choose result.json exported by Telegram Desktop",
+    "Telegram Desktop がエクスポートした result.json を選択"
+  ],
+  [
+    "Telegram 聊天导出附件",
+    "Telegram exported chat attachments",
+    "Telegram のエクスポートしたチャット添付ファイル"
   ]
 ]

@@ -6,7 +6,7 @@ export async function installSoftwareContentMock(page: Page) {
     const native = (window as any).__TAURI_INTERNALS__,
       original = native.invoke
     const root = (source: string) =>
-      source === 'chromeDownloads' || source === 'vlcPlaylist'
+      source === 'chromeDownloads' || source === 'vlcPlaylist' || source === 'telegramExport'
         ? '/Users/demo'
         : source === 'mailDownloads'
           ? '/Users/demo/Library/Mail Downloads'
@@ -22,6 +22,15 @@ export async function installSoftwareContentMock(page: Page) {
         'software-content-calls',
         JSON.stringify([...calls, { command, args }]),
       )
+      if (
+        command === 'plugin:dialog|open' &&
+        args.options?.filters?.[0]?.extensions?.includes('json')
+      ) {
+        return sessionStorage.getItem('export-picker-cancelled')
+          ? null
+          : sessionStorage.getItem('export-picker-path') ||
+              '/Users/demo/Downloads/ChatExport/result.json'
+      }
       if (command === 'plugin:dialog|open')
         return sessionStorage.getItem('playlist-picker-cancelled')
           ? null
@@ -48,15 +57,24 @@ export async function installSoftwareContentMock(page: Page) {
             path:
               source === 'vlcPlaylist'
                 ? `/Users/demo/Movies/${i.name === 'old.zip' ? 'offline.mov' : 'recording.wav'}`
-                : `${source === 'chromeDownloads' ? '/Users/demo/Downloads' : current}/${i.name}`,
+                : source === 'telegramExport'
+                  ? `${args.exportPath.slice(0, args.exportPath.lastIndexOf('/'))}/files/${i.name}`
+                  : `${source === 'chromeDownloads' ? '/Users/demo/Downloads' : current}/${i.name}`,
           }))
         report.softwareContent = {
           source,
-          minimumAgeDays: ['chromeDownloads', 'vlcPlaylist'].includes(source) ? 0 : 31,
-          minimumDirectoryBytes: ['chromeDownloads', 'vlcPlaylist'].includes(source) ? 0 : 5242880,
+          minimumAgeDays: ['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(source)
+            ? 0
+            : 31,
+          minimumDirectoryBytes: ['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(
+            source,
+          )
+            ? 0
+            : 5242880,
           minimumSizeMet: true,
           executionSupported: source !== 'mailSandboxDownloads',
           ...(source === 'vlcPlaylist' ? { playlistPath: args.playlistPath } : {}),
+          ...(source === 'telegramExport' ? { exportPath: args.exportPath } : {}),
         }
         sessionStorage.setItem('personal-report', JSON.stringify(report))
         const state = JSON.parse(sessionStorage.getItem('personal-state')!)

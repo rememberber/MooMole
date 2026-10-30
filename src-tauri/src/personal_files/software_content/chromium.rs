@@ -198,6 +198,7 @@ pub(super) fn collect(
         allocated_at_scan: 0,
         history: Some(database.held.witness.clone()),
         playlist: None,
+        telegram_export: None,
     };
     let report = Report {
         id: uuid::Uuid::new_v4().to_string(),
@@ -218,6 +219,7 @@ pub(super) fn collect(
             minimum_size_met: true,
             execution_supported: true,
             playlist_path: None,
+            export_path: None,
         }),
     };
     Ok(Scan {

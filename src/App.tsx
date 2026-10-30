@@ -282,9 +282,10 @@ export default function App() {
   const [softwareSource, setSoftwareSource] =
     useState<SoftwareContentSource>('mailSandboxDownloads')
   const [mediaPlaylist, setMediaPlaylist] = useState('')
+  const [telegramExport, setTelegramExport] = useState('')
   const contentTransport = useMemo(
-    () => softwareContentTransport(softwareSource, mediaPlaylist),
-    [softwareSource, mediaPlaylist],
+    () => softwareContentTransport(softwareSource, mediaPlaylist, telegramExport),
+    [softwareSource, mediaPlaylist, telegramExport],
   )
   const softwareFiles = usePersonalFiles(
     page === 'softwareCleanup' && softwareTab === 'attachments',
@@ -1244,15 +1245,18 @@ export default function App() {
                       disabled={
                         !canRun ||
                         executionActive ||
-                        (softwareSource === 'vlcPlaylist' && !mediaPlaylist)
+                        (softwareSource === 'vlcPlaylist' && !mediaPlaylist) ||
+                        (softwareSource === 'telegramExport' && !telegramExport)
                       }
                       onClick={() => void softwareFiles.start()}
                     >
                       {softwareSource === 'vlcPlaylist'
                         ? '扫描离线影音'
-                        : softwareSource === 'chromeDownloads'
-                          ? '扫描下载记录'
-                          : '扫描附件副本'}
+                        : softwareSource === 'telegramExport'
+                          ? '扫描聊天导出附件'
+                          : softwareSource === 'chromeDownloads'
+                            ? '扫描下载记录'
+                            : '扫描附件副本'}
                     </button>
                   ))}
                 {(page === 'quickCleanup' ||
@@ -1895,18 +1899,44 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {softwareSource === 'telegramExport' && (
+                <div className="personal-scope">
+                  <label className="personal-path">
+                    <span>聊天导出来源</span>
+                    <input aria-label="聊天导出来源" value={telegramExport} readOnly />
+                  </label>
+                  <button
+                    className="button secondary compact"
+                    disabled={!api.desktop || softwareFiles.running}
+                    onClick={async () => {
+                      try {
+                        const path = await api.chooseTelegramExport()
+                        if (path) setTelegramExport(path)
+                      } catch (reason) {
+                        setError(String(reason))
+                      }
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    选择聊天导出清单
+                  </button>
+                </div>
+              )}
               <PersonalFiles
                 key={softwareSource}
                 controller={softwareFiles}
                 mode={
                   softwareSource === 'vlcPlaylist'
                     ? 'offline'
-                    : softwareSource === 'chromeDownloads'
-                      ? 'downloads'
-                      : 'software'
+                    : softwareSource === 'telegramExport'
+                      ? 'chat'
+                      : softwareSource === 'chromeDownloads'
+                        ? 'downloads'
+                        : 'software'
                 }
                 softwareSource={softwareSource}
                 playlistPath={mediaPlaylist}
+                exportPath={telegramExport}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}

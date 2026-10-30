@@ -37,6 +37,43 @@ function report(): PersonalReport {
   }
 }
 describe('personal file boundaries', () => {
+  it('chat export reports bind the manifest and every attachment to the same export package', () => {
+    const source = report()
+    source.items = source.items.map((i) => ({
+      ...i,
+      path: `${source.root}/ChatExport/files/${i.name}`,
+    }))
+    source.softwareContent = {
+      source: 'telegramExport',
+      minimumAgeDays: 0,
+      minimumDirectoryBytes: 0,
+      minimumSizeMet: true,
+      executionSupported: true,
+      exportPath: `${source.root}/ChatExport/result.json`,
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.softwareContent?.exportPath).toBe(
+      source.softwareContent.exportPath,
+    )
+    for (const mutate of [
+      (s: any) => {
+        delete s.report.softwareContent.exportPath
+      },
+      (s: any) => {
+        s.report.items[0].path = `${source.root}/OtherExport/file.txt`
+      },
+      (s: any) => {
+        s.report.items[0].path = source.softwareContent!.exportPath
+      },
+      (s: any) => {
+        s.report.softwareContent.source = 'chromeDownloads'
+      },
+    ]) {
+      const changed = structuredClone(snapshot)
+      mutate(changed)
+      expect(() => readPersonalSnapshot(changed)).toThrow()
+    }
+  })
   it('offline media reports require a playlist in the reported account scope and cannot relabel another source', () => {
     const source = report()
     source.softwareContent = {
