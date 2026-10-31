@@ -9,6 +9,11 @@ import {
   type UpdateDraft,
   type AppUpdateRecord,
 } from '../lib/application-update'
+import { applicationRestoration, type AppRestoreView } from '../lib/application-restoration'
+import {
+  ApplicationRestorationCenter,
+  ApplicationRestorationHistory,
+} from './ApplicationRestorationCenter'
 
 export function ApplicationUpdateCenter({
   target,
@@ -17,6 +22,7 @@ export function ApplicationUpdateCenter({
   onHistoryClose,
   onActiveChange,
   onOutcome,
+  canRestore = true,
 }: {
   target: UninstallTarget | null
   historyOpen: boolean
@@ -24,19 +30,45 @@ export function ApplicationUpdateCenter({
   onHistoryClose: () => void
   onActiveChange: (v: boolean) => void
   onOutcome: () => void
+  canRestore?: boolean
 }) {
+  const [restore, setRestore] = useState<AppUpdateRecord | null>(null),
+    [updateActive, setUpdateActive] = useState(false),
+    [restoreActive, setRestoreActive] = useState(false),
+    [localHistory, setLocalHistory] = useState(false)
+  useEffect(
+    () => onActiveChange(updateActive || restoreActive),
+    [updateActive, restoreActive, onActiveChange],
+  )
   return (
     <>
+      <ApplicationRestorationCenter
+        source={restore}
+        historyVisible={historyOpen || localHistory}
+        onClose={() => setRestore(null)}
+        onActiveChange={setRestoreActive}
+        onOutcome={onOutcome}
+        onHistory={() => setLocalHistory(true)}
+      />
       {target && (
         <Update
           key={`${target.taskId}:${target.index}`}
           target={target}
           onClose={onClose}
-          onActiveChange={onActiveChange}
+          onActiveChange={setUpdateActive}
           onOutcome={onOutcome}
         />
       )}
-      {historyOpen && !target && <History onClose={onHistoryClose} />}
+      {(historyOpen || localHistory) && !target && !restore && (
+        <History
+          canRestore={canRestore && !updateActive && !restoreActive}
+          onRestore={setRestore}
+          onClose={() => {
+            setLocalHistory(false)
+            onHistoryClose()
+          }}
+        />
+      )}
     </>
   )
 }
@@ -163,7 +195,7 @@ function Update({
       <details>
         <summary>更新范围与恢复边界</summary>
         <p>
-          仅替换此安装位置的完整应用包。旧包保留在独立位置，不修改应用数据，不自动打开应用。恢复旧包需要退出应用后手动替换；新版写入的数据可能不兼容旧版。
+          仅替换此安装位置的完整应用包。旧包保留在独立位置，不修改应用数据，不自动打开应用。有可靠双端收据时可在更新记录中另行确认恢复旧版；新版写入的数据可能不兼容旧版。
         </p>
         <p>
           本轮支持当前账户拥有、未发现运行进程的普通应用与 APFS 安装卷。App
@@ -268,19 +300,34 @@ function Update({
     </Modal>
   )
 }
-function History({ onClose }: { onClose: () => void }) {
+function History({
+  onClose,
+  onRestore,
+  canRestore,
+}: {
+  onClose: () => void
+  onRestore: (r: AppUpdateRecord) => void
+  canRestore: boolean
+}) {
   const [rows, setRows] = useState<AppUpdateRecord[]>([]),
     [error, setError] = useState(''),
     [pending, setPending] = useState(false),
     [checked, setChecked] = useState(new Set<string>())
+  const [restorations, setRestorations] = useState<AppRestoreView>({
+    records: [],
+    activeRequests: [],
+  })
   const generation = useRef(0)
   async function load() {
     const token = ++generation.current
     setPending(true)
     setError('')
     try {
-      const next = await api.list()
-      if (token === generation.current) setRows(next)
+      const [next, restored] = await Promise.all([api.list(), applicationRestoration.read()])
+      if (token === generation.current) {
+        setRows(next)
+        setRestorations(restored)
+      }
     } catch (e) {
       if (token === generation.current) setError(String(e))
     } finally {
@@ -293,6 +340,11 @@ function History({ onClose }: { onClose: () => void }) {
       generation.current++
     }
   }, [])
+  useEffect(() => {
+    if (!restorations.activeRequests.length) return
+    const timer = setTimeout(() => void load(), 700)
+    return () => clearTimeout(timer)
+  }, [restorations])
   return (
     <Modal
       title="应用更新记录"
@@ -318,6 +370,27 @@ function History({ onClose }: { onClose: () => void }) {
           <p className="mono full-path">{r.draft.path}</p>
           <p className="mono full-path">{r.backup}</p>
           <div className="modal-actions">
+            {r.state === 'updated' && r.recoveryAvailable && (
+              <button
+                className="button secondary compact"
+                disabled={
+                  pending ||
+                  !!error ||
+                  !canRestore ||
+                  restorations.records.some(
+                    (x) => x.draft.sourceId === r.id && x.state === 'restored',
+                  ) ||
+                  restorations.records.some(
+                    (x) =>
+                      x.state === 'running' ||
+                      (['unknown', 'interrupted'].includes(x.state) && x.reviewedAt === null),
+                  )
+                }
+                onClick={() => onRestore(r)}
+              >
+                检查并恢复此前版本…
+              </button>
+            )}
             <button
               className="button secondary compact"
               disabled={pending}
@@ -375,6 +448,7 @@ function History({ onClose }: { onClose: () => void }) {
         </article>
       ))}
       {!pending && !rows.length && !error && <p>暂无应用更新记录。</p>}
+      <ApplicationRestorationHistory view={restorations} pending={pending} onRefresh={load} />
       <div className="modal-actions">
         <button className="button secondary" disabled={pending} onClick={() => void load()}>
           刷新记录

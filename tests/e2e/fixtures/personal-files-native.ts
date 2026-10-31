@@ -172,7 +172,11 @@ export async function installPersonalMock(
             if (command === 'get_ai_scan') return null
             if (command === 'personal_move_strategy') return 'sameVolume'
             if (command === 'get_personal_transfers') return { records: [], activeRequests: [] }
-            if (command === 'get_transfer_restorations') return { records: [], activeRequests: [] }
+            if (
+              command === 'get_transfer_restorations' ||
+              command === 'get_application_restorations'
+            )
+              return { records: [], activeRequests: [] }
             if (command === 'get_folder_schedules')
               return { watches: [], records: [], activeRequests: [], error: null }
             if (

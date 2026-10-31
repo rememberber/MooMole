@@ -9485,5 +9485,300 @@
     "连续拍摄仅是元数据与视觉线索，不能证明照片可以互相替代。请核对所选帧与保留帧的表情、清晰度和独有内容；处理前仍会核验双方完整内容。",
     "Capture sequences are metadata and visual hints, not proof that photos are interchangeable. Compare expressions, sharpness and unique content in the selected and retained frames. Both full contents are verified again before processing.",
     "連続撮影はメタデータと見た目による候補で、写真を互いに代用できる証拠ではありません。選択する写真と残す写真の表情、鮮明さ、固有の内容を確認してください。処理前に両方の全内容を再確認します。"
+  ],
+  [
+    "旧版应用恢复仍在进行，请在更新记录中核对两份应用。",
+    "Restoration is still running. Check both application bundles in update history.",
+    "旧版の復元が進行中です。更新履歴で両方のアプリを確認してください。"
+  ],
+  ["查看应用恢复记录", "View application restoration history", "アプリの復元履歴を表示"],
+  ["停止旧版恢复", "Stop restoring the older version", "旧版の復元を停止"],
+  ["恢复此前应用版本", "Restore the previous application version", "以前のアプリバージョンを復元"],
+  ["安装位置", "Installation location", "インストール先"],
+  [
+    "旧版来源 / 新版保留位置",
+    "Older version source / newer version retained here",
+    "旧版の取得元 / 新版の保存先"
+  ],
+  ["旧版逻辑大小", "Older bundle logical size", "旧版の論理サイズ"],
+  [
+    "只恢复应用包，应用数据不回退。新版修改过的文档、偏好或数据库可能不兼容旧版，请先自行备份重要数据并正常退出应用。",
+    "Only the application bundle is restored; application data is not rolled back. Documents, preferences or databases changed by the newer version may be incompatible with the older version. Back up important data and quit the application normally first.",
+    "復元するのはアプリ本体のみで、データは元に戻りません。新版で変更した書類、設定、データベースは旧版と互換性がない場合があります。先に重要なデータをバックアップし、アプリを通常の方法で終了してください。"
+  ],
+  [
+    "恢复时交换两份完整应用：旧版回到安装位置，新版留在原旧版目录。不会删除任何一份、自动退出或打开应用。",
+    "Restoration exchanges the two complete bundles: the older version returns to the installation location and the newer version stays in the former backup folder. Neither bundle is deleted, and applications are not quit or opened automatically.",
+    "2つの完全なアプリ本体を交換します。旧版はインストール先に戻り、新版は旧版があったフォルダに残ります。どちらも削除せず、アプリを自動終了・起動しません。"
+  ],
+  ["旧版恢复与取消边界", "Restoration and cancellation limits", "旧版の復元とキャンセルの範囲"],
+  [
+    "再次核对原更新收据、完整内容、签名、运行状态和当前保护。缺少收据、版本或身份变化时保留；旧历史不能通过重新观察现有包来补造恢复权限。",
+    "The original update receipt, full contents, signatures, running state and current protections are checked again. Missing receipts or changed versions or identities prevent restoration. Inspecting existing bundles cannot grant recovery authority to legacy history.",
+    "元の更新記録、全内容、署名、実行状態、現在の保護設定を再確認します。記録の不足やバージョン・実体の変更がある場合は復元しません。既存のアプリを再確認しても、古い履歴に復元の権限を後付けしません。"
+  ],
+  [
+    "交换前取消停止后续操作；交换后取消不会自动撤回。结果未知时请核对两端，不重复执行或自动反向交换。",
+    "Canceling before the exchange stops further work; canceling afterward does not undo it. If the result is unknown, check both locations. The exchange is never retried or reversed automatically.",
+    "交換前のキャンセルは後続処理を停止します。交換後は自動で元に戻しません。結果が不明な場合は両方の場所を確認してください。自動再実行や逆方向の交換は行いません。"
+  ],
+  [
+    "临时签名只核对完整性，不能确认发布者；首次打开仍由 macOS 决定。",
+    "An ad-hoc signature verifies integrity, not publisher identity. macOS still determines whether the application may open.",
+    "アドホック署名では整合性のみ確認でき、発行元は確認できません。起動の可否は引き続きmacOSが判断します。"
+  ],
+  [
+    "正在核对旧版恢复证据，尚未交换应用。",
+    "Checking restoration evidence; no application exchange has occurred.",
+    "旧版復元の証拠を確認中です。アプリはまだ交換していません。"
+  ],
+  [
+    "正在复查并交换应用包，请等待双端结果。",
+    "Rechecking and exchanging application bundles. Wait for both results.",
+    "アプリを再確認して交換中です。両方の結果をお待ちください。"
+  ],
+  [
+    "旧版恢复请求未返回完整结果，请检查应用恢复记录；不会自动重试。",
+    "The restoration request did not return a complete result. Check restoration history; it will not retry automatically.",
+    "旧版復元の完全な結果が返りませんでした。復元履歴を確認してください。自動再実行はしません。"
+  ],
+  [
+    "我已核对两份应用并备份重要数据，同意恢复旧版且保留新版，了解数据不会回退。",
+    "I checked both bundles and backed up important data. I agree to restore the older version and keep the newer bundle, knowing data will not be rolled back.",
+    "両方のアプリを確認し、重要なデータをバックアップしました。データが元に戻らないことを理解し、新版を残して旧版を復元します。"
+  ],
+  [
+    "旧版恢复确认已过期，请关闭后重新检查。",
+    "The restoration confirmation expired. Close it and check again.",
+    "旧版復元の確認期限が切れました。閉じて再確認してください。"
+  ],
+  ["返回更新记录", "Return to update history", "更新履歴に戻る"],
+  [
+    "确认恢复旧版并保留新版",
+    "Restore older version and retain newer bundle",
+    "新版を残して旧版を復元"
+  ],
+  ["应用旧版恢复结果", "Application version restoration result", "アプリ旧版の復元結果"],
+  ["显示保留包", "Show retained bundle", "保管したアプリを表示"],
+  ["应用旧版恢复记录", "Application version restoration history", "アプリ旧版の復元履歴"],
+  ["旧版恢复记录", "Version restoration history", "旧版の復元履歴"],
+  ["暂无旧版恢复记录。", "No version restoration records yet.", "旧版の復元履歴はありません。"],
+  [
+    "先核对安装位置和保留包。记录核查不会补做恢复、删除文件或改变原结果。",
+    "Check the installation and retained bundle first. Recording a review does not restore, delete files or change the original result.",
+    "インストール先と保管したアプリを先に確認してください。確認の記録によって復元・削除を行ったり、元の結果を変更したりしません。"
+  ],
+  [
+    "我已核对两份实际应用，了解这里只记录核查。",
+    "I checked both actual bundles and understand this only records my review.",
+    "両方の実際のアプリを確認し、ここでは確認内容のみ記録することを理解しました。"
+  ],
+  ["记录旧版恢复已核对", "Record restoration review", "旧版復元の確認を記録"],
+  [
+    "仅替换此安装位置的完整应用包。旧包保留在独立位置，不修改应用数据，不自动打开应用。有可靠双端收据时可在更新记录中另行确认恢复旧版；新版写入的数据可能不兼容旧版。",
+    "Only the complete application bundle at this location is replaced. The old bundle is retained separately; application data is unchanged and the app is not opened automatically. Reliable two-sided receipts allow a separate restoration confirmation in update history. Data written by the newer version may be incompatible with the older version.",
+    "このインストール先の完全なアプリ本体のみ置き換えます。旧版は別の場所に残し、データを変更せず、自動起動しません。両方の実体を示す確実な記録があれば、更新履歴から別途確認して旧版を復元できます。新版が書き込んだデータは旧版と互換性がない場合があります。"
+  ],
+  ["检查并恢复此前版本…", "Check and restore previous version…", "以前のバージョンを確認して復元…"],
+  [
+    "旧版恢复数据无法核对，请检查恢复记录和两份应用；不会自动重试。",
+    "Restoration data could not be verified. Check the history and both bundles; no automatic retry will occur.",
+    "旧版復元のデータを確認できません。履歴と両方のアプリを確認してください。自動再実行はしません。"
+  ],
+  ["旧版恢复进行中", "Version restoration in progress", "旧版を復元中"],
+  [
+    "旧版已恢复，新版保留",
+    "Older version restored; newer bundle retained",
+    "旧版を復元済み、新版は保管"
+  ],
+  ["未恢复，两份应用保留", "Not restored; both bundles retained", "未復元、両方のアプリを保管"],
+  ["旧版恢复已取消", "Version restoration canceled", "旧版の復元をキャンセル済み"],
+  ["旧版恢复结果待核实", "Restoration result needs review", "旧版の復元結果は要確認"],
+  ["旧版恢复已中断", "Version restoration interrupted", "旧版の復元が中断"],
+  [
+    "原应用更新记录不存在。",
+    "The original update record is missing.",
+    "元のアプリ更新記録がありません。"
+  ],
+  [
+    "此更新缺少可靠的双端恢复收据，请保留两份应用并人工核对。",
+    "This update lacks reliable two-sided restoration receipts. Keep both bundles and review them manually.",
+    "この更新には両方の実体を示す確実な復元記録がありません。両方のアプリを残し、手動で確認してください。"
+  ],
+  [
+    "本次更新已经恢复过旧版，不能重复交换。",
+    "This update has already been restored. The exchange cannot be repeated.",
+    "この更新はすでに旧版へ復元済みです。交換を繰り返せません。"
+  ],
+  [
+    "请使用普通账户恢复应用。",
+    "Use a non-root account to restore applications.",
+    "通常のユーザーアカウントでアプリを復元してください。"
+  ],
+  [
+    "保留的旧版位于保护范围，不能恢复。",
+    "The retained older bundle is protected and cannot be restored.",
+    "保管した旧版は保護対象のため復元できません。"
+  ],
+  [
+    "后台专用应用请使用原有管理工具恢复。",
+    "Restore background-only applications using their original management tools.",
+    "バックグラウンド専用アプリは元の管理ツールで復元してください。"
+  ],
+  [
+    "应用恢复仅支持可写的本地 APFS 安装卷。",
+    "Restoration requires a writable local APFS installation volume.",
+    "復元には書き込み可能なローカルAPFSインストールボリュームが必要です。"
+  ],
+  [
+    "缺少应用恢复收据。",
+    "Application restoration receipts are missing.",
+    "アプリ復元の記録がありません。"
+  ],
+  [
+    "原更新收据身份无法核对。",
+    "The original update receipt identity could not be verified.",
+    "元の更新記録の実体を確認できません。"
+  ],
+  [
+    "应用包、保留旧版或目录身份已变化，不能沿用原更新收据。",
+    "An application bundle, retained version or directory identity changed. The original update receipt can no longer authorize restoration.",
+    "アプリ本体、保管した旧版、またはフォルダの実体が変わりました。元の更新記録を復元に使用できません。"
+  ],
+  [
+    "当前或保留应用的版本不再对应原更新记录。",
+    "Current or retained versions no longer match the original update record.",
+    "現在または保管中のバージョンが元の更新記録と一致しません。"
+  ],
+  [
+    "两份应用的签名不再对应原更新。",
+    "The signatures no longer match the original update.",
+    "両方のアプリの署名が元の更新と一致しません。"
+  ],
+  [
+    "原更新记录已变化，请重新核对恢复。",
+    "The original update record changed. Review restoration again.",
+    "元の更新記録が変わりました。復元を再確認してください。"
+  ],
+  [
+    "旧版恢复确认已过期，请重新检查。",
+    "The restoration confirmation expired. Check again.",
+    "旧版復元の確認期限が切れました。再確認してください。"
+  ],
+  [
+    "保护设置或运行环境已变化，请重新准备旧版恢复。",
+    "Protection settings or runtime context changed. Prepare restoration again.",
+    "保護設定または実行環境が変わりました。旧版復元を再準備してください。"
+  ],
+  [
+    "应用身份或签名已变化，恢复保留。",
+    "Application identity or signature changed. Restoration was withheld.",
+    "アプリの実体または署名が変わったため、復元を見送りました。"
+  ],
+  [
+    "两份应用不在同一安装卷，不能交换恢复。",
+    "Both bundles must be on the same installation volume for exchange restoration.",
+    "交換復元には両方のアプリが同じインストールボリュームにある必要があります。"
+  ],
+  [
+    "即将交换两份完整应用，当前新版将保留在原旧版目录。",
+    "About to exchange the complete bundles. The current newer bundle will remain in the former backup folder.",
+    "完全なアプリ本体を交換します。現在の新版は旧版があったフォルダに残します。"
+  ],
+  [
+    "恢复交换后未完成双端核对，请检查实际应用；不会自动反向交换。",
+    "Verification after the exchange did not finish. Check both actual bundles; no automatic reverse exchange will occur.",
+    "交換後の両方の確認が完了しませんでした。実際のアプリを確認してください。自動で逆交換はしません。"
+  ],
+  [
+    "旧版应用包已恢复到安装位置，新版包已保留。应用数据未回退，兼容性仍需自行核对。",
+    "The older bundle is restored to its installation location and the newer bundle retained. Application data was not rolled back; compatibility still needs your review.",
+    "旧版をインストール先に復元し、新版を保管しました。データは元に戻していません。互換性は別途確認してください。"
+  ],
+  [
+    "应用旧版恢复记录无法核对，原记录保留。",
+    "The version restoration record could not be verified. Original records are retained.",
+    "旧版復元の記録を確認できません。元の記録を保持します。"
+  ],
+  [
+    "旧版恢复记录超过容量。",
+    "The restoration record exceeds capacity.",
+    "旧版復元の記録が容量上限を超えています。"
+  ],
+  [
+    "旧版恢复记录格式无法核对。",
+    "The restoration record format could not be verified.",
+    "旧版復元の記録形式を確認できません。"
+  ],
+  [
+    "旧版恢复记录标识不一致。",
+    "Restoration record identifiers do not match.",
+    "旧版復元の記録IDが一致しません。"
+  ],
+  [
+    "旧版恢复记录超过本轮容量。",
+    "Restoration history exceeds this release's capacity.",
+    "旧版復元の履歴が今回の容量上限を超えています。"
+  ],
+  [
+    "应用旧版恢复需要 FULL 同步记录。",
+    "Application restoration requires FULL synchronous journaling.",
+    "アプリ旧版の復元にはFULL同期の記録が必要です。"
+  ],
+  [
+    "旧版恢复记录已被其他请求占用。",
+    "Another request owns this restoration record.",
+    "旧版復元の記録は別のリクエストが使用中です。"
+  ],
+  [
+    "请先核对未完成的旧版恢复记录；本轮最多保留 64 条。",
+    "Review incomplete restorations first. Up to 64 records are retained in this release.",
+    "未完了の旧版復元記録を先に確認してください。今回は最大64件を保持します。"
+  ],
+  [
+    "先前旧版恢复已中断，请检查安装位置与保留包；不会自动重放或反向交换。",
+    "A previous restoration was interrupted. Check the installation and retained bundle; it will not be replayed or reversed automatically.",
+    "以前の旧版復元が中断しました。インストール先と保管したアプリを確認してください。自動再実行や逆交換はしません。"
+  ],
+  [
+    "保护设置在准备期间变化，请重新检查旧版恢复。",
+    "Protection settings changed during preparation. Review restoration again.",
+    "準備中に保護設定が変わりました。旧版復元を再確認してください。"
+  ],
+  [
+    "正在复查旧版恢复，尚未交换应用。",
+    "Rechecking version restoration; the bundles have not been exchanged.",
+    "旧版復元を再確認中です。アプリはまだ交換していません。"
+  ],
+  [
+    "请先确认恢复旧版、保留新版及应用数据不回退的边界。",
+    "Confirm restoring the older version, retaining the newer bundle, and that application data will not be rolled back.",
+    "旧版の復元、新版の保管、データが元に戻らないことを確認してください。"
+  ],
+  [
+    "旧版恢复确认已使用或撤销，请重新检查。",
+    "The restoration confirmation was used or withdrawn. Check again.",
+    "旧版復元の確認は使用済み、または取り消されています。再確認してください。"
+  ],
+  [
+    "请先核对安装位置和保留包，不自动继续恢复。",
+    "Check the installation and retained bundle first. Restoration will not continue automatically.",
+    "インストール先と保管したアプリを先に確認してください。復元を自動続行しません。"
+  ],
+  ["旧版恢复记录不存在。", "The restoration record is missing.", "旧版復元の記録がありません。"],
+  [
+    "此旧版恢复记录无需人工确认。",
+    "This restoration record does not require manual acknowledgement.",
+    "この旧版復元の記録に手動確認は不要です。"
+  ],
+  [
+    "应用更新记录格式无效。",
+    "The application update record format is invalid.",
+    "アプリ更新の記録形式が無効です。"
+  ],
+  [
+    "交换后完整内容变化，请核对两份应用。",
+    "Complete contents changed after the exchange. Check both bundles.",
+    "交換後に全内容が変わりました。両方のアプリを確認してください。"
   ]
 ]

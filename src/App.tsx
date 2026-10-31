@@ -1731,6 +1731,7 @@ export default function App() {
             }}
           />
           <ApplicationUpdateCenter
+            canRestore={canRun && !executionActive}
             target={applicationUpdateTarget}
             historyOpen={applicationUpdateHistory}
             onClose={() => setApplicationUpdateTarget(null)}

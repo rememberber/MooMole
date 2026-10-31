@@ -28,6 +28,7 @@ export type AppUpdateRecord = {
   reason: string
   backup: string
   reviewedAt: number | null
+  recoveryAvailable?: boolean
 }
 function fail(): never {
   throw Error('应用更新数据无法核对，请查看更新记录与实际安装位置；不会自动重试。')
@@ -110,11 +111,14 @@ export function parseAppUpdateRecord(v: unknown): AppUpdateRecord {
     reason: text(a.reason),
     backup: path(a.backup),
     reviewedAt: a.reviewedAt === null ? null : integer(a.reviewedAt),
+    ...(a.recoveryAvailable === undefined ? {} : { recoveryAvailable: a.recoveryAvailable }),
   }
   const parent = draft.path.slice(0, draft.path.lastIndexOf('/')),
     name = draft.path.slice(draft.path.lastIndexOf('/') + 1)
   if (
     result.id !== draft.id ||
+    (a.recoveryAvailable !== undefined && typeof a.recoveryAvailable !== 'boolean') ||
+    (a.recoveryAvailable === true && state !== 'updated') ||
     !['running', 'updated', 'retained', 'cancelled', 'unknown', 'interrupted'].includes(state) ||
     !['checking', 'copying', 'intent', 'finished'].includes(phase) ||
     result.backup !== `${parent}/.moomole-app-update-${draft.id}/${name}` ||
