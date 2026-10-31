@@ -18,6 +18,12 @@ import { comparableVideo, type VideoTarget } from '../lib/video-comparison'
 import type { PreviewTarget } from '../lib/file-preview'
 import type { FileArchiveTarget } from '../lib/file-archive'
 import { transferTransport, type TransferTarget } from '../lib/file-transfer'
+import {
+  defaultBrowserProfile,
+  downloadBrowsers,
+  sameBrowserProfile,
+  type BrowserProfile,
+} from '../lib/browser-downloads'
 
 export function PersonalFiles({
   controller: c,
@@ -31,6 +37,7 @@ export function PersonalFiles({
   softwareSource,
   playlistPath,
   exportPath,
+  browserProfile,
 }: {
   controller: PersonalController
   home: string
@@ -43,6 +50,7 @@ export function PersonalFiles({
   softwareSource?: string
   playlistPath?: string
   exportPath?: string
+  browserProfile?: BrowserProfile | null
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
@@ -78,6 +86,11 @@ export function PersonalFiles({
     (mode !== 'offline' ||
       (!!playlistPath && report.softwareContent?.playlistPath === playlistPath)) &&
     (mode !== 'chat' || (!!exportPath && report.softwareContent?.exportPath === exportPath)) &&
+    (mode !== 'downloads' ||
+      sameBrowserProfile(
+        browserProfile === undefined ? defaultBrowserProfile : browserProfile,
+        report.softwareContent?.browserProfile ?? defaultBrowserProfile,
+      )) &&
     now >= report.createdAt &&
     now < report.expiresAt
   const blocked = (path: string) => protectedPaths.some((rule) => pathOverlaps(path, rule))
@@ -149,7 +162,16 @@ export function PersonalFiles({
     setSelected([])
     setComparisonIds([])
     setComparison(null)
-  }, [c.root, softwareSource, playlistPath, exportPath, photoSequences])
+    setPreview(null)
+  }, [
+    c.root,
+    softwareSource,
+    playlistPath,
+    exportPath,
+    browserProfile?.browser,
+    browserProfile?.profile,
+    photoSequences,
+  ])
   useEffect(() => {
     if (!fresh || c.running) setComparison(null)
   }, [fresh, c.running])
@@ -307,7 +329,7 @@ export function PersonalFiles({
           : mode === 'chat'
             ? '只根据所选 Telegram Desktop JSON 导出清单定位包内附件，默认不选，不扫描软件内部资料库。导出附件可能是唯一副本，无法保证可重新下载；移走会使导出包中的对应链接失效。聊天正文清单、未列入文件和未知格式保留，不影响线上聊天或发送删除消息；先预览并关闭相关文件，再逐项确认。'
             : mode === 'downloads'
-              ? '仅根据浏览器默认配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。'
+              ? '仅根据所选浏览器配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。'
               : mode === 'software'
                 ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
                 : mode === 'similar'
@@ -789,7 +811,13 @@ export function PersonalFiles({
         <p className="empty-inline">
           {mode === 'chat'
             ? '选择 Telegram Desktop 导出的 result.json，再点击顶部“扫描聊天导出附件”。'
-            : '选择下载目录或其他个人目录，再点击顶部“扫描文件”。'}
+            : mode === 'downloads'
+              ? '选择浏览器和配置目录，再点击顶部“扫描下载记录”。'
+              : mode === 'offline'
+                ? '选择播放列表，再点击顶部“扫描离线影音”。'
+                : mode === 'software'
+                  ? '点击顶部“扫描附件副本”，查看可审阅的 Mail 附件副本。'
+                  : '选择下载目录或其他个人目录，再点击顶部“扫描文件”。'}
         </p>
       )}
       {c.result && (
@@ -846,6 +874,19 @@ export function PersonalFiles({
       {confirmation && (
         <Modal title={title} onClose={pending ? undefined : close} className="review-plan-modal">
           <h2>{title}</h2>
+          {mode === 'downloads' && (
+            <p className="notice" data-i18n="off">
+              {
+                downloadBrowsers.find(
+                  (b) =>
+                    b.id ===
+                    (report?.softwareContent?.browserProfile ?? defaultBrowserProfile).browser,
+                )?.label
+              }
+              {' · '}
+              {(report?.softwareContent?.browserProfile ?? defaultBrowserProfile).profile}
+            </p>
+          )}
           {mode === 'similar' && photoSequences && (
             <p className="notice">
               连续拍摄仅是元数据与视觉线索，不能证明照片可以互相替代。请核对所选帧与保留帧的表情、清晰度和独有内容；处理前仍会核验双方完整内容。

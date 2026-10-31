@@ -41,6 +41,8 @@ import {
   type SoftwareContentSource,
 } from './lib/software-content'
 import { usePersonalFiles } from './lib/use-personal-files'
+import type { BrowserProfile } from './lib/browser-downloads'
+import { BrowserDownloadsPicker } from './components/BrowserDownloadsPicker'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
@@ -299,9 +301,10 @@ export default function App() {
     useState<SoftwareContentSource>('mailSandboxDownloads')
   const [mediaPlaylist, setMediaPlaylist] = useState('')
   const [telegramExport, setTelegramExport] = useState('')
+  const [browserProfile, setBrowserProfile] = useState<BrowserProfile | null>(null)
   const contentTransport = useMemo(
-    () => softwareContentTransport(softwareSource, mediaPlaylist, telegramExport),
-    [softwareSource, mediaPlaylist, telegramExport],
+    () => softwareContentTransport(softwareSource, mediaPlaylist, telegramExport, browserProfile),
+    [softwareSource, mediaPlaylist, telegramExport, browserProfile],
   )
   const softwareFiles = usePersonalFiles(
     page === 'softwareCleanup' && softwareTab === 'attachments',
@@ -1320,7 +1323,8 @@ export default function App() {
                         !canRun ||
                         executionActive ||
                         (softwareSource === 'vlcPlaylist' && !mediaPlaylist) ||
-                        (softwareSource === 'telegramExport' && !telegramExport)
+                        (softwareSource === 'telegramExport' && !telegramExport) ||
+                        (softwareSource === 'chromeDownloads' && !browserProfile)
                       }
                       onClick={() => void softwareFiles.start()}
                     >
@@ -2032,6 +2036,14 @@ export default function App() {
                   ))}
                 </select>
               </label>
+              {softwareSource === 'chromeDownloads' && (
+                <BrowserDownloadsPicker
+                  home={data.home}
+                  value={browserProfile}
+                  onChange={setBrowserProfile}
+                  disabled={!api.desktop || softwareFiles.running || !canRun || executionActive}
+                />
+              )}
               {softwareSource === 'vlcPlaylist' && (
                 <div className="personal-scope">
                   <label className="personal-path">
@@ -2093,6 +2105,7 @@ export default function App() {
                 softwareSource={softwareSource}
                 playlistPath={mediaPlaylist}
                 exportPath={telegramExport}
+                browserProfile={browserProfile}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}

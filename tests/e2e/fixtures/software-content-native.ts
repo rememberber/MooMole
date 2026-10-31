@@ -35,6 +35,31 @@ export async function installSoftwareContentMock(page: Page) {
         return sessionStorage.getItem('playlist-picker-cancelled')
           ? null
           : sessionStorage.getItem('playlist-picker-path') || '/Users/demo/Movies/offline.m3u8'
+      if (command === 'list_browser_download_profiles') {
+        if (sessionStorage.getItem('browser-profile-error')) throw Error('配置读取失败，请重试')
+        const browser = args.browser
+        const relative: Record<string, string> = {
+          chrome: 'Google/Chrome',
+          chromium: 'Chromium',
+          edge: 'Microsoft Edge',
+          brave: 'BraveSoftware/Brave-Browser',
+        }
+        const names = sessionStorage.getItem('browser-profile-empty')
+          ? []
+          : ['Default', 'Profile 2']
+        const delay = Number(sessionStorage.getItem(`browser-profile-delay-${browser}`) || '0')
+        const response = {
+          browser,
+          profiles: names.map((profile) => ({
+            selection: { browser, profile },
+            historyPath: `/Users/demo/Library/Application Support/${relative[browser]}/${profile}/History`,
+          })),
+          complete: !sessionStorage.getItem('browser-profile-incomplete'),
+          skipped: 0,
+        }
+        if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
+        return response
+      }
       if (command === 'start_software_content') {
         await original('start_personal_scan', {
           root: '/Users/demo/Downloads',
@@ -74,6 +99,7 @@ export async function installSoftwareContentMock(page: Page) {
           minimumSizeMet: true,
           executionSupported: source !== 'mailSandboxDownloads',
           ...(source === 'vlcPlaylist' ? { playlistPath: args.playlistPath } : {}),
+          ...(source === 'chromeDownloads' ? { browserProfile: args.browserProfile } : {}),
           ...(source === 'telegramExport' ? { exportPath: args.exportPath } : {}),
         }
         sessionStorage.setItem('personal-report', JSON.stringify(report))

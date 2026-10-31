@@ -10339,5 +10339,146 @@
     "请先核对未完成的文件归档记录。",
     "Review incomplete file archive records first.",
     "未完了のファイルアーカイブ記録を先に確認してください。"
+  ],
+  ["配置目录", "Profile folder", "プロファイルフォルダ"],
+  ["浏览器配置目录", "Browser profile folder", "ブラウザのプロファイルフォルダ"],
+  ["选择配置目录", "Choose a profile folder", "プロファイルフォルダを選択"],
+  ["正在检查配置…", "Checking profiles…", "プロファイルを確認中…"],
+  ["重新检测配置", "Check profiles again", "プロファイルを再確認"],
+  [
+    "未发现可读取的已支持配置；这不代表浏览器没有下载文件。",
+    "No readable supported profiles were found. This does not mean the browser has no downloaded files.",
+    "読み取り可能な対応プロファイルが見つかりません。ブラウザでダウンロードしたファイルがないことを意味しません。"
+  ],
+  [
+    "配置检查未完整覆盖，部分配置未读取；未知范围保持原样。",
+    "The profile check is incomplete. Some profiles were not read; unchecked locations remain unchanged.",
+    "プロファイルの確認は未完了です。一部は読み取っていません。未確認の範囲はそのまま保持します。"
+  ],
+  [
+    "仅列出标准位置的 Default 和 Profile 数字目录，不读取账户名称。访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。",
+    "Lists only Default and numbered Profile folders in standard locations, without reading account names. Guest, private and system profiles, other browsers and custom locations are not yet supported.",
+    "標準の場所にある Default と Profile 数字フォルダのみを表示し、アカウント名は読み取りません。ゲスト、シークレット、システム用のプロファイル、その他のブラウザと独自の場所には未対応です。"
+  ],
+  [
+    "仅根据所选浏览器配置中已完成的下载记录定位普通文件，不遍历整个账户目录。下载记录仅提供来源线索，不证明当前内容仍与原下载相同、可重新下载或可以删除；默认不选。只处理所选本地文件，浏览器历史和下载记录保持原样。",
+    "Locates ordinary files only from completed downloads in the selected browser profile, without scanning the entire home folder. Download records are source clues; they do not prove files are unchanged, available to download again, or disposable. Nothing is selected by default. Only selected local files are processed; browser history and download records remain unchanged.",
+    "選択したブラウザプロファイルの完了済みダウンロード記録から通常ファイルを探し、ホームフォルダ全体は走査しません。記録は出所の手がかりにすぎず、内容が元のまま、再ダウンロード可能、または削除可能とは限りません。初期状態では未選択です。選択したローカルファイルのみを処理し、ブラウザの履歴とダウンロード記録は保持します。"
+  ],
+  [
+    "浏览器配置返回格式无法核对。",
+    "The returned browser profile could not be verified.",
+    "返されたブラウザプロファイルを確認できません。"
+  ],
+  [
+    "浏览器配置列表与当前选择不匹配。",
+    "The profile list does not match the selected browser.",
+    "プロファイル一覧が選択したブラウザと一致しません。"
+  ],
+  ["浏览器已完成下载", "Completed browser downloads", "ブラウザの完了済みダウンロード"],
+  [
+    "请先选择可读取的浏览器配置目录。",
+    "Choose a readable browser profile first.",
+    "読み取り可能なブラウザプロファイルを先に選択してください。"
+  ],
+  [
+    "请先确认首次使用说明，或等待退出任务结束。",
+    "Acknowledge the first-use notice, or wait for shutdown tasks to finish.",
+    "初回利用の説明を確認するか、終了処理が完了するまでお待ちください。"
+  ],
+  [
+    "浏览器配置检查未完成。",
+    "The browser profile check did not finish.",
+    "ブラウザプロファイルの確認が完了しませんでした。"
+  ],
+  [
+    "此软件内容来源不接受浏览器配置。",
+    "This content source does not accept a browser profile.",
+    "このコンテンツの出所にはブラウザプロファイルを指定できません。"
+  ],
+  [
+    "浏览器下载来源缺失，本项保留。",
+    "The browser download source is missing. This item was retained.",
+    "ブラウザダウンロードの出所がありません。この項目を保持しました。"
+  ],
+  [
+    "浏览器配置路径缺失。",
+    "The browser profile path is missing.",
+    "ブラウザプロファイルのパスがありません。"
+  ],
+  [
+    "浏览器配置目录身份已变化，请重新扫描；本项保留。",
+    "The browser profile folder identity changed. Scan again; this item was retained.",
+    "ブラウザプロファイルフォルダの識別情報が変わりました。再走査してください。この項目は保持しました。"
+  ],
+  [
+    "浏览器或配置目录不属于已支持的固定范围。",
+    "The browser or profile folder is outside the supported fixed locations.",
+    "ブラウザまたはプロファイルフォルダが対応する固定範囲にありません。"
+  ],
+  [
+    "账户目录范围无法核对。",
+    "The home folder scope could not be verified.",
+    "ホームフォルダの範囲を確認できません。"
+  ],
+  [
+    "浏览器配置目录与保护范围重叠，未读取。",
+    "The browser profile folder overlaps a protected location and was not read.",
+    "ブラウザプロファイルフォルダが保護範囲と重なるため、読み取りませんでした。"
+  ],
+  [
+    "无法确认浏览器配置目录，未检查的范围保持未知。",
+    "The browser profile folder could not be verified. Unchecked locations remain unknown.",
+    "ブラウザプロファイルフォルダを確認できません。未確認の範囲は不明のままです。"
+  ],
+  [
+    "浏览器配置目录不是当前账户的普通本地目录。",
+    "The browser profile folder is not an ordinary local folder owned by this user.",
+    "ブラウザプロファイルフォルダは、このユーザーが所有する通常のローカルフォルダではありません。"
+  ],
+  [
+    "无法列出浏览器配置目录。",
+    "Browser profile folders could not be listed.",
+    "ブラウザプロファイルフォルダを一覧表示できません。"
+  ],
+  [
+    "配置路径无法编码。",
+    "The profile path could not be encoded.",
+    "プロファイルのパスをエンコードできません。"
+  ],
+  [
+    "此来源没有已适配的下载记录。",
+    "This source has no supported download records.",
+    "この出所には対応するダウンロード記録がありません。"
+  ],
+  [
+    "浏览器存在未适配的回滚日志或状态未知，请正常关闭浏览器后重新扫描。",
+    "The browser has an unsupported rollback journal or its state is unknown. Close the browser normally, then scan again.",
+    "ブラウザに未対応のロールバックジャーナルがあるか、状態が不明です。通常の方法でブラウザを終了してから再走査してください。"
+  ],
+  [
+    "浏览器下载记录与保护范围重叠，未读取。",
+    "The browser download records overlap a protected location and were not read.",
+    "ブラウザのダウンロード記録が保護範囲と重なるため、読み取りませんでした。"
+  ],
+  [
+    "浏览器回滚日志状态在读取期间变化，请重新扫描。",
+    "The browser rollback journal state changed while reading. Scan again.",
+    "読み取り中にブラウザのロールバックジャーナルの状態が変わりました。再走査してください。"
+  ],
+  [
+    "选择浏览器和配置目录，再点击顶部“扫描下载记录”。",
+    "Choose a browser and profile folder, then click “Scan download records” above.",
+    "ブラウザとプロファイルフォルダを選択し、上部の「ダウンロード記録を走査」をクリックしてください。"
+  ],
+  [
+    "选择播放列表，再点击顶部“扫描离线影音”。",
+    "Choose a playlist, then click “Scan offline media” above.",
+    "プレイリストを選択し、上部の「オフラインメディアを走査」をクリックしてください。"
+  ],
+  [
+    "点击顶部“扫描附件副本”，查看可审阅的 Mail 附件副本。",
+    "Click “Scan attachment copies” above to review Mail attachment copies.",
+    "上部の「添付ファイルのコピーを走査」をクリックして、Mail の添付ファイルのコピーを確認してください。"
   ]
 ]

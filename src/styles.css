@@ -4716,3 +4716,12 @@ input[type='checkbox'] {
 .transfer-restoration-modal details {
   margin: 14px 0;
 }
+
+.browser-downloads-picker {
+  margin-bottom: 12px;
+}
+.browser-history-path {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  margin: 6px 0;
+}

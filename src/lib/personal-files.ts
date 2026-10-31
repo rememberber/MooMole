@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { ExecutionDetail } from '../types'
 import { fileKind, type FileKind } from './large-files'
 import { getLocale } from '../i18n/locale'
+import { readBrowserProfile, type BrowserProfile } from './browser-downloads'
 
 export interface PersonalFile {
   id: string
@@ -60,6 +61,7 @@ export interface PersonalReport {
     executionSupported: boolean
     playlistPath?: string
     exportPath?: string
+    browserProfile?: BrowserProfile
   }
 }
 export interface PersonalSnapshot {
@@ -294,7 +296,10 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
     }
     if (r.softwareContent !== undefined) {
       const s = object(r.softwareContent)
+      const browserProfile =
+        s.browserProfile === undefined ? undefined : readBrowserProfile(s.browserProfile)
       if (
+        (browserProfile !== undefined && s.source !== 'chromeDownloads') ||
         r.duplicates !== undefined ||
         r.similarPhotos !== undefined ||
         ![
@@ -346,6 +351,7 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         executionSupported: s.executionSupported as boolean,
         ...(s.source === 'vlcPlaylist' ? { playlistPath: path(s.playlistPath) } : {}),
         ...(s.source === 'telegramExport' ? { exportPath: path(s.exportPath) } : {}),
+        ...(browserProfile ? { browserProfile } : {}),
       }
     }
     if (r.similarPhotos !== undefined) {

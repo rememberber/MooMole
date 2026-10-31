@@ -224,3 +224,126 @@ test('changing a playlist or source withdraws previous file selection until resc
     ),
   ).toBe(false)
 })
+
+test('multi-browser profiles bind scans and confirmations and changing a profile withdraws old choices', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 780 })
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')
+  const browser = main.getByRole('combobox', { name: '浏览器', exact: true })
+  await expect(browser).toBeEnabled()
+  await browser.selectOption('edge')
+  const profile = main.getByRole('combobox', { name: '浏览器配置目录' })
+  await expect(profile).toBeEnabled()
+  await profile.selectOption('Profile 2')
+  await expect(main).toContainText('/Microsoft Edge/Profile 2/History')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: '.cache/browser-downloads-picker.png' })
+  await page.getByRole('button', { name: '扫描下载记录', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await list.getByRole('checkbox').first().check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认处理浏览器下载' })
+  await expect(dialog).toContainText('Microsoft Edge · Profile 2')
+  await page.screenshot({
+    path: '.cache/browser-downloads-confirmation.png',
+    animations: 'disabled',
+  })
+  await dialog.getByRole('button', { name: '返回选择' }).click()
+  await profile.selectOption('Default')
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await expect(list.getByRole('checkbox').first()).toBeDisabled()
+  await page.getByRole('button', { name: '扫描下载记录', exact: true }).click()
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await list.getByRole('checkbox').first().check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  await expect(dialog).toContainText('Microsoft Edge · Default')
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(
+    calls
+      .filter((c: any) => c.command === 'start_software_content')
+      .map((c: any) => c.args.browserProfile),
+  ).toEqual([
+    { browser: 'edge', profile: 'Profile 2' },
+    { browser: 'edge', profile: 'Default' },
+  ])
+  expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
+})
+
+test('unknown and failed profile reads block scanning and refresh does not submit a file operation', async ({
+  page,
+}) => {
+  const main = await open(page)
+  await page.evaluate(() => sessionStorage.setItem('browser-profile-error', '1'))
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')
+  await expect(main.getByRole('alert')).toContainText('配置读取失败')
+  await expect(page.getByRole('button', { name: '扫描下载记录', exact: true })).toBeDisabled()
+  await page.evaluate(() => {
+    sessionStorage.removeItem('browser-profile-error')
+    sessionStorage.setItem('browser-profile-empty', '1')
+    sessionStorage.setItem('browser-profile-incomplete', '1')
+  })
+  await main.getByRole('button', { name: '重新检测配置' }).click()
+  await expect(main).toContainText('这不代表浏览器没有下载文件')
+  await expect(main).toContainText('配置检查未完整覆盖')
+  await expect(page.getByRole('button', { name: '扫描下载记录', exact: true })).toBeDisabled()
+  await page.evaluate(() => {
+    sessionStorage.removeItem('browser-profile-empty')
+    sessionStorage.removeItem('browser-profile-incomplete')
+  })
+  await main.getByRole('button', { name: '重新检测配置' }).click()
+  await expect(page.getByRole('button', { name: '扫描下载记录', exact: true })).toBeEnabled()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(
+    calls.some((c: any) =>
+      ['start_software_content', 'execute_software_trash', 'prepare_software_trash'].includes(
+        c.command,
+      ),
+    ),
+  ).toBe(false)
+})
+
+test('profile controls translate while keeping browser IDs, profile names and raw paths', async ({
+  page,
+}) => {
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')
+  const browser = main.getByRole('combobox', { name: '浏览器', exact: true })
+  await expect(browser).toBeEnabled()
+  await browser.selectOption('edge')
+  const profile = main.getByRole('combobox', { name: '浏览器配置目录' })
+  await expect(profile).toBeEnabled()
+  await profile.selectOption('Profile 2')
+  for (const [language, label] of [
+    ['en', 'Browser profile folder'],
+    ['ja', 'ブラウザのプロファイルフォルダ'],
+  ]) {
+    await page.evaluate(
+      async (language) => (await import('/src/i18n/locale.ts')).setLanguagePreference(language),
+      language,
+    )
+    await expect(page.getByRole('combobox', { name: label })).toHaveValue('Profile 2')
+    await expect(
+      page.getByText('/Users/demo/Library/Application Support/Microsoft Edge/Profile 2/History', {
+        exact: true,
+      }),
+    ).toBeVisible()
+  }
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(
+    calls.some(
+      (c: any) => c.command === 'start_software_content' || c.command === 'execute_software_trash',
+    ),
+  ).toBe(false)
+})
