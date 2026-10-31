@@ -41,6 +41,7 @@ pub(super) fn insert(db: &mut db::Database, plan: &Plan, record: &Record) -> Res
     let t = db
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| e.to_string())?;
+    super::super::folder_archive::journal::admission(&t)?;
     t.execute_batch("CREATE TABLE IF NOT EXISTS personal_archives(id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL, body TEXT NOT NULL CHECK(length(CAST(body AS BLOB))<=131072), snapshot TEXT NOT NULL CHECK(length(CAST(snapshot AS BLOB))<=524288));").map_err(|e| e.to_string())?;
     let records = list(&t)?;
     if records.len() >= 64
@@ -66,6 +67,19 @@ pub(super) fn insert(db: &mut db::Database, plan: &Plan, record: &Record) -> Res
     )
     .map_err(|e| e.to_string())?;
     t.commit().map_err(|e| e.to_string())
+}
+pub(in crate::personal_files) fn admission(db: &Connection) -> Result<(), String> {
+    let records = list(db)?;
+    if records.len() >= 64
+        || records.iter().any(|r| {
+            r.state == "running"
+                || r.reviewed_at.is_none()
+                    && matches!(r.state.as_str(), "uncertain" | "interrupted")
+        })
+    {
+        return Err("请先核对未完成的文件归档记录。".into());
+    }
+    Ok(())
 }
 pub(super) fn acknowledge(db: &Connection, id: &str) -> Result<Record, String> {
     let mut record = list(db)?

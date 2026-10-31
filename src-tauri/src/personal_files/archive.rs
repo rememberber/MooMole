@@ -73,6 +73,7 @@ pub(crate) struct Draft {
 #[derive(Default)]
 pub(crate) struct Store {
     plans: HashMap<String, (Plan, Instant)>,
+    pub(super) folder_plan: Option<super::folder_archive::Plan>,
 }
 impl Store {
     fn publish(&mut self, plan: Plan) -> Result<Draft, String> {
@@ -184,7 +185,7 @@ fn validate(plan: &Plan, settings: &db::Settings) -> Result<AnchoredPath, String
     }
     Ok(target)
 }
-fn check(job: &Job, started: Instant) -> Result<(), String> {
+pub(super) fn check(job: &Job, started: Instant) -> Result<(), String> {
     if job.cancelled.load(Ordering::SeqCst) {
         Err("归档已取消，原文件保留。".into())
     } else if started.elapsed() > BUDGET {
@@ -195,10 +196,10 @@ fn check(job: &Job, started: Instant) -> Result<(), String> {
 }
 // Own the exact temporary inode under a held physical parent. Cleanup never
 // unlinks a replacement file or uses an unvalidated absolute path.
-struct Temporary {
-    parent: File,
-    name: CString,
-    file: File,
+pub(super) struct Temporary {
+    pub(super) parent: File,
+    pub(super) name: CString,
+    pub(super) file: File,
 }
 impl Drop for Temporary {
     fn drop(&mut self) {
@@ -222,7 +223,7 @@ impl Drop for Temporary {
         }
     }
 }
-fn create(parent: &AnchoredPath, name: &str) -> Result<Temporary, String> {
+pub(super) fn create(parent: &AnchoredPath, name: &str) -> Result<Temporary, String> {
     let name = CString::new(name).map_err(|e| e.to_string())?;
     let fd = unsafe {
         libc::openat(
@@ -242,7 +243,7 @@ fn create(parent: &AnchoredPath, name: &str) -> Result<Temporary, String> {
         file,
     })
 }
-fn open_read(held: &AnchoredPath) -> Result<File, String> {
+pub(super) fn open_read(held: &AnchoredPath) -> Result<File, String> {
     let node = held.witness.nodes.last().ok_or("缺少文件身份。")?;
     let name = CString::new(
         node.path
@@ -269,7 +270,7 @@ fn open_read(held: &AnchoredPath) -> Result<File, String> {
     held.validate()?;
     Ok(file)
 }
-fn digest(
+pub(super) fn digest(
     mut input: impl Read,
     job: &Job,
     started: Instant,
@@ -295,7 +296,9 @@ fn digest(
     }
     Ok(format!("{:x}", hash.finalize()))
 }
-fn stamp(m: &std::fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64, u64, u32, u32, u32) {
+pub(super) fn stamp(
+    m: &std::fs::Metadata,
+) -> (u64, u64, u64, i64, i64, i64, i64, u64, u32, u32, u32) {
     (
         m.dev(),
         m.ino(),

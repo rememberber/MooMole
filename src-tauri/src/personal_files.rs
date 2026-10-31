@@ -13,6 +13,7 @@ pub(crate) mod archive;
 pub(crate) mod automation;
 pub(crate) mod commands;
 pub(crate) mod duplicates;
+pub(crate) mod folder_archive;
 mod media;
 pub(crate) mod movement;
 pub(crate) mod preview;
