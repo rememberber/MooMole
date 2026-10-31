@@ -13,6 +13,8 @@ import { CleanupResultSummary } from './CleanupResultSummary'
 import { ExecutionReason } from './ExecutionReason'
 import { ExecutionLocation } from './ExecutionLocation'
 import { FilePreview } from './FilePreview'
+import { VideoComparison } from './VideoComparison'
+import { comparableVideo, type VideoTarget } from '../lib/video-comparison'
 import type { PreviewTarget } from '../lib/file-preview'
 import type { FileArchiveTarget } from '../lib/file-archive'
 import { transferTransport, type TransferTarget } from '../lib/file-transfer'
@@ -43,6 +45,8 @@ export function PersonalFiles({
   exportPath?: string
 }) {
   const [preview, setPreview] = useState<PreviewTarget | null>(null)
+  const [comparisonIds, setComparisonIds] = useState<string[]>([])
+  const [comparison, setComparison] = useState<VideoTarget[] | null>(null)
   const [focusOnly, setFocusOnly] = useState(false)
   const language = useLanguage()
   const software =
@@ -80,6 +84,21 @@ export function PersonalFiles({
     report?.items.filter(
       (item) => actionable && selected.includes(item.id) && !blocked(item.path) && fresh,
     ) ?? []
+  const compared =
+    report?.items.filter(
+      (item) =>
+        comparisonIds.includes(item.id) &&
+        comparableVideo(item.path) &&
+        !blocked(item.path) &&
+        fresh,
+    ) ?? []
+  const previewDomain: PreviewTarget['domain'] = software
+    ? 'softwareContent'
+    : mode === 'similar'
+      ? 'similarPhotos'
+      : mode === 'duplicates'
+        ? 'duplicateFiles'
+        : 'personalFiles'
   const items = useMemo(
     () =>
       filterPersonalFiles(report?.items ?? [], query, kind, minimum, older, now, sort).filter(
@@ -118,9 +137,18 @@ export function PersonalFiles({
     setSelected([])
     setLimit(100)
     setPreview(null)
+    setComparisonIds([])
+    setComparison(null)
     setFocusOnly(!!report?.aiFocus)
   }, [report?.id])
-  useEffect(() => setSelected([]), [c.root, softwareSource, playlistPath, exportPath])
+  useEffect(() => {
+    setSelected([])
+    setComparisonIds([])
+    setComparison(null)
+  }, [c.root, softwareSource, playlistPath, exportPath])
+  useEffect(() => {
+    if (!fresh || c.running) setComparison(null)
+  }, [fresh, c.running])
   useEffect(() => {
     setLimit(100)
   }, [query, kind, minimum, older, sort])
@@ -175,6 +203,27 @@ export function PersonalFiles({
   return (
     <div className="personal-files">
       <FilePreview target={preview} onClose={() => setPreview(null)} />
+      <VideoComparison
+        targets={comparison}
+        onClose={() => setComparison(null)}
+        onChoose={(ids) => {
+          if (!comparison || !fresh || c.running) return '当前扫描已失效，请关闭对比后重新扫描。'
+          const pool = new Set(comparison.map((t) => t.itemId))
+          const allowed = ids.filter(
+            (id) => pool.has(id) && report?.items.some((i) => i.id === id && !blocked(i.path)),
+          )
+          if (allowed.length !== ids.length)
+            return '文件选择或保护范围已变化，请关闭对比后重新扫描。'
+          const next = [
+            ...chosen.filter((item) => !pool.has(item.id)).map((item) => item.id),
+            ...allowed,
+          ]
+          if (next.length > 20) return '每批最多选择 20 项，请减少本次对比中的处理选择。'
+          if (groups.some((g) => g.itemIds.every((id) => next.includes(id))))
+            return '每组至少保留一份，请调整视频选择。'
+          setSelected(next)
+        }}
+      />
       <form
         id="personal-files-form"
         className="personal-scope"
@@ -387,6 +436,46 @@ export function PersonalFiles({
             </select>
           </div>
           <div className="personal-selection">
+            {(mode === 'personal' || mode === 'duplicates' || software) &&
+              report.items.some((item) => comparableVideo(item.path)) && (
+                <>
+                  <button
+                    className="button secondary compact"
+                    disabled={
+                      !enabled ||
+                      c.running ||
+                      pending ||
+                      compared.length < 2 ||
+                      compared.length > 4 ||
+                      !fresh
+                    }
+                    onClick={() => {
+                      setPreview(null)
+                      setComparison(
+                        compared.map((item) => ({
+                          domain: previewDomain,
+                          scanId: report.id,
+                          itemId: item.id,
+                          path: item.path,
+                          name: item.name,
+                          size: item.size,
+                        })),
+                      )
+                    }}
+                  >
+                    并排对比 {compared.length} 段视频
+                  </button>
+                  {comparisonIds.length > 0 && (
+                    <button
+                      className="button text compact"
+                      disabled={pending || c.running}
+                      onClick={() => setComparisonIds([])}
+                    >
+                      清空对比
+                    </button>
+                  )}
+                </>
+              )}
             <strong>
               已选 {chosen.length} 项 · {bytes(chosen.reduce((sum, item) => sum + item.size, 0))}
             </strong>
@@ -580,26 +669,51 @@ export function PersonalFiles({
                       )}
                       {bytes(item.size)}
                     </span>
-                    <button
-                      className="button secondary compact"
-                      disabled={!enabled || !fresh || blocked(item.path) || c.running || pending}
-                      onClick={() =>
-                        setPreview({
-                          domain: software
-                            ? 'softwareContent'
-                            : mode === 'similar'
-                              ? 'similarPhotos'
-                              : mode === 'duplicates'
-                                ? 'duplicateFiles'
-                                : 'personalFiles',
-                          scanId: report!.id,
-                          itemId: item.id,
-                          path: item.path,
-                        })
-                      }
-                    >
-                      预览内容
-                    </button>
+                    <div className="personal-preview-actions">
+                      <button
+                        className="button secondary compact"
+                        disabled={!enabled || !fresh || blocked(item.path) || c.running || pending}
+                        onClick={() =>
+                          setPreview({
+                            domain: software
+                              ? 'softwareContent'
+                              : mode === 'similar'
+                                ? 'similarPhotos'
+                                : mode === 'duplicates'
+                                  ? 'duplicateFiles'
+                                  : 'personalFiles',
+                            scanId: report!.id,
+                            itemId: item.id,
+                            path: item.path,
+                          })
+                        }
+                      >
+                        预览内容
+                      </button>
+                      {comparableVideo(item.path) && mode !== 'similar' && (
+                        <button
+                          className="button secondary compact"
+                          aria-pressed={comparisonIds.includes(item.id)}
+                          disabled={
+                            !enabled ||
+                            !fresh ||
+                            blocked(item.path) ||
+                            c.running ||
+                            pending ||
+                            (!comparisonIds.includes(item.id) && compared.length >= 4)
+                          }
+                          onClick={() =>
+                            setComparisonIds((ids) =>
+                              ids.includes(item.id)
+                                ? ids.filter((id) => id !== item.id)
+                                : [...ids, item.id],
+                            )
+                          }
+                        >
+                          {comparisonIds.includes(item.id) ? '移出视频对比' : '加入视频对比'}
+                        </button>
+                      )}
+                    </div>
                     <button
                       className="button secondary compact"
                       disabled={!api.desktop}

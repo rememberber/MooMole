@@ -8963,5 +8963,135 @@
     "新版已放入原安装位置，旧版应用包已保留。应用数据未修改；首次打开仍由 macOS 决定。",
     "The new app is at the original installation and the old package is retained. App data was not modified; macOS still controls first launch.",
     "新版を元のインストール先に配置し、旧パッケージを保持しました。アプリデータは変更していません。初回起動はmacOSの判断に従います。"
+  ],
+  [
+    "当前扫描已失效，请关闭对比后重新扫描。",
+    "The current scan is no longer valid. Close comparison and scan again.",
+    "現在のスキャンは無効です。比較を閉じて再スキャンしてください。"
+  ],
+  [
+    "文件选择或保护范围已变化，请关闭对比后重新扫描。",
+    "File selection or protection changed. Close comparison and scan again.",
+    "ファイル選択または保護範囲が変わりました。比較を閉じて再スキャンしてください。"
+  ],
+  [
+    "每批最多选择 20 项，请减少本次对比中的处理选择。",
+    "Select up to 20 items per batch. Reduce the processing choices in this comparison.",
+    "1回に選択できるのは20項目までです。この比較から処理する選択を減らしてください。"
+  ],
+  [
+    "每组至少保留一份，请调整视频选择。",
+    "Keep at least one copy per group. Adjust the video selection.",
+    "各グループで少なくとも1つを保持してください。動画の選択を調整してください。"
+  ],
+  ["并排对比 {0} 段视频", "Compare {0} videos side by side", "動画{0}本を並べて比較"],
+  ["并排对比", "Compare side by side", "並べて比較"],
+  ["段视频", "videos", "本の動画"],
+  ["清空对比", "Clear comparison", "比較をクリア"],
+  ["移出视频对比", "Remove from video comparison", "動画比較から外す"],
+  ["加入视频对比", "Add to video comparison", "動画比較に追加"],
+  [
+    "视频对比已过期，请关闭后重新扫描。",
+    "Video comparison expired. Close it and scan again.",
+    "動画比較の有効期限が切れました。閉じて再スキャンしてください。"
+  ],
+  [
+    "部分视频无法播放，已停止全部对比；请核对系统编码支持或重新扫描。",
+    "Some videos could not play, so all comparison playback stopped. Check system codec support or scan again.",
+    "再生できない動画があるため、比較の再生をすべて停止しました。システムのコーデック対応を確認するか、再スキャンしてください。"
+  ],
+  ["视频并排对比", "Side-by-side video comparison", "動画を並べて比較"],
+  [
+    "逐段核对画面、声音和路径，再选择需要处理的文件。默认不选、不自动播放，也不认定这些视频相同或相似。",
+    "Check each video's picture, sound and path before choosing files to process. Nothing is selected or played automatically, and the videos are not classified as identical or similar.",
+    "各動画の映像、音声、パスを確認してから処理するファイルを選んでください。初期状態では選択も自動再生もせず、同一・類似動画と判定しません。"
+  ],
+  ["正在准备所选视频…", "Preparing selected videos…", "選択した動画を準備中…"],
+  ["一起播放", "Play together", "一緒に再生"],
+  ["全部暂停", "Pause all", "すべて一時停止"],
+  ["共同定位", "Seek together", "まとめて位置を指定"],
+  ["视频共同定位", "Seek all videos", "動画の共通再生位置"],
+  ["全部静音", "Mute all", "すべてミュート"],
+  [
+    "共同定位以最短视频的时长为限；各段也可单独播放和定位。一起播放不保证逐帧同步，声音默认静音，每次只听一段。",
+    "Shared seeking is limited to the shortest video. Each video can also play and seek independently. Group playback is not frame synchronized. Audio starts muted; listen to one video at a time.",
+    "共通の再生位置は最短動画の長さまで指定できます。個別の再生・位置指定も可能です。同時再生はフレーム単位の同期を保証しません。音声は初期状態でミュートされ、一度に1本だけ聴けます。"
+  ],
+  ["对比视频 {0}", "Comparison video {0}", "比較動画 {0}"],
+  [
+    "视频时长无法核对，已停止对比。",
+    "Video duration could not be verified. Comparison stopped.",
+    "動画の長さを確認できないため、比較を停止しました。"
+  ],
+  ["待处理 {0}", "Choose for processing: {0}", "処理対象: {0}"],
+  ["带回列表后处理", "Choose for processing in the file list", "一覧に戻して処理する"],
+  ["听取 {0}", "Listen to {0}", "{0} の音声を聴く"],
+  ["听此段声音", "Listen to this video", "この動画の音声を聴く"],
+  [
+    "仅将本次对比的选择带回文件列表，其他文件的勾选保持。移动、归档或废纸篓处理仍需另行确认；对比不是内容相同的证明，也不是处理许可。",
+    "Only choices for these comparison videos return to the file list; other selections remain. Moving, archiving or sending to Trash requires separate confirmation. Comparison does not prove identical contents or grant permission to process files.",
+    "この比較の選択だけをファイル一覧に反映し、他の選択は保持します。移動、アーカイブ、ゴミ箱への処理には別途確認が必要です。比較は内容が同一である証明でも処理の許可でもありません。"
+  ],
+  ["取消对比", "Cancel comparison", "比較をキャンセル"],
+  ["将选择带回文件列表", "Apply choices to the file list", "選択をファイル一覧に反映"],
+  [
+    "视频对比结果与本次选择不一致，已停止显示；请重新扫描。",
+    "The video comparison result does not match this selection. Display stopped; scan again.",
+    "動画比較の結果が今回の選択と一致しないため、表示を停止しました。再スキャンしてください。"
+  ],
+  [
+    "视频对比标识无效。",
+    "The video comparison identifier is invalid.",
+    "動画比較の識別子が無効です。"
+  ],
+  [
+    "预览会话数量超限。",
+    "The preview session counter reached its limit.",
+    "プレビューセッション数の上限に達しました。"
+  ],
+  [
+    "视频预览数量或标识无法核对。",
+    "Video preview count or identifiers could not be verified.",
+    "動画プレビューの数または識別子を確認できません。"
+  ],
+  [
+    "预览已关闭或已被新的对比替代，未保留迟到结果。",
+    "The preview was closed or replaced by a new comparison. The late result was discarded.",
+    "プレビューは閉じられたか、新しい比較に置き換えられました。遅れて返った結果は保持しません。"
+  ],
+  [
+    "视频对比已过期，请重新扫描。",
+    "Video comparison expired. Scan again.",
+    "動画比較の有効期限が切れました。再スキャンしてください。"
+  ],
+  [
+    "请选择当前扫描中两到四段不同的视频。",
+    "Choose two to four distinct videos from the current scan.",
+    "現在のスキャンから異なる動画を2〜4本選んでください。"
+  ],
+  [
+    "请先确认首次使用说明，并等待当前退出结束。",
+    "Acknowledge the first-use notice and wait for any shutdown to finish.",
+    "初回利用の説明を確認し、終了処理が完了するまでお待ちください。"
+  ],
+  [
+    "并排对比仅接受可预览的 MP4、M4V、MOV 视频。",
+    "Side-by-side comparison accepts previewable MP4, M4V and MOV videos only.",
+    "並べて比較できるのは、プレビュー可能なMP4・M4V・MOV動画のみです。"
+  ],
+  [
+    "视频对比检查未及时返回，原读取可能仍在进行；不会自动重试。",
+    "Video comparison inspection did not return in time. The original read may still be running; no automatic retry will occur.",
+    "動画比較の確認が時間内に返りませんでした。元の読み取りが続いている場合があります。自動再試行はしません。"
+  ],
+  [
+    "视频对比检查中断。",
+    "Video comparison inspection was interrupted.",
+    "動画比較の確認が中断されました。"
+  ],
+  [
+    "视频画面或时长无法核对，已停止对比。",
+    "Video picture or duration could not be verified. Comparison stopped.",
+    "動画の映像または長さを確認できないため、比較を停止しました。"
   ]
 ]

@@ -2,9 +2,14 @@ import type { Page } from '@playwright/test'
 import { demoBootstrap, demoSnapshot } from '../../../src/lib/demo'
 
 // UI transport fixture only: no native file reads, moves, rules or SQLite.
-export async function installPersonalMock(page: Page, pendingScan = false, duplicates = false) {
+export async function installPersonalMock(
+  page: Page,
+  pendingScan = false,
+  duplicates = false,
+  videos = false,
+) {
   await page.addInitScript(
-    ({ initial, status, pendingScan, duplicates }) => {
+    ({ initial, status, pendingScan, duplicates, videos }) => {
       const uuid = (n: number) => `${String(n).padStart(8, '0')}-1234-4123-8123-123456789abc`
       const now = Date.now(),
         root = '/Users/demo/Downloads'
@@ -47,6 +52,13 @@ export async function installPersonalMock(page: Page, pendingScan = false, dupli
             modifiedAt: now - 500 * 86400000,
           },
         ],
+      }
+      if (videos) {
+        for (let i = 0; i < 2; i++) {
+          original.items[i].name = `compare-${i + 1}.mp4`
+          original.items[i].path = `${root}/${original.items[i].name}`
+          original.items[i].size = 12345
+        }
       }
       if (duplicates) {
         original.items = [2, 3, 4].map((n, index) => ({
@@ -185,6 +197,37 @@ export async function installPersonalMock(page: Page, pendingScan = false, dupli
                 error: null,
                 result: status,
               }
+            if (command === 'prepare_media_comparison') {
+              const source = scan()
+              if (args.scanId !== source.id) throw Error('comparison scan mismatch')
+              const ids = args.itemIds as string[]
+              sessionStorage.setItem('video-comparison-request', JSON.stringify(args))
+              return {
+                comparisonId: args.comparisonId,
+                scanId: args.scanId,
+                items: ids.map((id, index) => {
+                  const item = source.items.find((i: { id: string }) => i.id === id)
+                  if (!item) throw Error('comparison member mismatch')
+                  return {
+                    scanId: args.scanId,
+                    itemId: id,
+                    path: item.path,
+                    content: {
+                      kind: 'media',
+                      url: `http://moomole-media.localhost/${uuid(index + 100)}/media`,
+                      leaseId: uuid(index + 100),
+                      mime: 'video/mp4',
+                      mediaKind: 'video',
+                      expiresAt: Date.now() + 60000,
+                    },
+                  }
+                }),
+              }
+            }
+            if (command === 'release_media_comparison') {
+              sessionStorage.setItem('video-comparison-released', String(args.comparisonId))
+              return
+            }
             if (command === 'get_personal_files' || command === 'get_duplicate_files') {
               const state = read()
               if (duplicates && state.phase === 'processing') {
@@ -303,6 +346,6 @@ export async function installPersonalMock(page: Page, pendingScan = false, dupli
         },
       })
     },
-    { initial: demoBootstrap, status: demoSnapshot, pendingScan, duplicates },
+    { initial: demoBootstrap, status: demoSnapshot, pendingScan, duplicates, videos },
   )
 }

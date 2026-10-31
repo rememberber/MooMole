@@ -4008,6 +4008,12 @@ input[type='checkbox'] {
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
+.personal-preview-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .personal-row:last-child {
   border-bottom: none;
 }
@@ -4616,4 +4622,64 @@ input[type='checkbox'] {
 .application-update-record {
   border-top: 1px solid var(--border);
   padding: 16px 0;
+}
+.video-comparison-modal {
+  padding: 24px;
+  width: min(1100px, calc(100vw - 40px));
+}
+.video-comparison-modal h2 {
+  margin: 0 0 12px;
+}
+.video-comparison-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.video-comparison-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-width: 160px;
+  white-space: nowrap;
+}
+.video-comparison-controls input {
+  flex: 1;
+  width: auto;
+  min-width: 80px;
+}
+.video-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.video-comparison-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.video-comparison-card video {
+  display: block;
+  width: 100%;
+  height: 190px;
+  background: #111;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+.video-comparison-card p {
+  margin: 6px 0;
+}
+.video-comparison-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.video-comparison-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
