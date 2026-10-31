@@ -28,6 +28,7 @@ export function usePersonalFiles(
   const [root, setRootValue] = useState(''),
     [snapshot, setSnapshot] = useState(idle)
   const [result, setResult] = useState<ExecutionDetail | null>(null)
+  const [photoSequences, setPhotoSequences] = useState(false)
   const [starting, setStarting] = useState(false),
     [stopping, setStopping] = useState(false)
   const [error, setError] = useState(''),
@@ -83,6 +84,9 @@ export function usePersonalFiles(
     }
   }, [awake, epoch, transport])
   const running = starting || ['scanning', 'processing'].includes(snapshot.phase)
+  useEffect(() => {
+    if (snapshot.report?.similarPhotos) setPhotoSequences(!!snapshot.report.similarPhotos.sequence)
+  }, [snapshot.report?.id])
   async function dispatch(
     phase: 'scanning' | 'processing',
     launch: (requestId: string) => Promise<void>,
@@ -134,8 +138,10 @@ export function usePersonalFiles(
     running,
     starting,
     stopping,
+    photoSequences,
+    setPhotoSequences,
     error: error || trackingError || snapshot.error || '',
-    start: () => dispatch('scanning', (id) => transport.start(root.trim(), id)),
+    start: () => dispatch('scanning', (id) => transport.start(root.trim(), id, photoSequences)),
     fromAi: (snapshotId: string, evidenceIds: string[]) =>
       dispatch('scanning', async (requestId) => {
         if (!transport.startFromAi || (transport.origin && transport.origin !== 'personalFiles'))

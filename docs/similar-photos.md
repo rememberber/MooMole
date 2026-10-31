@@ -8,7 +8,7 @@
 
 ImageIO 先按方向信息生成有界图像；Vision 的固定第二版 feature print 在本机比较。使用保守距离阈值 0.15；每组成员都须接近同一参考图，不通过任意长的传递链合并，不提供“相似百分比”或自动挑选最佳照片。参见 [Apple 图像相似度示例](https://developer.apple.com/documentation/vision/analyzing-image-similarity-with-feature-print) 和 [第二版请求](https://developer.apple.com/documentation/vision/vngenerateimagefeatureprintrequestrevision2)。
 
-支持普通目录中的 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片。每张最多 32 MiB、八千万像素；本轮最多二百张，输入读取预算 512 MiB、特征/比较预算两分钟，缩略内容有独立容量上限。达到限制、取消、文件变化或解码失败时保留未完成状态，不将未发现结果表述为没有相似照片。照片图库、RAW、多帧、连拍关系与视频尚未覆盖。
+支持普通目录中的 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片。每张最多 32 MiB、八千万像素；本轮最多二百张，输入读取预算 512 MiB、特征/比较预算两分钟，缩略内容有独立容量上限。达到限制、取消、文件变化或解码失败时保留未完成状态，不将未发现结果表述为没有相似照片。已另补[连续拍摄候选](photo-sequences.md)模式，根据拍摄元数据与视觉特征人工比较；照片图库、RAW、多帧、权威连拍关系与视频尚未覆盖。
 
 ## 选择与真实处理
 

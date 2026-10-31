@@ -41,10 +41,11 @@ export interface PersonalReport {
   }
   similarPhotos?: {
     method: 'visionFeaturePrintV2'
-    groups: { id: string; itemIds: string[] }[]
-    images: { id: string; width: number; height: number; thumbnail: string }[]
+    groups: { id: string; itemIds: string[]; captureSpanMs?: number }[]
+    images: { id: string; width: number; height: number; thumbnail: string; capturedAt?: string }[]
     checkedFiles: number
     bytesRead: number
+    sequence?: { missingMetadata: number }
   }
   softwareContent?: {
     source:
@@ -84,7 +85,7 @@ export interface PersonalMovement {
 export interface PersonalTransport {
   origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'softwareContent'
   read: () => Promise<unknown>
-  start: (root: string, requestId: string) => Promise<void>
+  start: (root: string, requestId: string, photoSequences?: boolean) => Promise<void>
   startFromAi?: (snapshotId: string, evidenceIds: string[], requestId: string) => Promise<string>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
   discard: (confirmationId: string) => Promise<void>
@@ -130,7 +131,8 @@ export const similarTransport: PersonalTransport = {
   ...personalTransport,
   origin: 'similarPhotos',
   read: () => invoke('get_similar_photos'),
-  start: (root, requestId) => invoke('start_similar_scan', { root, requestId }),
+  start: (root, requestId, photoSequences = false) =>
+    invoke('start_similar_scan', { root, requestId, photoSequences }),
   prepare: (scanId, selectedIds) => invoke('prepare_similar_trash', { scanId, selectedIds }),
   discard: (confirmationId) => invoke('discard_similar_trash', { confirmationId }),
   execute: (confirmationId, requestId) =>
@@ -153,6 +155,36 @@ const path = (v: unknown): string =>
   !v.split('/').some((part) => part === '.' || part === '..')
     ? v
     : fail()
+// Validate raw labels without assuming a local zone. EXIF nanoseconds within
+// one day fit safely in JavaScript integers.
+function captureTime(raw: unknown) {
+  if (typeof raw !== 'string') return fail()
+  const m =
+    /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?([+-]\d{2}:\d{2})?$/.exec(raw)
+  if (!m) return fail()
+  const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    year < 1970 ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    fail()
+  if (m[8]) {
+    const h = Number(m[8].slice(1, 3)),
+      min = Number(m[8].slice(4))
+    if (h > 14 || min > 59 || (h === 14 && min !== 0)) fail()
+  }
+  return {
+    label: raw,
+    key: `${raw.slice(0, 10)}|${m[8] ?? ''}`,
+    nanos: ((hour * 60 + minute) * 60 + second) * 1e9 + Number((m[7] ?? '').padEnd(9, '0')),
+  }
+}
 function files(raw: unknown, root: string, max: number): PersonalFile[] {
   if (!Array.isArray(raw) || raw.length > max) return fail()
   const rows = raw.map((entry) => {
@@ -329,6 +361,11 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         fail()
       const covered = new Set<string>(),
         groupIds = new Set<string>()
+      const sequence =
+        s.sequence === undefined
+          ? undefined
+          : { missingMetadata: number(object(s.sequence).missingMetadata) }
+      if (sequence && sequence.missingMetadata > number(s.checkedFiles)) fail()
       const groups = (s.groups as unknown[]).map((raw) => {
         const g = object(raw),
           key = id(g.id)
@@ -346,7 +383,8 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
           covered.add(value)
           return value
         })
-        return { id: key, itemIds }
+        if (sequence ? number(g.captureSpanMs) > 2000 : g.captureSpanMs !== undefined) fail()
+        return { id: key, itemIds, ...(sequence ? { captureSpanMs: number(g.captureSpanMs) } : {}) }
       })
       const imageIds = new Set<string>()
       const images = (s.images as unknown[]).map((raw) => {
@@ -368,15 +406,49 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         )
           fail()
         imageIds.add(key)
-        return { id: key, width, height, thumbnail: p.thumbnail as string }
+        if (!sequence && p.capturedAt !== undefined) fail()
+        return {
+          id: key,
+          width,
+          height,
+          thumbnail: p.thumbnail as string,
+          ...(sequence ? { capturedAt: captureTime(p.capturedAt).label } : {}),
+        }
       })
       if (covered.size !== report.items.length || imageIds.size !== covered.size) fail()
+      if (sequence) {
+        if (
+          number(s.checkedFiles) > 200 ||
+          number(s.checkedFiles) < images.length + sequence.missingMetadata
+        )
+          fail()
+        for (const g of groups) {
+          const members = g.itemIds.map((id) => ({
+            time: captureTime(images.find((p) => p.id === id)?.capturedAt),
+            file: report!.items.find((i) => i.id === id)!,
+          }))
+          const first = members[0]
+          if (
+            members.some(
+              (p, i) =>
+                p.time.key !== first.time.key ||
+                p.file.path.slice(0, p.file.path.lastIndexOf('/')) !==
+                  first.file.path.slice(0, first.file.path.lastIndexOf('/')) ||
+                (i > 0 && p.time.nanos < members[i - 1].time.nanos),
+            ) ||
+            members.at(-1)!.time.nanos - first.time.nanos > 2e9 ||
+            Math.ceil((members.at(-1)!.time.nanos - first.time.nanos) / 1e6) !== g.captureSpanMs
+          )
+            fail()
+        }
+      }
       report.similarPhotos = {
         method: 'visionFeaturePrintV2',
         groups,
         images,
         checkedFiles: number(s.checkedFiles),
         bytesRead: number(s.bytesRead),
+        ...(sequence ? { sequence } : {}),
       }
     }
     if (r.duplicates !== undefined) {

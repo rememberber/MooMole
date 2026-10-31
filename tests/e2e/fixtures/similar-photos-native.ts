@@ -30,16 +30,28 @@ export async function installSimilarMock(page: Page) {
           items,
           similarPhotos: {
             method: 'visionFeaturePrintV2',
+            ...(sessionStorage.getItem('photo-sequences') === 'true'
+              ? { sequence: { missingMetadata: 1 } }
+              : {}),
             groups: [
-              { id: '08a7a9f5-a95d-4a9e-a7b7-905a22309660', itemIds: items.map((i: any) => i.id) },
+              {
+                id: '08a7a9f5-a95d-4a9e-a7b7-905a22309660',
+                itemIds: items.map((i: any) => i.id),
+                ...(sessionStorage.getItem('photo-sequences') === 'true'
+                  ? { captureSpanMs: 600 }
+                  : {}),
+              },
             ],
             images: items.map((i: any, index: number) => ({
               id: i.id,
               width: 128 * (index + 1),
               height: 96 * (index + 1),
               thumbnail,
+              ...(sessionStorage.getItem('photo-sequences') === 'true'
+                ? { capturedAt: `2026:10:31 12:00:00.${100 + index * 300}+08:00` }
+                : {}),
             })),
-            checkedFiles: 3,
+            checkedFiles: sessionStorage.getItem('photo-sequences') === 'true' ? 4 : 3,
             bytesRead: 196608,
           },
         }
@@ -47,6 +59,8 @@ export async function installSimilarMock(page: Page) {
       native.invoke = async (command: string, args: any = {}) => {
         const calls = JSON.parse(sessionStorage.getItem('similar-calls') || '[]')
         sessionStorage.setItem('similar-calls', JSON.stringify([...calls, { command, args }]))
+        if (command === 'start_similar_scan')
+          sessionStorage.setItem('photo-sequences', String(args.photoSequences === true))
         if (command === 'get_similar_photos') {
           const value = await original(aliases[command], args)
           if (value.report) {

@@ -48,6 +48,7 @@ export function PersonalFiles({
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [comparison, setComparison] = useState<VideoTarget[] | null>(null)
   const [focusOnly, setFocusOnly] = useState(false)
+  const { photoSequences, setPhotoSequences } = c
   const language = useLanguage()
   const software =
     mode === 'software' || mode === 'downloads' || mode === 'offline' || mode === 'chat'
@@ -72,6 +73,7 @@ export function PersonalFiles({
   const fresh =
     !!report &&
     c.root.trim().replace(/\/+$/, '') === report.root &&
+    (mode !== 'similar' || !!report.similarPhotos?.sequence === photoSequences) &&
     (!softwareSource || report.softwareContent?.source === softwareSource) &&
     (mode !== 'offline' ||
       (!!playlistPath && report.softwareContent?.playlistPath === playlistPath)) &&
@@ -129,7 +131,9 @@ export function PersonalFiles({
           : mode === 'software'
             ? '确认处理软件附件副本'
             : mode === 'similar'
-              ? '确认处理相似照片'
+              ? photoSequences
+                ? '确认处理连续拍摄候选'
+                : '确认处理相似照片'
               : mode === 'duplicates'
                 ? '确认处理重复文件'
                 : '确认处理个人文件'
@@ -145,7 +149,7 @@ export function PersonalFiles({
     setSelected([])
     setComparisonIds([])
     setComparison(null)
-  }, [c.root, softwareSource, playlistPath, exportPath])
+  }, [c.root, softwareSource, playlistPath, exportPath, photoSequences])
   useEffect(() => {
     if (!fresh || c.running) setComparison(null)
   }, [fresh, c.running])
@@ -258,6 +262,20 @@ export function PersonalFiles({
             onChange={(event) => c.setRoot(event.target.value)}
           />
         </label>
+        {mode === 'similar' && (
+          <label className="personal-comparison-mode">
+            <span>照片比较方式</span>
+            <select
+              aria-label="照片比较方式"
+              value={photoSequences ? 'sequence' : 'visual'}
+              disabled={c.running || pending}
+              onChange={(e) => setPhotoSequences(e.target.value === 'sequence')}
+            >
+              <option value="visual">视觉相似照片</option>
+              <option value="sequence">连续拍摄候选</option>
+            </select>
+          </label>
+        )}
         {!software && (
           <>
             <button
@@ -293,7 +311,7 @@ export function PersonalFiles({
               : mode === 'software'
                 ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
                 : mode === 'similar'
-                  ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。只比较普通目录中的静态图片，不进入照片图库或处理连拍关系、视频。'
+                  ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。连续拍摄候选还需要照片内的拍摄时间与相机线索，不代表已确认连拍关系。只比较普通目录中的静态图片，不进入照片图库或处理视频。'
                   : mode === 'duplicates'
                     ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
                     : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
@@ -303,7 +321,7 @@ export function PersonalFiles({
           <summary>相似照片扫描范围</summary>
           <p className="muted">
             支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32
-            MiB、八千万像素。照片图库、RAW、动态图、连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
+            MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。照片图库、RAW、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
           </p>
         </details>
       )}
@@ -367,8 +385,18 @@ export function PersonalFiles({
           )}
           {report.similarPhotos && (
             <p className="notice">
-              已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
-              组视觉相似候选。结果仅供人工比较，不自动挑选或认定可删除；本轮最多核对 200 张。
+              {report.similarPhotos.sequence ? (
+                <>
+                  已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
+                  组连续拍摄候选；{report.similarPhotos.sequence.missingMetadata}{' '}
+                  张缺少可用拍摄线索。组内按拍摄时间排列，仅供人工比较，不自动挑选最佳帧或认定可删除。
+                </>
+              ) : (
+                <>
+                  已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
+                  组视觉相似候选。结果仅供人工比较，不自动挑选或认定可删除；本轮最多核对 200 张。
+                </>
+              )}
             </p>
           )}
           {report.duplicates && (
@@ -385,7 +413,11 @@ export function PersonalFiles({
             </p>
           )}
           {!fresh && (
-            <p className="notice warning">扫描已过期或整理目录已变化，请重新扫描后选择。</p>
+            <p className="notice warning">
+              {mode === 'similar' && !!report.similarPhotos?.sequence !== photoSequences
+                ? '比较方式已变化，请重新扫描后选择。'
+                : '扫描已过期或整理目录已变化，请重新扫描后选择。'}
+            </p>
           )}
           <div className="personal-filters">
             <input
@@ -580,7 +612,11 @@ export function PersonalFiles({
                     <header className="duplicate-group">
                       <strong>
                         {mode === 'similar' ? (
-                          `视觉相似 · ${group.itemIds.length} 张`
+                          report.similarPhotos?.sequence ? (
+                            `连续拍摄候选 · ${group.itemIds.length} 张`
+                          ) : (
+                            `视觉相似 · ${group.itemIds.length} 张`
+                          )
                         ) : (
                           <>
                             相同内容 · {group.itemIds.length} 份 · 每份{' '}
@@ -593,6 +629,9 @@ export function PersonalFiles({
                       <span>
                         {mode === 'similar' ? '每组至少保留一张，内容可能不同' : '每组至少保留一份'}
                       </span>
+                      {'captureSpanMs' in group && typeof group.captureSpanMs === 'number' && (
+                        <small>拍摄跨度 {group.captureSpanMs} 毫秒</small>
+                      )}
                     </header>
                   )}
                   <article
@@ -631,6 +670,11 @@ export function PersonalFiles({
                     <div>
                       <strong data-i18n="off">{item.name}</strong>
                       <p className="mono full-path">{shortPath(item.path, home)}</p>
+                      {photo?.capturedAt && (
+                        <p className="muted">
+                          拍摄时间：<span data-i18n="off">{photo.capturedAt}</span>
+                        </p>
+                      )}
                       <small>
                         {blocked(item.path)
                           ? '已保护'
@@ -802,6 +846,11 @@ export function PersonalFiles({
       {confirmation && (
         <Modal title={title} onClose={pending ? undefined : close} className="review-plan-modal">
           <h2>{title}</h2>
+          {mode === 'similar' && photoSequences && (
+            <p className="notice">
+              连续拍摄仅是元数据与视觉线索，不能证明照片可以互相替代。请核对所选帧与保留帧的表情、清晰度和独有内容；处理前仍会核验双方完整内容。
+            </p>
+          )}
           {mode === 'chat' && (
             <p className="notice">
               仅处理导出包中的所选附件，可能令导出链接失效；不发送线上聊天删除请求。导出正文清单保留，附件是否可重新取得未知。

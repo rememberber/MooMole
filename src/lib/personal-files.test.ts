@@ -37,6 +37,61 @@ function report(): PersonalReport {
   }
 }
 describe('personal file boundaries', () => {
+  it('capture candidates bind chronological EXIF labels, span, location and metadata availability', () => {
+    const source = report()
+    source.similarPhotos = {
+      method: 'visionFeaturePrintV2',
+      sequence: { missingMetadata: 1 },
+      groups: [{ id: first, itemIds: [first, second], captureSpanMs: 300 }],
+      images: source.items.map((i, n) => ({
+        id: i.id,
+        width: 640,
+        height: 480,
+        thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAA=',
+        capturedAt: `2026:10:31 12:00:00.${n === 0 ? '100' : '400'}+08:00`,
+      })),
+      checkedFiles: 3,
+      bytesRead: 30000,
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.similarPhotos?.sequence?.missingMetadata).toBe(1)
+    for (const mutate of [
+      (s: any) => {
+        s.report.similarPhotos.images[0].capturedAt = '2026:02:30 12:00:00.100+08:00'
+      },
+      (s: any) => {
+        s.report.similarPhotos.images[0].capturedAt = '2026:10:31 12:00:00.100+14:01'
+      },
+      (s: any) => {
+        delete s.report.similarPhotos.images[0].capturedAt
+      },
+      (s: any) => {
+        s.report.similarPhotos.images[1].capturedAt = '2026:10:31 12:00:00.400'
+      },
+      (s: any) => {
+        s.report.similarPhotos.groups[0].itemIds.reverse()
+      },
+      (s: any) => {
+        s.report.similarPhotos.groups[0].captureSpanMs = 299
+      },
+      (s: any) => {
+        s.report.similarPhotos.images[1].capturedAt = '2026:10:31 12:00:03.000+08:00'
+      },
+      (s: any) => {
+        s.report.similarPhotos.sequence.missingMetadata = 4
+      },
+      (s: any) => {
+        s.report.items[1].path = '/Users/demo/Downloads/other/recent.pdf'
+      },
+      (s: any) => {
+        delete s.report.similarPhotos.sequence
+      },
+    ]) {
+      const changed = structuredClone(snapshot)
+      mutate(changed)
+      expect(() => readPersonalSnapshot(changed)).toThrow()
+    }
+  })
   it('chat export reports bind the manifest and every attachment to the same export package', () => {
     const source = report()
     source.items = source.items.map((i) => ({

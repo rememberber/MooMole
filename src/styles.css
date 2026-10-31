@@ -3972,6 +3972,12 @@ input[type='checkbox'] {
   flex: 1;
   min-width: 0;
 }
+.personal-comparison-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
 .personal-filters input {
   flex: 1;
   min-width: 160px;

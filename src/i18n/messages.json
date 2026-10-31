@@ -1,4 +1,5 @@
 [
+  ["照片缺少父目录。", "The photo has no parent folder.", "写真の親フォルダがありません。"],
   [
     "所选卷为只读或无法核对写入状态，不能启用定期处理。",
     "The selected volume is read-only or its write state could not be verified. Recurring processing cannot be enabled.",
@@ -9440,5 +9441,49 @@
     "原跨磁盘计划标识不一致。",
     "The original transfer plan identifiers do not match.",
     "元のディスク間移動計画の識別子が一致しません。"
+  ],
+  [
+    "确认处理连续拍摄候选",
+    "Confirm processing capture-sequence candidates",
+    "連続撮影候補の処理を確認"
+  ],
+  ["照片比较方式", "Photo comparison mode", "写真の比較方法"],
+  ["视觉相似照片", "Visually similar photos", "見た目が似ている写真"],
+  ["连续拍摄候选", "Capture-sequence candidates", "連続撮影の候補"],
+  [
+    "按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。连续拍摄候选还需要照片内的拍摄时间与相机线索，不代表已确认连拍关系。只比较普通目录中的静态图片，不进入照片图库或处理视频。",
+    "Find similar photos using on-device visual features. Nothing is selected by default. Similar photos may contain different expressions, details or unique content; compare them and keep at least one per group. Capture-sequence candidates also require embedded capture times and camera hints; they do not establish an authoritative burst relationship. Only still images in ordinary folders are compared, without accessing the Photos library or processing videos.",
+    "端末内の視覚的特徴から似た写真を探します。既定では未選択です。表情、細部、固有の内容が異なる場合があるため、並べて比較し、各グループで1枚以上残してください。連続撮影候補には写真内の撮影時刻とカメラの情報も必要で、連写関係を確定するものではありません。通常フォルダ内の静止画のみ比較し、写真ライブラリや動画は扱いません。"
+  ],
+  [
+    "支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32 MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。照片图库、RAW、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。",
+    "Supports JPEG, PNG, HEIC/HEIF, WebP, TIFF and BMP still images, up to 32 MiB and 80 million pixels each. Capture-sequence candidates must share a parent folder, camera and date/time-zone hints, fall within two seconds of the earliest photo in the group, and pass visual comparison. Metadata may be wrong; missing hints are never inferred from filenames or modification times, and an unknown zone is not treated as local time. Photos libraries, RAW, animated images, authoritative burst relationships and videos remain unsupported. Results are marked incomplete when count, read or time limits are reached.",
+    "JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMPの静止画に対応し、1枚32 MiB・8000万画素までです。連続撮影候補は同じ親フォルダ、カメラ、日付・タイムゾーン情報を持ち、グループ内の最初の写真から2秒以内で、見た目も似ている必要があります。メタデータが誤っている場合があります。不足情報をファイル名や更新日時から推測せず、不明なタイムゾーンを現地時間とみなしません。写真ライブラリ、RAW、アニメーション、正式な連写関係、動画は未対応です。件数、読み取り量、時間の上限に達した結果は不完全として表示します。"
+  ],
+  [
+    "已核对 {0} 张静态图片，找到 {1} 组连续拍摄候选；{2} 张缺少可用拍摄线索。组内按拍摄时间排列，仅供人工比较，不自动挑选最佳帧或认定可删除。",
+    "Checked {0} still images and found {1} capture-sequence groups; {2} images lacked usable capture hints. Each group is ordered by capture time for manual comparison. No best frame is chosen or deemed deletable automatically.",
+    "静止画{0}枚を確認し、連続撮影候補が{1}グループ見つかりました。{2}枚は有効な撮影情報がありません。グループ内は撮影時刻順です。手動比較用で、ベストショットや削除対象を自動選択しません。"
+  ],
+  ["组连续拍摄候选；", "capture-sequence groups;", "グループの連続撮影候補。"],
+  [
+    "张缺少可用拍摄线索。组内按拍摄时间排列，仅供人工比较，不自动挑选最佳帧或认定可删除。",
+    "images lacked usable capture hints. Groups are ordered by capture time for manual comparison. No best frame is chosen or deemed deletable automatically.",
+    "枚は有効な撮影情報がありません。撮影時刻順に手動で比較します。ベストショットや削除対象を自動選択しません。"
+  ],
+  [
+    "比较方式已变化，请重新扫描后选择。",
+    "The comparison mode changed. Scan again before selecting.",
+    "比較方法が変わりました。再スキャンしてから選択してください。"
+  ],
+  ["连续拍摄候选 · {0} 张", "Capture-sequence candidates · {0} photos", "連続撮影候補 · {0}枚"],
+  ["拍摄跨度 {0} 毫秒", "Capture span: {0} ms", "撮影間隔 {0}ミリ秒"],
+  ["拍摄跨度", "Capture span", "撮影間隔"],
+  ["毫秒", "ms", "ミリ秒"],
+  ["拍摄时间：", "Captured:", "撮影時刻："],
+  [
+    "连续拍摄仅是元数据与视觉线索，不能证明照片可以互相替代。请核对所选帧与保留帧的表情、清晰度和独有内容；处理前仍会核验双方完整内容。",
+    "Capture sequences are metadata and visual hints, not proof that photos are interchangeable. Compare expressions, sharpness and unique content in the selected and retained frames. Both full contents are verified again before processing.",
+    "連続撮影はメタデータと見た目による候補で、写真を互いに代用できる証拠ではありません。選択する写真と残す写真の表情、鮮明さ、固有の内容を確認してください。処理前に両方の全内容を再確認します。"
   ]
 ]

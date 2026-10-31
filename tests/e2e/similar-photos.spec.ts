@@ -1,5 +1,63 @@
 import { expect, test } from '@playwright/test'
 import { installSimilarMock } from './fixtures/similar-photos-native'
+test('capture-sequence comparison displays capture order and still requires choosing and confirming exact files', async ({
+  page,
+}) => {
+  await installSimilarMock(page)
+  await page.goto('/')
+  await page.getByRole('navigation').getByRole('button', { name: '相似照片', exact: true }).click()
+  const main = page.getByRole('main', { name: '相似照片内容' })
+  await main.getByRole('textbox', { name: '相似照片目录' }).fill('/Users/demo/Downloads')
+  await main.getByRole('combobox', { name: '照片比较方式' }).selectOption('sequence')
+  await page.getByRole('button', { name: '查找相似照片', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await expect(list).toContainText('连续拍摄候选 · 3 张')
+  await expect(main).toContainText('1 张缺少可用拍摄线索')
+  await expect(list).toContainText('拍摄跨度 600 毫秒')
+  const rows = list.getByRole('article')
+  await expect(rows.nth(0)).toContainText('2026:10:31 12:00:00.100+08:00')
+  await expect(rows.nth(1)).toContainText('2026:10:31 12:00:00.400+08:00')
+  await expect(rows.nth(2)).toContainText('2026:10:31 12:00:00.700+08:00')
+  await expect(list.getByRole('checkbox', { checked: true })).toHaveCount(0)
+  await rows.first().getByRole('checkbox').check()
+  await rows.nth(1).getByRole('checkbox').check()
+  await expect(rows.nth(2).getByRole('checkbox')).toBeDisabled()
+  await page.setViewportSize({ width: 1100, height: 850 })
+  await page.screenshot({ path: 'test-results/photo-sequences-review.png', animations: 'disabled' })
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认处理连续拍摄候选' })
+  await expect(dialog).toContainText('本批保留的照片')
+  await expect(dialog).toContainText('不能证明照片可以互相替代')
+  await expect(dialog.getByRole('button', { name: '确认移入废纸篓', exact: true })).toBeDisabled()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem('similar-calls')!))
+  expect(calls.find((c: any) => c.command === 'start_similar_scan').args.photoSequences).toBe(true)
+  expect(
+    calls.find((c: any) => c.command === 'prepare_similar_trash').args.selectedIds,
+  ).toHaveLength(2)
+  expect(calls.filter((c: any) => c.command === 'execute_similar_trash')).toHaveLength(1)
+})
+test('changing photo comparison mode revokes the old selection until a new scan', async ({
+  page,
+}) => {
+  await installSimilarMock(page)
+  await page.goto('/')
+  await page.getByRole('navigation').getByRole('button', { name: '相似照片', exact: true }).click()
+  const main = page.getByRole('main', { name: '相似照片内容' })
+  await main.getByRole('textbox', { name: '相似照片目录' }).fill('/Users/demo/Downloads')
+  await page.getByRole('button', { name: '查找相似照片', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await list.getByRole('article').first().getByRole('checkbox').check()
+  await main.getByRole('combobox', { name: '照片比较方式' }).selectOption('sequence')
+  await expect(main).toContainText('比较方式已变化，请重新扫描后选择。')
+  await expect(list.getByRole('checkbox', { checked: true })).toHaveCount(0)
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await page.getByRole('button', { name: '查找相似照片', exact: true }).click()
+  await expect(list).toContainText('连续拍摄候选 · 3 张')
+  await expect(list.getByRole('checkbox', { checked: true })).toHaveCount(0)
+})
 test('similar photos compare side by side, keep an original and confirm exact IDs before Trash', async ({
   page,
 }) => {
