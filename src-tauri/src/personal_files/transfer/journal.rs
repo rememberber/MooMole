@@ -43,6 +43,17 @@ pub(super) fn list(db: &Connection) -> Result<Vec<Record>, String> {
     }
     Ok(out)
 }
+pub(super) fn snapshot(db: &Connection, id: &str) -> Result<Plan, String> {
+    let raw:Option<String>=db.query_row("SELECT CASE WHEN length(CAST(snapshot AS BLOB))<=8388608 THEN snapshot END FROM file_transfers WHERE id=?1",[id],|r|r.get(0)).map_err(|_|"原跨磁盘计划不存在。")?;
+    let plan: Plan = serde_json::from_str(&raw.ok_or("原跨磁盘计划超过范围。")?)
+        .map_err(|_| "原跨磁盘计划无法核对。")?;
+    if plan.protocol != 1 || plan.revision != REVISION || plan.source.id != id {
+        return Err("原跨磁盘计划标识不一致。".into());
+    }
+    plan.source.validate_record()?;
+    plan.movement.validate_record(&plan.source.items)?;
+    Ok(plan)
+}
 pub(super) fn insert(db: &mut db::Database, plan: &Plan, r: &Record) -> Result<(), String> {
     let t = db
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)

@@ -16,6 +16,7 @@ use std::{
 pub(crate) mod commands;
 pub(crate) mod journal;
 mod native;
+pub(crate) mod recovery;
 const BUDGET: Duration = Duration::from_secs(15 * 60);
 const REVISION: &str = "MooMole.cross-volume-move.v1";
 #[derive(Clone, Serialize, Deserialize)]
@@ -69,6 +70,7 @@ pub(crate) struct Record {
 #[derive(Default)]
 pub(crate) struct Store {
     plans: HashMap<String, (Plan, Instant)>,
+    recovery: Option<(recovery::Plan, Instant)>,
 }
 struct Context {
     database: Arc<Mutex<db::Database>>,

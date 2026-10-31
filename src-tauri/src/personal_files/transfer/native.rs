@@ -76,6 +76,41 @@ pub(super) struct Copied {
     pub metadata_sha256: String,
     size: u64,
 }
+pub(super) fn recorded(entry: &Entry) -> Result<Copied, String> {
+    let receipt = entry
+        .copy_receipt
+        .clone()
+        .ok_or("原移动没有可靠副本收据。")?;
+    let witness = entry
+        .copy_witness
+        .clone()
+        .ok_or("原移动没有副本身份记录。")?;
+    let sha256 = entry.sha256.clone().ok_or("原移动没有完整内容摘要。")?;
+    let metadata_sha256 = entry
+        .metadata_sha256
+        .clone()
+        .ok_or("原移动没有完整元数据摘要。")?;
+    let hash = |s: &str| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit());
+    if witness.version != crate::observation::VERSION
+        || witness.size > 16 * 1024 * 1024 * 1024
+        || !hash(&sha256)
+        || !hash(&metadata_sha256)
+        || entry.target.as_deref() != Some(&receipt.destination)
+        || witness.nodes.last().is_none_or(|n| {
+            n.path != Path::new(&receipt.destination)
+                || (n.dev, n.ino) != (receipt.device, receipt.inode)
+        })
+    {
+        return Err("原移动的副本收据与摘要无法核对。".into());
+    }
+    Ok(Copied {
+        receipt,
+        size: witness.size,
+        witness,
+        sha256,
+        metadata_sha256,
+    })
+}
 fn open(held: &AnchoredPath) -> Result<File, String> {
     let node = held.witness.nodes.last().ok_or("缺少文件身份。")?;
     let name = CString::new(node.path.file_name().unwrap().as_encoded_bytes())
