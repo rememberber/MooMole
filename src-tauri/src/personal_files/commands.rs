@@ -144,13 +144,14 @@ fn start(
     domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start_with_source(root, request_id, domain, None, state)
+    start_with_source(root, request_id, domain, None, false, state)
 }
 fn start_with_source(
     root: String,
     request_id: String,
     domain: Domain,
     source: Option<software_content::Source>,
+    photo_sequences: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
@@ -194,7 +195,16 @@ fn start_with_source(
         let result = collected.and_then(|scan| match domain {
             Domain::DuplicateFiles => duplicates::collect(scan, job),
             Domain::SimilarPhotos => objc2::rc::autoreleasepool(|_| {
-                similar_photos::collect(scan, job, &settings.protected_paths)
+                if photo_sequences {
+                    similar_photos::collect_with_sequence(
+                        scan,
+                        job,
+                        &settings.protected_paths,
+                        true,
+                    )
+                } else {
+                    similar_photos::collect(scan, job, &settings.protected_paths)
+                }
             }),
             Domain::PersonalFiles => Ok(scan),
             Domain::SoftwareContent => Ok(scan),
@@ -432,9 +442,17 @@ pub(crate) fn get_similar_photos(
 pub(crate) fn start_similar_scan(
     root: String,
     request_id: String,
+    photo_sequences: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start(root, request_id, Domain::SimilarPhotos, state)
+    start_with_source(
+        root,
+        request_id,
+        Domain::SimilarPhotos,
+        None,
+        photo_sequences.unwrap_or(false),
+        state,
+    )
 }
 #[tauri::command]
 pub(crate) fn prepare_similar_trash(
@@ -511,6 +529,7 @@ pub(crate) fn start_software_content(
         request_id,
         Domain::SoftwareContent,
         Some(source),
+        false,
         state,
     )
 }

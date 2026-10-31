@@ -1,7 +1,11 @@
 use super::*;
 use crate::{engine::Job, observation::AnchoredPath};
 use sha2::{Digest, Sha256};
-use std::sync::{atomic::Ordering, Arc};
+use std::{
+    path::PathBuf,
+    sync::{atomic::Ordering, Arc},
+};
+mod capture;
 mod vision;
 pub(crate) const MODULE: &str = "similarPhotos";
 pub(super) const REVISION: &str = "MooMole.similar-photos.v1";
@@ -26,14 +30,27 @@ pub(crate) struct Image {
     pub width: u64,
     pub height: u64,
     pub thumbnail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub captured_at: Option<String>,
     #[serde(skip_serializing)]
     digest: String,
+    #[serde(skip_serializing)]
+    capture: Option<capture::Metadata>,
+    #[serde(skip_serializing)]
+    parent: PathBuf,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Group {
     pub id: String,
     pub item_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capture_span_ms: Option<u32>,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Sequence {
+    pub missing_metadata: usize,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,9 +60,11 @@ pub(crate) struct Report {
     pub checked_files: usize,
     pub bytes_read: u64,
     pub method: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sequence: Option<Sequence>,
 }
 
-fn image(item: &Item, bytes: &[u8]) -> Result<(Image, vision::Feature), String> {
+fn image(item: &Item, bytes: &[u8], sequences: bool) -> Result<(Image, vision::Feature), String> {
     let raster = media::Raster::decode(bytes, 384)?;
     if raster.frames != 1 {
         return Err("多帧图片保留，不按单张照片比较。".into());
@@ -67,18 +86,37 @@ fn image(item: &Item, bytes: &[u8]) -> Result<(Image, vision::Feature), String> 
     })?;
     // Persist a small comparison thumbnail; full preview is fetched separately.
     let thumbnail = media::Raster::decode(bytes, 160)?.png()?;
+    let capture = if sequences {
+        capture::read(bytes)
+    } else {
+        None
+    };
     Ok((
         Image {
             id: item.id.clone(),
             width: raster.width,
             height: raster.height,
             thumbnail,
+            captured_at: capture.as_ref().map(|c| c.label.clone()),
+            capture,
+            parent: Path::new(&item.path)
+                .parent()
+                .ok_or("照片缺少父目录。")?
+                .into(),
             digest: format!("{:x}", Sha256::digest(bytes)),
         },
         feature,
     ))
 }
-pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result<Scan, String> {
+pub(super) fn collect(scan: Scan, job: Arc<Job>, rules: &[String]) -> Result<Scan, String> {
+    collect_with_sequence(scan, job, rules, false)
+}
+pub(super) fn collect_with_sequence(
+    mut scan: Scan,
+    job: Arc<Job>,
+    rules: &[String],
+    sequences: bool,
+) -> Result<Scan, String> {
     let started = Instant::now();
     let mut photos = Vec::new();
     let mut bytes_read = 0u64;
@@ -115,7 +153,7 @@ pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result
         reserved_read = reserved_read.saturating_add(item.size);
         let result = preview::read(item, rules, 32 * 1024 * 1024, true).and_then(|bytes| {
             bytes_read += bytes.len() as u64;
-            image(item, &bytes)
+            image(item, &bytes, sequences)
         });
         match result {
             Ok((row, feature)) => {
@@ -129,10 +167,17 @@ pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result
         }
     }
     let checked_files = photos.len();
+    let missing_metadata = photos.iter().filter(|p| p.0.capture.is_none()).count();
+    if sequences {
+        photos.sort_by_key(|p| p.0.capture.as_ref().map(|c| (c.date.clone(), c.nanos)));
+    }
     let mut groups = Vec::new();
     let mut used = HashSet::new();
     for i in 0..photos.len() {
         if used.contains(&i) {
+            continue;
+        }
+        if sequences && photos[i].0.capture.is_none() {
             continue;
         }
         if job.cancelled.load(Ordering::SeqCst) || started.elapsed() >= Duration::from_secs(120) {
@@ -141,7 +186,15 @@ pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result
         }
         let mut members = vec![i];
         for j in i + 1..photos.len() {
-            if !used.contains(&j) {
+            let capture_matches = !sequences
+                || photos[j].0.parent == photos[i].0.parent
+                    && photos[j]
+                        .0
+                        .capture
+                        .as_ref()
+                        .zip(photos[i].0.capture.as_ref())
+                        .is_some_and(|(candidate, anchor)| candidate.follows(anchor));
+            if !used.contains(&j) && capture_matches {
                 match photos[i].1.distance(&photos[j].1) {
                     Ok(d) if d <= DISTANCE => members.push(j),
                     Ok(_) => {}
@@ -151,10 +204,22 @@ pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result
         }
         if members.len() > 1 {
             let item_ids = members.iter().map(|n| photos[*n].0.id.clone()).collect();
+            let capture_span_ms = if sequences {
+                let nanos = members
+                    .iter()
+                    .filter_map(|n| photos[*n].0.capture.as_ref().map(|c| c.nanos))
+                    .max()
+                    .unwrap()
+                    - photos[i].0.capture.as_ref().unwrap().nanos;
+                Some(nanos.div_ceil(1_000_000) as u32)
+            } else {
+                None
+            };
             used.extend(members);
             groups.push(Group {
                 id: uuid::Uuid::new_v4().to_string(),
                 item_ids,
+                capture_span_ms,
             });
         }
     }
@@ -175,6 +240,7 @@ pub(super) fn collect(mut scan: Scan, job: Arc<Job>, rules: &[String]) -> Result
         checked_files,
         bytes_read,
         method: "visionFeaturePrintV2",
+        sequence: sequences.then_some(Sequence { missing_metadata }),
     });
     Ok(scan)
 }
