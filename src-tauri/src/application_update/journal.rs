@@ -96,6 +96,7 @@ pub(super) fn save(c: &Connection, r: &Record) -> Result<(), String> {
     Ok(())
 }
 pub(super) fn admission(c: &Connection) -> Result<(), String> {
+    recovery::journal::admission(c)?;
     let rows = list(c)?;
     if rows.len() >= 64
         || rows.iter().any(|r| {

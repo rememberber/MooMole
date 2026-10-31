@@ -18,6 +18,7 @@ use std::{
 pub(crate) mod commands;
 mod journal;
 mod native;
+pub(crate) mod recovery;
 mod signing;
 #[cfg(test)]
 mod tests;
@@ -25,6 +26,7 @@ mod tests;
 #[derive(Default)]
 pub(crate) struct Store {
     plan: Option<Plan>,
+    restoration: Option<recovery::Plan>,
 }
 struct Plan {
     draft: Draft,
@@ -66,6 +68,33 @@ pub(crate) struct Record {
     reason: String,
     backup: String,
     reviewed_at: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recovery_receipt: Option<RecoveryReceipt>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RecoveryReceipt {
+    installed: crate::observation::Witness,
+    retained: crate::observation::Witness,
+    installed_tree: native::Tree,
+    retained_tree: native::Tree,
+}
+impl Record {
+    fn view(&self) -> Result<serde_json::Value, String> {
+        let mut v = serde_json::to_value(self).map_err(|e| e.to_string())?;
+        let obj = v.as_object_mut().ok_or("应用更新记录格式无效。")?;
+        obj.remove("recoveryReceipt");
+        obj.insert(
+            "recoveryAvailable".into(),
+            serde_json::json!(
+                self.state == "updated"
+                    && self.phase == "finished"
+                    && self.finished_at.is_some()
+                    && self.recovery_receipt.is_some()
+            ),
+        );
+        Ok(v)
+    }
 }
 fn cancelled(job: &Job) -> Result<(), String> {
     if job.cancelled.load(Ordering::SeqCst) {
@@ -400,6 +429,21 @@ fn perform(
     final_stage.validate()?;
     installed.validate()?;
     backup.validate()?;
+    let installed_tree = native::tree(installed.target(), None, &verify, true)?;
+    let retained_tree = native::tree(backup.target(), None, &verify, true)?;
+    if installed_tree.content != plan.new_tree.content
+        || retained_tree.content != plan.old_tree.content
+    {
+        return Err("交换后完整内容变化，请核对两份应用。".into());
+    }
+    installed.validate()?;
+    backup.validate()?;
+    record.recovery_receipt = Some(RecoveryReceipt {
+        installed: installed.witness.clone(),
+        retained: backup.witness.clone(),
+        installed_tree,
+        retained_tree,
+    });
     record.state = "updated".into();
     record.reason =
         "新版已放入原安装位置，旧版应用包已保留。应用数据未修改；首次打开仍由 macOS 决定。".into();

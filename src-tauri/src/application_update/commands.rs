@@ -1,7 +1,7 @@
 use super::*;
 use crate::AppState;
 use std::sync::Arc;
-struct Registered {
+pub(super) struct Registered {
     state: AppState,
     id: String,
 }
@@ -12,7 +12,7 @@ impl Drop for Registered {
         }
     }
 }
-fn register(state: &AppState, id: &str) -> Result<(Arc<Job>, Registered), String> {
+pub(super) fn register(state: &AppState, id: &str) -> Result<(Arc<Job>, Registered), String> {
     uuid::Uuid::parse_str(id).map_err(|_| "应用更新请求标识无效。")?;
     let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     if state.shutdown.closing()
@@ -59,11 +59,14 @@ pub(crate) async fn prepare_application_update(
         journal::admission(&db)?;
     }
     let (job, registered) = register(&state, &request_id)?;
-    state
-        .application_updates
-        .lock()
-        .map_err(|e| e.to_string())?
-        .plan = None;
+    {
+        let mut s = state
+            .application_updates
+            .lock()
+            .map_err(|e| e.to_string())?;
+        s.plan = None;
+        s.restoration = None;
+    }
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _resources = (operation, slot, registered);
@@ -109,7 +112,7 @@ pub(crate) async fn execute_application_update(
     confirmed: bool,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<Record, String> {
+) -> Result<serde_json::Value, String> {
     if !confirmed {
         return Err("请先确认替换应用包及旧版恢复边界。".into());
     }
@@ -147,6 +150,7 @@ pub(crate) async fn execute_application_update(
         reason: "正在复查应用更新，尚未替换。".into(),
         backup: backup.to_string_lossy().into_owned(),
         reviewed_at: None,
+        recovery_receipt: None,
     };
     {
         let mut database = state.db.lock().map_err(|e| e.to_string())?;
@@ -179,7 +183,7 @@ pub(crate) async fn execute_application_update(
         record.phase = "finished".into();
         record.finished_at = Some(db::now().max(record.created_at));
         journal::save(&*state.db.lock().map_err(|e| e.to_string())?, &record)?;
-        Ok(record)
+        record.view()
     })
     .await
     .map_err(|e| e.to_string())?
@@ -187,7 +191,7 @@ pub(crate) async fn execute_application_update(
 #[tauri::command]
 pub(crate) fn get_application_updates(
     state: tauri::State<'_, AppState>,
-) -> Result<Vec<Record>, String> {
+) -> Result<Vec<serde_json::Value>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let active = state
         .jobs
@@ -196,7 +200,10 @@ pub(crate) fn get_application_updates(
         .keys()
         .cloned()
         .collect::<Vec<_>>();
-    journal::reconcile(&db, &active)
+    journal::reconcile(&db, &active)?
+        .iter()
+        .map(Record::view)
+        .collect()
 }
 #[tauri::command]
 pub(crate) fn acknowledge_application_update(

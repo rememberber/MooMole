@@ -151,6 +151,7 @@ fn record(draft: Draft) -> Record {
         reason: "owned fixture".into(),
         backup: backup.to_string_lossy().into_owned(),
         reviewed_at: None,
+        recovery_receipt: None,
     }
 }
 #[test]
