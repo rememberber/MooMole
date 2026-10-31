@@ -25,6 +25,8 @@
 
 ## Agent 调用
 
+2026-10-31：再次核对本机常用目录及最多八个 NVM 安装位置，未发现 Claude/Gemini/OpenCode CLI；只检查 API 环境配置是否存在，未读取或输出凭据值。用户确认“暂未配置，先推进其他功能”，因此 Claude 实测继续保留待配置，不自动安装、登录或反复询问密钥，不把此状态解释为取消 AI 完整目标。
+
 Codex 使用 `exec --ignore-user-config --ignore-rules --ephemeral --skip-git-repo-check --sandbox read-only --output-schema ...`，禁用 shell、统一执行、hooks、plugins、apps、MCP、浏览器、图像、子 Agent 等工具能力；私有临时工作目录中加载内置 Skill 与 schema。认证沿用 Agent；隔离用户配置意味着使用 Codex 默认模型，非自定义 provider/profile。Claude 使用 `--bare --print --tools "" --disallowedTools "mcp__*" --strict-mcp-config --mcp-config '{"mcpServers":{}}' --setting-sources "" --no-session-persistence --output-format json --json-schema ...`，读取其 `structured_output`。Claude 的 bare 模式不复用订阅 OAuth/钥匙串，必须已有 API 环境凭据（如 `ANTHROPIC_API_KEY` 或对应云 provider 凭据），不能把本机订阅登录当作可调用证明；详情见 [Claude 程序调用说明](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode)。缺少参数则停止，未调用模型；不回退不受限模式或自动授权。
 
 CLI 参数依据 [OpenAI 非交互文档](https://learn.chatgpt.com/docs/non-interactive-mode)、本机 `codex exec --help` / `codex features list` 和 [Claude CLI 文档](https://code.claude.com/docs/en/cli-reference) 核对。CLI 与服务端版本可能变化；报错应在终端处理登录/模型/额度，不自动重发请求或开启权限。

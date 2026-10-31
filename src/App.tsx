@@ -58,6 +58,11 @@ import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
 import { StartupManagement } from './components/StartupManagement'
 import { FileTransferCenter, FileTransferHistory } from './components/FileTransferCenter'
+import {
+  TransferRestorationCenter,
+  TransferRestorationHistory,
+} from './components/TransferRestorationCenter'
+import type { TransferRestoreTarget } from './lib/transfer-restoration'
 import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
 import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
@@ -436,6 +441,10 @@ export default function App() {
   const [volumePickerOpenSignal, setVolumePickerOpenSignal] = useState(0)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
   const [transferActive, setTransferActive] = useState(false)
+  const [transferRestoreTarget, setTransferRestoreTarget] = useState<TransferRestoreTarget | null>(
+    null,
+  )
+  const [transferRestoreActive, setTransferRestoreActive] = useState(false)
   const [transferTarget, setTransferTarget] = useState<TransferTarget | null>(null)
   const [fileArchiveTarget, setFileArchiveTarget] = useState<FileArchiveTarget | null>(null)
   const [searchRepairActive, setSearchRepairActive] = useState(false)
@@ -953,6 +962,7 @@ export default function App() {
     !restorationActive &&
     !fileArchiveActive &&
     !transferActive &&
+    !transferRestoreActive &&
     !folderSchedules.running &&
     !scheduledFiles.running &&
     !refreshActive &&
@@ -1628,6 +1638,14 @@ export default function App() {
             transport={api.refreshTransport}
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
+          />
+          <TransferRestorationCenter
+            target={transferRestoreTarget}
+            historyVisible={page === 'history'}
+            onClose={() => setTransferRestoreTarget(null)}
+            onActiveChange={setTransferRestoreActive}
+            onOutcome={() => void refreshRecords(true)}
+            onHistory={() => changePage('history')}
           />
           <FileTransferCenter
             target={transferTarget}
@@ -2581,7 +2599,12 @@ export default function App() {
                   )
                 }}
               />
-              <FileTransferHistory key={`transfers-${historyEpoch}`} />
+              <FileTransferHistory
+                key={`transfers-${historyEpoch}`}
+                canRestore={canRunWithoutEngine && !executionActive}
+                onRestore={setTransferRestoreTarget}
+              />
+              <TransferRestorationHistory key={`transfer-restore-${historyEpoch}`} />
               <FileArchiveHistory key={`file-archives-${historyEpoch}`} />
               <TaskHistory
                 records={data.history}

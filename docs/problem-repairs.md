@@ -23,3 +23,5 @@
 本轮核对宿主为 macOS 27.2。当前固定 Mole 1.65.0 的 `flush_dns_cache` 先检查 VPN，活动或未知时跳过；管理员条件满足后执行目录缓存刷新，再读取系统受保护 plist 的确切服务标签，通过 `launchctl kill SIGHUP system/<label>` 刷新 DNS 服务。上游针对 macOS 27 已明确处理系统拒绝此信号的情况；不能改用按进程名强杀来绕过，也不能将仅第一步完成显示为完整 DNS 修复。具体见固定引擎 `lib/optimize/tasks.sh` 的实现。
 
 尚未在本机触发管理员授权或执行这组网络修改，不能把上游注释当成本机已验证的成功或失败。网络检查、确认、逐项执行与验证仍待实现；须保留 VPN 活动/未知、授权拒绝、目录缓存部分完成和系统拒绝状态。免费分发路线不能默认依赖稳定 Developer ID helper；[Apple 的旧提权 API](https://developer.apple.com/documentation/security/authorizationexecutewithprivileges)已弃用且建议限制用途，本轮未据此加入通用提权入口。[SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)等路线仍需在实际免费分发身份下验证，不能先承诺可用。先推进其他缺失主流程，不把此证据记录勾选为网络功能完成。
+
+2026-10-31 再核对公开的 [DNSServiceReconfirmRecord](https://developer.apple.com/documentation/dnssd/dnsservicereconfirmrecord(_:_:_:_:_:_:_:)) 与本机 SDK `dns_sd.h`：这是对确切资源记录及其接口的保守复核，零接口不能表示通配复核。没有把它接成全局 DNS 刷新或据请求受理宣称网络恢复，也未向用户网络发出复核/重置请求；完整网络修复继续待做。

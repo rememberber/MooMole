@@ -186,7 +186,7 @@ pub(crate) async fn execute_transfer_restoration(
 #[tauri::command]
 pub(crate) fn get_transfer_restorations(
     state: tauri::State<'_, AppState>,
-) -> Result<Vec<Recovery>, String> {
+) -> Result<serde_json::Value, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let active = state
         .jobs
@@ -195,7 +195,16 @@ pub(crate) fn get_transfer_restorations(
         .keys()
         .cloned()
         .collect::<Vec<_>>();
-    journal::reconcile(&db, &active)
+    snapshot(&db, &active)
+}
+pub(super) fn snapshot(db: &db::Database, active: &[String]) -> Result<serde_json::Value, String> {
+    let records = journal::reconcile(db, active)?;
+    let active_requests = records
+        .iter()
+        .filter(|r| r.state == "running" && active.contains(&r.request_id))
+        .map(|r| r.request_id.clone())
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({"records":records,"activeRequests":active_requests}))
 }
 #[tauri::command]
 pub(crate) fn acknowledge_transfer_restoration(

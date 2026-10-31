@@ -47,9 +47,22 @@ fn recovery_journal_reopens_unknown_without_replay_and_keeps_manual_review_separ
         journal::begin(&mut db, &r).unwrap();
         r.phase = "intent".into();
         journal::save(&db, &r).unwrap();
+        let snapshot = commands::snapshot(
+            &db,
+            &[r.request_id.clone(), uuid::Uuid::new_v4().to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            snapshot["activeRequests"],
+            serde_json::json!([r.request_id])
+        );
+        assert_eq!(snapshot["records"][0]["state"], "running");
+        assert_eq!(snapshot["records"][0]["draft"]["runId"], r.draft.run_id);
     }
     let db = db::open_owned(&file).unwrap();
-    let rows = journal::reconcile(&db, &[]).unwrap();
+    let snapshot = commands::snapshot(&db, &[]).unwrap();
+    assert_eq!(snapshot["activeRequests"], serde_json::json!([]));
+    let rows: Vec<Recovery> = serde_json::from_value(snapshot["records"].clone()).unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].state, "unknown");
     assert!(journal::admission(&db).is_err());

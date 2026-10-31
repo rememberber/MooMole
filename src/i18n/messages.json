@@ -9093,5 +9093,352 @@
     "视频画面或时长无法核对，已停止对比。",
     "Video picture or duration could not be verified. Comparison stopped.",
     "動画の映像または長さを確認できないため、比較を停止しました。"
+  ],
+  ["从副本恢复原位置…", "Restore original location from copy…", "コピーから元の場所に復元…"],
+  [
+    "跨磁盘恢复仍在进行，原副本保持。请在恢复记录中核对结果。",
+    "Cross-volume recovery is still running. The original copy is retained. Check recovery history for the result.",
+    "ディスク間の復元を実行中です。元のコピーは保持します。復元履歴で結果を確認してください。"
+  ],
+  ["查看跨磁盘恢复记录", "View cross-volume recovery history", "ディスク間の復元履歴を表示"],
+  ["停止后续恢复", "Stop further recovery", "以降の復元を停止"],
+  ["从跨磁盘副本恢复", "Restore from cross-volume copy", "別ディスクのコピーから復元"],
+  [
+    "把已校验的副本复制回原文件名，不覆盖已有文件。另一磁盘的副本保留，原废纸篓项目不改动。",
+    "Copy the verified file back to its original name without overwriting. The copy on the other disk is retained, and the original Trash item is unchanged.",
+    "検証済みのコピーを元のファイル名に戻します。既存ファイルは上書きしません。別ディスクのコピーを保持し、元のゴミ箱の項目は変更しません。"
+  ],
+  ["恢复来源", "Recovery source", "復元元"],
+  ["恢复到", "Restore to", "復元先"],
+  ["恢复与取消边界", "Recovery and cancellation limits", "復元とキャンセルの制限"],
+  [
+    "重新核对完整内容、元数据、原记录、保护和原位置目录身份。原目录缺失、同名冲突、磁盘或副本变化时保留；不自动新建目录、编号、覆盖或删除副本。",
+    "Recheck complete contents, metadata, original records, protection and the original folder identity. Missing folders, name conflicts or disk/copy changes retain the files. No folders are created, files numbered, overwritten or copies deleted automatically.",
+    "全内容、メタデータ、元の記録、保護、元フォルダの識別情報を再確認します。元フォルダの不在、名前の競合、ディスクやコピーの変更時は保持します。フォルダ作成、連番化、上書き、コピー削除は自動では行いません。"
+  ],
+  [
+    "取消停止后续复制，已经发布的恢复文件不会自动撤回。结果未知时请核对原位置、副本和临时路径，不要重复执行；原移动记录保持不变。",
+    "Cancellation stops further copying but does not remove an already published recovery file. For unknown results, inspect the original location, copy and temporary path before any new attempt. The original move record is unchanged.",
+    "キャンセルは以降のコピーを停止しますが、配置済みの復元ファイルは自動で取り消しません。結果が不明な場合は元の場所、コピー、一時パスを確認し、繰り返し実行しないでください。元の移動記録は保持します。"
+  ],
+  [
+    "正在核对原跨磁盘记录与完整副本，尚未恢复…",
+    "Checking the original transfer record and complete copy. Recovery has not started…",
+    "元の移動記録とコピー全体を確認中です。まだ復元していません…"
+  ],
+  [
+    "正在复制、核验并恢复原位置，请等待逐项结果。",
+    "Copying, verifying and restoring the original location. Wait for the recorded result.",
+    "コピー、検証、元の場所への復元を実行中です。記録された結果をお待ちください。"
+  ],
+  [
+    "恢复请求未返回完整结果，请在跨磁盘恢复记录中核对；不会自动重试。",
+    "The recovery request did not return a complete result. Check cross-volume recovery history; no automatic retry will occur.",
+    "完全な復元結果が返りませんでした。ディスク間の復元履歴で確認してください。自動再試行はしません。"
+  ],
+  [
+    "我已核对两端位置，同意从副本恢复，并保留副本与原废纸篓项目。",
+    "I checked both locations and agree to restore from the copy while retaining the copy and original Trash item.",
+    "両方の場所を確認し、コピーと元のゴミ箱項目を保持したままコピーから復元することに同意します。"
+  ],
+  [
+    "恢复确认已过期，请关闭后重新检查。",
+    "The recovery confirmation expired. Close it and check again.",
+    "復元確認の有効期限が切れました。閉じて再確認してください。"
+  ],
+  ["停止本次恢复", "Stop this recovery", "今回の復元を停止"],
+  ["关闭恢复窗口", "Close recovery window", "復元ウィンドウを閉じる"],
+  ["确认恢复并保留副本", "Confirm recovery and keep copy", "コピーを保持して復元を確認"],
+  ["跨磁盘恢复结果", "Cross-volume recovery result", "ディスク間の復元結果"],
+  ["查看恢复原位置", "Show original recovery location", "元の復元先を表示"],
+  ["查看保留副本", "Show retained copy", "保持したコピーを表示"],
+  ["跨磁盘恢复记录", "Cross-volume recovery history", "ディスク間の復元履歴"],
+  ["刷新恢复记录", "Refresh recovery history", "復元履歴を更新"],
+  [
+    "尚无跨磁盘恢复记录。",
+    "No cross-volume recovery records yet.",
+    "ディスク間の復元記録はまだありません。"
+  ],
+  [
+    "先检查原位置、副本和临时路径。记录核对不会补做恢复、删除文件或更改原结果。",
+    "Inspect the original location, copy and temporary path first. Recording a review does not finish recovery, delete files or change the original result.",
+    "先に元の場所、コピー、一時パスを確認してください。確認の記録では復元の追加実行、ファイル削除、元の結果の変更は行いません。"
+  ],
+  [
+    "我已核对实际文件，了解此操作只记录核查。",
+    "I checked the actual files and understand this only records my review.",
+    "実際のファイルを確認し、この操作は確認を記録するだけであることを理解しました。"
+  ],
+  ["记录恢复已核对", "Record recovery review", "復元の確認を記録"],
+  [
+    "跨磁盘恢复数据无法核对，请检查恢复记录和两端位置；不会自动重试。",
+    "Cross-volume recovery data could not be verified. Check recovery history and both locations; no automatic retry will occur.",
+    "ディスク間の復元データを確認できません。復元履歴と両方の場所を確認してください。自動再試行はしません。"
+  ],
+  ["正在从跨磁盘副本恢复", "Restoring from cross-volume copy", "別ディスクのコピーから復元中"],
+  [
+    "已恢复到原位置，副本保留",
+    "Restored to original location; copy retained",
+    "元の場所に復元済み・コピー保持"
+  ],
+  ["未恢复，原副本保留", "Not restored; original copy retained", "未復元・元のコピーを保持"],
+  ["恢复已取消", "Recovery cancelled", "復元をキャンセルしました"],
+  [
+    "跨磁盘恢复结果待核实",
+    "Cross-volume recovery needs review",
+    "ディスク間の復元結果の確認が必要"
+  ],
+  ["跨磁盘恢复已中断", "Cross-volume recovery interrupted", "ディスク間の復元が中断されました"],
+  [
+    "核对内容、权限、修改时间、扩展属性和资源分支；安全标记保留并按系统形式核对。复制失败、变化或未知时不继续处理原件。完成后可从跨磁盘移动记录选择可靠副本，另行确认恢复原位置；副本与原废纸篓项目不自动删除。",
+    "Verify contents, permissions, modification time, extended attributes and resource forks; preserve security markers in the system form. Copy failures, changes or unknown results stop original-file processing. After completion, choose a reliable copy from transfer history and separately confirm recovery to the original location; copies and original Trash items are not deleted automatically.",
+    "内容、権限、更新日時、拡張属性、リソースフォークを確認し、安全属性はシステム形式で保持・確認します。コピー失敗、変更、不明な結果では元ファイルの処理を続けません。完了後、移動履歴から信頼できるコピーを選び、元の場所への復元を別途確認できます。コピーと元のゴミ箱項目は自動削除しません。"
+  ],
+  [
+    "原跨磁盘记录不存在。",
+    "The original transfer record does not exist.",
+    "元のディスク間移動記録が存在しません。"
+  ],
+  [
+    "请先结束并核对原跨磁盘记录，再准备恢复。",
+    "Finish and review the original transfer before preparing recovery.",
+    "元のディスク間移動を終了・確認してから復元を準備してください。"
+  ],
+  [
+    "原跨磁盘项目不存在。",
+    "The original transfer item does not exist.",
+    "元のディスク間移動の項目が存在しません。"
+  ],
+  [
+    "本项没有确认完成的跨磁盘移动收据，请先在 Finder 核查。",
+    "This item lacks a confirmed transfer receipt. Inspect it in Finder first.",
+    "この項目には確認済みの移動完了の記録がありません。先にFinderで確認してください。"
+  ],
+  [
+    "原计划与项目位置不一致。",
+    "The original plan and item location do not match.",
+    "元の計画と項目の場所が一致しません。"
+  ],
+  [
+    "原计划的目标或范围不一致。",
+    "The original plan destination or scope does not match.",
+    "元の計画の移動先または範囲が一致しません。"
+  ],
+  [
+    "原记录的跨卷关系或大小无法核对。",
+    "The original record's volume relationship or size could not be verified.",
+    "元の記録のボリューム関係またはサイズを確認できません。"
+  ],
+  [
+    "恢复项目与原记录不一致。",
+    "The recovery item does not match the original record.",
+    "復元項目が元の記録と一致しません。"
+  ],
+  [
+    "原位置缺少父目录。",
+    "The original parent folder is missing.",
+    "元の場所の親フォルダがありません。"
+  ],
+  [
+    "原位置无法编码。",
+    "The original location cannot be encoded.",
+    "元の場所をエンコードできません。"
+  ],
+  [
+    "原位置目录或磁盘身份变化，请在 Finder 核对。",
+    "The original folder or disk identity changed. Inspect it in Finder.",
+    "元のフォルダまたはディスクの識別情報が変化しました。Finderで確認してください。"
+  ],
+  [
+    "原跨磁盘记录已变化，请重新准备恢复。",
+    "The original transfer record changed. Prepare recovery again.",
+    "元のディスク間移動記録が変化しました。復元を準備し直してください。"
+  ],
+  [
+    "恢复账户或首次使用状态变化。",
+    "The recovery account or first-use acknowledgment changed.",
+    "復元のアカウントまたは初回利用の確認状態が変化しました。"
+  ],
+  [
+    "恢复副本或原位置已受保护。",
+    "The recovery copy or original location is now protected.",
+    "復元用コピーまたは元の場所が保護されています。"
+  ],
+  [
+    "恢复来源副本已变化，或不再是本账户的本地普通文件。",
+    "The recovery copy changed or is no longer an ordinary local file owned by this account.",
+    "復元元のコピーが変わったか、このアカウント所有のローカル通常ファイルではなくなりました。"
+  ],
+  [
+    "原位置已有同名项目，未覆盖或自动编号。",
+    "The original name is occupied. Nothing was overwritten or automatically numbered.",
+    "元の場所に同名の項目があります。上書きや自動連番化はしません。"
+  ],
+  [
+    "原位置是否空闲无法核对。",
+    "Availability of the original location could not be verified.",
+    "元の場所が空いているか確認できません。"
+  ],
+  [
+    "原位置写入状态无法核对。",
+    "The original location's write state could not be verified.",
+    "元の場所の書き込み状態を確認できません。"
+  ],
+  [
+    "原位置 ACL 无法核对。",
+    "The original location's ACL could not be verified.",
+    "元の場所のACLを確認できません。"
+  ],
+  [
+    "原位置存在写入限制，未解除权限。",
+    "The original location has write restrictions. Permissions were not changed.",
+    "元の場所に書き込み制限があります。権限は変更していません。"
+  ],
+  [
+    "跨磁盘恢复确认已过期，请重新检查。",
+    "The cross-volume recovery confirmation expired. Check again.",
+    "ディスク間の復元確認の有効期限が切れました。再確認してください。"
+  ],
+  ["缺少副本身份。", "Copy identity is missing.", "コピーの識別情報がありません。"],
+  [
+    "正在恢复副本到原位置；原磁盘副本和原废纸篓项目均不处理。",
+    "Restoring the copy to the original location. The source copy and original Trash item are not modified.",
+    "コピーを元の場所に復元中です。復元元のコピーと元のゴミ箱項目は変更しません。"
+  ],
+  [
+    "恢复后的内容或元数据未完整核对，请检查原位置。",
+    "Recovered contents or metadata were not fully verified. Inspect the original location.",
+    "復元後の内容またはメタデータを完全に確認できません。元の場所を確認してください。"
+  ],
+  [
+    "文件已核验并恢复到原位置。另一磁盘的副本保留，原废纸篓项目未改动。",
+    "The file was verified and restored to its original location. The other disk's copy is retained and the original Trash item was unchanged.",
+    "ファイルを検証し元の場所に復元しました。別ディスクのコピーを保持し、元のゴミ箱項目は変更していません。"
+  ],
+  [
+    "跨磁盘恢复记录无法核对，原记录保留。",
+    "The cross-volume recovery record could not be verified. The original record is retained.",
+    "ディスク間の復元記録を確認できません。元の記録を保持します。"
+  ],
+  [
+    "恢复记录超过容量。",
+    "The recovery record exceeds the size limit.",
+    "復元記録が容量上限を超えています。"
+  ],
+  [
+    "恢复记录格式无法核对。",
+    "The recovery record format could not be verified.",
+    "復元記録の形式を確認できません。"
+  ],
+  [
+    "恢复记录标识不一致。",
+    "Recovery record identifiers do not match.",
+    "復元記録の識別子が一致しません。"
+  ],
+  [
+    "恢复记录超过本轮容量。",
+    "Recovery records exceed the current capacity.",
+    "復元記録が今回の容量上限を超えています。"
+  ],
+  [
+    "恢复操作需要 FULL 同步记录。",
+    "Recovery requires FULL synchronous records.",
+    "復元にはFULL同期の記録が必要です。"
+  ],
+  [
+    "恢复记录被其他请求占用。",
+    "The recovery record is in use by another request.",
+    "復元記録は別の要求で使用中です。"
+  ],
+  [
+    "请先核对未完成的跨磁盘恢复记录；本轮最多保留 64 条。",
+    "Review unfinished cross-volume recoveries first. Up to 64 records are retained.",
+    "先に未完了のディスク間復元記録を確認してください。今回は最大64件を保持します。"
+  ],
+  [
+    "先前恢复已中断，请核对原位置、副本及临时路径；不会自动继续或重试。",
+    "Previous recovery was interrupted. Inspect the original location, copy and temporary path. It will not continue or retry automatically.",
+    "前回の復元は中断されました。元の場所、コピー、一時パスを確認してください。自動で続行・再試行はしません。"
+  ],
+  [
+    "恢复请求标识无效。",
+    "The recovery request identifier is invalid.",
+    "復元要求の識別子が無効です。"
+  ],
+  [
+    "请先结束当前任务，再恢复文件。",
+    "Finish the current task before restoring files.",
+    "現在のタスクを終了してからファイルを復元してください。"
+  ],
+  [
+    "正在复查跨磁盘恢复来源，尚未写入原位置。",
+    "Rechecking cross-volume recovery sources. Nothing has been written to the original location.",
+    "ディスク間の復元元を再確認中です。元の場所にはまだ書き込んでいません。"
+  ],
+  [
+    "请先确认从副本恢复，且保留副本及原废纸篓项目。",
+    "Confirm recovery from the copy while retaining the copy and original Trash item first.",
+    "先に、コピーと元のゴミ箱項目を保持した復元を確認してください。"
+  ],
+  [
+    "恢复确认已使用或撤销，请重新准备。",
+    "The recovery confirmation was used or revoked. Prepare again.",
+    "復元確認は使用済み、または撤回されています。準備をやり直してください。"
+  ],
+  [
+    "请先核对原位置、副本和临时路径。",
+    "Inspect the original location, copy and temporary path first.",
+    "先に元の場所、コピー、一時パスを確認してください。"
+  ],
+  ["恢复记录不存在。", "The recovery record does not exist.", "復元記録が存在しません。"],
+  [
+    "本记录无需未知结果核对。",
+    "This record does not require an unknown-result review.",
+    "この記録には不明な結果の確認は不要です。"
+  ],
+  [
+    "原移动没有可靠副本收据。",
+    "The original move has no reliable copy receipt.",
+    "元の移動に信頼できるコピーの記録がありません。"
+  ],
+  [
+    "原移动没有副本身份记录。",
+    "The original move has no copy identity record.",
+    "元の移動にコピーの識別記録がありません。"
+  ],
+  [
+    "原移动没有完整内容摘要。",
+    "The original move has no complete content digest.",
+    "元の移動に完全な内容ダイジェストがありません。"
+  ],
+  [
+    "原移动没有完整元数据摘要。",
+    "The original move has no complete metadata digest.",
+    "元の移動に完全なメタデータダイジェストがありません。"
+  ],
+  [
+    "原移动的副本收据与摘要无法核对。",
+    "The original copy receipt and digests could not be verified.",
+    "元の移動のコピー記録とダイジェストを確認できません。"
+  ],
+  [
+    "原跨磁盘计划不存在。",
+    "The original transfer plan does not exist.",
+    "元のディスク間移動計画が存在しません。"
+  ],
+  [
+    "原跨磁盘计划超过范围。",
+    "The original transfer plan exceeds the size limit.",
+    "元のディスク間移動計画が容量上限を超えています。"
+  ],
+  [
+    "原跨磁盘计划无法核对。",
+    "The original transfer plan could not be verified.",
+    "元のディスク間移動計画を確認できません。"
+  ],
+  [
+    "原跨磁盘计划标识不一致。",
+    "The original transfer plan identifiers do not match.",
+    "元のディスク間移動計画の識別子が一致しません。"
   ]
 ]

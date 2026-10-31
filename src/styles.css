@@ -4683,3 +4683,24 @@ input[type='checkbox'] {
   align-items: center;
   gap: 6px;
 }
+.transfer-restoration-modal {
+  padding: 24px;
+  width: min(700px, calc(100vw - 40px));
+}
+.transfer-restoration-modal h2 {
+  margin: 0 0 14px;
+}
+.transfer-restoration-modal dl {
+  display: grid;
+  grid-template-columns: 95px minmax(0, 1fr);
+  gap: 10px 12px;
+}
+.transfer-restoration-modal dd {
+  margin: 0;
+}
+.transfer-restoration-modal dt {
+  color: var(--subtle);
+}
+.transfer-restoration-modal details {
+  margin: 14px 0;
+}

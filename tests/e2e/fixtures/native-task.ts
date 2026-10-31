@@ -66,6 +66,7 @@ export async function installTaskMock(
               }
             if (command === 'get_history') return history()
             if (command === 'get_ai_scan') return null
+            if (command === 'get_transfer_restorations') return { records: [], activeRequests: [] }
             if (mode === 'analyze' && command === 'reveal_path') {
               sessionStorage.setItem('mock-reveal-path', args.path ?? '')
               return

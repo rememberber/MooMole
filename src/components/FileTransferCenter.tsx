@@ -10,7 +10,18 @@ import {
 import { bytes, dateTime } from '../lib/format'
 import { useNow } from '../lib/use-now'
 import { Modal } from './Modal'
-function Items({ record, onError }: { record: TransferRecord; onError: (error: string) => void }) {
+import type { TransferRestoreTarget } from '../lib/transfer-restoration'
+function Items({
+  record,
+  onError,
+  onRestore,
+  canRestore = false,
+}: {
+  record: TransferRecord
+  onError: (error: string) => void
+  onRestore?: (target: TransferRestoreTarget) => void
+  canRestore?: boolean
+}) {
   return (
     <div className="card personal-list" role="region" aria-label="跨磁盘逐项结果">
       {record.items.map((i) => (
@@ -61,6 +72,26 @@ function Items({ record, onError }: { record: TransferRecord; onError: (error: s
                 </button>
               </p>
             )}
+            {onRestore &&
+              record.state !== 'running' &&
+              i.state === 'moved' &&
+              i.copyReceipt &&
+              i.sourceTrashReceipt && (
+                <button
+                  className="button secondary compact"
+                  disabled={!canRestore || (record.state !== 'completed' && !record.reviewedAt)}
+                  onClick={() =>
+                    onRestore({
+                      runId: record.id,
+                      itemId: i.id,
+                      originalPath: i.path,
+                      copyPath: i.copyReceipt!.destination,
+                    })
+                  }
+                >
+                  从副本恢复原位置…
+                </button>
+              )}
             {!['moved', 'skipped'].includes(i.state) && i.temporaryPath && (
               <p>
                 临时记录位置：
@@ -205,8 +236,7 @@ function Transfer({
       <details>
         <summary>复制校验与恢复边界</summary>
         <p>
-          核对内容、权限、修改时间、扩展属性和资源分支；安全标记保留并按系统形式核对。复制失败、变化或未知时不继续处理原件。此类操作暂不提供应用内自动恢复，请按两端收据在
-          Finder 核对；不会自动删除副本。
+          核对内容、权限、修改时间、扩展属性和资源分支；安全标记保留并按系统形式核对。复制失败、变化或未知时不继续处理原件。完成后可从跨磁盘移动记录选择可靠副本，另行确认恢复原位置；副本与原废纸篓项目不自动删除。
         </p>
       </details>
       {checking && <p role="status">正在核对跨磁盘计划…</p>}
@@ -274,7 +304,13 @@ function Transfer({
     </Modal>
   )
 }
-export function FileTransferHistory() {
+export function FileTransferHistory({
+  onRestore,
+  canRestore = false,
+}: {
+  onRestore?: (target: TransferRestoreTarget) => void
+  canRestore?: boolean
+}) {
   const [records, setRecords] = useState<TransferRecord[]>([]),
     [active, setActive] = useState<string[]>([]),
     [selected, setSelected] = useState<TransferRecord | null>(null),
@@ -342,7 +378,19 @@ export function FileTransferHistory() {
         <Modal title="跨磁盘移动记录" onClose={() => setSelected(null)}>
           <h2>{transferState[selected.state]}</h2>
           <p>{selected.reason}</p>
-          <Items record={selected} onError={setError} />
+          <Items
+            record={selected}
+            onError={setError}
+            canRestore={canRestore}
+            onRestore={
+              onRestore
+                ? (target) => {
+                    setSelected(null)
+                    onRestore(target)
+                  }
+                : undefined
+            }
+          />
           {active.includes(selected.requestId) && (
             <button
               className="button secondary"
