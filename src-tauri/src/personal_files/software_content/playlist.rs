@@ -157,6 +157,7 @@ pub(super) fn collect(
         directory: root.witness,
         allocated_at_scan: 0,
         history: None,
+        browser_profile: None,
         playlist: Some(read.held.witness),
         telegram_export: None,
     };
@@ -174,6 +175,7 @@ pub(super) fn collect(
         duplicates: None,
         similar_photos: None,
         software_content: Some(Info {
+            browser_profile: None,
             source: Source::VlcPlaylist,
             minimum_age_days: 0,
             minimum_directory_bytes: 0,

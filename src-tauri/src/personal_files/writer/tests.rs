@@ -272,6 +272,41 @@ async fn real_playlist_media_trash_preserves_manifest_and_unlisted_files() {
 #[tokio::test]
 #[ignore = "real browser download snapshot, Mole rules and native Trash on self-created files/database only"]
 async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
+    let evidence = browser_download_roundtrip(None).await;
+    std::fs::write(
+        "../.cache/browser-downloads-native.json",
+        serde_json::to_vec_pretty(&evidence).unwrap(),
+    )
+    .unwrap();
+}
+#[tokio::test]
+#[ignore = "real multi-browser profile WAL snapshots, Mole and native Trash; own fixtures only"]
+async fn real_multi_browser_profiles_trash_preserves_all_source_databases() {
+    use software_content::browser_profiles::{Browser, Selection};
+    let mut evidence = vec![];
+    for browser in [
+        Browser::Chrome,
+        Browser::Chromium,
+        Browser::Edge,
+        Browser::Brave,
+    ] {
+        evidence.push(
+            browser_download_roundtrip(Some(Selection {
+                browser,
+                profile: "Profile 2".into(),
+            }))
+            .await,
+        );
+    }
+    std::fs::write(
+        "../.cache/multi-browser-downloads-native.json",
+        serde_json::to_vec_pretty(&evidence).unwrap(),
+    )
+    .unwrap();
+}
+async fn browser_download_roundtrip(
+    profile: Option<software_content::browser_profiles::Selection>,
+) -> serde_json::Value {
     use crate::engine::TaskKind;
     let temp = tempfile::Builder::new()
         .prefix("MooMole-browser-native-")
@@ -284,7 +319,7 @@ async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
     let keep = folder.join("unlisted.txt");
     std::fs::write(&chosen, "owned completed download").unwrap();
     std::fs::write(&keep, "unlisted keep").unwrap();
-    let history = home.join("Library/Application Support/Google/Chrome/Default/History");
+    let history = profile.clone().unwrap_or_default().history(&home).unwrap();
     std::fs::create_dir_all(history.parent().unwrap()).unwrap();
     let browser = rusqlite::Connection::open(&history).unwrap();
     browser.pragma_update(None, "journal_mode", "WAL").unwrap();
@@ -298,12 +333,21 @@ async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
     let original = std::fs::read(&history).unwrap();
     let wal = history.with_file_name("History-wal");
     let original_wal = std::fs::read(&wal).unwrap();
-    let scan = software_content::collect(
-        &home,
-        software_content::Source::ChromeDownloads,
-        &[],
-        Arc::new(Job::new(TaskKind::PersonalScan)),
-    )
+    let scan = if let Some(selection) = profile.clone() {
+        software_content::collect_browser(
+            &home,
+            selection,
+            &[],
+            Arc::new(Job::new(TaskKind::PersonalScan)),
+        )
+    } else {
+        software_content::collect(
+            &home,
+            software_content::Source::ChromeDownloads,
+            &[],
+            Arc::new(Job::new(TaskKind::PersonalScan)),
+        )
+    }
     .unwrap();
     assert_eq!(scan.items.len(), 1);
     let ids = vec![scan.items[0].id.clone()];
@@ -387,7 +431,7 @@ async fn real_browser_download_trash_preserves_history_and_unlisted_files() {
         expected
     );
     std::fs::create_dir_all("../.cache").unwrap();
-    std::fs::write("../.cache/browser-downloads-native.json",serde_json::to_vec_pretty(&serde_json::json!({"result":expected,"historyAndWalPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})).unwrap()).unwrap();
+    serde_json::json!({"profile":profile,"result":expected,"historyAndWalPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})
 }
 
 #[tokio::test]

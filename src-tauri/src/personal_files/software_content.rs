@@ -3,6 +3,7 @@
 use super::*;
 use crate::{db, engine::Job, observation::AnchoredPath};
 use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc};
+pub(crate) mod browser_profiles;
 mod chromium;
 mod playlist;
 mod telegram;
@@ -46,10 +47,6 @@ impl Source {
             Self::ChromeDownloads | Self::VlcPlaylist | Self::TelegramExport => unreachable!(),
         })
     }
-    fn history(self, home: &Path) -> Option<PathBuf> {
-        (self == Self::ChromeDownloads)
-            .then(|| home.join("Library/Application Support/Google/Chrome/Default/History"))
-    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -60,6 +57,8 @@ pub(crate) struct Binding {
     pub allocated_at_scan: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<Witness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_profile: Option<browser_profiles::Selection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playlist: Option<Witness>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,12 +120,19 @@ impl Binding {
                             !telegram::manifest_allowed(&n.path, Path::new(&self.home))
                         })
                 }))
-            || (self.source != Source::ChromeDownloads && self.history.is_some())
+            || (self.source != Source::ChromeDownloads
+                && (self.history.is_some() || self.browser_profile.is_some()))
             || (self.source == Source::ChromeDownloads
                 && self.history.as_ref().is_none_or(|w| {
                     w.version != crate::observation::VERSION
                         || w.nodes.last().is_none_or(|n| {
-                            Some(&n.path) != self.source.history(Path::new(&self.home)).as_ref()
+                            self.browser_profile
+                                .clone()
+                                .unwrap_or_default()
+                                .history(Path::new(&self.home))
+                                .ok()
+                                .as_ref()
+                                != Some(&n.path)
                         })
                 }))
             || items
@@ -152,6 +158,19 @@ impl Binding {
             || !held.local_materialized()
         {
             return Err("附件目录或祖先身份已变化，本项保留。".into());
+        }
+        if self.source == Source::ChromeDownloads {
+            let witness = self
+                .history
+                .as_ref()
+                .ok_or("浏览器下载来源缺失，本项保留。")?;
+            let path = &witness.nodes.last().ok_or("浏览器配置路径缺失。")?.path;
+            let parent = AnchoredPath::open(path.parent().ok_or("浏览器配置路径缺失。")?)?;
+            if parent.witness.nodes != witness.nodes[..witness.nodes.len() - 1]
+                || !parent.local_materialized()
+            {
+                return Err("浏览器配置目录身份已变化，请重新扫描；本项保留。".into());
+            }
         }
         if self.source == Source::VlcPlaylist {
             let witness = self
@@ -190,6 +209,8 @@ pub(crate) struct Info {
     pub playlist_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browser_profile: Option<browser_profiles::Selection>,
 }
 pub(super) fn collect_telegram(
     home: &Path,
@@ -198,6 +219,14 @@ pub(super) fn collect_telegram(
     job: Arc<Job>,
 ) -> Result<Scan, String> {
     telegram::collect(home, manifest, rules, job)
+}
+pub(super) fn collect_browser(
+    home: &Path,
+    profile: browser_profiles::Selection,
+    rules: &[String],
+    job: Arc<Job>,
+) -> Result<Scan, String> {
+    chromium::collect_profile(home, profile, rules, job)
 }
 pub(super) fn collect_playlist(
     home: &Path,
@@ -231,6 +260,7 @@ pub(super) fn collect(
         directory: held.witness,
         allocated_at_scan: 0,
         history: None,
+        browser_profile: None,
         playlist: None,
         telegram_export: None,
     };
@@ -250,6 +280,7 @@ pub(super) fn collect(
         execution_supported: source == Source::MailDownloads,
         playlist_path: None,
         export_path: None,
+        browser_profile: None,
     });
     Ok(scan)
 }

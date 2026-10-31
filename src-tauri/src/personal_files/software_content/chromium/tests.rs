@@ -6,7 +6,9 @@ fn fixed_download_table_and_wal_snapshot_find_only_completed_local_files_without
         .tempdir()
         .unwrap();
     let home = temp.path().canonicalize().unwrap();
-    let history = Source::ChromeDownloads.history(&home).unwrap();
+    let history = browser_profiles::Selection::default()
+        .history(&home)
+        .unwrap();
     std::fs::create_dir_all(history.parent().unwrap()).unwrap();
     let downloads = home.join("Downloads");
     std::fs::create_dir(&downloads).unwrap();

@@ -58,6 +58,18 @@ pub(super) fn collect(
     rules: &[String],
     job: Arc<Job>,
 ) -> Result<Scan, String> {
+    if source != Source::ChromeDownloads {
+        return Err("此来源没有已适配的下载记录。".into());
+    }
+    collect_profile(home, browser_profiles::Selection::default(), rules, job)
+}
+pub(super) fn collect_profile(
+    home: &Path,
+    profile: browser_profiles::Selection,
+    rules: &[String],
+    job: Arc<Job>,
+) -> Result<Scan, String> {
+    let source = Source::ChromeDownloads;
     if !ordinary(home) {
         return Err("账户目录范围无法核对。".into());
     }
@@ -67,14 +79,53 @@ pub(super) fn collect(
     if !meta.is_dir() || meta.uid() != unsafe { libc::geteuid() } || !root.local_materialized() {
         return Err("账户目录不属于当前用户或本地状态未知。".into());
     }
-    let history = source.history(home).ok_or("此来源没有已适配的下载记录。")?;
+    let history = profile.history(home)?;
+    for dir in [
+        profile.browser.root(home),
+        history.parent().unwrap().to_path_buf(),
+    ] {
+        if protected(&dir, rules)? {
+            return Err("浏览器配置目录与保护范围重叠，未读取。".into());
+        }
+        let observed = AnchoredPath::open(&dir)?;
+        let m = observed.target().metadata().map_err(|e| e.to_string())?;
+        if !m.is_dir()
+            || m.uid() != unsafe { libc::geteuid() }
+            || m.dev() != meta.dev()
+            || !observed.local_materialized()
+        {
+            return Err("浏览器配置目录不是当前账户的普通本地目录。".into());
+        }
+    }
     if protected(&history, rules)? {
         return Err("浏览器下载记录与保护范围重叠，未读取。".into());
     }
     let database = read(&history, 128 * 1024 * 1024, &job, started)?;
+    if database
+        .held
+        .witness
+        .nodes
+        .iter()
+        .rev()
+        .skip(1)
+        .take(2)
+        .any(|n| n.uid != unsafe { libc::geteuid() } || n.dev != meta.dev())
+    {
+        return Err("浏览器配置目录不是当前账户的普通本地目录。".into());
+    }
+    let rollback_path = history.with_file_name("History-journal");
+    if !matches!(std::fs::symlink_metadata(&rollback_path),Err(e) if e.kind()==std::io::ErrorKind::NotFound)
+    {
+        return Err("浏览器存在未适配的回滚日志或状态未知，请正常关闭浏览器后重新扫描。".into());
+    }
     let wal_path = history.with_file_name("History-wal");
     let wal = match std::fs::symlink_metadata(&wal_path) {
-        Ok(_) => Some(read(&wal_path, 32 * 1024 * 1024, &job, started)?),
+        Ok(_) => {
+            if protected(&wal_path, rules)? {
+                return Err("浏览器下载记录与保护范围重叠，未读取。".into());
+            }
+            Some(read(&wal_path, 32 * 1024 * 1024, &job, started)?)
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(_) => return Err("无法确认浏览器 WAL 状态，未读取下载记录。".into()),
     };
@@ -95,6 +146,14 @@ pub(super) fn collect(
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|_| "下载记录快照无法打开，未推断文件归属。")?;
+    let query_job = job.clone();
+    db.progress_handler(
+        1000,
+        Some(move || {
+            query_job.cancelled.load(Ordering::SeqCst)
+                || started.elapsed() > Duration::from_secs(10)
+        }),
+    );
     db.busy_timeout(Duration::from_millis(100))
         .map_err(|e| e.to_string())?;
     db.pragma_update(None, "query_only", true)
@@ -183,7 +242,12 @@ pub(super) fn collect(
             }
         }
     }
+    root.validate()?;
     database.held.validate()?;
+    if !matches!(std::fs::symlink_metadata(&rollback_path),Err(e) if e.kind()==std::io::ErrorKind::NotFound)
+    {
+        return Err("浏览器回滚日志状态在读取期间变化，请重新扫描。".into());
+    }
     if let Some(wal) = &wal {
         wal.held.validate()?;
     } else if !matches!(std::fs::symlink_metadata(&wal_path),Err(e) if e.kind()==std::io::ErrorKind::NotFound)
@@ -197,6 +261,7 @@ pub(super) fn collect(
         directory: root.witness,
         allocated_at_scan: 0,
         history: Some(database.held.witness.clone()),
+        browser_profile: Some(profile.clone()),
         playlist: None,
         telegram_export: None,
     };
@@ -221,6 +286,7 @@ pub(super) fn collect(
             execution_supported: true,
             playlist_path: None,
             export_path: None,
+            browser_profile: Some(profile),
         }),
     };
     Ok(Scan {

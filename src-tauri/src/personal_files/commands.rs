@@ -144,7 +144,7 @@ fn start(
     domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start_with_source(root, request_id, domain, None, false, state)
+    start_with_source(root, request_id, domain, None, false, None, state)
 }
 fn start_with_source(
     root: String,
@@ -152,6 +152,7 @@ fn start_with_source(
     domain: Domain,
     source: Option<software_content::Source>,
     photo_sequences: bool,
+    browser_profile: Option<software_content::browser_profiles::Selection>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
@@ -184,6 +185,13 @@ fn start_with_source(
             software_content::collect_playlist(
                 &state.home,
                 &PathBuf::from(root),
+                &settings.protected_paths,
+                job.clone(),
+            )
+        } else if let Some(profile) = browser_profile {
+            software_content::collect_browser(
+                &state.home,
+                profile,
                 &settings.protected_paths,
                 job.clone(),
             )
@@ -451,6 +459,7 @@ pub(crate) fn start_similar_scan(
         Domain::SimilarPhotos,
         None,
         photo_sequences.unwrap_or(false),
+        None,
         state,
     )
 }
@@ -498,13 +507,43 @@ pub(crate) fn get_software_content(
     read(&state, Domain::SoftwareContent)
 }
 #[tauri::command]
+pub(crate) async fn list_browser_download_profiles(
+    browser: software_content::browser_profiles::Browser,
+    state: tauri::State<'_, AppState>,
+) -> Result<software_content::browser_profiles::Profiles, String> {
+    let operation = state.updates.installation.enter()?;
+    let slot = state
+        .project_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "其他文件检查正在进行。")?;
+    let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+    if !settings.acknowledged || state.shutdown.closing() {
+        return Err("请先确认首次使用说明，或等待退出任务结束。".into());
+    }
+    let home = state.home.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ownership = (operation, slot);
+        software_content::browser_profiles::discover(&home, browser, &settings.protected_paths)
+    })
+    .await
+    .map_err(|_| "浏览器配置检查未完成。".to_string())?
+}
+#[tauri::command]
 pub(crate) fn start_software_content(
     source: software_content::Source,
     request_id: String,
     playlist_path: Option<String>,
     export_path: Option<String>,
+    browser_profile: Option<software_content::browser_profiles::Selection>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    if source != software_content::Source::ChromeDownloads && browser_profile.is_some() {
+        return Err("此软件内容来源不接受浏览器配置。".into());
+    }
+    if let Some(profile) = &browser_profile {
+        profile.history(&state.home)?;
+    }
     if (source != software_content::Source::TelegramExport && export_path.is_some())
         || (source != software_content::Source::VlcPlaylist && playlist_path.is_some())
     {
@@ -530,6 +569,7 @@ pub(crate) fn start_software_content(
         Domain::SoftwareContent,
         Some(source),
         false,
+        browser_profile,
         state,
     )
 }
