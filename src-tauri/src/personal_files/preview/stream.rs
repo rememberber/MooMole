@@ -20,7 +20,17 @@ const CHUNK: u64 = 2 * 1024 * 1024;
 const LIMIT: u64 = 16 * 1024 * 1024 * 1024;
 #[derive(Default)]
 pub(crate) struct Store {
-    current: Mutex<Option<Arc<Lease>>>,
+    current: Mutex<Session>,
+}
+#[derive(Default)]
+struct Session {
+    generation: u64,
+    id: String,
+    leases: Vec<Arc<Lease>>,
+}
+struct Ticket {
+    generation: u64,
+    id: String,
 }
 struct Prepared {
     held: AnchoredPath,
@@ -39,28 +49,66 @@ struct Lease {
     expires_at: i64,
 }
 impl Store {
+    fn begin(&self, id: String) -> Result<Ticket, String> {
+        uuid::Uuid::parse_str(&id).map_err(|_| "视频对比标识无效。")?;
+        let mut current = self.current.lock().map_err(|e| e.to_string())?;
+        current.generation = current
+            .generation
+            .checked_add(1)
+            .ok_or("预览会话数量超限。")?;
+        current.id = id.clone();
+        current.leases.clear();
+        Ok(Ticket {
+            generation: current.generation,
+            id,
+        })
+    }
+    fn commit(&self, ticket: &Ticket, leases: Vec<Lease>) -> Result<Vec<Arc<Lease>>, String> {
+        if leases.is_empty()
+            || leases.len() > 4
+            || leases
+                .iter()
+                .map(|l| &l.id)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != leases.len()
+        {
+            return Err("视频预览数量或标识无法核对。".into());
+        }
+        let mut current = self.current.lock().map_err(|e| e.to_string())?;
+        if current.generation != ticket.generation || current.id != ticket.id {
+            return Err("预览已关闭或已被新的对比替代，未保留迟到结果。".into());
+        }
+        if leases.iter().any(|l| Instant::now() >= l.deadline) {
+            return Err("视频对比已过期，请重新扫描。".into());
+        }
+        let leases = leases.into_iter().map(Arc::new).collect::<Vec<_>>();
+        current.leases = leases.clone();
+        Ok(leases)
+    }
+    #[cfg(test)]
     fn insert(&self, lease: Lease) -> Result<Arc<Lease>, String> {
-        let lease = Arc::new(lease);
-        *self.current.lock().map_err(|e| e.to_string())? = Some(lease.clone());
-        Ok(lease)
+        let ticket = self.begin(uuid::Uuid::new_v4().to_string())?;
+        Ok(self.commit(&ticket, vec![lease])?.remove(0))
     }
     fn get(&self, id: &str) -> Option<Arc<Lease>> {
         let mut current = self.current.lock().ok()?;
-        if current
-            .as_ref()
-            .is_some_and(|l| Instant::now() >= l.deadline)
-        {
-            *current = None;
-        }
-        current.as_ref().filter(|l| l.id == id).cloned()
+        current.leases.retain(|l| Instant::now() < l.deadline);
+        current.leases.iter().find(|l| l.id == id).cloned()
     }
     fn live(&self, id: &str) -> bool {
         self.get(id).is_some()
     }
     fn revoke(&self, id: &str) {
         if let Ok(mut current) = self.current.lock() {
-            if current.as_ref().is_some_and(|l| l.id == id) {
-                *current = None;
+            current.leases.retain(|l| l.id != id);
+        }
+    }
+    fn release_session(&self, id: &str) {
+        if let Ok(mut current) = self.current.lock() {
+            if current.id == id {
+                current.leases.clear();
+                current.id.clear();
             }
         }
     }
@@ -69,12 +117,11 @@ pub(crate) fn start(state: AppState) {
     tauri::async_runtime::spawn(async move {
         loop {
             if let Ok(mut current) = state.media_previews.current.lock() {
-                if state.shutdown.closing()
-                    || current
-                        .as_ref()
-                        .is_some_and(|l| Instant::now() >= l.deadline)
-                {
-                    *current = None;
+                if state.shutdown.closing() {
+                    current.leases.clear();
+                    current.id.clear();
+                } else {
+                    current.leases.retain(|l| Instant::now() < l.deadline);
                 }
             }
             if state.shutdown.closing() {
@@ -424,6 +471,9 @@ pub(crate) async fn prepare_media_preview(
         .try_acquire_owned()
         .map_err(|_| "上一个预览仍在处理，请稍后重试。")?;
     let copy = item.clone();
+    let ticket = state
+        .media_previews
+        .begin(uuid::Uuid::new_v4().to_string())?;
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let _slot = slot;
         prepare(&copy, &settings.protected_paths)
@@ -446,7 +496,7 @@ pub(crate) async fn prepare_media_preview(
         expires_at,
     };
     authorize(&state, &lease)?;
-    let lease = state.media_previews.insert(lease)?;
+    let lease = state.media_previews.commit(&ticket, vec![lease])?.remove(0);
     Ok(Preview {
         scan_id,
         item_id,
@@ -459,6 +509,114 @@ pub(crate) async fn prepare_media_preview(
             expires_at: lease.expires_at,
         },
     })
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Comparison {
+    comparison_id: String,
+    scan_id: String,
+    items: Vec<Preview>,
+}
+fn comparison_ids(ids: &[String]) -> Result<(), String> {
+    if !(2..=4).contains(&ids.len())
+        || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        || ids.iter().any(|id| uuid::Uuid::parse_str(id).is_err())
+    {
+        return Err("请选择当前扫描中两到四段不同的视频。".into());
+    }
+    Ok(())
+}
+#[tauri::command]
+pub(crate) async fn prepare_media_comparison(
+    domain: Domain,
+    scan_id: String,
+    item_ids: Vec<String>,
+    comparison_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Comparison, String> {
+    comparison_ids(&item_ids)?;
+    let mut selected = vec![];
+    for id in &item_ids {
+        selected.push(selected_context(&state, domain, &scan_id, id)?);
+    }
+    let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+    if !settings.acknowledged || state.shutdown.closing() {
+        return Err("请先确认首次使用说明，并等待当前退出结束。".into());
+    }
+    for (item, source, _) in &selected {
+        if let Some(source) = source {
+            source.validate(item, &state.home, db::now())?;
+        }
+    }
+    let slot = state
+        .preview_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "上一个预览仍在处理，请稍后重试。")?;
+    let ticket = state.media_previews.begin(comparison_id.clone())?;
+    let copy = selected.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let _slot = slot;
+        copy.iter()
+            .map(|(item, _, _)| {
+                let p = prepare(item, &settings.protected_paths)?;
+                if p.kind != "video" {
+                    return Err("并排对比仅接受可预览的 MP4、M4V、MOV 视频。".into());
+                }
+                Ok(p)
+            })
+            .collect::<Result<Vec<_>, String>>()
+    });
+    let prepared = tokio::time::timeout(Duration::from_secs(8), worker)
+        .await
+        .map_err(|_| "视频对比检查未及时返回，原读取可能仍在进行；不会自动重试。")?
+        .map_err(|_| "视频对比检查中断。")??;
+    let mut leases = vec![];
+    for ((item, source, expires_at), prepared) in selected.into_iter().zip(prepared) {
+        let now = db::now();
+        let lease = Lease {
+            id: uuid::Uuid::new_v4().to_string(),
+            domain,
+            scan_id: scan_id.clone(),
+            item,
+            source,
+            prepared,
+            deadline: Instant::now()
+                + Duration::from_millis(expires_at.saturating_sub(now).max(0) as u64),
+            expires_at,
+        };
+        authorize(&state, &lease)?;
+        leases.push(lease);
+    }
+    let leases = state.media_previews.commit(&ticket, leases)?;
+    let items = leases
+        .iter()
+        .map(|l| Preview {
+            scan_id: scan_id.clone(),
+            item_id: l.item.id.clone(),
+            path: l.item.path.clone(),
+            content: Content::Media {
+                url: format!("{SCHEME}://localhost/{}/media", l.id),
+                lease_id: l.id.clone(),
+                mime: l.prepared.mime.into(),
+                media_kind: l.prepared.kind.into(),
+                expires_at: l.expires_at,
+            },
+        })
+        .collect();
+    Ok(Comparison {
+        comparison_id,
+        scan_id,
+        items,
+    })
+}
+#[tauri::command]
+pub(crate) fn release_media_comparison(
+    comparison_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.media_previews.release_session(&comparison_id);
+    Ok(())
 }
 #[tauri::command]
 pub(crate) fn release_media_preview(

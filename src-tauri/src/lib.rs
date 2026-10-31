@@ -2443,6 +2443,8 @@ pub fn run() {
             personal_files::schedule::runtime::start_folder_scan,
             personal_files::preview::preview_personal_file,
             personal_files::preview::stream::prepare_media_preview,
+            personal_files::preview::stream::prepare_media_comparison,
+            personal_files::preview::stream::release_media_comparison,
             personal_files::preview::stream::release_media_preview,
             personal_files::commands::get_personal_files,
             personal_files::commands::get_duplicate_files,

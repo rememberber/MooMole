@@ -159,13 +159,204 @@ fn revoked_expired_protected_and_changed_files_never_return_further_media_bytes(
     let mut expired = lease(&path);
     expired.deadline = Instant::now() - Duration::from_secs(1);
     let id = expired.id.clone();
-    store.insert(expired).unwrap();
+    assert!(store.insert(expired).is_err());
     assert!(!store.live(&id));
     let current = lease(&path);
     let current_id = current.id.clone();
     store.insert(current).unwrap();
     store.revoke(&id);
     assert!(store.live(&current_id));
+}
+
+#[test]
+fn bounded_comparison_sessions_keep_members_independent_and_discard_late_generations() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().canonicalize().unwrap();
+    let movie = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/media/owned-color.mp4"),
+    )
+    .unwrap();
+    let mut paths = vec![];
+    for n in 0..5 {
+        let p = root.join(format!("owned-{n}.mp4"));
+        std::fs::write(&p, &movie).unwrap();
+        paths.push(p);
+    }
+    let store = Store::default();
+    let ticket = store.begin(uuid::Uuid::new_v4().to_string()).unwrap();
+    let members = store
+        .commit(&ticket, paths[..4].iter().map(|p| lease(p)).collect())
+        .unwrap();
+    for l in &members {
+        assert!(store.live(&l.id));
+        let req = Request::builder()
+            .header(header::RANGE, "bytes=0-1023")
+            .body(vec![])
+            .unwrap();
+        let res = response(l, &req, "tauri://localhost", || file_gate(l, &[]));
+        assert_eq!(res.status(), 206);
+        assert_eq!(res.body(), &movie[..1024]);
+    }
+    store.revoke(&members[0].id);
+    assert!(!store.live(&members[0].id));
+    assert!(store.live(&members[1].id));
+    let next = store.begin(uuid::Uuid::new_v4().to_string()).unwrap();
+    assert!(members.iter().all(|l| !store.live(&l.id)));
+    assert!(store.commit(&ticket, vec![lease(&paths[0])]).is_err());
+    assert!(store
+        .commit(&next, paths.iter().map(|p| lease(p)).collect())
+        .is_err());
+    let current = store.commit(&next, vec![lease(&paths[4])]).unwrap();
+    store.release_session(&ticket.id);
+    assert!(store.live(&current[0].id));
+    store.release_session(&next.id);
+    assert!(!store.live(&current[0].id));
+    // Reusing even the same session label cannot revive an older generation.
+    let newer = store.begin(next.id.clone()).unwrap();
+    assert!(store.commit(&next, vec![lease(&paths[4])]).is_err());
+    store.commit(&newer, vec![lease(&paths[4])]).unwrap();
+    for p in paths {
+        assert_eq!(std::fs::read(p).unwrap(), movie);
+    }
+    for ids in [
+        vec![],
+        vec![uuid::Uuid::new_v4().to_string()],
+        vec!["bad".into(), "other".into()],
+        vec![ticket.id.clone(), ticket.id.clone()],
+    ] {
+        assert!(comparison_ids(&ids).is_err());
+    }
+}
+
+#[tokio::test]
+#[ignore = "reads two disposable H.264 samples, then executes only an explicitly selected sample move through production Mole rules and reopens its receipt"]
+async fn owned_video_comparison_to_separate_confirmation_and_native_move() {
+    use crate::{
+        engine::{Job, TaskKind},
+        personal_files::{self, movement, writer},
+    };
+    let t = tempfile::Builder::new()
+        .prefix("MooMole-video-comparison-")
+        .tempdir()
+        .unwrap();
+    let home = t.path().canonicalize().unwrap();
+    let root = home.join("Videos");
+    std::fs::create_dir(&root).unwrap();
+    let movie = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/media/owned-color.mp4"),
+    )
+    .unwrap();
+    let a = root.join("compare-a.mp4");
+    let b = root.join("compare-b.mp4");
+    std::fs::write(&a, &movie).unwrap();
+    std::fs::write(&b, &movie).unwrap();
+    let scan =
+        personal_files::scan::collect(&root, &[], Arc::new(Job::new(TaskKind::PersonalScan)))
+            .unwrap();
+    let playback = Store::default();
+    let ticket = playback.begin(uuid::Uuid::new_v4().to_string()).unwrap();
+    let leases = playback
+        .commit(
+            &ticket,
+            scan.items
+                .iter()
+                .map(|i| Lease {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    domain: Domain::PersonalFiles,
+                    scan_id: scan.id.clone(),
+                    item: i.clone(),
+                    source: None,
+                    prepared: prepare(i, &[]).unwrap(),
+                    deadline: Instant::now() + Duration::from_secs(60),
+                    expires_at: db::now() + 60_000,
+                })
+                .collect(),
+        )
+        .unwrap();
+    for l in &leases {
+        let req = Request::builder()
+            .header(header::RANGE, "bytes=64-1023")
+            .body(vec![])
+            .unwrap();
+        let res = response(l, &req, "tauri://localhost", || file_gate(l, &[]));
+        assert_eq!(res.status(), 206);
+        assert_eq!(res.body(), &movie[64..1024]);
+    }
+    let chosen = scan
+        .items
+        .iter()
+        .find(|i| Path::new(&i.path) == a)
+        .unwrap()
+        .id
+        .clone();
+    let mut files = personal_files::Store {
+        scan: Some(scan),
+        ..Default::default()
+    };
+    let target = home.join("Organized");
+    std::fs::create_dir(&target).unwrap();
+    let settings = db::Settings {
+        acknowledged: true,
+        ..Default::default()
+    };
+    let offer = files
+        .offer_move(
+            &[chosen],
+            target.to_str().unwrap(),
+            movement::Conflict::Skip,
+            &settings,
+            db::now(),
+        )
+        .unwrap();
+    let plan = files.take(&offer.id, db::now()).unwrap();
+    let database = db::open_owned(&home.join("owned.sqlite")).unwrap();
+    db::save_settings(&database, &settings).unwrap();
+    let database = Arc::new(Mutex::new(database));
+    let engine = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/mole");
+    let policy_home = home.clone();
+    let result = writer::run_with(
+        database.clone(),
+        home.clone(),
+        plan,
+        Arc::new(Job::new(TaskKind::PersonalMove)),
+        move |requested, job| {
+            let e = engine.clone();
+            let h = policy_home.clone();
+            async move { crate::rules::run(&e, &h, &requested, job).await }
+        },
+        |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        result.summary.moved_count,
+        1,
+        "{}",
+        serde_json::to_string_pretty(&result).unwrap()
+    );
+    assert!(!a.exists());
+    assert_eq!(std::fs::read(&b).unwrap(), movie);
+    assert_eq!(
+        std::fs::read(&result.items[0].receipt.as_ref().unwrap().destination).unwrap(),
+        movie
+    );
+    let moved_lease = leases
+        .iter()
+        .find(|l| Path::new(&l.item.path) == a)
+        .unwrap();
+    assert!(file_gate(moved_lease, &[]).is_err());
+    playback.release_session(&ticket.id);
+    assert!(leases.iter().all(|l| !playback.live(&l.id)));
+    let run = result.summary.id.clone();
+    let value = serde_json::to_value(&result).unwrap();
+    drop(database);
+    let reopened = db::open_owned(&home.join("owned.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(crate::execution::detail(&reopened, &run).unwrap()).unwrap(),
+        value
+    );
+    std::fs::create_dir_all("../.cache").unwrap();
+    std::fs::write("../.cache/video-comparison-native.json",serde_json::to_vec_pretty(&serde_json::json!({"scope":"native media capabilities and real separate move, not App window playback acceptance","bothSamplesRead":true,"unchosenVideoRetained":true,"receiptReopened":true,"execution":result})).unwrap()).unwrap();
 }
 #[test]
 fn capability_urls_range_limits_and_unsupported_formats_do_not_open_arbitrary_paths() {
