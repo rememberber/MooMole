@@ -278,6 +278,9 @@ fn source_address(source: &Source) -> (String, usize) {
     source.address()
 }
 fn managed(path: &Path) -> Result<(), String> {
+    if identity::update_managed(path)? {
+        return Err("App Store 或带后台/特权组件的应用，请通过原有管理工具更新。".into());
+    }
     for p in [
         "Contents/_MASReceipt",
         "Contents/Library/LoginItems",

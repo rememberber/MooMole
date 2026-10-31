@@ -8461,5 +8461,507 @@
     "已停止后续分析；尚未返回的本机只读检查可能仍在结束中。没有执行清理，已发送给模型的信息无法撤回。",
     "Further analysis stopped. Pending local read-only checks may still be finishing. No cleanup was performed; information already sent to a model cannot be recalled.",
     "以降の分析を停止しました。未完了のローカル読み取り専用チェックは終了中の可能性があります。削除は実行していません。モデルに送信済みの情報は取り消せません。"
+  ],
+  ["应用更新记录", "Application update history", "アプリ更新履歴"],
+  ["从新版应用包更新…", "Update from a newer app package…", "新しいアプリパッケージから更新…"],
+  ["更新此应用", "Update this application", "このアプリを更新"],
+  [
+    "选择从可信来源下载并解压的新版 .app。请先自行退出应用；核对完成后才会替换。",
+    "Choose a newer .app downloaded and extracted from a trusted source. Quit the app yourself first; replacement starts only after review.",
+    "信頼できる提供元からダウンロードして展開した新しい .app を選択してください。先にアプリを終了してください。確認後に置き換えます。"
+  ],
+  ["更新范围与恢复边界", "Update scope and recovery limits", "更新範囲と復元の制限"],
+  [
+    "仅替换此安装位置的完整应用包。旧包保留在独立位置，不修改应用数据，不自动打开应用。恢复旧包需要退出应用后手动替换；新版写入的数据可能不兼容旧版。",
+    "Only the complete app package at this installation is replaced. The old package is retained separately. App data is unchanged and the app is not launched. Restoring requires quitting and replacing the package manually; data written by the newer version may be incompatible.",
+    "このインストール先のアプリパッケージ全体だけを置き換え、旧パッケージは別の場所に保持します。アプリデータは変更せず、自動起動しません。復元には終了後の手動置換が必要です。新バージョンが書き込んだデータは旧版と互換性がない場合があります。"
+  ],
+  [
+    "本轮支持当前账户拥有、未发现运行进程的普通应用与 APFS 安装卷。App Store、Homebrew、后台或特权组件请使用原有管理工具。不会绕过 macOS 安全检查或自动删除旧包。",
+    "Currently supports ordinary apps owned by this account on APFS installation volumes when no running process is observed. Use the original manager for App Store, Homebrew, background or privileged components. macOS security checks are preserved and old packages are not deleted automatically.",
+    "現在はこのアカウント所有で実行中プロセスが見つからない通常のアプリと APFS インストール先に対応しています。App Store、Homebrew、バックグラウンド・特権コンポーネントには元の管理ツールを使用してください。macOS の安全確認を回避せず、旧パッケージは自動削除しません。"
+  ],
+  ["应用更新核对", "Application update review", "アプリ更新の確認"],
+  ["版本", "Version", "バージョン"],
+  ["新版位置", "New package location", "新版の場所"],
+  ["新版逻辑大小", "New package logical size", "新版の論理サイズ"],
+  ["签名发布者", "Signing publisher", "署名の提供元"],
+  [
+    "临时签名，无法确认发布者身份",
+    "Ad-hoc signature; publisher identity is unverified",
+    "アドホック署名。提供元の身元は未確認です"
+  ],
+  [
+    "签名完整性核对不等于 Apple 公证或来源可信。首次打开仍可能需要系统确认。",
+    "Signature integrity does not establish Apple notarization or a trusted source. First launch may still require system confirmation.",
+    "署名の完全性確認は Apple 公証や提供元の信頼性を保証しません。初回起動時にシステムの確認が必要な場合があります。"
+  ],
+  [
+    "我已核对新版来源，同意替换应用并保留旧包，了解应用数据不随旧包恢复。",
+    "I checked the new package source and agree to replace the app and retain the old package. I understand app data is not restored with the package.",
+    "新版の提供元を確認し、旧パッケージを保持した置換に同意します。アプリデータは旧パッケージと一緒には復元されないことを理解しました。"
+  ],
+  [
+    "本次核对已过期，请重新选择新版。",
+    "This review expired. Choose the new package again.",
+    "確認の有効期限が切れました。新版を選び直してください。"
+  ],
+  [
+    "正在核对身份、版本、签名与内容，尚未替换。",
+    "Checking identity, version, signature and contents. Nothing has been replaced.",
+    "識別情報、バージョン、署名、内容を確認中です。まだ置き換えていません。"
+  ],
+  [
+    "正在复制、复查并替换；系统调用可能需要等待。停止不能撤销已经完成的替换。",
+    "Copying, rechecking and replacing. System calls may take time. Stopping cannot undo a completed replacement.",
+    "コピー、再確認、置換を実行中です。システム呼び出しに時間がかかる場合があります。停止しても完了した置換は取り消せません。"
+  ],
+  ["应用更新结果", "Application update result", "アプリ更新結果"],
+  [
+    "请从更新记录核对安装位置与旧包。这里保留的是应用包，不是应用数据备份。",
+    "Check the installation and old package in update history. The retained package is not a backup of app data.",
+    "更新履歴でインストール先と旧パッケージを確認してください。保持するのはアプリパッケージであり、アプリデータのバックアップではありません。"
+  ],
+  [
+    "请求结果未完整返回，请在应用更新记录中核对；不会自动重复执行。",
+    "The request did not return a complete result. Check application update history; it will not run again automatically.",
+    "完全な結果が返されませんでした。アプリ更新履歴で確認してください。自動再実行はしません。"
+  ],
+  ["已请求停止", "Stop requested", "停止を要求しました"],
+  ["停止更新", "Stop update", "更新を停止"],
+  ["重新选择新版…", "Choose another new package…", "新版を選び直す…"],
+  ["选择新版应用…", "Choose newer application…", "新しいアプリを選択…"],
+  ["确认替换并保留旧版", "Confirm replacement and retain old version", "旧版を保持して置換を確認"],
+  [
+    "旧包与未完成的暂存包不会自动删除。请先核对实际位置，再决定如何恢复或保留。",
+    "Old packages and unfinished staging packages are not deleted automatically. Check their actual locations before deciding how to restore or retain them.",
+    "旧パッケージと未完了の一時パッケージは自動削除しません。実際の場所を確認してから、復元または保持の方法を決めてください。"
+  ],
+  ["显示安装位置", "Show installation", "インストール先を表示"],
+  ["显示旧版或暂存目录", "Show old or staging folder", "旧版または一時フォルダを表示"],
+  [
+    "我已检查安装位置、旧版或暂存目录，了解此确认不会修复或回滚。",
+    "I checked the installation and old or staging folder. I understand this acknowledgment does not repair or roll back anything.",
+    "インストール先と旧版または一時フォルダを確認しました。この確認では修復やロールバックが行われないことを理解しました。"
+  ],
+  ["记录已人工核对", "Record manual review", "手動確認を記録"],
+  [
+    "暂无应用更新记录。",
+    "No application update records yet.",
+    "アプリ更新の記録はまだありません。"
+  ],
+  [
+    "应用更新数据无法核对，请查看更新记录与实际安装位置；不会自动重试。",
+    "Application update data could not be verified. Check update history and the actual installation; no automatic retry will occur.",
+    "アプリ更新データを確認できません。更新履歴と実際のインストール先を確認してください。自動再試行はしません。"
+  ],
+  ["更新进行中", "Update in progress", "更新中"],
+  ["已替换，旧版已保留", "Replaced; old version retained", "置換済み・旧版を保持"],
+  ["原应用保留", "Original application retained", "元のアプリを保持"],
+  ["更新结果待核实", "Update result needs review", "更新結果の確認が必要"],
+  ["更新已中断", "Update interrupted", "更新が中断されました"],
+  [
+    "选择已下载并解压的新版应用",
+    "Choose a downloaded and extracted newer app",
+    "ダウンロードして展開した新しいアプリを選択"
+  ],
+  ["缺少应用名称。", "The application name is missing.", "アプリ名がありません。"],
+  ["应用名称无效。", "The application name is invalid.", "アプリ名が無効です。"],
+  [
+    "应用目录无法列出。",
+    "The application folder could not be listed.",
+    "アプリフォルダを一覧取得できません。"
+  ],
+  [
+    "应用目录未完整读取。",
+    "The application folder was not read completely.",
+    "アプリフォルダを完全に読み取れませんでした。"
+  ],
+  [
+    "应用包超过本轮 10000 项限制。",
+    "The app package exceeds the current 10,000-entry limit.",
+    "アプリパッケージが今回の上限10000項目を超えています。"
+  ],
+  [
+    "应用目录在检查期间变化。",
+    "The app folder changed during inspection.",
+    "確認中にアプリフォルダが変化しました。"
+  ],
+  [
+    "应用扩展属性无法完整读取。",
+    "App extended attributes could not be read completely.",
+    "アプリの拡張属性を完全に読み取れません。"
+  ],
+  ["应用扩展属性已变化。", "App extended attributes changed.", "アプリの拡張属性が変化しました。"],
+  ["扩展属性名称无效。", "An extended attribute name is invalid.", "拡張属性名が無効です。"],
+  [
+    "应用扩展属性超过本轮容量。",
+    "App extended attributes exceed the current size limit.",
+    "アプリの拡張属性が今回の容量上限を超えています。"
+  ],
+  [
+    "已取消；已创建的暂存包保留供核对。",
+    "Cancelled. Any staging package already created is retained for review.",
+    "キャンセルしました。作成済みの一時パッケージは確認用に保持します。"
+  ],
+  [
+    "应用包检查超过本轮时间预算。",
+    "App package inspection exceeded the current time limit.",
+    "アプリパッケージの確認が今回の制限時間を超えました。"
+  ],
+  [
+    "应用包超过本轮目录范围。",
+    "The app package exceeds the current directory limits.",
+    "アプリパッケージが今回のディレクトリ上限を超えています。"
+  ],
+  [
+    "应用 ACL 无法核对。",
+    "App access control lists could not be verified.",
+    "アプリのアクセス制御リストを確認できません。"
+  ],
+  [
+    "应用包包含不支持的所有权、链接、权限、云占位或文件属性。",
+    "The app package contains unsupported ownership, links, permissions, cloud placeholders or file attributes.",
+    "アプリパッケージに未対応の所有権、リンク、権限、クラウドのプレースホルダ、またはファイル属性があります。"
+  ],
+  [
+    "应用包必须位于本地卷。",
+    "The app package must be on a local volume.",
+    "アプリパッケージはローカルボリューム上に置いてください。"
+  ],
+  [
+    "应用子项身份已变化。",
+    "An app item identity changed.",
+    "アプリ内の項目の識別情報が変化しました。"
+  ],
+  [
+    "应用子项名称已变化。",
+    "An app item name binding changed.",
+    "アプリ内の項目の名前と実体の対応が変化しました。"
+  ],
+  [
+    "应用内部链接无法核对。",
+    "An internal app link could not be verified.",
+    "アプリ内のリンクを確認できません。"
+  ],
+  [
+    "应用包含包外链接。",
+    "The app contains a link outside its package.",
+    "アプリにパッケージ外へのリンクがあります。"
+  ],
+  [
+    "应用链接属性不支持。",
+    "App link attributes are unsupported.",
+    "アプリのリンク属性に対応していません。"
+  ],
+  [
+    "应用链接属性无法读取。",
+    "App link attributes could not be read.",
+    "アプリのリンク属性を読み取れません。"
+  ],
+  [
+    "应用链接属性不支持或已变化。",
+    "App link attributes are unsupported or changed.",
+    "アプリのリンク属性が未対応、または変化しています。"
+  ],
+  ["应用链接无效。", "An app link is invalid.", "アプリのリンクが無効です。"],
+  ["应用链接已变化。", "An app link changed.", "アプリのリンクが変化しました。"],
+  [
+    "应用包包含特殊文件。",
+    "The app package contains a special file.",
+    "アプリパッケージに特殊ファイルがあります。"
+  ],
+  ["应用目录内容已变化。", "App folder contents changed.", "アプリフォルダの内容が変化しました。"],
+  [
+    "应用包大小超限。",
+    "The app package exceeds the size limit.",
+    "アプリパッケージが容量上限を超えています。"
+  ],
+  [
+    "应用包超过本轮 8 GiB 限制。",
+    "The app package exceeds the current 8 GiB limit.",
+    "アプリパッケージが今回の上限8 GiBを超えています。"
+  ],
+  [
+    "应用文件已增长。",
+    "An app file grew during inspection.",
+    "確認中にアプリのファイルが大きくなりました。"
+  ],
+  ["应用文件已变化。", "An app file changed.", "アプリのファイルが変化しました。"],
+  [
+    "应用包在读取或复制期间变化。",
+    "The app package changed while reading or copying.",
+    "読み取りまたはコピー中にアプリパッケージが変化しました。"
+  ],
+  [
+    "请选择本地完整应用包。",
+    "Choose a complete local app package.",
+    "ローカルの完全なアプリパッケージを選択してください。"
+  ],
+  [
+    "应用更新记录无法核对，原记录保留。",
+    "The application update record could not be verified. The original record is retained.",
+    "アプリ更新記録を確認できません。元の記録を保持します。"
+  ],
+  [
+    "应用更新记录超过容量。",
+    "The application update record exceeds the size limit.",
+    "アプリ更新記録が容量上限を超えています。"
+  ],
+  [
+    "应用更新记录格式无法核对。",
+    "The application update record format could not be verified.",
+    "アプリ更新記録の形式を確認できません。"
+  ],
+  [
+    "应用更新记录标识不一致。",
+    "Application update record identifiers do not match.",
+    "アプリ更新記録の識別子が一致しません。"
+  ],
+  [
+    "应用更新记录超过本轮容量，原记录保留。",
+    "Application update records exceed the current capacity. Original records are retained.",
+    "アプリ更新記録が今回の容量上限を超えています。元の記録を保持します。"
+  ],
+  [
+    "应用更新需要 FULL 同步记录。",
+    "Application updates require FULL synchronous records.",
+    "アプリ更新にはFULL同期の記録が必要です。"
+  ],
+  [
+    "应用更新记录已被占用。",
+    "The application update record is already in use.",
+    "アプリ更新記録はすでに使用されています。"
+  ],
+  [
+    "请先核对未完成的应用更新记录；本轮最多保留 64 条，不自动删除旧版。",
+    "Review unfinished application updates first. Up to 64 records are retained; old packages are not deleted automatically.",
+    "先に未完了のアプリ更新記録を確認してください。今回は最大64件を保持し、旧パッケージは自動削除しません。"
+  ],
+  [
+    "先前更新已中断；请核对安装位置和暂存/旧版位置，不会自动重放或回滚。",
+    "The previous update was interrupted. Check the installation and staging/old package locations. No automatic replay or rollback will occur.",
+    "前回の更新は中断されました。インストール先と一時・旧パッケージの場所を確認してください。自動再実行やロールバックはしません。"
+  ],
+  ["应用签名信息缺失。", "App signature information is missing.", "アプリの署名情報がありません。"],
+  [
+    "应用签名核对未通过（{0}），应用保留。",
+    "App signature verification failed ({0}). The app is retained.",
+    "アプリ署名の確認に失敗しました（{0}）。アプリを保持します。"
+  ],
+  [
+    "应用签名类型无法核对。",
+    "The app signature type could not be verified.",
+    "アプリの署名の種類を確認できません。"
+  ],
+  [
+    "应用发布者无法核对。",
+    "The app publisher could not be verified.",
+    "アプリの提供元を確認できません。"
+  ],
+  [
+    "应用发布者标识无效。",
+    "The app publisher identifier is invalid.",
+    "アプリ提供元の識別子が無効です。"
+  ],
+  [
+    "新版与已安装应用的签名发布者不一致或无法确认。",
+    "The new and installed app signing publishers differ or could not be verified.",
+    "新版とインストール済みアプリの署名提供元が異なるか、確認できません。"
+  ],
+  [
+    "应用更新请求标识无效。",
+    "The application update request identifier is invalid.",
+    "アプリ更新要求の識別子が無効です。"
+  ],
+  [
+    "请先结束当前任务，再更新应用。",
+    "Finish the current task before updating an app.",
+    "現在のタスクを終了してからアプリを更新してください。"
+  ],
+  [
+    "其他文件检查正在进行。",
+    "Another file inspection is in progress.",
+    "別のファイル確認を実行中です。"
+  ],
+  [
+    "保护设置变化，请重新准备。",
+    "Protection settings changed. Prepare again.",
+    "保護設定が変わりました。準備をやり直してください。"
+  ],
+  [
+    "请先确认替换应用包及旧版恢复边界。",
+    "Confirm package replacement and the limits of restoring the old version first.",
+    "先にパッケージの置換と旧版復元の制限を確認してください。"
+  ],
+  [
+    "应用更新确认不存在或已使用，请重新准备。",
+    "The update confirmation is missing or already used. Prepare again.",
+    "更新の確認が存在しないか、使用済みです。準備をやり直してください。"
+  ],
+  ["缺少安装目录。", "The installation folder is missing.", "インストールフォルダがありません。"],
+  [
+    "正在复查应用更新，尚未替换。",
+    "Rechecking the app update. Nothing has been replaced.",
+    "アプリ更新を再確認中です。まだ置き換えていません。"
+  ],
+  [
+    "请先检查安装位置和暂存/旧版位置。",
+    "Check the installation and staging/old package locations first.",
+    "先にインストール先と一時・旧パッケージの場所を確認してください。"
+  ],
+  [
+    "应用更新记录不存在。",
+    "The application update record does not exist.",
+    "アプリ更新記録が存在しません。"
+  ],
+  [
+    "这条记录无需人工核对确认。",
+    "This record does not require a manual review acknowledgment.",
+    "この記録には手動確認の記録は不要です。"
+  ],
+  [
+    "已取消应用更新，原应用保留。",
+    "App update cancelled. The original app is retained.",
+    "アプリ更新をキャンセルしました。元のアプリを保持します。"
+  ],
+  [
+    "本轮仅能核对纯数字应用版本，请使用应用自身更新器。",
+    "Only numeric app versions can currently be compared. Use the app's own updater.",
+    "現在は数字のバージョンのみ比較できます。アプリ自身の更新機能を使用してください。"
+  ],
+  [
+    "应用版本超出比较范围。",
+    "The app version is outside the comparison range.",
+    "アプリのバージョンが比較範囲外です。"
+  ],
+  [
+    "已安装应用缺少版本。",
+    "The installed app has no version information.",
+    "インストール済みアプリにバージョン情報がありません。"
+  ],
+  [
+    "新版应用缺少版本。",
+    "The new app has no version information.",
+    "新しいアプリにバージョン情報がありません。"
+  ],
+  ["新版缺少构建号。", "The new app has no build number.", "新版にビルド番号がありません。"],
+  ["旧版缺少构建号。", "The installed app has no build number.", "旧版にビルド番号がありません。"],
+  [
+    "所选应用版本不高于已安装版本；这里不执行降级或重装。",
+    "The selected version is not newer than the installed app. This flow does not downgrade or reinstall.",
+    "選択したバージョンはインストール済みのものより新しくありません。この操作ではダウングレードや再インストールはしません。"
+  ],
+  [
+    "应用主程序格式无法读取。",
+    "The app executable format could not be read.",
+    "アプリの実行形式を読み取れません。"
+  ],
+  [
+    "新版不包含可核对的本机架构与 macOS 版本信息。",
+    "The new app lacks verifiable native architecture and macOS deployment information.",
+    "新版に確認可能な本機のアーキテクチャとmacOS対応バージョン情報がありません。"
+  ],
+  [
+    "系统版本无法核对。",
+    "The system version could not be verified.",
+    "システムのバージョンを確認できません。"
+  ],
+  [
+    "新版要求更高的 macOS 版本。",
+    "The new app requires a newer macOS version.",
+    "新版にはより新しいmacOSが必要です。"
+  ],
+  [
+    "请使用普通账户，并选择完整的新版 .app 包。",
+    "Use a regular account and choose a complete newer .app package.",
+    "通常のアカウントで、完全な新しい.appパッケージを選択してください。"
+  ],
+  [
+    "新版包与安装位置不能重叠。",
+    "The new package and installation locations must not overlap.",
+    "新版パッケージとインストール先を重複させることはできません。"
+  ],
+  [
+    "后台专用应用请使用其更新器。",
+    "Use the original updater for background-only apps.",
+    "バックグラウンド専用アプリには元の更新機能を使用してください。"
+  ],
+  [
+    "应用在准备期间变化，请重新选择。",
+    "The app changed during preparation. Choose it again.",
+    "準備中にアプリが変化しました。選び直してください。"
+  ],
+  [
+    "应用更新确认已过期或保护设置变化，请重新准备。",
+    "The update confirmation expired or protection settings changed. Prepare again.",
+    "更新確認の有効期限切れ、または保護設定が変更されています。準備をやり直してください。"
+  ],
+  [
+    "应用内容、位置或身份已变化，请重新准备。",
+    "App contents, location or identity changed. Prepare again.",
+    "アプリの内容、場所、または識別情報が変わりました。準備をやり直してください。"
+  ],
+  ["应用签名已变化。", "The app signature changed.", "アプリの署名が変化しました。"],
+  [
+    "App Store 或带后台/特权组件的应用，请通过原有管理工具更新。",
+    "Use the original manager for App Store apps or apps with background/privileged components.",
+    "App Storeのアプリやバックグラウンド・特権コンポーネントを含むアプリは、元の管理ツールで更新してください。"
+  ],
+  [
+    "应用管理来源无法确认。",
+    "The app management source could not be verified.",
+    "アプリの管理元を確認できません。"
+  ],
+  [
+    "安装卷需为可写 APFS，且有足够空间保留新版与旧版。",
+    "The installation volume must be writable APFS with enough space to retain both versions.",
+    "インストール先は書き込み可能なAPFSで、新旧両方を保持する十分な空き容量が必要です。"
+  ],
+  ["缺少暂存位置。", "The staging location is missing.", "一時保存先がありません。"],
+  [
+    "正在复制并核对新版；原应用仍在安装位置。",
+    "Copying and verifying the new app. The original remains installed.",
+    "新版をコピーして確認中です。元のアプリはインストール先に保持されています。"
+  ],
+  [
+    "新版复制核验未通过，原应用保留。",
+    "New app copy verification failed. The original app is retained.",
+    "新版コピーの検証に失敗しました。元のアプリを保持します。"
+  ],
+  [
+    "暂存应用签名不一致，原应用保留。",
+    "The staged app signature differs. The original app is retained.",
+    "一時保存したアプリの署名が一致しません。元のアプリを保持します。"
+  ],
+  [
+    "本轮更新仅支持可核对的 APFS 安装卷。",
+    "This update flow currently supports verifiable APFS installation volumes only.",
+    "今回の更新は確認可能なAPFSインストール先のみ対応しています。"
+  ],
+  [
+    "暂存目录身份变化，原应用保留。",
+    "The staging folder identity changed. The original app is retained.",
+    "一時フォルダの識別情報が変化しました。元のアプリを保持します。"
+  ],
+  [
+    "即将交换完整应用包；旧包将保留在记录位置。",
+    "About to exchange the complete app packages. The old package will remain at the recorded location.",
+    "アプリパッケージ全体を交換します。旧パッケージは記録された場所に保持します。"
+  ],
+  [
+    "交换后身份或内容未完整核对，请检查安装位置与保留的旧包。",
+    "Post-exchange identity or contents could not be fully verified. Check the installation and retained old package.",
+    "交換後の識別情報または内容を完全に確認できません。インストール先と保持された旧パッケージを確認してください。"
+  ],
+  [
+    "更新后暂存目录位置无法核对。",
+    "The staging folder location could not be verified after the update.",
+    "更新後の一時フォルダの場所を確認できません。"
+  ],
+  [
+    "新版已放入原安装位置，旧版应用包已保留。应用数据未修改；首次打开仍由 macOS 决定。",
+    "The new app is at the original installation and the old package is retained. App data was not modified; macOS still controls first launch.",
+    "新版を元のインストール先に配置し、旧パッケージを保持しました。アプリデータは変更していません。初回起動はmacOSの判断に従います。"
   ]
 ]

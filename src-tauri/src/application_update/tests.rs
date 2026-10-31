@@ -7,6 +7,25 @@ use std::{
 fn job() -> Job {
     Job::new(TaskKind::AppControl)
 }
+
+#[test]
+fn declared_privileged_service_management_is_retained_even_without_embedded_helpers() {
+    let t = tempfile::tempdir().unwrap();
+    let home = t.path().canonicalize().unwrap();
+    let app = identity::fixture(&home, "Managed.app", "dev.moomole.managed.fixture");
+    assert!(managed(&app).is_ok());
+    let file = app.join("Contents/Info.plist");
+    let original = fs::read_to_string(&file).unwrap();
+    for key in ["SMPrivilegedExecutables", "SMAuthorizedClients"] {
+        fs::write(
+            &file,
+            original.replace("</dict>", &format!("<key>{key}</key><dict/></dict>")),
+        )
+        .unwrap();
+        assert!(objc2::rc::autoreleasepool(|_| managed(&app)).is_err());
+        assert!(app.join("Contents/MacOS/fixture-main").is_file());
+    }
+}
 fn attr(path: &Path, key: &std::ffi::CStr, value: &[u8]) {
     let held = AnchoredPath::open(path).unwrap();
     assert_eq!(

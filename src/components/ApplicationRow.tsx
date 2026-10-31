@@ -22,6 +22,7 @@ export function ApplicationRow({
   onUninstall,
   onControl,
   canControl = false,
+  onUpdate,
 }: {
   app: AppEntry
   taskId?: string | null
@@ -34,6 +35,7 @@ export function ApplicationRow({
   onReveal: (path: string) => void
   canControl?: boolean
   onControl?: (target: AppControlTarget) => void
+  onUpdate?: (target: UninstallTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
 }) {
@@ -56,6 +58,18 @@ export function ApplicationRow({
         <span className="app-size">
           {appSizeEstimate(app.size) == null ? '大小未知' : app.size}
         </span>
+        {onUpdate && (
+          <button
+            className="button secondary compact"
+            disabled={!canControl || !taskId || app.source !== 'App'}
+            onClick={() => {
+              if (taskId)
+                onUpdate({ taskId, index, name: app.name, path: app.path, bundleId: app.bundle_id })
+            }}
+          >
+            从新版应用包更新…
+          </button>
+        )}
         {onControl && (
           <div className="application-control-actions">
             {(['open', 'quit'] as const).map((action) => (

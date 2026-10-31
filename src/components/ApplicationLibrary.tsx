@@ -19,6 +19,7 @@ export function ApplicationLibrary({
   onUninstall,
   onControl,
   canControl = false,
+  onUpdate,
 }: {
   apps: AppEntry[]
   taskId?: string | null
@@ -29,6 +30,7 @@ export function ApplicationLibrary({
   onReveal: (path: string) => void
   canControl?: boolean
   onControl?: (target: AppControlTarget) => void
+  onUpdate?: (target: UninstallTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
 }) {
@@ -207,6 +209,7 @@ export function ApplicationLibrary({
             onReveal={onReveal}
             canControl={canControl && !refreshing}
             onControl={onControl}
+            onUpdate={onUpdate}
             canUninstall={canUninstall && !refreshing}
             onUninstall={onUninstall}
           />

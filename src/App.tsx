@@ -47,6 +47,7 @@ import { statusPercent } from './lib/status-metrics'
 import { diskBytes, systemDisk } from './lib/status-disks'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
+import { ApplicationUpdateCenter } from './components/ApplicationUpdateCenter'
 import { DeviceBackups } from './components/DeviceBackups'
 import { SpaceExplanation } from './components/SpaceExplanation'
 import type { AppControlTarget } from './lib/app-control'
@@ -416,6 +417,11 @@ export default function App() {
   const [uninstallActive, setUninstallActive] = useState(false)
   const [appControlTarget, setAppControlTarget] = useState<AppControlTarget | null>(null)
   const [appControlActive, setAppControlActive] = useState(false)
+  const [applicationUpdateTarget, setApplicationUpdateTarget] = useState<UninstallTarget | null>(
+    null,
+  )
+  const [applicationUpdateActive, setApplicationUpdateActive] = useState(false)
+  const [applicationUpdateHistory, setApplicationUpdateHistory] = useState(false)
   const [deviceBackupsActive, setDeviceBackupsActive] = useState(false)
   const [deviceBackupsOpenSignal, setDeviceBackupsOpenSignal] = useState(0)
   const [spaceExplanation, setSpaceExplanation] = useState<{ path: string | null } | null>(null)
@@ -940,6 +946,7 @@ export default function App() {
     !softwareFiles.running &&
     !uninstallActive &&
     !appControlActive &&
+    !applicationUpdateActive &&
     !deviceBackupsActive &&
     !startupActive &&
     !searchRepairActive &&
@@ -1327,14 +1334,23 @@ export default function App() {
                   <span className="toolbar-actions" ref={setStartupToolbar} />
                 )}
                 {page === 'apps' && appsTab === 'installed' && (
-                  <button
-                    className="button secondary compact"
-                    disabled={!canRun}
-                    onClick={() => void execute('apps')}
-                  >
-                    <RefreshCw size={15} />
-                    {apps ? '刷新列表' : '读取应用'}
-                  </button>
+                  <>
+                    <button
+                      className="button secondary compact"
+                      disabled={!api.desktop || applicationUpdateActive}
+                      onClick={() => setApplicationUpdateHistory(true)}
+                    >
+                      应用更新记录
+                    </button>
+                    <button
+                      className="button secondary compact"
+                      disabled={!canRun}
+                      onClick={() => void execute('apps')}
+                    >
+                      <RefreshCw size={15} />
+                      {apps ? '刷新列表' : '读取应用'}
+                    </button>
+                  </>
                 )}
                 {page === 'installers' && (
                   <>
@@ -1691,6 +1707,17 @@ export default function App() {
             target={appControlTarget}
             onClose={() => setAppControlTarget(null)}
             onActiveChange={setAppControlActive}
+            onOutcome={() => {
+              setAppsStale(true)
+              void refreshRecords(true)
+            }}
+          />
+          <ApplicationUpdateCenter
+            target={applicationUpdateTarget}
+            historyOpen={applicationUpdateHistory}
+            onClose={() => setApplicationUpdateTarget(null)}
+            onHistoryClose={() => setApplicationUpdateHistory(false)}
+            onActiveChange={setApplicationUpdateActive}
             onOutcome={() => {
               setAppsStale(true)
               void refreshRecords(true)
@@ -2259,6 +2286,7 @@ export default function App() {
               {apps ? (
                 <ApplicationLibrary
                   onControl={setAppControlTarget}
+                  onUpdate={setApplicationUpdateTarget}
                   canControl={canRun && !executionActive && !appsStale}
                   apps={apps}
                   taskId={appsTaskId}

@@ -4582,3 +4582,38 @@ input[type='checkbox'] {
   font-size: 20px;
   font-weight: 600;
 }
+.application-update-modal {
+  padding: 24px;
+  width: min(700px, calc(100vw - 40px));
+}
+.application-update-modal h2 {
+  margin: 0 0 16px;
+}
+.application-update-modal details {
+  margin: 14px 0;
+}
+.application-update-facts {
+  display: grid;
+  grid-template-columns: 105px minmax(0, 1fr);
+  gap: 8px 12px;
+}
+.application-update-facts dt {
+  color: var(--muted);
+}
+.application-update-facts dd {
+  margin: 0;
+}
+.application-update-consent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+.application-update-consent input {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.application-update-record {
+  border-top: 1px solid var(--border);
+  padding: 16px 0;
+}
