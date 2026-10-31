@@ -267,7 +267,7 @@ fn perform(
     }
     Ok(report)
 }
-fn context(state: &AppState, current_id: &str) -> Result<Context, String> {
+pub(crate) fn context(state: &AppState, current_id: &str) -> Result<Context, String> {
     let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
     if !settings.acknowledged {
         return Err("请先确认首次使用说明。".into());

@@ -19,6 +19,7 @@ const MAX_MATCHES: usize = 32;
 const BUDGET: Duration = Duration::from_secs(1);
 const FRESH: Duration = Duration::from_secs(5);
 mod entrypoint;
+pub(crate) use entrypoint::host_minimum;
 
 #[link(name = "proc")]
 extern "C" {
@@ -173,6 +174,17 @@ struct Finding {
     code: Code,
     pids: Vec<i32>,
     issue: Option<&'static str>,
+}
+
+// Shared conservative executable-path observation; this never grants update
+// authority, stops a process, or proves the absence of file handles/services.
+pub(crate) fn require_stopped(path: &Path, root: (u64, u64)) -> Result<(), String> {
+    let finding = sample_bound(&mut Native, path, Instant::now(), Some(root));
+    if finding.code == Code::NotObserved {
+        Ok(())
+    } else {
+        Err("应用包内仍有运行程序，或进程检查不完整。请自行退出后重试。".into())
+    }
 }
 fn contains_executable(
     executable: &Path,

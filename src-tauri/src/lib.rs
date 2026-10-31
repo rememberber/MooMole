@@ -11,6 +11,7 @@ mod app_protection;
 mod app_receipts;
 mod app_shared_rules;
 mod app_uninstall_rules;
+mod application_update;
 mod clean_preview;
 mod cleanup_preparation;
 mod cleanup_space;
@@ -106,6 +107,7 @@ struct AppState {
     file_restorations: Arc<Mutex<file_restoration::Store>>,
     mounted_volumes: Arc<Mutex<mounted_volumes::Store>>,
     device_backups: Arc<Mutex<device_backups::Store>>,
+    application_updates: Arc<Mutex<application_update::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
@@ -2368,6 +2370,7 @@ pub fn run() {
                     file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
                     mounted_volumes: Arc::new(Mutex::new(mounted_volumes::Store::default())),
                     device_backups: Arc::new(Mutex::new(device_backups::Store::default())),
+                    application_updates: Arc::new(Mutex::new(application_update::Store::default())),
                     personal_archives: Arc::new(Mutex::new(
                         personal_files::archive::Store::default(),
                     )),
@@ -2566,6 +2569,11 @@ pub fn run() {
             open_official,
             check_updates,
             device_backups::commands::get_device_backups,
+            application_update::commands::prepare_application_update,
+            application_update::commands::discard_application_update,
+            application_update::commands::execute_application_update,
+            application_update::commands::get_application_updates,
+            application_update::commands::acknowledge_application_update,
             device_backups::commands::scan_device_backups,
             device_backups::commands::prepare_device_backup,
             device_backups::commands::discard_device_backup,

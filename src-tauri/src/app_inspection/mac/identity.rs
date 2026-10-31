@@ -75,6 +75,16 @@ pub(crate) fn capture(path: &Path, expected_id: &str) -> Result<Snapshot, String
     capture_with(path, expected_id, false)
 }
 
+pub(crate) fn minimum_os(path: &Path) -> Result<Option<String>, String> {
+    let bundle = Bundle::open(path.to_str().ok_or("应用路径无法编码。")?)?;
+    let (evidence, bytes) = Evidence::read(&bundle)?;
+    let fields = parse(&bytes)?;
+    if !evidence.verify(&bundle) {
+        return Err("应用身份文件已变化。".into());
+    }
+    Ok(fields.minimum_os)
+}
+
 // Lifecycle controls bind the bundle, Info.plist and main executable. They do
 // not need the recursive inventory required to authorize whole-App removal.
 #[derive(Clone, Debug, PartialEq)]

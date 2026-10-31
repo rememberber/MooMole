@@ -54,6 +54,83 @@ fn thin(
         && endian.u32(&fields[8..12])==2 // MH_EXECUTE
         && commands>0 && commands<=4096 && bytes>=commands*8 && bytes<=size-header)
 }
+
+// Updates require a host-native 64-bit executable and a macOS deployment
+// command. Rosetta availability and arbitrary non-native launchability are not
+// inferred from a valid signature.
+pub(crate) fn host_minimum(file: &mut (impl Read + Seek), size: u64) -> io::Result<Option<u32>> {
+    if !native_executable(file, size)? {
+        return Ok(None);
+    }
+    let host = if cfg!(target_arch = "aarch64") {
+        0x0100000c
+    } else {
+        0x01000007
+    };
+    let magic = read::<4>(file, 0)?;
+    let offset = if matches!(magic, [0xcf, 0xfa, 0xed, 0xfe]) {
+        if u32::from_le_bytes(read(file, 4)?) != host {
+            return Ok(None);
+        }
+        0
+    } else {
+        let (endian, wide) = match magic {
+            [0xca, 0xfe, 0xba, 0xbe] => (Endian(false), false),
+            [0xbe, 0xba, 0xfe, 0xca] => (Endian(true), false),
+            [0xca, 0xfe, 0xba, 0xbf] => (Endian(false), true),
+            [0xbf, 0xba, 0xfe, 0xca] => (Endian(true), true),
+            _ => return Ok(None),
+        };
+        let count = endian.u32(&read::<4>(file, 4)?);
+        let mut found = None;
+        for i in 0..count {
+            let at = 8 + i as u64 * if wide { 32 } else { 20 };
+            if endian.u32(&read::<4>(file, at)?) == host {
+                if found.is_some() {
+                    return Ok(None);
+                }
+                found = Some(if wide {
+                    endian.u64(&read::<8>(file, at + 8)?)
+                } else {
+                    endian.u32(&read::<4>(file, at + 8)?) as u64
+                });
+            }
+        }
+        let Some(at) = found else {
+            return Ok(None);
+        };
+        at
+    };
+    if read::<4>(file, offset)? != [0xcf, 0xfa, 0xed, 0xfe] {
+        return Ok(None);
+    }
+    let count = u32::from_le_bytes(read(file, offset + 16)?);
+    let end = offset + 32 + u32::from_le_bytes(read(file, offset + 20)?) as u64;
+    let mut at = offset + 32;
+    let mut minimum = None;
+    for _ in 0..count {
+        let cmd = u32::from_le_bytes(read(file, at)?);
+        let length = u32::from_le_bytes(read(file, at + 4)?) as u64;
+        if length < 8 || at.checked_add(length).is_none_or(|x| x > end) {
+            return Ok(None);
+        }
+        let value = match cmd {
+            0x32 if length >= 24 && u32::from_le_bytes(read(file, at + 8)?) == 1 => {
+                Some(u32::from_le_bytes(read(file, at + 12)?))
+            }
+            0x24 if length >= 16 => Some(u32::from_le_bytes(read(file, at + 8)?)),
+            _ => None,
+        };
+        if let Some(value) = value {
+            minimum = Some(minimum.unwrap_or(0).max(value));
+        }
+        at += length;
+    }
+    if at != end {
+        return Ok(None);
+    }
+    Ok(minimum)
+}
 pub(super) fn native_executable(file: &mut (impl Read + Seek), size: u64) -> io::Result<bool> {
     let magic = read::<4>(file, 0)?;
     let (endian, wide) = match magic {

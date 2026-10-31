@@ -22,6 +22,9 @@ pub(crate) struct Source {
     source: String,
 }
 impl Source {
+    pub(crate) fn address(&self) -> (String, usize) {
+        (self.task_id.clone(), self.index)
+    }
     pub(crate) fn control_target(&self) -> (&str, &str, &str, &str) {
         (&self.path, &self.bundle_id, &self.name, &self.source)
     }
@@ -96,7 +99,7 @@ pub(crate) struct View {
     next: &'static str,
 }
 
-fn guards(source: &Source, ctx: &Context) -> Result<(), String> {
+pub(crate) fn guards(source: &Source, ctx: &Context) -> Result<(), String> {
     if source.source != "App" {
         return Err(
             "首批仅准备普通 App 包；Homebrew 或未知管理来源应保留并使用相应卸载方式。".into(),
