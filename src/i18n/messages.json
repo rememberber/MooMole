@@ -9780,5 +9780,564 @@
     "交换后完整内容变化，请核对两份应用。",
     "Complete contents changed after the exchange. Check both bundles.",
     "交換後に全内容が変わりました。両方のアプリを確認してください。"
+  ],
+  ["归档文件夹…", "Archive folder…", "フォルダをアーカイブ…"],
+  [
+    "整份文件夹归档仍在进行，请在历史中核对结果。",
+    "The folder archive is still running. Check its result in history.",
+    "フォルダのアーカイブが進行中です。履歴で結果を確認してください。"
+  ],
+  ["查看文件夹归档记录", "View folder archive history", "フォルダのアーカイブ履歴を表示"],
+  ["停止文件夹归档", "Stop folder archive", "フォルダのアーカイブを停止"],
+  ["整份文件夹归档核对", "Review whole-folder archive", "フォルダ全体のアーカイブを確認"],
+  ["来源文件夹", "Source folder", "元のフォルダ"],
+  ["ZIP 目标", "ZIP destination", "ZIPの保存先"],
+  ["完整范围", "Complete scope", "対象範囲全体"],
+  [
+    "{0} 个文件 · {1} 个目录（含来源） · {2} 个隐藏项目",
+    "{0} files · {1} folders including the source · {2} hidden items",
+    "ファイル{0}個 · 元フォルダを含むフォルダ{1}個 · 非表示項目{2}個"
+  ],
+  ["个目录（含来源） ·", "folders including the source ·", "個のフォルダ（元を含む） ·"],
+  ["个隐藏项目", "hidden items", "個の非表示項目"],
+  ["正文 / 元数据预估", "Estimated content / metadata", "内容 / メタデータの概算"],
+  ["查看前 {0} 项名称", "Show the first {0} names", "先頭{0}項目の名前を表示"],
+  ["查看前", "Show the first", "先頭の"],
+  ["项名称", "names", "項目の名前"],
+  [
+    "这只是名称预览；确认范围是上述整个文件夹，包含未在预览中列出的支持项目。",
+    "This is only a name preview. Confirmation covers the entire folder, including supported items not listed here.",
+    "これは名前のプレビューです。確認対象はフォルダ全体で、ここに表示されていない対応項目も含みます。"
+  ],
+  [
+    "选择要整份归档的文件夹",
+    "Choose the folder to archive in full",
+    "全体をアーカイブするフォルダを選択"
+  ],
+  [
+    "选择整份归档目标目录",
+    "Choose the whole-folder archive destination",
+    "フォルダ全体のアーカイブ保存先を選択"
+  ],
+  ["归档整个文件夹", "Archive the entire folder", "フォルダ全体をアーカイブ"],
+  [
+    "创建包含目录、空目录、普通文件和 Mac 元数据的 ZIP，原文件保留；归档本身不释放原文件占用。",
+    "Create a ZIP containing folders, empty folders, ordinary files and Mac metadata. Sources are retained; archiving alone does not free their occupied space.",
+    "フォルダ、空のフォルダ、通常ファイル、Macのメタデータを含むZIPを作成します。元のファイルは保持し、アーカイブだけでは元の使用容量は空きません。"
+  ],
+  [
+    "ZIP 不加密，整份范围包含隐藏内容，可能含有私密资料。请核对来源与保存位置，不把归档作为唯一备份或完整迁移替代品。",
+    "The ZIP is not encrypted. Its full scope includes hidden content that may be private. Check the source and destination; do not use it as your only backup or a complete migration substitute.",
+    "ZIPは暗号化されません。非表示の内容も含み、私的な情報が入る場合があります。元と保存先を確認し、唯一のバックアップや完全な移行の代わりにしないでください。"
+  ],
+  ["选择来源文件夹…", "Choose source folder…", "元のフォルダを選択…"],
+  [
+    "完整范围、元数据与取消边界",
+    "Scope, metadata and cancellation limits",
+    "範囲・メタデータ・キャンセルの制限"
+  ],
+  [
+    "最多 10000 项、64 层，正文与元数据合计 8 GiB。拒绝任何受保护、云占位、链接、应用资料库或无法核对的项目，不生成缺项的整份归档；目标必须已存在且位于来源之外，同名不覆盖。",
+    "Up to 10,000 items, 64 levels, and 8 GiB of content plus metadata. Protected items, cloud placeholders, links, application libraries or unverifiable items prevent the whole archive. No incomplete archive is published. The destination must already exist outside the source; existing names are never overwritten.",
+    "最大10000項目、64階層、内容とメタデータの合計8 GiBです。保護対象、クラウドのプレースホルダ、リンク、アプリのライブラリ、確認できない項目があれば全体を中止し、欠落のあるアーカイブを公開しません。保存先は元フォルダの外に存在する必要があり、同名のファイルは上書きしません。"
+  ],
+  [
+    "保留普通权限、秒级修改时间、Finder 标签、扩展属性、资源分支和隔离属性。创建时间、纳秒时间、所有者、ACL 和文件标记不作为完整保留承诺；Mac 元数据的恢复取决于解压工具支持。",
+    "Preserves ordinary permissions, modification times to the second, Finder tags, extended attributes, resource forks and quarantine attributes. Full preservation of creation times, nanoseconds, ownership, ACLs or file flags is not promised. Mac metadata restoration depends on the extraction tool.",
+    "通常のアクセス権、秒単位の更新日時、Finderタグ、拡張属性、リソースフォーク、隔離属性を保持します。作成日時、ナノ秒、所有者、ACL、ファイルフラグの完全な保持は保証しません。Macのメタデータの復元は解凍ツールの対応に依存します。"
+  ],
+  [
+    "发布前重新核对整份来源。停止只阻止后续操作，已发布的 ZIP 不自动删除；结果未知时核对目标与临时路径，不自动继续或重试。系统调用返回前仍占用任务资源。",
+    "The whole source is rechecked before publication. Stop prevents subsequent work; published ZIPs are not automatically deleted. For unknown results, check destination and temporary paths. There is no automatic continuation or retry. Task resources remain held until system calls return.",
+    "公開前に元の全内容を再確認します。停止は後続処理を止め、公開済みZIPは自動削除しません。結果が不明な場合は保存先と一時パスを確認してください。自動続行・再実行はせず、システム呼び出しが返るまでリソースを保持します。"
+  ],
+  ["正在等待目录选择…", "Waiting for folder selection…", "フォルダの選択を待っています…"],
+  [
+    "正在完整核对目录、内容和元数据，尚未创建 ZIP。",
+    "Checking the complete tree, content and metadata; no ZIP has been created.",
+    "フォルダ構成、全内容、メタデータを確認中です。ZIPはまだ作成していません。"
+  ],
+  [
+    "正在创建并核验整份 ZIP，请等待发布结果。",
+    "Creating and verifying the full ZIP. Wait for its publication result.",
+    "ZIP全体を作成・検証中です。公開結果をお待ちください。"
+  ],
+  [
+    "文件夹归档请求未返回完整结果，请在历史中检查实际位置；不会自动重试。",
+    "The folder archive request did not return a complete result. Check actual locations in history; it will not retry automatically.",
+    "フォルダのアーカイブの完全な結果が返りませんでした。履歴で実際の場所を確認してください。自動再実行はしません。"
+  ],
+  [
+    "我已核对整份范围、隐藏内容与目标，同意创建未加密 ZIP 并保留全部原文件。",
+    "I checked the complete scope, hidden content and destination. I agree to create an unencrypted ZIP and retain every source file.",
+    "全体の範囲、非表示の内容、保存先を確認しました。暗号化しないZIPを作成し、すべての元ファイルを保持することに同意します。"
+  ],
+  [
+    "整份归档确认已过期，请重新检查。",
+    "The archive confirmation expired. Check again.",
+    "全体アーカイブの確認期限が切れました。再確認してください。"
+  ],
+  ["关闭归档窗口", "Close archive window", "アーカイブ画面を閉じる"],
+  ["重新检查整份归档", "Recheck the whole archive", "全体アーカイブを再確認"],
+  ["检查整个文件夹", "Check the entire folder", "フォルダ全体を確認"],
+  ["更改归档范围…", "Change archive scope…", "アーカイブ範囲を変更…"],
+  ["确认归档整份文件夹", "Confirm whole-folder archive", "フォルダ全体のアーカイブを確定"],
+  ["文件夹归档结果", "Folder archive result", "フォルダのアーカイブ結果"],
+  ["实际 ZIP 大小：{0}", "Actual ZIP size: {0}", "実際のZIPサイズ：{0}"],
+  ["实际 ZIP 大小：", "Actual ZIP size:", "実際のZIPサイズ："],
+  ["查看文件夹归档", "Show folder archive", "フォルダのアーカイブを表示"],
+  ["查看原文件夹", "Show source folder", "元のフォルダを表示"],
+  ["整份文件夹归档记录", "Whole-folder archive history", "フォルダ全体のアーカイブ履歴"],
+  ["刷新文件夹归档", "Refresh folder archives", "フォルダのアーカイブを更新"],
+  [
+    "暂无整份文件夹归档。",
+    "No whole-folder archives yet.",
+    "フォルダ全体のアーカイブはまだありません。"
+  ],
+  [
+    "请核对实际 ZIP 与临时路径。这里只记录核查，不补做归档、删除文件或更改原结果。",
+    "Check the actual ZIP and temporary path. This only records your review; it does not finish archiving, delete files or alter the original result.",
+    "実際のZIPと一時パスを確認してください。ここでは確認のみ記録し、アーカイブの補完、ファイルの削除、元の結果の変更はしません。"
+  ],
+  [
+    "我已检查目标和临时位置，了解未知结果保持且不会自动重试。",
+    "I checked the destination and temporary location and understand that the result stays unknown without automatic retry.",
+    "保存先と一時パスを確認しました。不明な結果はそのまま保持し、自動再実行しないことを理解しました。"
+  ],
+  ["记录文件夹归档已核对", "Record folder archive review", "フォルダのアーカイブ確認を記録"],
+  [
+    "文件夹归档数据无法核对，请检查归档记录与实际位置；不会自动重试。",
+    "Folder archive data could not be verified. Check history and actual locations; no automatic retry will occur.",
+    "フォルダのアーカイブデータを確認できません。履歴と実際の場所を確認してください。自動再実行はしません。"
+  ],
+  ["正在创建文件夹归档", "Creating folder archive", "フォルダのアーカイブを作成中"],
+  [
+    "整份文件夹已归档，原件保留",
+    "Whole folder archived; sources retained",
+    "フォルダ全体をアーカイブ済み、元は保持"
+  ],
+  [
+    "未发布整份归档，原件保留",
+    "Archive not published; sources retained",
+    "全体アーカイブは未公開、元は保持"
+  ],
+  ["文件夹归档已取消", "Folder archive canceled", "フォルダのアーカイブをキャンセル済み"],
+  [
+    "文件夹归档结果待核实",
+    "Folder archive result needs review",
+    "フォルダのアーカイブ結果は要確認"
+  ],
+  ["文件夹归档已中断", "Folder archive interrupted", "フォルダのアーカイブが中断"],
+  [
+    "请选择普通账户、完整文件夹、现有目标和 .zip 文件名。",
+    "Use a regular account and select a complete folder, existing destination and .zip name.",
+    "通常アカウントで、完全なフォルダ、既存の保存先、.zip名を指定してください。"
+  ],
+  [
+    "归档目标不能位于来源文件夹内。",
+    "The archive destination must be outside the source folder.",
+    "保存先は元フォルダの外に指定してください。"
+  ],
+  [
+    "归档名称已存在、受保护或无法核对，请另选名称；不会覆盖。",
+    "The archive name exists, is protected or cannot be verified. Choose another name; no overwrite will occur.",
+    "保存名が既存・保護対象・確認不能です。別の名前を指定してください。上書きしません。"
+  ],
+  [
+    "归档源目录无法编码。",
+    "The source folder path cannot be encoded.",
+    "元フォルダのパスを処理できません。"
+  ],
+  [
+    "归档目标无法编码。",
+    "The archive destination cannot be encoded.",
+    "アーカイブの保存先を処理できません。"
+  ],
+  [
+    "文件夹归档确认已过期，请重新检查。",
+    "The folder archive confirmation expired. Check again.",
+    "フォルダのアーカイブ確認期限が切れました。再確認してください。"
+  ],
+  [
+    "归档保护设置已变化，整份未发布。",
+    "Protection settings changed; the archive was not published.",
+    "保護設定が変わったため、全体アーカイブは公開していません。"
+  ],
+  [
+    "归档目标已存在或无法核对，不覆盖。",
+    "The destination exists or cannot be verified. It will not be overwritten.",
+    "保存先が既存または確認不能です。上書きしません。"
+  ],
+  [
+    "文件夹内容、层级或元数据已变化，请重新准备整份归档。",
+    "Folder content, structure or metadata changed. Prepare the entire archive again.",
+    "フォルダの内容、構成、メタデータが変わりました。全体を再確認してください。"
+  ],
+  [
+    "归档目标可用空间无法核对。",
+    "Available destination space could not be verified.",
+    "保存先の空き容量を確認できません。"
+  ],
+  [
+    "归档目标空间不足，需保留内容、元数据及 64 MiB 余量。",
+    "Destination space is insufficient for content, metadata and a 64 MiB reserve.",
+    "保存先の容量が内容・メタデータと64 MiBの余裕に足りません。"
+  ],
+  [
+    "ZIP 修改时间无法核对。",
+    "The ZIP modification time could not be verified.",
+    "ZIPの更新日時を確認できません。"
+  ],
+  [
+    "归档根目录缺少父目录。",
+    "The archive root has no parent folder.",
+    "アーカイブ元の親フォルダがありません。"
+  ],
+  [
+    "来源祖先身份已变化，整份未发布。",
+    "A source ancestor identity changed; nothing was published.",
+    "元の上位フォルダの実体が変わったため、公開していません。"
+  ],
+  ["归档内部路径无效。", "An internal archive path is invalid.", "アーカイブ内のパスが無効です。"],
+  [
+    "归档来源已变化，整份未发布。",
+    "The source changed; the archive was not published.",
+    "元の内容が変わったため、全体アーカイブは公開していません。"
+  ],
+  [
+    "文件夹归档来源增长，整份未发布。",
+    "Source content grew; the archive was not published.",
+    "元の内容が増えたため、全体アーカイブは公開していません。"
+  ],
+  [
+    "文件夹归档来源内容不匹配，整份未发布。",
+    "Source content no longer matches; the archive was not published.",
+    "元の内容が一致しないため、全体アーカイブは公開していません。"
+  ],
+  [
+    "来源元数据在归档时变化，整份未发布。",
+    "Source metadata changed during archiving; nothing was published.",
+    "アーカイブ中に元のメタデータが変わったため、公開していません。"
+  ],
+  [
+    "元数据封装在读取时变化。",
+    "Packed metadata changed while being read.",
+    "読み取り中にパッケージ化されたメタデータが変わりました。"
+  ],
+  [
+    "元数据未完整写入，整份未发布。",
+    "Metadata was not written completely; nothing was published.",
+    "メタデータを完全に書き込めなかったため、公開していません。"
+  ],
+  [
+    "整份归档同步未完成，未发布。",
+    "Archive synchronization did not complete; nothing was published.",
+    "アーカイブ全体の同期が完了せず、公開していません。"
+  ],
+  [
+    "归档内部项目数不匹配，未发布。",
+    "The archive entry count does not match; nothing was published.",
+    "アーカイブ内の項目数が一致せず、公開していません。"
+  ],
+  [
+    "归档内部结构不匹配，未发布。",
+    "The internal archive structure does not match; nothing was published.",
+    "アーカイブ内の構成が一致せず、公開していません。"
+  ],
+  [
+    "归档内容或元数据校验不匹配，未发布。",
+    "Content or metadata verification failed; nothing was published.",
+    "内容またはメタデータの検証が一致せず、公開していません。"
+  ],
+  [
+    "正在创建整份文件夹归档，原文件保留。",
+    "Creating the whole-folder archive; source files are retained.",
+    "フォルダ全体をアーカイブ中です。元のファイルは保持します。"
+  ],
+  [
+    "归档临时文件或目标身份变化，未发布。",
+    "Temporary file or destination identity changed; nothing was published.",
+    "一時ファイルまたは保存先の実体が変わったため、公開していません。"
+  ],
+  [
+    "归档临时名称身份变化，未发布。",
+    "The temporary archive name no longer identifies the expected file; nothing was published.",
+    "一時アーカイブ名が予定の実体を示さないため、公開していません。"
+  ],
+  [
+    "即将发布已核验的完整目录和元数据 ZIP。",
+    "About to publish the verified complete folder and metadata ZIP.",
+    "検証済みのフォルダ全体とメタデータのZIPを公開します。"
+  ],
+  ["归档名称无效。", "The archive name is invalid.", "アーカイブ名が無効です。"],
+  [
+    "整份归档发布未确认，请核对目标；不会覆盖或重试。",
+    "Archive publication is unconfirmed. Check the destination; there is no overwrite or retry.",
+    "全体アーカイブの公開は未確認です。保存先を確認してください。上書き・再実行はしません。"
+  ],
+  [
+    "发布后的完整归档未通过核对，请保留目标检查。",
+    "The published archive could not be verified. Retain it for review.",
+    "公開後のアーカイブを確認できません。保存先を保持して確認してください。"
+  ],
+  [
+    "文件夹 ZIP 已创建，内容和 AppleDouble 元数据已逐项核验，原文件保留。",
+    "The folder ZIP was created and its content and AppleDouble metadata verified entry by entry. Sources are retained.",
+    "フォルダのZIPを作成し、内容とAppleDoubleメタデータを項目ごとに検証しました。元のファイルは保持します。"
+  ],
+  [
+    "文件夹归档记录无法核对，保留原记录。",
+    "The folder archive record cannot be verified. Original records are retained.",
+    "フォルダのアーカイブ記録を確認できません。元の記録を保持します。"
+  ],
+  [
+    "文件夹归档记录超过容量。",
+    "The folder archive record exceeds capacity.",
+    "フォルダのアーカイブ記録が容量上限を超えています。"
+  ],
+  [
+    "文件夹归档记录格式无法核对。",
+    "The folder archive record format cannot be verified.",
+    "フォルダのアーカイブ記録形式を確認できません。"
+  ],
+  [
+    "文件夹归档记录标识不一致。",
+    "Folder archive record identifiers do not match.",
+    "フォルダのアーカイブ記録IDが一致しません。"
+  ],
+  [
+    "文件夹归档记录超过本轮 64 条容量。",
+    "Folder archive history exceeds this release's 64-record limit.",
+    "フォルダのアーカイブ履歴が今回の64件の上限を超えています。"
+  ],
+  [
+    "整份文件夹归档需要 FULL 同步记录。",
+    "Whole-folder archiving requires FULL synchronous journaling.",
+    "フォルダ全体のアーカイブにはFULL同期の記録が必要です。"
+  ],
+  [
+    "文件夹归档记录被其他请求占用。",
+    "Another request owns this folder archive record.",
+    "フォルダのアーカイブ記録は別のリクエストが使用中です。"
+  ],
+  [
+    "请先核对未完成的文件夹归档；本轮最多保留 64 条记录。",
+    "Review incomplete folder archives first. This release retains up to 64 records.",
+    "未完了のフォルダのアーカイブを先に確認してください。今回は最大64件を保持します。"
+  ],
+  [
+    "先前文件夹归档已中断，请核对目标和临时路径；不会自动发布、删除或重放。",
+    "A previous folder archive was interrupted. Check destination and temporary paths; no automatic publication, deletion or replay occurs.",
+    "以前のフォルダのアーカイブが中断しました。保存先と一時パスを確認してください。自動公開・削除・再実行はしません。"
+  ],
+  [
+    "文件夹归档请求标识无效。",
+    "The folder archive request identifier is invalid.",
+    "フォルダのアーカイブリクエストIDが無効です。"
+  ],
+  [
+    "请先结束当前任务，再创建文件夹归档。",
+    "Finish the current task before archiving a folder.",
+    "現在のタスクを終了してからフォルダをアーカイブしてください。"
+  ],
+  [
+    "其他文件检查仍在进行。",
+    "Another file check is still running.",
+    "別のファイル確認が進行中です。"
+  ],
+  [
+    "保护设置在检查期间变化，请重新准备文件夹归档。",
+    "Protection changed during checking. Prepare the folder archive again.",
+    "確認中に保護設定が変わりました。フォルダのアーカイブを再確認してください。"
+  ],
+  [
+    "请先确认整份文件夹、隐藏内容、元数据和原件保留方式。",
+    "Confirm the entire folder, hidden content, metadata and source retention first.",
+    "フォルダ全体、非表示の内容、メタデータ、元の保持方法を先に確認してください。"
+  ],
+  [
+    "另一项归档仍在读写。",
+    "Another archive is still being read or written.",
+    "別のアーカイブが読み書き中です。"
+  ],
+  [
+    "文件夹归档确认已使用或撤销，请重新检查。",
+    "The folder archive confirmation was used or withdrawn. Check again.",
+    "フォルダのアーカイブ確認は使用済みまたは取り消し済みです。再確認してください。"
+  ],
+  [
+    "请先核对整份归档的目标和临时位置。",
+    "Check the complete archive's destination and temporary location first.",
+    "全体アーカイブの保存先と一時パスを先に確認してください。"
+  ],
+  [
+    "文件夹归档记录不存在。",
+    "The folder archive record is missing.",
+    "フォルダのアーカイブ記録がありません。"
+  ],
+  [
+    "此文件夹归档无需未知结果确认。",
+    "This folder archive does not require an unknown-result acknowledgement.",
+    "このフォルダのアーカイブは不明結果の確認を必要としません。"
+  ],
+  [
+    "文件夹归档子项不可读，整份归档未发布。",
+    "A folder member is unreadable; the entire archive was withheld.",
+    "フォルダ内の項目を読めないため、全体アーカイブを見送りました。"
+  ],
+  [
+    "归档目录无法完整列出。",
+    "The archive folder cannot be listed completely.",
+    "アーカイブ対象フォルダを完全に一覧できません。"
+  ],
+  [
+    "归档目录未完整读取。",
+    "The archive folder was not read completely.",
+    "アーカイブ対象フォルダを完全に読み取れませんでした。"
+  ],
+  [
+    "整份文件夹归档最多核对 10000 项。",
+    "Whole-folder archiving checks up to 10,000 items.",
+    "フォルダ全体のアーカイブで確認できるのは最大10000項目です。"
+  ],
+  [
+    "归档目录在读取时变化。",
+    "The archive folder changed while being read.",
+    "読み取り中に対象フォルダが変わりました。"
+  ],
+  [
+    "文件夹归档扩展属性无法完整读取。",
+    "Folder archive extended attributes could not be read completely.",
+    "フォルダの拡張属性を完全に読み取れません。"
+  ],
+  [
+    "归档扩展属性在读取时变化。",
+    "Archive extended attributes changed during reading.",
+    "読み取り中に対象の拡張属性が変わりました。"
+  ],
+  [
+    "归档属性名称无效。",
+    "An archive attribute name is invalid.",
+    "アーカイブ対象の属性名が無効です。"
+  ],
+  [
+    "单项归档元数据超过 32 MiB，整份保留。",
+    "An item's metadata exceeds 32 MiB. The entire folder is retained without publication.",
+    "1項目のメタデータが32 MiBを超えました。全体を保持し、公開しません。"
+  ],
+  [
+    "归档属性内容在读取时变化。",
+    "Archive attribute content changed during reading.",
+    "読み取り中に対象の属性内容が変わりました。"
+  ],
+  [
+    "系统未完成 AppleDouble 元数据归档，整份未发布。",
+    "The system did not finish AppleDouble metadata packing. Nothing was published.",
+    "システムでAppleDoubleメタデータの作成が完了しなかったため、公開していません。"
+  ],
+  [
+    "归档元数据封装超过本轮上限。",
+    "Packed archive metadata exceeds this release's limit.",
+    "パッケージ化したメタデータが今回の上限を超えています。"
+  ],
+  [
+    "文件夹层级、项目数或名称总量超过本轮范围，整份保留。",
+    "Folder depth, item count or total name size exceeds scope. No partial archive is published.",
+    "階層、項目数、名前の総量が範囲を超えました。不完全なアーカイブは公開しません。"
+  ],
+  [
+    "归档来源缺少父目录。",
+    "The archive source has no parent folder.",
+    "アーカイブ元の親フォルダがありません。"
+  ],
+  [
+    "归档 ACL 无法核对。",
+    "Archive ACLs could not be verified.",
+    "アーカイブ対象のACLを確認できません。"
+  ],
+  [
+    "文件夹包含受保护、其他卷、未落地、共享、链接或不支持权限的内容，整份不归档。",
+    "The folder contains protected, cross-volume, undownloaded, shared, linked or unsupported-permission content. The entire archive is refused.",
+    "保護対象、他のボリューム、未ダウンロード、共有、リンク、未対応の権限を含むため、フォルダ全体をアーカイブしません。"
+  ],
+  [
+    "修改时间超出本轮 ZIP 时间范围，整份保留。",
+    "File times exceed this release's ZIP time range. No archive is published.",
+    "日時が今回のZIP対応範囲を超えています。アーカイブは公開しません。"
+  ],
+  [
+    "整份文件夹元数据超过 256 MiB，未发布。",
+    "Total folder metadata exceeds 256 MiB; nothing was published.",
+    "フォルダ全体のメタデータが256 MiBを超えたため、公開していません。"
+  ],
+  [
+    "整份文件夹归档最多读取 8 GiB 内容与元数据。",
+    "Whole-folder archiving reads up to 8 GiB of content and metadata.",
+    "フォルダ全体のアーカイブは内容とメタデータの合計8 GiBまでです。"
+  ],
+  [
+    "归档内部名称无法编码。",
+    "An internal archive name cannot be encoded.",
+    "アーカイブ内の名前を処理できません。"
+  ],
+  [
+    "文件夹包含应用资料库、AppleDouble 保留名称或不支持的路径，整份保留。",
+    "The folder contains application libraries, reserved AppleDouble names or unsupported paths. No archive is published.",
+    "アプリのライブラリ、AppleDouble予約名、未対応のパスがあるため、全体を保持し公開しません。"
+  ],
+  [
+    "文件夹中存在受保护项目，整份不归档。",
+    "The folder contains protected items. The entire archive is refused.",
+    "保護対象が含まれるため、フォルダ全体をアーカイブしません。"
+  ],
+  [
+    "文件夹含链接、特殊文件或云占位，整份不归档。",
+    "The folder contains links, special files or cloud placeholders. The entire archive is refused.",
+    "リンク、特殊ファイル、クラウドのプレースホルダが含まれるため、全体をアーカイブしません。"
+  ],
+  [
+    "归档子项身份变化，整份保留。",
+    "A folder member's identity changed. No archive is published.",
+    "フォルダ内の項目の実体が変わったため、全体を保持し公開しません。"
+  ],
+  [
+    "归档子项名称在读取时变化。",
+    "A folder member's name changed during reading.",
+    "読み取り中にフォルダ内の項目名が変わりました。"
+  ],
+  [
+    "归档目录内容在读取时变化，整份保留。",
+    "Folder contents changed during reading. No archive is published.",
+    "読み取り中にフォルダ内容が変わったため、全体を保持し公開しません。"
+  ],
+  [
+    "归档内容或元数据在读取时变化，整份保留。",
+    "Content or metadata changed during reading. No archive is published.",
+    "読み取り中に内容またはメタデータが変わったため、全体を保持し公開しません。"
+  ],
+  [
+    "请选择未受保护的普通文件夹，不归档系统或应用资料库。",
+    "Choose an unprotected ordinary folder. System and application libraries are not archived.",
+    "保護されていない通常のフォルダを選択してください。システムやアプリのライブラリは対象外です。"
+  ],
+  [
+    "归档文件夹名称不受支持。",
+    "The source folder name is unsupported.",
+    "アーカイブ元のフォルダ名は未対応です。"
+  ],
+  [
+    "归档目录名称无效。",
+    "The archive folder name is invalid.",
+    "アーカイブ対象フォルダの名前が無効です。"
+  ],
+  [
+    "归档根目录身份在读取时变化。",
+    "The source root identity changed during reading.",
+    "読み取り中に元のルートフォルダの実体が変わりました。"
+  ],
+  [
+    "请先核对未完成的文件归档记录。",
+    "Review incomplete file archive records first.",
+    "未完了のファイルアーカイブ記録を先に確認してください。"
   ]
 ]

@@ -174,7 +174,8 @@ export async function installPersonalMock(
             if (command === 'get_personal_transfers') return { records: [], activeRequests: [] }
             if (
               command === 'get_transfer_restorations' ||
-              command === 'get_application_restorations'
+              command === 'get_application_restorations' ||
+              command === 'get_folder_archives'
             )
               return { records: [], activeRequests: [] }
             if (command === 'get_folder_schedules')

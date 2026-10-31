@@ -68,7 +68,8 @@ export async function installTaskMock(
             if (command === 'get_ai_scan') return null
             if (
               command === 'get_transfer_restorations' ||
-              command === 'get_application_restorations'
+              command === 'get_application_restorations' ||
+              command === 'get_folder_archives'
             )
               return { records: [], activeRequests: [] }
             if (mode === 'analyze' && command === 'reveal_path') {

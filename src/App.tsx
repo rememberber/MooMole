@@ -56,6 +56,7 @@ import { ProblemRepairs } from './components/ProblemRepairs'
 import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
+import { FolderArchiveCenter, FolderArchiveHistory } from './components/FolderArchiveCenter'
 import { StartupManagement } from './components/StartupManagement'
 import { FileTransferCenter, FileTransferHistory } from './components/FileTransferCenter'
 import {
@@ -440,6 +441,8 @@ export default function App() {
   const [restorationActive, setRestorationActive] = useState(false)
   const [volumePickerOpenSignal, setVolumePickerOpenSignal] = useState(0)
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
+  const [folderArchiveActive, setFolderArchiveActive] = useState(false)
+  const [folderArchiveSignal, setFolderArchiveSignal] = useState(0)
   const [transferActive, setTransferActive] = useState(false)
   const [transferRestoreTarget, setTransferRestoreTarget] = useState<TransferRestoreTarget | null>(
     null,
@@ -494,6 +497,7 @@ export default function App() {
     (transferActive ||
       startupActive ||
       fileArchiveActive ||
+      folderArchiveActive ||
       executionPending ||
       !!data?.executions.some((item) => item.state === 'running'))
   function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
@@ -961,6 +965,7 @@ export default function App() {
     !searchRepairActive &&
     !restorationActive &&
     !fileArchiveActive &&
+    !folderArchiveActive &&
     !transferActive &&
     !transferRestoreActive &&
     !folderSchedules.running &&
@@ -1251,6 +1256,15 @@ export default function App() {
                           : '扫描文件'}
                     </button>
                   ))}
+                {page === 'personalFiles' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun || executionActive}
+                    onClick={() => setFolderArchiveSignal((v) => v + 1)}
+                  >
+                    归档文件夹…
+                  </button>
+                )}
                 {page === 'aiScan' && (
                   <>
                     <button
@@ -1665,6 +1679,16 @@ export default function App() {
               setHistoryEpoch((v) => v + 1)
               void refreshRecords()
             }}
+          />
+          <FolderArchiveCenter
+            openSignal={folderArchiveSignal}
+            home={data.home}
+            onActiveChange={setFolderArchiveActive}
+            onOutcome={() => {
+              setHistoryEpoch((v) => v + 1)
+              void refreshRecords()
+            }}
+            onHistory={() => changePage('history')}
           />
           <FileRestorationCenter
             target={restorationTarget}
@@ -2607,6 +2631,7 @@ export default function App() {
               />
               <TransferRestorationHistory key={`transfer-restore-${historyEpoch}`} />
               <FileArchiveHistory key={`file-archives-${historyEpoch}`} />
+              <FolderArchiveHistory key={`folder-archives-${historyEpoch}`} />
               <TaskHistory
                 records={data.history}
                 home={data.home}

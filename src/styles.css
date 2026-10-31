@@ -3978,6 +3978,12 @@ input[type='checkbox'] {
   gap: 8px;
   font-size: 12px;
 }
+.folder-archive-samples {
+  max-height: 180px;
+  overflow: auto;
+  padding-left: 20px;
+  font-size: 12px;
+}
 .personal-filters input {
   flex: 1;
   min-width: 160px;
