@@ -7,6 +7,7 @@ use std::{
 };
 const IMAGE_LIMIT: u64 = 32 * 1024 * 1024;
 const TEXT_LIMIT: u64 = 64 * 1024;
+mod office;
 pub(crate) mod stream;
 #[derive(Serialize)]
 #[serde(
@@ -27,6 +28,13 @@ pub(crate) enum Content {
         pages: u32,
     },
     Text {
+        text: String,
+        truncated: bool,
+    },
+    Document {
+        format: String,
+        part: u32,
+        sections: Vec<office::Section>,
         text: String,
         truncated: bool,
     },
@@ -123,6 +131,8 @@ fn render(item: &Item, rules: &[String], page: u32) -> Result<Content, String> {
             page,
             pages,
         })
+    } else if ["docx", "xlsx", "pptx"].contains(&extension.as_str()) {
+        office::render(&read(item, rules, IMAGE_LIMIT, true)?, &extension, page)
     } else if [
         "txt", "md", "csv", "tsv", "log", "json", "yaml", "yml", "xml", "html", "htm", "css", "js",
         "ts", "tsx", "jsx", "py", "rs", "sh", "sql", "ini", "conf", "toml",

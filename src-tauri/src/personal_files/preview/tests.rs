@@ -1,5 +1,5 @@
 use super::*;
-fn item(path: &Path) -> Item {
+pub(super) fn item(path: &Path) -> Item {
     let witness = crate::observation::witness(path).unwrap();
     Item {
         id: uuid::Uuid::new_v4().to_string(),
