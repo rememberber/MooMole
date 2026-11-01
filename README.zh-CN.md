@@ -88,12 +88,14 @@ npm run desktop
 # 仅浏览器示例，不读取本机数据
 npm run dev
 
-# 生成本地优化 App、ZIP、校验报告；不上传或公开发布
+# 生成最新本地优化 App 和校验报告；不上传或公开发布
 npm run build:local-app
 
 # 另生成、挂载核对并推出架构匹配的免费 ad-hoc DMG
 npm run build:local-dmg
 ```
+
+最新交付物直接放在 `local-artifacts/` 顶层，成功后替换上一份。DMG 构建只保留 DMG 和报告；需要 ZIP 时追加 `-- --zip`。用 `npm run clean:workspace` 查看可清理缓存，追加 `-- --apply` 实际清理。
 
 引擎来自固定 Git 树，构建后校验资源/架构并原子发布；失败保留旧引擎。已有对应缓存时，可向准备/本地产物命令追加 `-- --offline`。运行 App 不依赖开发工具链，也不下载或单独更新内置引擎。详细配方见 [引擎准备](docs/engine-integrity.md) 和 [本地产物](docs/local-app-build.md)。
 

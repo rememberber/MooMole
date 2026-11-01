@@ -91,14 +91,10 @@ jobs:
       - name: Build ad-hoc App and DMG
         id: build
         run: |
-          npm run build:local-dmg
+          npm run build:local-dmg -- --zip
           node --input-type=module <<'JS'
-          import { appendFileSync, readdirSync } from 'node:fs'
-          import { checkVersion } from './scripts/version.mjs'
-          const prefix = `MooMole-${checkVersion(process.cwd())}-mac-${process.arch}-`
-          const stages = readdirSync('local-artifacts').filter(name => name.startsWith(prefix))
-          if (stages.length !== 1) throw Error('Expected one fresh build')
-          appendFileSync(process.env.GITHUB_OUTPUT, `report=local-artifacts/${stages[0]}/validation.json\n`)
+          import { appendFileSync } from 'node:fs'
+          appendFileSync(process.env.GITHUB_OUTPUT, 'report=local-artifacts/validation.json\n')
           JS
       - name: Package corresponding source and dependency materials
         env:

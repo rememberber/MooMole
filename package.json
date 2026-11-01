@@ -39,7 +39,9 @@
     "test:installers": "node --test scripts/installers-catalog.test.mjs",
     "i18n:check": "node scripts/i18n-catalog.mjs",
     "release:check": "python3 scripts/manage_releases.py validate",
-    "test:release": "python3 -B -m unittest discover -s scripts -p test_manage_releases.py"
+    "test:release": "python3 -B -m unittest discover -s scripts -p test_manage_releases.py",
+    "clean:workspace": "node scripts/clean-workspace.mjs",
+    "test:workspace": "node --test scripts/local-artifact-output.test.mjs scripts/clean-workspace.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",

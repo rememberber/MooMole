@@ -18,14 +18,26 @@ npm run build:local-dmg -- --offline
 
 默认从固定 Mole 提交准备引擎，再执行锁定 Cargo 依赖的 release profile 构建。工具链仍由现有开发脚本查找（包含标准 PATH 回退），不要求预存个人 .cache；默认需要联网取得源码/依赖。离线模式要求已有缓存，不提供离线安装器。当前脚本记录实际 Node/npm/Rust/Go、SDK 和 macOS 版本，没有实现所有机器间的工具链强制一致或位级可重复构建。
 
-成功后在新的 `local-artifacts/MooMole-版本-mac-架构-随机后缀/` 中生成：
+2026-11-01 起，只在固定的 `local-artifacts/` 顶层保留最近一次成功构建的交付物，不再产生长期保留的随机目录：
 
-- `MooMole.app`：完成内外层 ad-hoc 签名并通过验证的副本。
-- `MooMole-版本-mac-架构.app.zip`：保留 App 结构与权限的验收归档。
-- `validation.json`：App/引擎版本、架构、三处签名信息、实际工具链、源码提交与 dirty 标记，以及 ZIP 字节数和十六进制 SHA-512。
-- 使用 `build:local-dmg`（等同于 `build:local-app -- --dmg`）时，额外生成 `MooMole-版本-mac-架构.dmg`，报告增加映像格式、挂载验收、内容指纹、大小及十六进制 SHA-512。
+- `build:local-app`：`MooMole.app` 和 `validation.json`。
+- `build:local-dmg`：架构匹配的 `MooMole-版本-mac-架构.dmg` 和 `validation.json`，不额外保留 App 或 ZIP 副本。
+- 显式追加 `-- --zip` 才额外保留 ZIP；发布工作流使用此参数，以继续提供候选材料要求的 ZIP 与 DMG。
+- `validation.json` 记录实际构建来源、架构、签名与工具链；只记录实际交付的 ZIP/DMG 摘要。隐藏的 `.moomole-artifacts.json` 只记录本脚本拥有的输出，供下一次替换核对。
 
-这些目录被 Git 忽略，不覆盖先前产物。构建或验收失败时可能保留中间文件供检查；只有完整校验通过后才写最终报告，不能把目录或 ZIP 的存在当作成功。多份相同 Bundle ID 的 App 共用既有本地数据与实例锁，原生验收前应正常退出旧实例。
+所有签名、解包与 DMG 制作先在系统临时目录完成，正常成功和失败均清理本次临时文件。完整校验通过后才用同卷短期目录发布新交付物，并替换上一份；失败保留上一份。输出目录中出现未登记文件、链接或用户修改时拒绝自动覆盖，不把整个目录当作无条件可删的缓存。两次重命名之间发生强杀/系统崩溃时可能保留同卷备份；不能宣称具备文件系统事务保证。
+
+多份相同 Bundle ID 的 App 共用既有本地数据与实例锁，原生验收前应正常退出旧实例。只在需要安装包或本轮原生验收需要时构建，不再每个功能节点重复留一套 App/ZIP/DMG。
+
+项目缓存清理命令：
+
+```bash
+npm run clean:workspace                 # 只查看可再生成缓存的清理范围与大小
+npm run clean:workspace -- --apply      # 实际清理
+npm run test:workspace
+```
+
+清理仅针对项目构建目录、前端输出、测试报告和过期实验缓存；不删除源码、未提交代码、node_modules、最新交付物、固定 Mole 源码/许可证缓存或必要 Rust/Go/Playwright 工具链。少量原生验证 JSON 合并到 `.cache/verification/native-evidence.json`，使用原文件名索引，避免保留数百份分散日志、截图、样例和旧 App。命令拒绝在编译/项目原生程序仍运行时清理，不穿过符号链接或挂载卷；缓存清理会使下一次完整构建重新编译。开发/测试 profile 改用精简调试信息并关闭增量副本，release 配方保持原样。
 
 ## 签名与资源摘要顺序
 
@@ -34,7 +46,7 @@ npm run build:local-dmg -- --offline
 3. 使用系统 `codesign --sign - --timestamp=none`，先分别签两个内嵌 Go 可执行文件，绑定明确的引擎标识；不使用 `--deep` 批量签未知代码，不申请自定义 entitlements。
 4. 在副本中重新生成 `UPSTREAM.json` 的最终字节摘要，保留源码、编译/协议信息，校验签名后的引擎。签名改变 Mach-O 字节，不能保留签名前摘要。
 5. 最后签外层 App，封装包括上述清单在内的资源。逐个严格验证三个签名，确认 ad-hoc、对应标识和无自定义 entitlements，再做外层 `--deep --strict` 验证；签完外层不再修改资源。
-6. 用 ditto 创建 ZIP，在独立临时目录解压后重新执行同样校验；移除自身验证临时目录，再核对原 App，并流式计算归档大小及 SHA-512 后写报告。
+6. 指定 `--zip` 时，用 ditto 创建 ZIP，在独立临时目录解压后重新执行同样校验；移除自身验证临时目录，再核对原 App，并记录归档大小及 SHA-512。未指定时不创建 ZIP 副本。
 
 当前配方只支持这三个已知的薄 Mach-O。额外本机代码、链接、共享硬链接或特殊文件会停止；未来增加 framework/helper、Universal 或 entitlements 必须扩展并审阅配方。App 遍历有条目/深度/大小预算，内嵌引擎继续使用既有的更严格预算。签名不是运行前逐文件身份锁定或文件系统事务，仍假定构建工作区受开发者控制。
 
@@ -42,7 +54,7 @@ ad-hoc 提供本地代码/资源完整性封装，不提供 Apple 发布者身�
 
 ## DMG 封装与挂载验收
 
-签名 App 通过 ZIP 往返校验后，用 ditto 复制到自身临时目录，加入指向 `/Applications` 的入口和 `安装说明.txt`，再用系统 hdiutil 创建 HFS+、UDZO 压缩只读映像。不配置背景、装饰标题或第三方安装器。安装说明包含架构、拖拽安装/手动替换步骤、ad-hoc 与公证区别、系统确认的 Apple 入口、学习研究和数据风险、上游致谢及 Mole 官方产品入口；当前明确标注本地验收包。
+签名 App 通过完整性校验后（指定 ZIP 时同时完成 ZIP 往返），用 ditto 复制到自身临时目录，加入指向 `/Applications` 的入口和 `安装说明.txt`，再用系统 hdiutil 创建 HFS+、UDZO 压缩只读映像。不配置背景、装饰标题或第三方安装器。安装说明包含架构、拖拽安装/手动替换步骤、ad-hoc 与公证区别、系统确认的 Apple 入口、学习研究和数据风险、上游致谢及 Mole 官方产品入口；当前明确标注本地验收包。
 
 检查映像格式和容器校验后，以 readonly/nobrowse/noautoopen 挂载到随机私有目录；通过系统 plist 识别完整映像路径、设备及唯一挂载点，并用 diskutil 确认卷为只读 HFS+。检查根目录布局、Applications 链接和说明正文，重新验证包内版本/架构/引擎与三处签名；对 App 的有序相对路径、类型、权限、文件大小和逐文件 SHA-512 生成内容指纹，确认与源 App 一致。此指纹用于复制一致性，不是发布者身份签名。
 

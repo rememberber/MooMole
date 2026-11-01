@@ -42,3 +42,13 @@ objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Keep local test/development builds from accumulating multi-gigabyte full
+# debug symbol and incremental copies. Release packaging is unchanged.
+[profile.dev]
+debug = 1
+incremental = false
+
+[profile.test]
+debug = 1
+incremental = false

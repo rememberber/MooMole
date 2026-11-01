@@ -88,12 +88,14 @@ npm run desktop
 # ブラウザのサンプルのみ。本機データは読まない
 npm run dev
 
-# 本機用の最適化 App・ZIP・検証報告を生成。アップロードや公開はしない
+# 最新の最適化 App と検証報告を生成。アップロードや公開はしない
 npm run build:local-app
 
 # アーキテクチャに合う無料 ad-hoc DMG も生成・マウント・検証・取り出し
 npm run build:local-dmg
 ```
+
+最新の成果物は `local-artifacts/` 直下に置き、成功後に前の成果物を置き換えます。DMG ビルドでは DMG と報告のみを保持し、ZIP が必要な場合は `-- --zip` を付けます。`npm run clean:workspace` で削除可能なキャッシュを確認し、`-- --apply` を付けて削除できます。
 
 エンジンは固定 Git ツリーからビルドし、リソース・アーキテクチャを検証後に原子的に配置します。失敗時は旧エンジンを保持します。必要なキャッシュがあれば準備・本機用生成コマンドに `-- --offline` を追加できます。App の実行には開発ツールは不要で、内蔵エンジンをダウンロード・個別更新しません。[エンジン準備](docs/engine-integrity.md)と[ローカルビルド](docs/local-app-build.md)をご覧ください。
 

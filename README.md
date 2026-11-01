@@ -90,12 +90,14 @@ npm run desktop
 # Browser samples only; no local data access
 npm run dev
 
-# Build a local optimized App, ZIP and verification report; no upload/publication
+# Build the latest local optimized App and report; no upload/publication
 npm run build:local-app
 
 # Also create, mount, verify and eject an architecture-matched ad-hoc DMG
 npm run build:local-dmg
 ```
+
+Latest output stays directly in `local-artifacts/` and replaces the previous successful build. DMG builds keep only the DMG and report; append `-- --zip` when a ZIP is needed. Preview disposable workspace caches with `npm run clean:workspace`, or remove them with `npm run clean:workspace -- --apply`.
 
 The engine is built from a pinned Git tree, checked for resources/architecture and published atomically. Failure retains the old engine. With caches present, append `-- --offline` to preparation/local-artifact commands. Running the app needs no development toolchain and never downloads or separately updates its bundled engine. See [engine preparation](docs/engine-integrity.md) and [local builds](docs/local-app-build.md).
 
