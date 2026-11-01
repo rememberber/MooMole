@@ -17,6 +17,10 @@ pub(crate) fn reserve(db: &Transaction<'_>, reserved: i64) -> Result<(), String>
         used += runs * crate::mole_clean::journal::RESERVED_BYTES;
         blocked += pending;
     }
+    let (extractions, pending) = crate::personal_files::zip_extraction::journal::reservations(db)?;
+    count += extractions;
+    used += extractions * 131072;
+    blocked += pending;
     if invalid != 0 || reserved <= 0 {
         return Err("执行记录容量字段无效；保留记录供核查。".into());
     }

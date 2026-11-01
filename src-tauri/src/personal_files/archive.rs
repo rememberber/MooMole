@@ -74,6 +74,7 @@ pub(crate) struct Draft {
 pub(crate) struct Store {
     plans: HashMap<String, (Plan, Instant)>,
     pub(super) folder_plan: Option<super::folder_archive::Plan>,
+    pub(super) extraction_plan: Option<super::zip_extraction::Plan>,
 }
 impl Store {
     fn publish(&mut self, plan: Plan) -> Result<Draft, String> {
