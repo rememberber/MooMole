@@ -87,7 +87,7 @@ export function mount(mode = 'normal') {
       live = true
       record = detailRaw(id, 'intent')
       changed()
-      if (mode === 'normal') {
+      if (mode === 'normal' || mode.startsWith('usage')) {
         finish()
         return record
       }
@@ -119,6 +119,90 @@ export function mount(mode = 'normal') {
       finish(mode === 'lost' ? 'moved' : 'cancelled')
     },
   }
+  const libraryApps = [
+    {
+      name: target.name,
+      path: target.path,
+      bundle_id: target.bundleId,
+      source: 'App',
+      size: '1MB',
+      uninstall_name: 'unused',
+    },
+    {
+      name: '受管理 App',
+      path: '/Applications/Managed.app',
+      bundle_id: 'org.example.managed',
+      source: 'Homebrew',
+      size: '2MB',
+      uninstall_name: 'managed',
+    },
+  ]
+
+  if (mode.startsWith('usage'))
+    libraryApps.push(
+      {
+        ...libraryApps[0],
+        name: '另一旧副本',
+        path: '/Users/demo/Applications/Other.app',
+        size: '3MB',
+      },
+      { ...libraryApps[0], name: '记录未知', path: '/Applications/NoHistory.app' },
+      { ...libraryApps[0], name: '受保护副本', path: '/Applications/Protected.app' },
+    )
+  let releaseUsage: (() => void) | null = null
+  const native = (window as any).__TAURI_INTERNALS__ || {}
+  const originalInvoke = native.invoke
+  native.invoke = async (command: string, args: any = {}) => {
+    if (command === 'inspect_application_usage') {
+      call('usage', args)
+      const now = Date.now(),
+        checkedAt = now - (mode === 'usage-expired' ? 300001 : 0)
+      const rows = args.indices.map((index: number) => ({
+        index,
+        path: libraryApps[index].path,
+        bundleId: libraryApps[index].bundle_id,
+        state:
+          index === 1
+            ? 'running'
+            : index === 3
+              ? 'unknown'
+              : index === 4
+                ? 'protected'
+                : 'observed',
+        lastOpenedAt: index === 3 || index === 4 ? null : checkedAt - 200 * 86400000,
+        issue: index === 3 ? 'notReported' : index === 4 ? 'protected' : null,
+      }))
+      const report = {
+        version: 1,
+        taskId: mode === 'usage-mismatch' ? requestId : args.taskId,
+        requestId: args.requestId,
+        checkedAt,
+        expiresAt: checkedAt + 300000,
+        requestedIndices: args.indices,
+        rows,
+        complete: true,
+        cancelled: false,
+      }
+      if (mode === 'usage-cancel' || mode === 'usage-late')
+        return new Promise((resolve) => {
+          releaseUsage = () =>
+            resolve({
+              ...report,
+              ...(mode === 'usage-cancel'
+                ? { complete: false, cancelled: true, rows: rows.slice(0, 1) }
+                : {}),
+            })
+        })
+      return report
+    }
+    if (command === 'cancel_task' && mode.startsWith('usage')) {
+      call('usageCancel', args)
+      if (mode === 'usage-cancel') releaseUsage?.()
+      return null
+    }
+    return originalInvoke ? originalInvoke(command, args) : null
+  }
+  Object.assign(window, { __TAURI_INTERNALS__: native })
   Object.assign(window, {
     uninstallFixture: {
       calls,
@@ -137,10 +221,12 @@ export function mount(mode = 'normal') {
         releasePrepare?.(lastPlan)
       },
       getRecord: () => record,
+      releaseUsage: () => releaseUsage?.(),
     },
   })
   if (mode === 'resume') sessionStorage.setItem(uninstallSessionKey, requestId)
   function Fixture() {
+    const [listed, setListed] = useState(libraryApps)
     const [selected, setSelected] = useState<UninstallTarget | null>(null)
     const [active, setActive] = useState(false)
     const [historyVisible, setHistoryVisible] = useState(!mode.startsWith('home-'))
@@ -149,6 +235,11 @@ export function mount(mode = 'normal') {
     changed = () => render((v) => v + 1)
     return (
       <main tabIndex={-1} className="main-content">
+        {mode.startsWith('usage') && (
+          <button onClick={() => setListed(libraryApps.map((a) => ({ ...a })))}>
+            模拟应用清单刷新
+          </button>
+        )}
         <button
           onClick={() => {
             setSelected(null)
@@ -178,26 +269,9 @@ export function mount(mode = 'normal') {
         />
         <ApplicationLibrary
           taskId={target.taskId}
-          apps={[
-            {
-              name: target.name,
-              path: target.path,
-              bundle_id: target.bundleId,
-              source: 'App',
-              size: '1MB',
-              uninstall_name: 'unused',
-            },
-            {
-              name: '受管理 App',
-              path: '/Applications/Managed.app',
-              bundle_id: 'org.example.managed',
-              source: 'Homebrew',
-              size: '2MB',
-              uninstall_name: 'managed',
-            },
-          ]}
+          apps={listed}
           home="/Users/demo"
-          canReveal={false}
+          canReveal={mode.startsWith('usage')}
           onReveal={() => {}}
           canUninstall={!active}
           onUninstall={setSelected}

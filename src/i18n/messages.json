@@ -1,5 +1,123 @@
 [
   [
+    "使用线索的应用索引已失效。",
+    "The application index for this usage hint is no longer valid.",
+    "使用の手がかりのアプリ索引が無効になりました。"
+  ],
+  [
+    "应用清单格式无法核对。",
+    "The application list format could not be verified.",
+    "アプリ一覧の形式を確認できません。"
+  ],
+  [
+    "请先读取完整的应用清单。",
+    "Read a completed application list first.",
+    "先に読み取り済みのアプリ一覧を取得してください。"
+  ],
+  [
+    "应用清单已不可用，请重新读取。",
+    "The application list is no longer available. Read it again.",
+    "アプリ一覧を利用できません。再読み取りしてください。"
+  ],
+  [
+    "应用清单已变化，请重新检查使用线索。",
+    "The application list changed. Check usage hints again.",
+    "アプリ一覧が変わりました。使用の手がかりを再確認してください。"
+  ],
+  [
+    "保护范围已变化，请重新检查使用线索。",
+    "Protection scope changed. Check usage hints again.",
+    "保護範囲が変わりました。使用の手がかりを再確認してください。"
+  ],
+  [
+    "应用使用线索读取超时；仍在返回的系统读取保持占用，请稍后重试。",
+    "Usage hint reading timed out. A system read that has not returned still holds its slot; try again later.",
+    "使用の手がかりの読み取りがタイムアウトしました。未完了のシステム読み取りはスロットを保持しています。後で再試行してください。"
+  ],
+  [
+    "应用使用线索读取未完成。",
+    "Application usage hint reading did not complete.",
+    "アプリの使用の手がかりの読み取りが完了しませんでした。"
+  ],
+  [
+    "请先结束当前任务，再检查应用使用线索。",
+    "Finish the current task before checking application usage hints.",
+    "現在のタスクを終了してからアプリの使用の手がかりを確認してください。"
+  ],
+  [
+    "应用使用线索仍在读取，请稍后重试。",
+    "Application usage hints are still being read. Try again later.",
+    "アプリの使用の手がかりを読み取り中です。後で再試行してください。"
+  ],
+  [
+    "每轮最多检查 512 个确切应用，不能重复。",
+    "Check up to 512 exact applications per run, without duplicates.",
+    "1 回に確認できるのは重複のない最大 512 個のアプリです。"
+  ],
+  [
+    "使用线索请求标识无效。",
+    "The usage hint request ID is invalid.",
+    "使用の手がかりのリクエスト ID が無効です。"
+  ],
+  [
+    "应用使用线索与当前清单不匹配，请重新检查。",
+    "Usage hints do not match the current application list. Check again.",
+    "使用の手がかりが現在のアプリ一覧と一致しません。再確認してください。"
+  ],
+  ["使用记录无法核对", "Usage record could not be verified", "使用記録を確認できません"],
+  [
+    "系统未提供打开记录",
+    "The system did not provide an opening record",
+    "システムから起動記録が返されませんでした"
+  ],
+  ["系统上次打开：{0}", "Last opened according to the system: {0}", "システム上の前回の起動：{0}"],
+  [
+    "受保护，未读取使用记录",
+    "Protected; usage record not read",
+    "保護されているため使用記録は未読み取りです"
+  ],
+  ["此副本正在运行", "This copy is running", "このコピーは実行中です"],
+  [
+    "使用线索检查未完整覆盖，未检查范围保持未知；每轮最多 512 项。",
+    "Usage hints were not checked completely. Unchecked scope remains unknown; each run is limited to 512 items.",
+    "使用の手がかりはすべてを確認できていません。未確認範囲は不明のままとし、1 回の上限は 512 項目です。"
+  ],
+  [
+    "系统打开记录可能缺失或滞后，也不覆盖后台运行；较早记录不证明一直未用。正在运行的应用不进入较早记录筛选，未知不按未用处理。卸载仍需另行检查和确认。",
+    "System opening records can be missing or delayed and do not cover background activity. An older record does not prove continuous inactivity. Running apps are excluded from older-record filters; unknown records are not treated as unused. Uninstalling still requires separate checks and confirmation.",
+    "システムの起動記録は欠落や遅延があり、バックグラウンドの動作も網羅しません。古い記録だけで継続的な未使用とは判断できません。実行中のアプリは古い記録の絞り込みから除外し、不明を未使用とは扱いません。アンインストールには別途確認が必要です。"
+  ],
+  [
+    "本轮使用线索检查已停止，已返回结果保留。",
+    "Usage hint checking stopped. Returned observations are retained.",
+    "使用の手がかりの確認を停止しました。返された結果は保持します。"
+  ],
+  [
+    "按需检查，不自动选择或卸载。",
+    "Checked on demand; nothing is selected or uninstalled automatically.",
+    "必要に応じて確認します。自動で選択やアンインストールはしません。"
+  ],
+  [
+    "使用线索已过期，请重新检查。",
+    "Usage hints expired. Check again.",
+    "使用の手がかりの期限が切れました。再確認してください。"
+  ],
+  ["本轮已检查 {0} / {1} 项", "Checked {0} / {1} items this time", "今回確認済み：{0} / {1} 項目"],
+  [
+    "正在读取所列应用的系统打开记录…",
+    "Reading system opening records for listed applications…",
+    "一覧のアプリのシステム起動記録を読み取り中…"
+  ],
+  ["使用记录未知", "Usage record unknown", "使用記録が不明"],
+  ["365 天前的打开记录", "Opened at least 365 days ago", "365 日以上前の起動記録"],
+  ["180 天前的打开记录", "Opened at least 180 days ago", "180 日以上前の起動記録"],
+  ["90 天前的打开记录", "Opened at least 90 days ago", "90 日以上前の起動記録"],
+  ["全部使用线索", "All usage hints", "すべての使用の手がかり"],
+  ["应用使用线索", "Application usage hints", "アプリの使用の手がかり"],
+  ["停止检查使用线索", "Stop checking usage hints", "使用の手がかりの確認を停止"],
+  ["检查使用线索", "Check usage hints", "使用の手がかりを確認"],
+  ["重新检查使用线索", "Recheck usage hints", "使用の手がかりを再確認"],
+  [
     "解压发布未确认；不会覆盖或重试。",
     "Extraction publication was not confirmed; nothing is overwritten or retried.",
     "展開結果の公開を確認できません。上書きや再試行はしません。"

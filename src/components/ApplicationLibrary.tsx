@@ -6,6 +6,8 @@ import type { AppEntry } from '../types'
 import { appEstimateLabel, appSizeEstimate, compareApps } from '../lib/application-library'
 import type { AppControlTarget } from '../lib/app-control'
 import type { UninstallTarget } from '../lib/app-uninstall'
+import { useApplicationUsage } from '../lib/use-application-usage'
+import { matchesUsage, type UsageFilter } from '../lib/application-usage'
 
 export function ApplicationLibrary({
   apps,
@@ -39,6 +41,13 @@ export function ApplicationLibrary({
   const [sort, setSort] = useState<'size' | 'name'>('size')
   const [onlySelected, setOnlySelected] = useState(false)
   const [limit, setLimit] = useState(100)
+  const usage = useApplicationUsage(apps, taskId, refreshing, JSON.stringify(protectedPaths))
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>('all')
+  const usageRows = useMemo(
+    () => new Map(usage.fresh ? usage.report!.rows.map((row) => [row.index, row]) : []),
+    [usage.fresh, usage.report],
+  )
+  const effectiveUsageFilter = usage.fresh ? usageFilter : 'all'
   // Bind a comparison to this received list. A refresh must not transfer a
   // selection to a new observation, even when names or paths are unchanged.
   const [selection, setSelection] = useState({ apps, paths: new Set<string>() })
@@ -55,6 +64,11 @@ export function ApplicationLibrary({
           const kind = ['App', 'Homebrew'].includes(app.source) ? app.source : 'unknown'
           return (
             (source === 'all' || source === kind) &&
+            matchesUsage(
+              usageRows.get(indices.get(app.path)!),
+              effectiveUsageFilter,
+              usage.report?.checkedAt ?? 0,
+            ) &&
             (!onlySelected || selected.has(app.path)) &&
             `${app.name}\n${app.bundle_id}\n${app.path}\n${app.source}`
               .toLocaleLowerCase(getLocale())
@@ -62,7 +76,19 @@ export function ApplicationLibrary({
           )
         })
         .sort((a, b) => compareApps(a, b, sort)),
-    [apps, query, source, sort, onlySelected, selected, getLocale()],
+    [
+      apps,
+      query,
+      source,
+      sort,
+      onlySelected,
+      selected,
+      getLocale(),
+      usageRows,
+      effectiveUsageFilter,
+      usage.report?.checkedAt,
+      indices,
+    ],
   )
   const visible = matching.slice(0, limit)
   const pageSelected = visible.filter((app) => selected.has(app.path)).length
@@ -73,7 +99,9 @@ export function ApplicationLibrary({
   const chosen = apps.filter((app) => selected.has(app.path))
   const unknown = chosen.filter((app) => appSizeEstimate(app.size) == null).length
   const estimate = chosen.reduce((total, app) => total + (appSizeEstimate(app.size) ?? 0), 0)
-  const hasFilters = Boolean(query || source !== 'all' || onlySelected)
+  const hasFilters = Boolean(
+    query || source !== 'all' || onlySelected || effectiveUsageFilter !== 'all',
+  )
   function toggle(paths: string[], checked: boolean) {
     const next = new Set(selected)
     for (const path of paths) {
@@ -123,6 +151,68 @@ export function ApplicationLibrary({
           <option value="name">名称顺序</option>
         </select>
       </div>
+      {taskId && (
+        <div className="list-toolbar">
+          <button
+            className="button secondary compact"
+            disabled={!canReveal || refreshing || usage.pending || !apps.length}
+            onClick={() => void usage.read()}
+          >
+            {usage.report ? '重新检查使用线索' : '检查使用线索'}
+          </button>
+          {usage.pending && (
+            <button
+              className="button secondary compact"
+              disabled={usage.stopping}
+              onClick={() => void usage.cancel()}
+            >
+              {usage.stopping ? '已请求停止' : '停止检查使用线索'}
+            </button>
+          )}
+          <select
+            aria-label="应用使用线索"
+            disabled={!usage.fresh || usage.pending}
+            value={effectiveUsageFilter}
+            onChange={(e) => {
+              setUsageFilter(e.target.value as UsageFilter)
+              setLimit(100)
+            }}
+          >
+            <option value="all">全部使用线索</option>
+            <option value="90">90 天前的打开记录</option>
+            <option value="180">180 天前的打开记录</option>
+            <option value="365">365 天前的打开记录</option>
+            <option value="unknown">使用记录未知</option>
+          </select>
+          <small>
+            {usage.pending
+              ? '正在读取所列应用的系统打开记录…'
+              : usage.report
+                ? usage.fresh
+                  ? `本轮已检查 ${usage.report.rows.length} / ${apps.length} 项`
+                  : '使用线索已过期，请重新检查。'
+                : '按需检查，不自动选择或卸载。'}
+          </small>
+        </div>
+      )}
+      {usage.error && (
+        <p className="notice warning" role="alert">
+          {usage.error}
+        </p>
+      )}
+      {usage.report?.cancelled && (
+        <p className="application-scope">本轮使用线索检查已停止，已返回结果保留。</p>
+      )}
+      {usage.report && (
+        <p className="application-scope">
+          系统打开记录可能缺失或滞后，也不覆盖后台运行；较早记录不证明一直未用。正在运行的应用不进入较早记录筛选，未知不按未用处理。卸载仍需另行检查和确认。
+        </p>
+      )}
+      {usage.report && (!usage.report.complete || apps.length > 512) && (
+        <p className="notice warning">
+          使用线索检查未完整覆盖，未检查范围保持未知；每轮最多 512 项。
+        </p>
+      )}
       <details className="application-scope">
         <summary>列表范围与大小说明</summary>
         <p>
@@ -199,6 +289,7 @@ export function ApplicationLibrary({
           <ApplicationRow
             key={app.path}
             app={app}
+            usage={usageRows.get(indices.get(app.path)!)}
             taskId={taskId}
             protectedPaths={protectedPaths}
             index={indices.get(app.path)!}
@@ -224,6 +315,7 @@ export function ApplicationLibrary({
                   setQuery('')
                   setSource('all')
                   setOnlySelected(false)
+                  setUsageFilter('all')
                   setLimit(100)
                 }}
               >

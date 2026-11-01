@@ -7,9 +7,12 @@ import { shortPath } from '../lib/format'
 import { appSizeEstimate, appSource } from '../lib/application-library'
 import type { AppControlTarget } from '../lib/app-control'
 import type { UninstallTarget } from '../lib/app-uninstall'
+import type { AppUsageRow } from '../lib/application-usage'
+import { getLocale } from '../i18n/locale'
 
 export function ApplicationRow({
   app,
+  usage,
   taskId,
   protectedPaths,
   index,
@@ -25,6 +28,7 @@ export function ApplicationRow({
   onUpdate,
 }: {
   app: AppEntry
+  usage?: AppUsageRow
   taskId?: string | null
   protectedPaths: string[]
   index: number
@@ -53,6 +57,19 @@ export function ApplicationRow({
         <div className="app-info">
           <strong data-i18n="off">{app.name}</strong>
           <small className="mono">{shortPath(app.path, home)}</small>
+          {usage && (
+            <small>
+              {usage.state === 'running'
+                ? '此副本正在运行'
+                : usage.state === 'protected'
+                  ? '受保护，未读取使用记录'
+                  : usage.state === 'observed' && usage.lastOpenedAt !== null
+                    ? `系统上次打开：${new Date(usage.lastOpenedAt).toLocaleDateString(getLocale(), { year: 'numeric', month: '2-digit', day: '2-digit' })}`
+                    : usage.issue === 'notReported' || usage.issue === 'notIndexed'
+                      ? '系统未提供打开记录'
+                      : '使用记录无法核对'}
+            </small>
+          )}
         </div>
         <span className="tag">{appSource(app.source)}</span>
         <span className="app-size">
