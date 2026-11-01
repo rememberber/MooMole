@@ -11609,5 +11609,357 @@
     "视频采样请求格式无法核对。",
     "The video sample request format could not be verified.",
     "動画サンプルの要求形式を確認できません。"
+  ],
+  ["检查此应用更新", "Check updates for this app", "このアプリの更新を確認"],
+  ["应用声明的更新来源", "Update source declared by this app", "アプリが宣言する更新元"],
+  ["本机版本 / 构建", "Installed version / build", "インストール済みのバージョン / ビルド"],
+  ["来源状态", "Source status", "更新元の状態"],
+  [
+    "只请求以上地址，不附加本机清单或本地文件内容。版本和下载地址来自该来源，尚未验证安装包或发布者。",
+    "Only the address above is requested, without your app inventory or local file contents. Versions and download links are claims from this source; the package and publisher have not been verified.",
+    "上記のアドレスのみを要求し、アプリ一覧やローカルファイルの内容は送信しません。バージョンとダウンロード先は更新元の申告であり、パッケージと配布者は未検証です。"
+  ],
+  [
+    "正在读取此副本的更新来源，尚未联网。",
+    "Reading this copy’s update source; no network request yet.",
+    "このコピーの更新元を読み取り中です。まだ通信していません。"
+  ],
+  [
+    "正在向显示的地址检查更新…",
+    "Checking the displayed address for updates…",
+    "表示中のアドレスで更新を確認中…"
+  ],
+  [
+    "正在请求浏览器打开所选地址…",
+    "Asking your browser to open the selected address…",
+    "選択したアドレスをブラウザに渡しています…"
+  ],
+  ["应用更新发现结果", "App update discovery results", "アプリ更新の確認結果"],
+  [
+    "此来源报告了较新版本",
+    "This source reports a newer version",
+    "この更新元から新しいバージョンの報告があります"
+  ],
+  [
+    "此来源未报告本机适用的较新稳定版本",
+    "This source reports no newer stable version for this Mac",
+    "この Mac に適用できる新しい安定版の報告がありません"
+  ],
+  [
+    "来源信息不足，版本状态未知",
+    "Insufficient source information; version status unknown",
+    "更新元の情報が不足しており、バージョンの状態は不明です"
+  ],
+  [
+    "检查范围仅为此应用声明的地址，其他渠道请在应用自身确认；不会自动安装。",
+    "Only this app’s declared address was checked. Check other channels in the app itself; nothing is installed automatically.",
+    "このアプリが宣言したアドレスのみを確認しました。他の配布経路はアプリ内で確認してください。自動インストールは行いません。"
+  ],
+  [
+    "部分更新条目无法核对，当前结果未完整覆盖。",
+    "Some release entries could not be checked; these results are incomplete.",
+    "確認できない更新項目があるため、結果は不完全です。"
+  ],
+  [
+    "此版本需要另行核对授权或升级要求。",
+    "Review licensing or upgrade requirements for this version separately.",
+    "このバージョンのライセンスやアップグレード要件を別途確認してください。"
+  ],
+  ["在浏览器打开下载地址", "Open download address in browser", "ダウンロード先をブラウザで開く"],
+  ["在浏览器打开版本页面", "Open release page in browser", "リリースページをブラウザで開く"],
+  [
+    "已请求浏览器打开所选地址；下载是否完成请在浏览器确认。",
+    "The selected address was sent to your browser. Check download completion there.",
+    "選択したアドレスをブラウザに渡しました。ダウンロードの完了はブラウザで確認してください。"
+  ],
+  [
+    "此更新来源已过期，请重新读取后再检查或打开地址。",
+    "This source has expired. Read it again before checking or opening an address.",
+    "更新元の有効期限が切れました。再度読み取ってから確認またはアドレスを開いてください。"
+  ],
+  [
+    "下载并解压可信的新版 .app 后，可继续独立核对版本、签名与替换范围。旧包保留，不自动退出应用。",
+    "After downloading and extracting a trusted new .app, review its version, signature and replacement scope separately. The old app is retained; running apps are not quit automatically.",
+    "信頼できる新版の .app をダウンロードして展開した後、バージョン、署名、置き換え範囲を別途確認できます。旧版は保持し、アプリを自動終了しません。"
+  ],
+  ["停止更新来源检查", "Stop checking update source", "更新元の確認を停止"],
+  ["关闭更新检查", "Close update check", "更新確認を閉じる"],
+  ["重新读取更新来源", "Read update source again", "更新元を再読み取り"],
+  ["向此地址检查", "Check this address", "このアドレスを確認"],
+  ["使用已下载应用包…", "Use a downloaded app…", "ダウンロード済みのアプリを使用…"],
+  ["检查更新…", "Check for updates…", "更新を確認…"],
+  [
+    "应用更新来源结果无法核对，请重新检查；不会打开地址或更新应用。",
+    "The update source result could not be verified. Check again; no address will be opened and no app will be updated.",
+    "更新元の結果を照合できません。再確認してください。アドレスを開いたりアプリを更新したりしません。"
+  ],
+  [
+    "更新地址来自此应用的 Info.plist，尚未访问网络或验证发布者。",
+    "The address comes from this app’s Info.plist. No network request or publisher verification has occurred.",
+    "このアドレスはアプリの Info.plist に記載されたものです。まだ通信も配布者の検証も行っていません。"
+  ],
+  [
+    "应用构建号无法按本轮规则比较，请使用应用自身更新器。",
+    "This app’s build cannot be compared by the supported rules. Use its own updater.",
+    "このアプリのビルド番号は現在のルールでは比較できません。アプリ自身の更新機能を使用してください。"
+  ],
+  [
+    "未发现本轮支持的 HTTPS 更新地址，请使用应用自身更新器或已下载应用包。",
+    "No supported HTTPS update address was found. Use the app’s own updater or a downloaded app.",
+    "対応する HTTPS 更新先が見つかりません。アプリ自身の更新機能またはダウンロード済みのアプリを使用してください。"
+  ],
+  ["应用更新来源检查已停止。", "Update source check stopped.", "更新元の確認を停止しました。"],
+  [
+    "更新来源连接失败或超时，版本状态未知。",
+    "The update source connection failed or timed out. Version status is unknown.",
+    "更新元への接続が失敗またはタイムアウトしました。バージョンの状態は不明です。"
+  ],
+  [
+    "应用更新来源已变化、受保护或过期，请重新读取。",
+    "The update source changed, became protected or expired. Read it again.",
+    "更新元が変更されたか、保護対象になったか、有効期限が切れました。再度読み取ってください。"
+  ],
+  [
+    "更新来源未返回成功响应；重定向不会自动跟随。",
+    "The update source did not return a successful response. Redirects are not followed automatically.",
+    "更新元から成功応答がありません。リダイレクトには自動追従しません。"
+  ],
+  [
+    "请选择未受保护的普通应用；其他管理来源请使用原有更新方式。",
+    "Select an unprotected ordinary app. Use the existing update method for other managed sources.",
+    "保護されていない通常のアプリを選択してください。他の管理元では既存の更新方法を使用してください。"
+  ],
+  [
+    "应用身份或更新来源变化，请刷新列表。",
+    "The app identity or update source changed. Refresh the list.",
+    "アプリの識別情報または更新元が変更されました。一覧を更新してください。"
+  ],
+  [
+    "当前系统版本无法核对，未判断更新适用范围。",
+    "The current system version could not be checked; update eligibility is unknown.",
+    "現在のシステムバージョンを確認できず、更新の適用条件は不明です。"
+  ],
+  [
+    "系统版本无法编码。",
+    "The system version could not be decoded.",
+    "システムバージョンを読み取れません。"
+  ],
+  [
+    "其他应用或文件检查仍在进行，请稍后重试。",
+    "Another app or file check is still running. Try again later.",
+    "別のアプリまたはファイルの確認が進行中です。後でもう一度お試しください。"
+  ],
+  [
+    "应用更新来源读取未完成。",
+    "Reading the app update source did not finish.",
+    "アプリの更新元の読み取りが完了しませんでした。"
+  ],
+  [
+    "更新来源检查等待超时；系统读取仍占用资源，停止后续步骤，请稍后重试。",
+    "Waiting for the source check timed out. The system read still holds resources; further steps are stopped. Try again later.",
+    "更新元の確認待ちがタイムアウトしました。システムの読み取りがまだリソースを使用しているため、以降の手順を停止しました。後でもう一度お試しください。"
+  ],
+  [
+    "更新检查的应用清单已变化，请重新读取。",
+    "The app list for this update check changed. Read it again.",
+    "更新確認の対象一覧が変更されました。再度読み取ってください。"
+  ],
+  [
+    "请明确选择向显示的应用更新地址检查，不会自动连接。",
+    "Explicitly choose to check the displayed update address. No connection is made automatically.",
+    "表示された更新先を確認する操作を明示的に選択してください。自動接続はしません。"
+  ],
+  [
+    "更新来源已撤销或不受支持，请重新读取。",
+    "The update source was withdrawn or is unsupported. Read it again.",
+    "更新元が取り消されたか、未対応です。再度読み取ってください。"
+  ],
+  ["更新地址缺失。", "The update address is missing.", "更新先がありません。"],
+  ["应用构建号缺失。", "The app build number is missing.", "アプリのビルド番号がありません。"],
+  [
+    "更新来源已撤销，未保留迟到结果。",
+    "The update source was withdrawn; the late result was not retained.",
+    "更新元が取り消されたため、遅れて届いた結果は保持しませんでした。"
+  ],
+  [
+    "更新来源已撤销，请重新检查。",
+    "The update source was withdrawn. Check again.",
+    "更新元が取り消されました。再確認してください。"
+  ],
+  [
+    "所选更新记录已失效，请重新检查。",
+    "The selected release entry is no longer valid. Check again.",
+    "選択した更新項目は無効になりました。再確認してください。"
+  ],
+  [
+    "更新记录已撤销，未打开来源。",
+    "The release entry was withdrawn; the source was not opened.",
+    "更新項目が取り消されたため、更新元を開きませんでした。"
+  ],
+  [
+    "浏览器打开请求超时，未重试。",
+    "The browser open request timed out. It was not retried.",
+    "ブラウザに開く要求がタイムアウトしました。再試行はしていません。"
+  ],
+  [
+    "无法请求浏览器打开更新来源。",
+    "Could not ask the browser to open the update source.",
+    "更新元を開くようブラウザに要求できませんでした。"
+  ],
+  [
+    "浏览器未接受打开更新来源的请求。",
+    "The browser did not accept the request to open the update source.",
+    "更新元を開く要求がブラウザに受け付けられませんでした。"
+  ],
+  [
+    "更新地址格式无法核对。",
+    "The update address format could not be checked.",
+    "更新先の形式を確認できません。"
+  ],
+  ["更新地址无法解析。", "The update address could not be parsed.", "更新先を解析できません。"],
+  [
+    "更新地址必须使用公开 HTTPS 域名。",
+    "The update address must use a public HTTPS domain.",
+    "更新先には公開 HTTPS ドメインが必要です。"
+  ],
+  [
+    "更新地址必须是无账户信息的公开 HTTPS 地址，且使用标准端口。",
+    "The update address must use public HTTPS on the standard port, without account information.",
+    "更新先にはアカウント情報を含まない、標準ポートの公開 HTTPS アドレスが必要です。"
+  ],
+  [
+    "更新域名无法核对。",
+    "The update domain could not be checked.",
+    "更新先ドメインを確認できません。"
+  ],
+  [
+    "更新域名无法解析。",
+    "The update domain could not be resolved.",
+    "更新先ドメインを名前解決できません。"
+  ],
+  [
+    "更新域名指向非公开或无法核对的地址，未连接。",
+    "The update domain resolves to a non-public or unverifiable address. No connection was made.",
+    "更新先ドメインが非公開または確認できないアドレスを指すため、接続しませんでした。"
+  ],
+  [
+    "更新连接无法创建。",
+    "The update connection could not be created.",
+    "更新確認の接続を作成できません。"
+  ],
+  [
+    "更新响应地址或容量不受支持。",
+    "The update response address or size is unsupported.",
+    "更新応答のアドレスまたはサイズに対応していません。"
+  ],
+  [
+    "更新来源内容未完整读取。",
+    "The update source content was not read completely.",
+    "更新元の内容を最後まで読み取れませんでした。"
+  ],
+  [
+    "更新来源内容超过 1 MiB 上限。",
+    "The update source content exceeds the 1 MiB limit.",
+    "更新元の内容が上限の 1 MiB を超えています。"
+  ],
+  [
+    "更新来源必须是 1 MiB 内的 UTF-8 XML。",
+    "The update source must be UTF-8 XML within 1 MiB.",
+    "更新元には 1 MiB 以下の UTF-8 XML が必要です。"
+  ],
+  [
+    "更新来源 XML 事件超过本轮上限。",
+    "The update source exceeds the XML event limit.",
+    "更新元の XML イベント数が上限を超えています。"
+  ],
+  [
+    "更新来源 XML 结构无法核对。",
+    "The update source XML structure could not be checked.",
+    "更新元の XML 構造を確認できません。"
+  ],
+  [
+    "更新来源包含未绑定的 XML 命名空间。",
+    "The update source contains an unbound XML namespace.",
+    "更新元に未定義の XML 名前空間があります。"
+  ],
+  [
+    "更新来源 XML 层级超过上限。",
+    "The update source XML nesting exceeds the limit.",
+    "更新元の XML の階層が上限を超えています。"
+  ],
+  [
+    "更新来源不是本轮支持的 RSS appcast。",
+    "The update source is not a supported RSS appcast.",
+    "この更新元は対応する RSS appcast ではありません。"
+  ],
+  [
+    "更新来源条目超过本轮 128 项上限。",
+    "The update source exceeds the 128-entry limit.",
+    "更新元の項目数が上限の 128 件を超えています。"
+  ],
+  [
+    "更新条目属性重复或损坏。",
+    "A release entry contains duplicate or damaged attributes.",
+    "更新項目に重複または破損した属性があります。"
+  ],
+  [
+    "更新属性命名空间无法核对。",
+    "An update attribute namespace could not be checked.",
+    "更新属性の名前空間を確認できません。"
+  ],
+  [
+    "更新属性内容无法核对。",
+    "An update attribute value could not be checked.",
+    "更新属性の値を確認できません。"
+  ],
+  [
+    "更新属性内容超过上限。",
+    "An update attribute value exceeds the limit.",
+    "更新属性の値が上限を超えています。"
+  ],
+  [
+    "更新文本实体无法核对。",
+    "An update text entity could not be checked.",
+    "更新テキストの実体参照を確認できません。"
+  ],
+  [
+    "更新文本超过上限。",
+    "The update text exceeds the limit.",
+    "更新テキストが上限を超えています。"
+  ],
+  [
+    "更新 XML 结束位置不匹配。",
+    "The update XML closing position does not match.",
+    "更新 XML の終了位置が一致しません。"
+  ],
+  [
+    "更新条目范围无法核对。",
+    "The release entry scope could not be checked.",
+    "更新項目の範囲を確認できません。"
+  ],
+  [
+    "更新来源不支持 DTD 或自定义实体。",
+    "DTD and custom entities are unsupported in update sources.",
+    "更新元の DTD または独自実体には対応していません。"
+  ],
+  [
+    "更新来源 XML 版本尚未支持。",
+    "The update source XML version is unsupported.",
+    "更新元の XML バージョンに対応していません。"
+  ],
+  [
+    "更新来源 XML 编码尚未支持。",
+    "The update source XML encoding is unsupported.",
+    "更新元の XML 文字コードに対応していません。"
+  ],
+  [
+    "更新来源 RSS 结构不完整。",
+    "The update source RSS structure is incomplete.",
+    "更新元の RSS 構造が不完全です。"
+  ],
+  [
+    "此地址由应用声明，尚未验证发布者。",
+    "This address is declared by the app; the publisher has not been verified.",
+    "このアドレスはアプリ自身の申告であり、配布者は未検証です。"
   ]
 ]

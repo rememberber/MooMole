@@ -4504,6 +4504,22 @@ input[type='checkbox'] {
 .application-update-modal details {
   margin: 14px 0;
 }
+.application-discovery-modal {
+  display: grid;
+  gap: 12px;
+}
+.application-discovery-modal h2,
+.application-discovery-modal dl {
+  margin: 0;
+}
+.application-discovery-modal section,
+.application-discovery-modal article {
+  display: grid;
+  gap: 10px;
+}
+.application-discovery-modal article {
+  padding: 12px;
+}
 .application-update-facts {
   display: grid;
   grid-template-columns: 105px minmax(0, 1fr);

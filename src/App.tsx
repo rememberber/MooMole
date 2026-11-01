@@ -49,6 +49,7 @@ import { StorageOverview } from './components/StorageOverview'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
 import { ApplicationUpdateCenter } from './components/ApplicationUpdateCenter'
+import { AppUpdateDiscoveryCenter } from './components/AppUpdateDiscoveryCenter'
 import { DeviceBackups } from './components/DeviceBackups'
 import { SpaceExplanation } from './components/SpaceExplanation'
 import type { AppControlTarget } from './lib/app-control'
@@ -435,6 +436,8 @@ export default function App() {
     null,
   )
   const [applicationUpdateActive, setApplicationUpdateActive] = useState(false)
+  const [appDiscoveryTarget, setAppDiscoveryTarget] = useState<UninstallTarget | null>(null)
+  const [appDiscoveryActive, setAppDiscoveryActive] = useState(false)
   const [applicationUpdateHistory, setApplicationUpdateHistory] = useState(false)
   const [deviceBackupsActive, setDeviceBackupsActive] = useState(false)
   const [deviceBackupsOpenSignal, setDeviceBackupsOpenSignal] = useState(0)
@@ -976,6 +979,7 @@ export default function App() {
     !uninstallActive &&
     !appControlActive &&
     !applicationUpdateActive &&
+    !appDiscoveryActive &&
     !deviceBackupsActive &&
     !startupActive &&
     !searchRepairActive &&
@@ -1836,6 +1840,15 @@ export default function App() {
               void refreshRecords(true)
             }}
           />
+          <AppUpdateDiscoveryCenter
+            target={appDiscoveryTarget}
+            onClose={() => setAppDiscoveryTarget(null)}
+            onActiveChange={setAppDiscoveryActive}
+            onDownloaded={(target) => {
+              setAppDiscoveryTarget(null)
+              setApplicationUpdateTarget(target)
+            }}
+          />
           <ApplicationUninstallCenter
             key={`uninstall-${historyEpoch}`}
             target={uninstallTarget}
@@ -2325,6 +2338,7 @@ export default function App() {
                 <ApplicationLibrary
                   onControl={setAppControlTarget}
                   onUpdate={setApplicationUpdateTarget}
+                  onDiscoverUpdate={setAppDiscoveryTarget}
                   canControl={canRun && !executionActive && !appsStale}
                   apps={apps}
                   taskId={appsTaskId}

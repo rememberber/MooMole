@@ -26,6 +26,7 @@ export function ApplicationRow({
   onControl,
   canControl = false,
   onUpdate,
+  onDiscoverUpdate,
 }: {
   app: AppEntry
   usage?: AppUsageRow
@@ -40,6 +41,7 @@ export function ApplicationRow({
   canControl?: boolean
   onControl?: (target: AppControlTarget) => void
   onUpdate?: (target: UninstallTarget) => void
+  onDiscoverUpdate?: (target: UninstallTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
 }) {
@@ -85,6 +87,24 @@ export function ApplicationRow({
             }}
           >
             从新版应用包更新…
+          </button>
+        )}
+        {onDiscoverUpdate && (
+          <button
+            className="button secondary compact"
+            disabled={!canControl || !taskId || app.source !== 'App'}
+            onClick={() => {
+              if (taskId)
+                onDiscoverUpdate({
+                  taskId,
+                  index,
+                  name: app.name,
+                  path: app.path,
+                  bundleId: app.bundle_id,
+                })
+            }}
+          >
+            检查更新…
           </button>
         )}
         {onControl && (
