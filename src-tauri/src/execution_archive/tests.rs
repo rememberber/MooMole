@@ -588,3 +588,10 @@ fn corrupt_header_does_not_hide_other_archives_or_discard_files() {
     assert_eq!(listing.unreadable, 1);
     assert!(corrupt.exists());
 }
+
+pub(super) fn retirement_fixture() -> (tempfile::TempDir,Connection,PathBuf,Header) {
+    let mut f=Fixture::new();f.cleanup();
+    let root=f.root.path().join("app-data/execution-archives");fs::create_dir(root.parent().unwrap()).unwrap();
+    let preview=prepare(&mut f.db).unwrap();let header=archive(&mut f.db,&root,&preview.fingerprint,db::now()).unwrap();
+    (f.root,f.db,root,header)
+}

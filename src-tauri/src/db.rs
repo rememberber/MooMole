@@ -188,6 +188,7 @@ fn open(path: &Path) -> Result<Connection, String> {
             .map_err(|e| e.to_string())?;
         result?;
     }
+    crate::execution_archive::retirement::reconcile_startup(&connection)?;
     crate::personal_files::archive::journal::reconcile(&mut connection)?;
     crate::personal_files::transfer::journal::reconcile(&mut connection)?;
     crate::personal_files::schedule::reconcile(&connection)?;

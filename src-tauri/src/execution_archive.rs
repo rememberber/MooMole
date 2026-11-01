@@ -20,6 +20,7 @@ use std::{
     },
     path::{Path, PathBuf},
 };
+pub(crate) mod retirement;
 const MAX_BODY: usize = 128 * 1024 * 1024;
 const MAX_ROWS: usize = 32768;
 const MAX_HEADER: usize = 2048;
