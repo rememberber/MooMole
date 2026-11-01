@@ -304,6 +304,21 @@ async fn real_multi_browser_profiles_trash_preserves_all_source_databases() {
     )
     .unwrap();
 }
+#[tokio::test]
+#[ignore = "real Firefox Places WAL, Mole and native Trash on owned temporary fixtures only"]
+async fn real_firefox_download_trash_preserves_places_and_unlisted_files() {
+    use software_content::browser_profiles::{Browser, Selection};
+    let evidence = browser_download_roundtrip(Some(Selection {
+        browser: Browser::Firefox,
+        profile: "abcd1234.default-release".into(),
+    }))
+    .await;
+    std::fs::write(
+        "../.cache/firefox-downloads-native.json",
+        serde_json::to_vec_pretty(&evidence).unwrap(),
+    )
+    .unwrap();
+}
 async fn browser_download_roundtrip(
     profile: Option<software_content::browser_profiles::Selection>,
 ) -> serde_json::Value {
@@ -321,17 +336,28 @@ async fn browser_download_roundtrip(
     std::fs::write(&keep, "unlisted keep").unwrap();
     let history = profile.clone().unwrap_or_default().history(&home).unwrap();
     std::fs::create_dir_all(history.parent().unwrap()).unwrap();
-    let browser = rusqlite::Connection::open(&history).unwrap();
-    browser.pragma_update(None, "journal_mode", "WAL").unwrap();
-    browser.execute_batch("CREATE TABLE downloads(id INTEGER PRIMARY KEY,current_path TEXT,target_path TEXT,state INTEGER)").unwrap();
-    browser
-        .execute(
-            "INSERT INTO downloads VALUES(1,?1,?1,1)",
-            [chosen.to_str().unwrap()],
-        )
-        .unwrap();
+    let browser = if profile
+        .as_ref()
+        .is_some_and(|p| p.browser == software_content::browser_profiles::Browser::Firefox)
+    {
+        software_content::firefox::fixture(&history, &chosen)
+    } else {
+        let browser = rusqlite::Connection::open(&history).unwrap();
+        browser.pragma_update(None, "journal_mode", "WAL").unwrap();
+        browser.execute_batch("CREATE TABLE downloads(id INTEGER PRIMARY KEY,current_path TEXT,target_path TEXT,state INTEGER)").unwrap();
+        browser
+            .execute(
+                "INSERT INTO downloads VALUES(1,?1,?1,1)",
+                [chosen.to_str().unwrap()],
+            )
+            .unwrap();
+        browser
+    };
     let original = std::fs::read(&history).unwrap();
-    let wal = history.with_file_name("History-wal");
+    let wal = history.with_file_name(format!(
+        "{}-wal",
+        history.file_name().unwrap().to_str().unwrap()
+    ));
     let original_wal = std::fs::read(&wal).unwrap();
     let scan = if let Some(selection) = profile.clone() {
         software_content::collect_browser(
@@ -350,6 +376,7 @@ async fn browser_download_roundtrip(
     }
     .unwrap();
     assert_eq!(scan.items.len(), 1);
+    let public_report = serde_json::to_value(&scan.report).unwrap();
     let ids = vec![scan.items[0].id.clone()];
     let mut store = Store {
         scan: Some(scan),
@@ -410,7 +437,14 @@ async fn browser_download_roundtrip(
     assert_eq!(std::fs::read(&wal).unwrap(), original_wal);
     assert_eq!(std::fs::read_to_string(&keep).unwrap(), "unlisted keep");
     let expected = serde_json::to_value(&result).unwrap();
-    let mut database = database.lock().unwrap();
+    drop(browser);
+    let database = Arc::try_unwrap(database).unwrap().into_inner().unwrap();
+    drop(database);
+    let mut database = db::open_owned(&home.join("app.sqlite")).unwrap();
+    assert_eq!(
+        serde_json::to_value(execution::detail(&database, &result.summary.id).unwrap()).unwrap(),
+        expected
+    );
     let preview = crate::execution_archive::prepare(&mut database).unwrap();
     let directory = home.join("archives");
     let header = crate::execution_archive::archive(
@@ -431,7 +465,7 @@ async fn browser_download_roundtrip(
         expected
     );
     std::fs::create_dir_all("../.cache").unwrap();
-    serde_json::json!({"profile":profile,"result":expected,"historyAndWalPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"archiveReadbackVerified":true})
+    serde_json::json!({"profile":profile,"report":public_report,"result":expected,"historyAndWalPreserved":true,"unlistedFilePreserved":true,"ownedSampleRetrieved":true,"databaseReopenVerified":true,"archiveReadbackVerified":true})
 }
 
 #[tokio::test]

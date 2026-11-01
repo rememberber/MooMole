@@ -10,6 +10,7 @@ pub(crate) enum Browser {
     Chromium,
     Edge,
     Brave,
+    Firefox,
 }
 impl Browser {
     pub(super) fn root(self, home: &Path) -> PathBuf {
@@ -18,7 +19,29 @@ impl Browser {
             Self::Chromium => "Chromium",
             Self::Edge => "Microsoft Edge",
             Self::Brave => "BraveSoftware/Brave-Browser",
+            Self::Firefox => "Firefox/Profiles",
         })
+    }
+    pub(super) fn database_name(self) -> &'static str {
+        if self == Self::Firefox {
+            "places.sqlite"
+        } else {
+            "History"
+        }
+    }
+    fn accepts_profile(self, name: &str) -> bool {
+        if self == Self::Firefox {
+            !name.is_empty()
+                && name.len() <= 128
+                && !name.starts_with('.')
+                && !name.ends_with('.')
+                && name.trim() == name
+                && !name
+                    .chars()
+                    .any(|c| c.is_control() || matches!(c, '/' | '\\' | ':'))
+        } else {
+            profile_name(name)
+        }
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,10 +69,14 @@ pub(super) fn profile_name(name: &str) -> bool {
 }
 impl Selection {
     pub(in crate::personal_files) fn history(&self, home: &Path) -> Result<PathBuf, String> {
-        if !profile_name(&self.profile) || !ordinary(home) {
+        if !self.browser.accepts_profile(&self.profile) || !ordinary(home) {
             return Err("浏览器或配置目录不属于已支持的固定范围。".into());
         }
-        Ok(self.browser.root(home).join(&self.profile).join("History"))
+        Ok(self
+            .browser
+            .root(home)
+            .join(&self.profile)
+            .join(self.browser.database_name()))
     }
 }
 #[derive(Serialize)]
@@ -143,7 +170,7 @@ pub(in crate::personal_files) fn discover(
             result.skipped += 1;
             continue;
         };
-        if !profile_name(name) {
+        if !browser.accepts_profile(name) {
             continue;
         }
         let selection = Selection {

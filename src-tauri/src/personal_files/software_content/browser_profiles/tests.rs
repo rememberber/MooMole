@@ -6,6 +6,9 @@ fn job() -> Arc<Job> {
 fn fixture(home: &Path, selection: &Selection, file: &Path) -> Connection {
     let history = selection.history(home).unwrap();
     std::fs::create_dir_all(history.parent().unwrap()).unwrap();
+    if selection.browser == Browser::Firefox {
+        return super::super::firefox::fixture(&history, file);
+    }
     let db = Connection::open(history).unwrap();
     db.pragma_update(None, "journal_mode", "WAL").unwrap();
     db.execute_batch("CREATE TABLE downloads(id INTEGER PRIMARY KEY,current_path TEXT,target_path TEXT,state INTEGER)").unwrap();
@@ -82,6 +85,7 @@ fn all_browser_profiles_preserve_wal_databases_and_bind_exact_persistent_source(
         Browser::Chromium,
         Browser::Edge,
         Browser::Brave,
+        Browser::Firefox,
     ]
     .into_iter()
     .enumerate()
@@ -101,7 +105,7 @@ fn all_browser_profiles_preserve_wal_databases_and_bind_exact_persistent_source(
         std::fs::write(&unselected, "keep").unwrap();
         let _other = fixture(&home, &other, &unselected);
         let history = selection.history(&home).unwrap();
-        let wal = history.with_file_name("History-wal");
+        let wal = history.with_file_name(format!("{}-wal", browser.database_name()));
         let before = (
             std::fs::read(&history).unwrap(),
             std::fs::read(&wal).unwrap(),

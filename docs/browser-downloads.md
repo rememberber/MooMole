@@ -1,5 +1,11 @@
 # 多浏览器、多配置下载整理
 
+2026-11-01 Firefox 后端节点：新增 `~/Library/Application Support/Firefox/Profiles/<配置>/places.sqlite` 标准来源；只检测普通本地配置和数据库元数据，不读取账户名、`prefs.js`、`profiles.ini`、Cookies、登录或密钥文件。配置名使用磁盘目录名，禁止越界、隐藏、控制字符及超过 128 UTF-8 字节的名称；其他浏览器仍使用原 Default/Profile 数字规则。旧计划缺少 browserProfile 时仍仅解释为 Chrome/Default。
+
+Firefox 适配依据 Mozilla 的 [DownloadHistory 实现](https://raw.githubusercontent.com/mozilla-firefox/firefox/main/toolkit/components/downloads/DownloadHistory.sys.mjs) 和 [下载访问类型定义](https://raw.githubusercontent.com/mozilla-firefox/firefox/main/toolkit/components/places/nsINavHistoryService.idl)：仅查询普通 `moz_places`、`moz_historyvisits`、`moz_annos`、`moz_anno_attributes` 表，以下载访问类型 7、唯一的 `downloads/destinationFileURI` 和 `downloads/metaData` 注释核对来源。只有 state=1 且未标记 deleted 的本地 file URI 可进入文件核对；失败、取消、暂停和已删除跳过，缺失、歧义、损坏及超限记录保持未完整。不返回普通浏览 URL/标题，不依靠 `downloads.json` 会话记录推断已完成状态。
+
+沿用私有数据库/WAL 副本、有界查询、保护、确切文件 ID、当前身份和独立确认。原记录不作为可丢弃、内容仍等于下载时或可再次下载的证明。自建 Places WAL 样例经正式 Mole 规则和系统废纸篓实际处理一项，原数据库/WAL 和未列入文件保持不变；仅按真实收据取回自建样例后由 TempDir 自动清理，SQLite 关闭/重开与归档读回一致。精简证据位于 `.cache/verification/native-evidence.json` 的 `firefox-downloads-native.json` 条目。四项新增后端测试通过；这不代替真实 Firefox 数据兼容性或打包 App 窗口验收。
+
 2026-10-31：从原先固定 Chrome 默认配置扩展到 Chrome、Chromium、Microsoft Edge 与 Brave 标准位置的下载记录。沿用原有软件内容来源标识 `chromeDownloads` 以保留历史兼容；新增可选的 `browserProfile` 明确绑定浏览器和配置目录，旧记录缺失时仅表示原 Chrome/Default，不自动采用其他位置。
 
 来源依据 Chromium 的 [用户数据目录说明](https://raw.githubusercontent.com/chromium/chromium/main/docs/user_data_dir.md)、[普通/访客/系统配置常量](https://raw.githubusercontent.com/chromium/chromium/main/chrome/common/chrome_constants.h) 及 [下载数据库实现](https://raw.githubusercontent.com/chromium/chromium/main/components/history/core/browser/download_database.cc)。Edge 的标准 macOS 数据根参考 [微软文档](https://learn.microsoft.com/en-us/deployedge/initial-preferences-support-on-microsoft-edge-browser)，Brave 标准根参考 [官方数据目录说明](https://support.brave.app/hc/en-us/articles/4404876135565-How-do-I-uninstall-Brave)及[产品目录配置实现](https://raw.githubusercontent.com/brave/brave-core/master/build/mac/tweak_info_plist.py)。这些资料与各浏览器共享 Chromium 的事实只是来源适配依据；实际读取仍要求识别到普通 `downloads` 表和支持的列，不能仅凭浏览器名称接受未知结构。

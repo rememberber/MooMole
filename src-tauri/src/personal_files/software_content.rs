@@ -5,6 +5,7 @@ use crate::{db, engine::Job, observation::AnchoredPath};
 use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc};
 pub(crate) mod browser_profiles;
 mod chromium;
+pub(super) mod firefox;
 mod playlist;
 mod telegram;
 pub(crate) const MODULE: &str = "softwareContent";

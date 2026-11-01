@@ -1,4 +1,4 @@
-//! Snapshot only a fixed browser's History (+ WAL) into a private temporary
+//! Snapshot only the selected browser's download database (+ WAL) into a private temporary
 //! directory. All SQLite access/writes are to the copy; source files stay intact.
 use super::*;
 use rusqlite::{Connection, OpenFlags};
@@ -80,6 +80,8 @@ pub(super) fn collect_profile(
         return Err("账户目录不属于当前用户或本地状态未知。".into());
     }
     let history = profile.history(home)?;
+    let filename = profile.browser.database_name();
+    let firefox = profile.browser == browser_profiles::Browser::Firefox;
     for dir in [
         profile.browser.root(home),
         history.parent().unwrap().to_path_buf(),
@@ -113,12 +115,12 @@ pub(super) fn collect_profile(
     {
         return Err("浏览器配置目录不是当前账户的普通本地目录。".into());
     }
-    let rollback_path = history.with_file_name("History-journal");
+    let rollback_path = history.with_file_name(format!("{filename}-journal"));
     if !matches!(std::fs::symlink_metadata(&rollback_path),Err(e) if e.kind()==std::io::ErrorKind::NotFound)
     {
         return Err("浏览器存在未适配的回滚日志或状态未知，请正常关闭浏览器后重新扫描。".into());
     }
-    let wal_path = history.with_file_name("History-wal");
+    let wal_path = history.with_file_name(format!("{filename}-wal"));
     let wal = match std::fs::symlink_metadata(&wal_path) {
         Ok(_) => {
             if protected(&wal_path, rules)? {
@@ -133,10 +135,10 @@ pub(super) fn collect_profile(
         .prefix("MooMole-download-snapshot-")
         .tempdir()
         .map_err(|e| e.to_string())?;
-    let copy = scratch.path().join("History");
+    let copy = scratch.path().join(filename);
     std::fs::write(&copy, &database.bytes).map_err(|e| e.to_string())?;
     if let Some(wal) = &wal {
-        std::fs::write(scratch.path().join("History-wal"), &wal.bytes)
+        std::fs::write(scratch.path().join(format!("{filename}-wal")), &wal.bytes)
             .map_err(|e| e.to_string())?;
     }
     // Private scratch permits SQLite WAL recovery/SHM. It has no original DB
@@ -160,20 +162,43 @@ pub(super) fn collect_profile(
         .map_err(|e| e.to_string())?;
     db.pragma_update(None, "trusted_schema", false)
         .map_err(|e| e.to_string())?;
-    let (kind,sql):(String,Option<String>)=db.query_row("SELECT type,CASE WHEN length(sql)<=65536 THEN sql END FROM sqlite_master WHERE name='downloads'",[],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|_|"没有识别到支持的浏览器下载记录结构。")?;
-    if kind != "table"
-        || !sql.is_some_and(|s| {
-            s.trim_start()
-                .to_ascii_uppercase()
-                .starts_with("CREATE TABLE")
-        })
-    {
-        return Err("浏览器下载记录不是已适配的普通表，原数据保留。".into());
+    let tables: &[&str] = if firefox {
+        &[
+            "moz_places",
+            "moz_historyvisits",
+            "moz_annos",
+            "moz_anno_attributes",
+        ]
+    } else {
+        &["downloads"]
+    };
+    for table in tables {
+        let (kind,sql):(String,Option<String>)=db.query_row("SELECT type,CASE WHEN length(sql)<=65536 THEN sql END FROM sqlite_master WHERE name=?1",[table],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|_|"没有识别到支持的浏览器下载记录结构。")?;
+        if kind != "table"
+            || !sql.is_some_and(|s| {
+                s.trim_start()
+                    .to_ascii_uppercase()
+                    .starts_with("CREATE TABLE")
+            })
+        {
+            return Err("浏览器下载记录不是已适配的普通表，原数据保留。".into());
+        }
     }
-    let mut query=db.prepare("SELECT id,CASE WHEN typeof(target_path)='text' AND length(CAST(target_path AS BLOB))<=4096 THEN target_path END FROM downloads WHERE state=1 AND current_path=target_path ORDER BY id DESC LIMIT 2001").map_err(|_|"浏览器下载记录列不受支持，请保留原数据。")?;
+    let sql = if firefox {
+        super::firefox::QUERY
+    } else {
+        "SELECT id,CASE WHEN typeof(target_path)='text' AND length(CAST(target_path AS BLOB))<=4096 THEN target_path END,NULL FROM downloads WHERE state=1 AND current_path=target_path ORDER BY id DESC LIMIT 2001"
+    };
+    let mut query = db
+        .prepare(sql)
+        .map_err(|_| "浏览器下载记录列不受支持，请保留原数据。")?;
     let rows = query
         .query_map([], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?))
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, Option<String>>(2)?,
+            ))
         })
         .map_err(|e| e.to_string())?;
     let mut items = Vec::new();
@@ -191,13 +216,29 @@ pub(super) fn collect_profile(
             break;
         }
         visited += 1;
-        let (_, path) = match entry {
-            Ok((id, Some(path))) if id >= 0 => (id, path),
+        let (_, path, metadata) = match entry {
+            Ok((id, Some(path), metadata)) if id >= 0 => (id, path, metadata),
             _ => {
                 complete = false;
                 skipped += 1;
                 continue;
             }
+        };
+        let path = if firefox {
+            match super::firefox::path(&path, metadata.as_deref()) {
+                Ok(Some(path)) => path,
+                Ok(None) => {
+                    skipped += 1;
+                    continue;
+                }
+                Err(()) => {
+                    complete = false;
+                    skipped += 1;
+                    continue;
+                }
+            }
+        } else {
+            path
         };
         let path = Path::new(&path);
         if !path.starts_with(home) || path == home || !ordinary(path) || protected(path, rules)? {
