@@ -210,6 +210,70 @@ function Preview({
       )}
       {c?.kind === 'media' ? (
         <MediaPreview content={c} onExpired={() => void release(c.leaseId).catch(() => {})} />
+      ) : c?.kind === 'document' ? (
+        <section className="file-preview-office" aria-label="办公文件文本摘录">
+          <h3>
+            {c.format === 'docx'
+              ? 'Word 正文摘录'
+              : c.format === 'xlsx'
+                ? 'Excel 工作表摘录'
+                : 'PowerPoint 幻灯片摘录'}
+          </h3>
+          <p className="muted">
+            仅展示保存的文字或单元格值，不还原版式、图片、图表和完整附加内容；部分隐藏内容可能出现。请在对应应用中核对后再决定处理。
+          </p>
+          {c.format === 'xlsx' && (
+            <p className="notice">
+              单元格显示原始值或保存的公式缓存，未应用数字和日期格式，也未重新计算公式。
+            </p>
+          )}
+          {c.sections.length > 1 && (
+            <div className="file-preview-pages">
+              <button
+                className="button secondary compact"
+                disabled={pending || page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                上一部分
+              </button>
+              <select
+                aria-label="选择办公文件部分"
+                value={c.part}
+                disabled={pending}
+                onChange={(e) => setPage(Number(e.target.value))}
+              >
+                {c.sections.map((section, index) => (
+                  <option key={index} value={index + 1} data-i18n="off">
+                    {c.format === 'xlsx' ? section.title : String(index + 1)}
+                  </option>
+                ))}
+              </select>
+              <span>
+                第 {c.part} / {c.sections.length} 部分
+              </span>
+              <button
+                className="button secondary compact"
+                disabled={pending || page >= c.sections.length}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                下一部分
+              </button>
+            </div>
+          )}
+          {c.sections[c.part - 1].hidden && <span className="tag">隐藏部分</span>}
+          {c.text.trim() ? (
+            <pre className="file-preview-text" data-i18n="off">
+              {c.text}
+            </pre>
+          ) : (
+            <p className="notice">未提取到可显示的文字；这不表示文件或所选部分为空。</p>
+          )}
+          {c.truncated && (
+            <p className="notice">
+              摘录已截断：本部分最多显示 64 KiB 文字或 5,000 个单元格，其余内容尚未显示。
+            </p>
+          )}
+        </section>
       ) : c?.kind === 'text' ? (
         <>
           <pre className="file-preview-text" data-i18n="off">

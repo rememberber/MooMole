@@ -11961,5 +11961,45 @@
     "此地址由应用声明，尚未验证发布者。",
     "This address is declared by the app; the publisher has not been verified.",
     "このアドレスはアプリ自身の申告であり、配布者は未検証です。"
+  ],
+  ["办公文件文本摘录", "Office text excerpt", "Office ファイルのテキスト抜粋"],
+  ["Word 正文摘录", "Word body text excerpt", "Word 本文の抜粋"],
+  ["Excel 工作表摘录", "Excel worksheet excerpt", "Excel ワークシートの抜粋"],
+  ["PowerPoint 幻灯片摘录", "PowerPoint slide excerpt", "PowerPoint スライドの抜粋"],
+  [
+    "仅展示保存的文字或单元格值，不还原版式、图片、图表和完整附加内容；部分隐藏内容可能出现。请在对应应用中核对后再决定处理。",
+    "Only saved text or cell values are shown, without layout, images, charts or all additional content. Some hidden content may appear. Check in the corresponding app before deciding what to do.",
+    "保存された文字やセル値のみを表示し、レイアウト、画像、グラフ、すべての付加内容は再現しません。非表示の内容が含まれる場合があります。処理を決める前に対応するアプリで確認してください。"
+  ],
+  [
+    "单元格显示原始值或保存的公式缓存，未应用数字和日期格式，也未重新计算公式。",
+    "Cells show raw values or saved formula results. Number and date formats are not applied, and formulas are not recalculated.",
+    "セルは未書式の値または保存された数式の計算結果を表示します。数値・日付の書式適用や数式の再計算は行いません。"
+  ],
+  ["上一部分", "Previous part", "前の部分"],
+  ["选择办公文件部分", "Choose a document part", "文書の部分を選択"],
+  ["第 {0} / {1} 部分", "Part {0} / {1}", "部分 {0} / {1}"],
+  ["部分", "Part", "部分"],
+  ["下一部分", "Next part", "次の部分"],
+  ["隐藏部分", "Hidden part", "非表示の部分"],
+  [
+    "未提取到可显示的文字；这不表示文件或所选部分为空。",
+    "No displayable text was extracted. This does not mean the file or selected part is empty.",
+    "表示できるテキストを抽出できませんでした。ファイルや選択部分が空であることを意味しません。"
+  ],
+  [
+    "摘录已截断：本部分最多显示 64 KiB 文字或 5,000 个单元格，其余内容尚未显示。",
+    "Excerpt truncated: at most 64 KiB of text or 5,000 cells per part are shown. The rest has not been displayed.",
+    "抜粋は途中までです。各部分は最大 64 KiB のテキストまたは 5,000 セルまで表示し、残りは未表示です。"
+  ],
+  [
+    "办公文件结构、编码或容量暂不支持，请在对应应用中查看；原文件保持不变。",
+    "The Office file structure, encoding or size is unsupported. View it in the corresponding app; the original is unchanged.",
+    "この Office ファイルの構造、文字コード、またはサイズには対応していません。対応アプリで確認してください。元のファイルは変更していません。"
+  ],
+  [
+    "办公文件预览达到本轮处理时限，请在对应应用中查看。",
+    "Office preview reached its processing time limit. View the file in the corresponding app.",
+    "Office ファイルのプレビューが処理時間の上限に達しました。対応アプリで確認してください。"
   ]
 ]

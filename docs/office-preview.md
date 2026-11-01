@@ -20,6 +20,10 @@
 
 五项新增后端测试通过：三种包内结构的真实文件读取与原件保留、非文件名顺序关系、工作表共享/内联/公式缓存和隐藏状态、Strict 命名空间、UTF-8 截断、危险关系/DTD/重复/ZIP64/容量/时限，以及扫描后变化与保护拒绝。另用系统 `textutil` 在自动回收的系统 TempDir 导出一份独立 DOCX，正式预览读回中文正文并核对原包未变；未启动用户 Office 程序或触碰个人办公文件。精简原生输出收尾合并至 `.cache/verification/native-evidence.json` 的 `office-preview-native.json`。
 
+界面已接入正文/工作表/幻灯片摘录、部分选择、隐藏/截断/空摘录说明、中英日文和现有独立文件处理确认。六份原生预览输出（包括独立 Apple 导出）均经正式 TypeScript 协议解析器接受，协议错绑、格式/页序/容量/异常名称拒绝另有单元验证。默认后端全量 689 项通过、105 项显式忽略；前端 251 项及构建/语言检查通过。办公预览十项与原有预览/个人整理/重复文件十一项 WebKit 页面回归通过；浏览器传输夹具验证了预览不选择或执行、工作表切换、公式/脚本文字原样显示、独立确认、关闭后的迟到结果及语言切换，不替代原生 App 的系统界面证据。
+
+预览窗口补齐内边距后，办公及原有静态预览十三项再次通过。960×780 中英日截图在结束过渡动画后核对，文字、部分选择和返回操作可见且无横向溢出；截图、编译缓存与自建样例均在收尾清理，只保留精简验证记录。
+
 这里证明有限文本摘录能力，不等同于 Office 的完整渲染或格式校验。真实第三方工作簿/演示文稿兼容性、打包 App 原生窗口、完整版式预览、其他办公格式、更大文件和故障矩阵继续保留在完整目标中。
 
 结构依据：[Microsoft 包与主文档](https://learn.microsoft.com/en-us/office/open-xml/general/how-to-create-a-package)、[工作簿和单元格值](https://learn.microsoft.com/en-us/office/open-xml/spreadsheet/how-to-retrieve-the-values-of-cells-in-a-spreadsheet)、[演示文稿与幻灯片关系](https://learn.microsoft.com/en-us/office/open-xml/presentation/structure-of-a-presentationml-document)。实现为本项目的有界读取器，不引入 Office 运行时。

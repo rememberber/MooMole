@@ -10,6 +10,14 @@ export type PreviewContent =
   | { kind: 'pdf'; dataUrl: string; page: number; pages: number }
   | { kind: 'text'; text: string; truncated: boolean }
   | {
+      kind: 'document'
+      format: 'docx' | 'xlsx' | 'pptx'
+      part: number
+      sections: { title: string; hidden: boolean }[]
+      text: string
+      truncated: boolean
+    }
+  | {
       kind: 'media'
       url: string
       leaseId: string
@@ -38,6 +46,37 @@ export const previewFile: PreviewTransport = (target, page) =>
   )
 export const releaseMediaPreview = (leaseId: string) =>
   invoke<void>('release_media_preview', { leaseId })
+function validDocument(
+  c: Extract<PreviewContent, { kind: 'document' }>,
+  target: PreviewTarget,
+  page: number,
+) {
+  const text = (v: unknown, max: number) =>
+    typeof v === 'string' && new TextEncoder().encode(v).length <= max
+  return (
+    ['docx', 'xlsx', 'pptx'].includes(c.format) &&
+    target.path.toLowerCase().endsWith('.' + c.format) &&
+    Number.isSafeInteger(c.part) &&
+    c.part === page &&
+    c.part > 0 &&
+    Array.isArray(c.sections) &&
+    c.sections.length > 0 &&
+    c.sections.length <= 512 &&
+    c.part <= c.sections.length &&
+    (c.format !== 'docx' || (c.part === 1 && c.sections.length === 1)) &&
+    c.sections.every(
+      (s) =>
+        s &&
+        text(s.title, 128) &&
+        typeof s.hidden === 'boolean' &&
+        !/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u.test(s.title) &&
+        (c.format === 'xlsx' ? s.title.length > 0 : s.title === ''),
+    ) &&
+    text(c.text, 65536) &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(c.text) &&
+    typeof c.truncated === 'boolean'
+  )
+}
 export function readFilePreview(
   raw: unknown,
   target: PreviewTarget,
@@ -56,30 +95,32 @@ export function readFilePreview(
       ? typeof c.text !== 'string' ||
         new TextEncoder().encode(c.text).length > 65536 ||
         typeof c.truncated !== 'boolean'
-      : c.kind === 'image' || c.kind === 'pdf'
-        ? typeof c.dataUrl !== 'string' ||
-          !/^data:image\/png;base64,iVBOR[A-Za-z0-9+/=]+$/.test(c.dataUrl) ||
-          c.dataUrl.length > 5_592_432 ||
-          (c.kind === 'image'
-            ? !positive(c.width, 60000) ||
-              !positive(c.height, 60000) ||
-              c.width * c.height > 80_000_000 ||
-              !positive(c.frames, Number.MAX_SAFE_INTEGER)
-            : c.page !== page || !positive(c.pages, 10000) || !positive(c.page, c.pages))
-        : c.kind === 'media'
-          ? !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(c.leaseId) ||
-            ![
-              `moomole-media://localhost/${c.leaseId}/media`,
-              `http://moomole-media.localhost/${c.leaseId}/media`,
-            ].includes(c.url) ||
-            !['audio', 'video'].includes(c.mediaKind) ||
-            (c.mediaKind === 'audio'
-              ? !['audio/wav', 'audio/mpeg', 'audio/mp4'].includes(c.mime)
-              : !['video/mp4', 'video/quicktime'].includes(c.mime)) ||
-            !Number.isSafeInteger(c.expiresAt) ||
-            c.expiresAt <= Date.now() ||
-            c.expiresAt > Date.now() + 900_000
-          : true)
+      : c.kind === 'document'
+        ? !validDocument(c, target, page)
+        : c.kind === 'image' || c.kind === 'pdf'
+          ? typeof c.dataUrl !== 'string' ||
+            !/^data:image\/png;base64,iVBOR[A-Za-z0-9+/=]+$/.test(c.dataUrl) ||
+            c.dataUrl.length > 5_592_432 ||
+            (c.kind === 'image'
+              ? !positive(c.width, 60000) ||
+                !positive(c.height, 60000) ||
+                c.width * c.height > 80_000_000 ||
+                !positive(c.frames, Number.MAX_SAFE_INTEGER)
+              : c.page !== page || !positive(c.pages, 10000) || !positive(c.page, c.pages))
+          : c.kind === 'media'
+            ? !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(c.leaseId) ||
+              ![
+                `moomole-media://localhost/${c.leaseId}/media`,
+                `http://moomole-media.localhost/${c.leaseId}/media`,
+              ].includes(c.url) ||
+              !['audio', 'video'].includes(c.mediaKind) ||
+              (c.mediaKind === 'audio'
+                ? !['audio/wav', 'audio/mpeg', 'audio/mp4'].includes(c.mime)
+                : !['video/mp4', 'video/quicktime'].includes(c.mime)) ||
+              !Number.isSafeInteger(c.expiresAt) ||
+              c.expiresAt <= Date.now() ||
+              c.expiresAt > Date.now() + 900_000
+            : true)
   )
     throw Error('预览结果与所选文件不一致，已停止显示，请重新扫描。')
   return r

@@ -4349,6 +4349,7 @@ input[type='checkbox'] {
 
 .file-preview-modal {
   width: min(880px, calc(100vw - 48px));
+  padding: 24px;
 }
 .file-preview-image {
   margin: 12px 0;
@@ -4379,6 +4380,18 @@ input[type='checkbox'] {
   align-items: center;
   justify-content: center;
   gap: 12px;
+}
+.file-preview-office {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+}
+.file-preview-office .file-preview-pages {
+  flex-wrap: wrap;
+}
+.file-preview-office select {
+  max-width: min(280px, 100%);
+  min-width: 0;
 }
 .file-preview-media video {
   width: 100%;
