@@ -58,6 +58,7 @@ import { searchRepairTransport } from './lib/search-repair'
 import { FileRestorationCenter } from './components/FileRestorationCenter'
 import { FileArchiveCenter, FileArchiveHistory } from './components/FileArchiveCenter'
 import { FolderArchiveCenter, FolderArchiveHistory } from './components/FolderArchiveCenter'
+import { ZipExtractionCenter, ZipExtractionHistory } from './components/ZipExtractionCenter'
 import { StartupManagement } from './components/StartupManagement'
 import { FileTransferCenter, FileTransferHistory } from './components/FileTransferCenter'
 import {
@@ -450,6 +451,8 @@ export default function App() {
   const [fileArchiveActive, setFileArchiveActive] = useState(false)
   const [folderArchiveActive, setFolderArchiveActive] = useState(false)
   const [folderArchiveSignal, setFolderArchiveSignal] = useState(0)
+  const [zipExtractionActive, setZipExtractionActive] = useState(false)
+  const [zipExtractionSignal, setZipExtractionSignal] = useState(0)
   const [transferActive, setTransferActive] = useState(false)
   const [transferRestoreTarget, setTransferRestoreTarget] = useState<TransferRestoreTarget | null>(
     null,
@@ -505,6 +508,7 @@ export default function App() {
       startupActive ||
       fileArchiveActive ||
       folderArchiveActive ||
+      zipExtractionActive ||
       executionPending ||
       !!data?.executions.some((item) => item.state === 'running'))
   function openSettings(tab: 'general' | 'protected' | 'about', opener?: HTMLElement) {
@@ -978,6 +982,7 @@ export default function App() {
     !restorationActive &&
     !fileArchiveActive &&
     !folderArchiveActive &&
+    !zipExtractionActive &&
     !transferActive &&
     !transferRestoreActive &&
     !folderSchedules.running &&
@@ -1291,6 +1296,15 @@ export default function App() {
                           : '扫描文件'}
                     </button>
                   ))}
+                {page === 'personalFiles' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun || executionActive}
+                    onClick={() => setZipExtractionSignal((v) => v + 1)}
+                  >
+                    解压 ZIP…
+                  </button>
+                )}
                 {page === 'personalFiles' && (
                   <button
                     className="button secondary compact"
@@ -1730,6 +1744,16 @@ export default function App() {
             openSignal={folderArchiveSignal}
             home={data.home}
             onActiveChange={setFolderArchiveActive}
+            onOutcome={() => {
+              setHistoryEpoch((v) => v + 1)
+              void refreshRecords()
+            }}
+            onHistory={() => changePage('history')}
+          />
+          <ZipExtractionCenter
+            openSignal={zipExtractionSignal}
+            home={data.home}
+            onActiveChange={setZipExtractionActive}
             onOutcome={() => {
               setHistoryEpoch((v) => v + 1)
               void refreshRecords()
@@ -2610,6 +2634,7 @@ export default function App() {
               <TransferRestorationHistory key={`transfer-restore-${historyEpoch}`} />
               <FileArchiveHistory key={`file-archives-${historyEpoch}`} />
               <FolderArchiveHistory key={`folder-archives-${historyEpoch}`} />
+              <ZipExtractionHistory key={`zip-extractions-${historyEpoch}`} />
               <TaskHistory
                 records={data.history}
                 home={data.home}

@@ -1,5 +1,500 @@
 [
   [
+    "解压发布未确认；不会覆盖或重试。",
+    "Extraction publication was not confirmed; nothing is overwritten or retried.",
+    "展開結果の公開を確認できません。上書きや再試行はしません。"
+  ],
+  [
+    "解压目录项目不完整。",
+    "The extracted folder has missing items.",
+    "展開フォルダの項目が不足しています。"
+  ],
+  [
+    "解压目录出现未核对内容，未确认成功。",
+    "Unverified content appeared in the extracted folder; success was not confirmed.",
+    "展開フォルダに未確認の内容が現れたため、成功を確認していません。"
+  ],
+  [
+    "解压目录出现未知名称。",
+    "An unknown name appeared in the extracted folder.",
+    "展開フォルダに不明な名前が現れました。"
+  ],
+  [
+    "解压目录未完整读回。",
+    "The extraction folder was not fully read back.",
+    "展開フォルダを完全には読み戻せませんでした。"
+  ],
+  [
+    "解压目录枚举无法开始。",
+    "Extraction folder enumeration could not start.",
+    "展開フォルダの一覧取得を開始できません。"
+  ],
+  [
+    "解压目录无法完整读回。",
+    "The extraction folder could not be fully read back.",
+    "展開フォルダを完全に読み戻せません。"
+  ],
+  [
+    "解压文件读回核对失败。",
+    "Extracted file readback verification failed.",
+    "展開ファイルの読み戻し検証に失敗しました。"
+  ],
+  [
+    "解压内容身份、权限或隔离属性变化，未确认成功。",
+    "Extracted content identity, permissions or quarantine changed; success was not confirmed.",
+    "展開内容の識別情報、権限、隔離属性が変わったため、成功を確認していません。"
+  ],
+  [
+    "解压目录隔离属性变化，未确认成功。",
+    "Extracted folder quarantine changed; success was not confirmed.",
+    "展開フォルダの隔離属性が変わったため、成功を確認していません。"
+  ],
+  [
+    "解压文件同步未完成，未发布。",
+    "Extracted file synchronization did not complete; nothing was published.",
+    "展開ファイルの同期が完了していないため、公開していません。"
+  ],
+  [
+    "ZIP 解压内容校验失败，未发布。",
+    "Extracted ZIP data failed verification; nothing was published.",
+    "ZIP の展開内容の検証に失敗したため、公開していません。"
+  ],
+  [
+    "ZIP 解压内容超过核对大小。",
+    "Extracted ZIP data exceeds its verified size.",
+    "ZIP の展開内容が確認済みのサイズを超えています。"
+  ],
+  [
+    "解压条目没有内容索引。",
+    "The extraction entry has no content index.",
+    "展開項目に内容の索引がありません。"
+  ],
+  [
+    "解压文件名称发生冲突，未覆盖。",
+    "An extracted file name conflicts; nothing was overwritten.",
+    "展開先のファイル名が競合しています。上書きしていません。"
+  ],
+  [
+    "解压目录名称发生冲突，未覆盖。",
+    "An extracted folder name conflicts; nothing was overwritten.",
+    "展開先のフォルダ名が競合しています。上書きしていません。"
+  ],
+  ["解压名称为空。", "The extraction name is empty.", "展開先の名前が空です。"],
+  [
+    "解压子目录身份变化，未继续。",
+    "An extracted subfolder changed identity; processing stopped.",
+    "展開先のサブフォルダの識別情報が変わったため、処理を停止しました。"
+  ],
+  [
+    "解压临时目录身份或权限变化，未继续。",
+    "The temporary extraction folder identity or permissions changed; processing stopped.",
+    "展開の一時フォルダの識別情報または権限が変わったため、処理を停止しました。"
+  ],
+  [
+    "解压临时目录无法排他创建。",
+    "The temporary extraction folder could not be created exclusively.",
+    "展開の一時フォルダを排他的に作成できません。"
+  ],
+  [
+    "解压文件的隔离属性未能保留，未发布。",
+    "Extracted file quarantine could not be retained; nothing was published.",
+    "展開ファイルの隔離属性を保持できないため、公開していません。"
+  ],
+  [
+    "解压目录或文件无法以原身份打开。",
+    "An extraction folder or file could not be opened with its original identity.",
+    "展開フォルダまたはファイルを元の識別情報で開けません。"
+  ],
+  [
+    "先前 ZIP 解压已中断，请核对目标和临时路径；不会自动发布、删除或重放。",
+    "The previous extraction was interrupted. Check the destination and temporary path; nothing is published, deleted or replayed automatically.",
+    "以前の ZIP 展開が中断されました。展開先と一時パスを確認してください。自動で公開、削除、再実行はしません。"
+  ],
+  [
+    "请先核对未完成的 ZIP 解压；本轮最多保留 64 条记录。",
+    "Review unfinished ZIP extractions first; up to 64 records are retained.",
+    "未完了の ZIP 展開を先に確認してください。記録は最大 64 件です。"
+  ],
+  [
+    "ZIP 解压记录被其他请求占用。",
+    "The ZIP extraction record belongs to another request.",
+    "ZIP の展開記録は別のリクエストが使用しています。"
+  ],
+  [
+    "ZIP 解压需要 FULL 同步记录。",
+    "ZIP extraction requires FULL synchronous recording.",
+    "ZIP の展開には FULL 同期の記録が必要です。"
+  ],
+  [
+    "ZIP 解压记录超过本轮 64 条容量。",
+    "ZIP extraction history exceeds the current capacity of 64 records.",
+    "ZIP の展開履歴が今回の上限である 64 件を超えています。"
+  ],
+  [
+    "ZIP 解压记录标识不一致。",
+    "ZIP extraction record identifiers do not match.",
+    "ZIP の展開記録の識別情報が一致しません。"
+  ],
+  [
+    "ZIP 解压记录格式无法核对。",
+    "The ZIP extraction record format could not be verified.",
+    "ZIP の展開記録の形式を確認できません。"
+  ],
+  [
+    "ZIP 解压记录超过容量。",
+    "The ZIP extraction record exceeds capacity.",
+    "ZIP の展開記録が容量を超えています。"
+  ],
+  [
+    "ZIP 解压记录无法核对，保留原记录。",
+    "The extraction record could not be verified; the original record is retained.",
+    "ZIP の展開記録を確認できないため、元の記録を保持します。"
+  ],
+  [
+    "ZIP 名称发生大小写或文件/目录冲突，未解压。",
+    "ZIP names have a case or file/folder conflict; nothing was extracted.",
+    "ZIP の名前に大文字小文字、またはファイルとフォルダの競合があるため、展開していません。"
+  ],
+  [
+    "ZIP 解压后的文件和目录超过 10000 项。",
+    "The extracted files and folders exceed 10,000 items.",
+    "展開後のファイルとフォルダが 10,000 項目を超えています。"
+  ],
+  [
+    "ZIP 解压内容超过 8 GiB 或名称容量上限。",
+    "Extracted ZIP data exceeds 8 GiB or the name size limit.",
+    "ZIP の展開内容が 8 GiB、または名前の容量上限を超えています。"
+  ],
+  ["ZIP 大小超过上限。", "The ZIP size exceeds the limit.", "ZIP のサイズが上限を超えています。"],
+  [
+    "ZIP 含链接、特殊文件或未支持的压缩条目，整份未解压。",
+    "The ZIP has links, special files or unsupported compression; the whole extraction was refused.",
+    "ZIP にリンク、特殊ファイル、未対応の圧縮項目があるため、全体を展開していません。"
+  ],
+  [
+    "ZIP 含越界、歧义、重复或无法核对的名称，整份未解压。",
+    "The ZIP has escaping, ambiguous, duplicate or unverifiable names; the whole extraction was refused.",
+    "ZIP に範囲外、曖昧、重複、確認不能の名前があるため、全体を展開していません。"
+  ],
+  [
+    "ZIP 目录名称无法核对。",
+    "A ZIP folder name could not be verified.",
+    "ZIP のフォルダ名を確認できません。"
+  ],
+  [
+    "ZIP 名称必须是可核对的 UTF-8。",
+    "ZIP names must be verifiable UTF-8.",
+    "ZIP の名前は確認可能な UTF-8 である必要があります。"
+  ],
+  [
+    "ZIP 加密、压缩方法或条目结构尚未支持。",
+    "The ZIP encryption, compression method or entry structure is not supported.",
+    "ZIP の暗号化、圧縮方式、項目の構造に対応していません。"
+  ],
+  [
+    "ZIP 条目重复或包含未支持的前置数据。",
+    "The ZIP has duplicate entries or unsupported leading data.",
+    "ZIP に重複項目または未対応の先頭データがあります。"
+  ],
+  ["ZIP 结构无法读取。", "The ZIP structure could not be read.", "ZIP の構造を読み取れません。"],
+  [
+    "ZIP 中央目录格式或容量无法核对。",
+    "The ZIP central directory format or size could not be verified.",
+    "ZIP の中央ディレクトリの形式または容量を確認できません。"
+  ],
+  [
+    "ZIP64 含无法核对的目录容量，未解压。",
+    "ZIP64 contains an unverifiable directory size; nothing was extracted.",
+    "ZIP64 のディレクトリ容量を確認できないため、展開していません。"
+  ],
+  [
+    "此 ZIP 解压无需未知结果确认。",
+    "This extraction does not need an unknown-result review.",
+    "この ZIP 展開には結果不明の確認は必要ありません。"
+  ],
+  [
+    "ZIP 解压记录不存在。",
+    "The ZIP extraction record does not exist.",
+    "ZIP の展開記録がありません。"
+  ],
+  [
+    "请先核对解压结果的目标和临时位置。",
+    "Check the extraction destination and temporary location first.",
+    "展開先と一時パスを先に確認してください。"
+  ],
+  [
+    "ZIP 解压确认已使用或撤销，请重新检查。",
+    "ZIP extraction confirmation was used or revoked. Check again.",
+    "ZIP 展開の確認は使用済み、または取り消されています。再確認してください。"
+  ],
+  [
+    "请先确认完整解压范围、隐藏内容、权限及原压缩包保留方式。",
+    "Confirm the full extraction scope, hidden content, permissions and retention of the source archive.",
+    "展開範囲全体、隠し項目、権限、元の圧縮ファイルを保持することを確認してください。"
+  ],
+  [
+    "保护设置在检查期间变化，请重新准备 ZIP 解压。",
+    "Protection settings changed during inspection. Prepare ZIP extraction again.",
+    "確認中に保護設定が変わりました。ZIP の展開を再準備してください。"
+  ],
+  [
+    "请先结束当前任务，再开始 ZIP 解压。",
+    "Finish the current task before starting ZIP extraction.",
+    "現在のタスクを終了してから ZIP を展開してください。"
+  ],
+  [
+    "ZIP 解压请求标识无效。",
+    "The ZIP extraction request ID is invalid.",
+    "ZIP 展開のリクエスト ID が無効です。"
+  ],
+  [
+    "解压临时位置出现未知内容，请核对实际位置；不会自动删除或重试。",
+    "Unknown content appeared at the temporary extraction location. Check it; nothing will be deleted or retried automatically.",
+    "展開の一時パスに不明な内容が現れました。実際の場所を確認してください。自動削除や再試行はしません。"
+  ],
+  [
+    "解压临时目录未能完整清理，请核对临时位置；不会自动删除或重试。",
+    "The temporary extraction folder could not be fully cleaned. Check its location; nothing will be deleted or retried automatically.",
+    "展開の一時フォルダを完全には削除できませんでした。一時パスを確認してください。自動削除や再試行はしません。"
+  ],
+  [
+    "ZIP 正文已解压并核验，原压缩包保留；Mac 元数据文件保留为独立文件，未应用。",
+    "ZIP data was extracted and verified. The original archive is retained; Mac metadata files are kept separately and were not applied.",
+    "ZIP の内容を展開して検証しました。元の圧縮ファイルを保持し、Mac メタデータファイルは適用せず独立ファイルとして保持しています。"
+  ],
+  [
+    "已发布解压文件夹身份无法核对，请检查实际位置。",
+    "The published folder identity could not be verified. Check the actual location.",
+    "公開済みの展開フォルダの識別情報を確認できません。実際の場所を確認してください。"
+  ],
+  [
+    "解压名称无法编码。",
+    "The extraction name cannot be encoded.",
+    "展開先の名前をエンコードできません。"
+  ],
+  [
+    "即将发布已核对的解压文件夹。",
+    "About to publish the verified extracted folder.",
+    "確認済みの展開フォルダを公開します。"
+  ],
+  [
+    "解压目标身份变化，未发布。",
+    "The extraction destination changed identity; nothing was published.",
+    "展開先の識別情報が変わったため、公開していません。"
+  ],
+  [
+    "正在核对并解压 ZIP，原压缩包保留。",
+    "Checking and extracting ZIP; the original archive is retained.",
+    "ZIP を確認して展開しています。元の圧縮ファイルは保持します。"
+  ],
+  [
+    "原 ZIP 内容或隔离属性变化，未发布解压结果。",
+    "Source ZIP data or quarantine changed; extracted data was not published.",
+    "元の ZIP の内容または隔離属性が変わったため、展開結果を公開していません。"
+  ],
+  [
+    "原 ZIP 或祖先身份已变化，请重新检查。",
+    "The source ZIP or an ancestor changed identity. Check again.",
+    "元の ZIP または親階層の識別情報が変わりました。再確認してください。"
+  ],
+  [
+    "解压保护范围已变化，请重新检查。",
+    "Extraction protection settings changed. Check again.",
+    "展開の保護範囲が変わりました。再確認してください。"
+  ],
+  [
+    "解压确认已过期，请重新检查。",
+    "Extraction confirmation expired. Check again.",
+    "展開の確認期限が切れました。再確認してください。"
+  ],
+  [
+    "解压路径无法编码。",
+    "The extraction path cannot be encoded.",
+    "展開先のパスをエンコードできません。"
+  ],
+  ["ZIP 路径无法编码。", "The ZIP path cannot be encoded.", "ZIP のパスをエンコードできません。"],
+  [
+    "ZIP 在读取时变化，请重新检查。",
+    "The ZIP changed during reading. Check again.",
+    "読み取り中に ZIP が変わりました。再確認してください。"
+  ],
+  [
+    "解压目标已存在、受保护或无法核对；不会覆盖。",
+    "The extraction destination exists, is protected or could not be checked; nothing is overwritten.",
+    "展開先が存在するか、保護されているか、確認できません。上書きしません。"
+  ],
+  [
+    "请选择一个新的普通解压文件夹名称。",
+    "Choose a new ordinary folder name for extraction.",
+    "展開先の新しい通常フォルダ名を指定してください。"
+  ],
+  [
+    "解压空间不足，需保留完整内容及 64 MiB 余量。",
+    "Insufficient extraction space; the full content and a 64 MiB reserve are required.",
+    "展開容量が不足しています。内容全体に加えて 64 MiB の余裕が必要です。"
+  ],
+  [
+    "解压目标空间无法核对。",
+    "Destination free space could not be verified.",
+    "展開先の空き容量を確認できません。"
+  ],
+  [
+    "ZIP 隔离属性在读取期间变化。",
+    "The ZIP quarantine attribute changed while being read.",
+    "読み取り中に ZIP の隔離属性が変わりました。"
+  ],
+  [
+    "ZIP 隔离属性超过读取上限。",
+    "The ZIP quarantine attribute exceeds the read limit.",
+    "ZIP の隔離属性が読み取り上限を超えています。"
+  ],
+  [
+    "ZIP 隔离属性无法核对，未解压。",
+    "ZIP quarantine could not be checked; nothing was extracted.",
+    "ZIP の隔離属性を確認できないため、展開していません。"
+  ],
+  [
+    "ZIP 必须是本账户的普通本地文件，压缩包最多 2 GiB。",
+    "The ZIP must be an ordinary local file owned by this account, up to 2 GiB.",
+    "ZIP はこのアカウント所有の通常のローカルファイルで、最大 2 GiB である必要があります。"
+  ],
+  [
+    "请选择未受保护的本地 ZIP 文件。",
+    "Choose an unprotected local ZIP file.",
+    "保護されていないローカル ZIP ファイルを選択してください。"
+  ],
+  ["ZIP 解压已中断", "ZIP extraction interrupted", "ZIP の展開が中断されました"],
+  ["ZIP 解压结果待核实", "ZIP extraction result needs checking", "ZIP の展開結果は確認が必要です"],
+  ["ZIP 解压已取消", "ZIP extraction cancelled", "ZIP の展開をキャンセルしました"],
+  [
+    "未发布解压结果，原压缩包保留",
+    "No extraction published; original archive retained",
+    "展開結果は公開されていません。元の圧縮ファイルは保持されています"
+  ],
+  [
+    "ZIP 已解压，原压缩包保留",
+    "ZIP extracted; original archive retained",
+    "ZIP を展開しました。元の圧縮ファイルは保持されています"
+  ],
+  ["正在解压 ZIP", "Extracting ZIP", "ZIP を展開中"],
+  [
+    "ZIP 解压数据无法核对，请检查解压记录与实际位置；不会自动重试。",
+    "Extraction data could not be verified. Check extraction history and actual locations; it will not retry automatically.",
+    "展開データを確認できません。展開履歴と実際の場所を確認してください。自動再試行はしません。"
+  ],
+  ["记录解压结果已核对", "Record extraction review", "展開結果の確認を記録"],
+  [
+    "请核对实际解压结果与临时路径。这里只记录核查，不补做解压、删除文件或更改原结果。",
+    "Check the extracted folder and temporary path. This only records your review; it does not extract again, delete files or change the original result.",
+    "展開結果と一時パスを確認してください。ここでは確認のみを記録し、再展開、ファイル削除、元の結果の変更はしません。"
+  ],
+  ["暂无 ZIP 解压记录。", "No ZIP extractions yet.", "ZIP の展開履歴はありません。"],
+  ["刷新解压记录", "Refresh extraction history", "展開履歴を更新"],
+  ["ZIP 解压记录", "ZIP extraction history", "ZIP の展開履歴"],
+  ["查看原 ZIP", "Reveal original ZIP", "元の ZIP を表示"],
+  ["查看解压结果", "Reveal extracted folder", "展開したフォルダを表示"],
+  ["解压数据大小：", "Extracted data size:", "展開データのサイズ："],
+  ["解压数据大小：{0}", "Extracted data size: {0}", "展開データのサイズ：{0}"],
+  ["ZIP 解压结果", "ZIP extraction result", "ZIP の展開結果"],
+  ["确认解压 ZIP", "Confirm ZIP extraction", "ZIP の展開を確認"],
+  ["更改解压范围…", "Change extraction scope…", "展開範囲を変更…"],
+  ["检查 ZIP 内容", "Check ZIP contents", "ZIP の内容を確認"],
+  ["重新检查解压范围", "Recheck extraction scope", "展開範囲を再確認"],
+  ["关闭解压窗口", "Close extraction window", "展開ウィンドウを閉じる"],
+  [
+    "解压范围确认已过期，请重新检查。",
+    "Extraction confirmation expired. Check again.",
+    "展開範囲の確認期限が切れました。再確認してください。"
+  ],
+  [
+    "我已核对全部内容、隐藏范围及元数据边界，同意解压到新文件夹并保留原 ZIP。",
+    "I reviewed all content, hidden items and metadata limits, and agree to extract into a new folder while keeping the original ZIP.",
+    "内容全体、隠し項目、メタデータの制限を確認し、元の ZIP を保持して新しいフォルダへ展開することに同意します。"
+  ],
+  [
+    "ZIP 解压请求未返回完整结果，请在历史中检查实际位置；不会自动重试。",
+    "The extraction request did not return a complete result. Check actual locations in history; it will not retry automatically.",
+    "展開要求の完全な結果が返されませんでした。履歴から実際の場所を確認してください。自動再試行はしません。"
+  ],
+  [
+    "正在解压并读回核验，请等待发布结果。",
+    "Extracting and verifying by reading back. Wait for the publication result.",
+    "展開し、読み戻して検証しています。結果が公開されるまでお待ちください。"
+  ],
+  [
+    "正在完整核对 ZIP 条目和内容，尚未解压。",
+    "Checking all ZIP entries and data; extraction has not started.",
+    "ZIP の項目と内容をすべて確認しています。まだ展開していません。"
+  ],
+  [
+    "发布前重新核对原 ZIP、目标及全部解压内容。停止后清理本次临时内容；已发布结果不自动删除。中断或结果未知时需核对实际位置，不自动继续或重试。",
+    "The source ZIP, destination and all extracted data are checked again before publication. Stopping cleans up this run’s temporary content; published results are retained. Check actual locations after interruption or an unknown result; nothing resumes or retries automatically.",
+    "公開前に元の ZIP、展開先、展開内容全体を再確認します。停止時は今回の一時データを削除しますが、公開済みの結果は保持します。中断や結果不明の場合は実際の場所を確認してください。自動再開や再試行はしません。"
+  ],
+  [
+    "只创建普通文件和目录。文件权限为 600，目录为 700，不恢复原执行权限、时间、所有者、ACL 或嵌入元数据；Mac 元数据副本保留在 __MACOSX 或 ._ 文件中，不作为完整备份恢复。",
+    "Only ordinary files and folders are created, with permissions 600 and 700. Original execute permissions, timestamps, owners, ACLs and embedded metadata are not restored. Mac metadata copies remain in __MACOSX or ._ files; this is not a full backup restoration.",
+    "通常のファイルとフォルダのみ作成し、権限はそれぞれ 600 と 700 です。元の実行権限、日時、所有者、ACL、埋め込みメタデータは復元しません。Mac メタデータのコピーは __MACOSX または ._ ファイルに保持します。完全なバックアップ復元ではありません。"
+  ],
+  [
+    "压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。支持未加密 ZIP 的存储和 Deflate 压缩；链接、特殊文件、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。",
+    "The archive is limited to 2 GiB, with at most 8 GiB of extracted data, 10,000 items and 64 levels. Unencrypted ZIP with Store or Deflate is supported. Links, special files, escaping paths or unverifiable entries reject the whole extraction. Choose an existing ordinary destination folder; the new folder never overwrites an existing name.",
+    "圧縮ファイルは最大 2 GiB、展開内容は最大 8 GiB、10,000 項目、64 階層です。暗号化されていない Store または Deflate の ZIP に対応します。リンク、特殊ファイル、範囲外の名前、確認できない項目があれば全体を拒否します。既存の通常フォルダを選択してください。同名の新規フォルダは上書きしません。"
+  ],
+  [
+    "解压范围、元数据与取消边界",
+    "Extraction scope, metadata and cancellation",
+    "展開範囲、メタデータ、キャンセルの制限"
+  ],
+  ["新文件夹名称", "New folder name", "新しいフォルダ名"],
+  ["解压目标目录", "Extraction destination folder", "展開先フォルダ"],
+  ["选择 ZIP 文件…", "Choose ZIP file…", "ZIP ファイルを選択…"],
+  [
+    "完整解压包含隐藏文件。Mac 元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原 ZIP 的隔离属性。",
+    "Extraction includes hidden files. Mac metadata is kept as separate files; tags and resource forks are not restored. Output uses private account permissions and retains the source ZIP quarantine attribute.",
+    "隠しファイルも展開します。Mac メタデータは独立ファイルとして保持し、タグやリソースフォークは復元しません。出力はこのアカウント専用の権限とし、元の ZIP の隔離属性を保持します。"
+  ],
+  [
+    "将 ZIP 的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。",
+    "Extract the entire ZIP into a new folder and keep the original archive. Existing files are not overwritten and extracted content is not opened automatically.",
+    "ZIP 全体を新しいフォルダに展開し、元の圧縮ファイルを保持します。既存ファイルは上書きせず、内容を自動で開きません。"
+  ],
+  ["解压 ZIP", "Extract ZIP", "ZIP を展開"],
+  ["选择解压目标目录", "Choose the extraction destination folder", "展開先フォルダを選択"],
+  ["解压文件", "Extracted files", "展開したファイル"],
+  [
+    "这只是名称预览；确认范围是整个 ZIP，包含未在预览中列出的文件和隐藏内容。",
+    "This is a name preview. Confirmation covers the entire ZIP, including files and hidden content not shown here.",
+    "名前のプレビューです。ここに表示されていないファイルや隠し項目も含め、ZIP 全体を確認します。"
+  ],
+  [
+    "解压数据 / 其中元数据文件",
+    "Extracted data / metadata files within it",
+    "展開データ / うちメタデータファイル"
+  ],
+  [
+    "个目录（含目标根目录） ·",
+    "folders (including destination root) ·",
+    "個のフォルダ（展開先ルートを含む） ·"
+  ],
+  [
+    "{0} 个文件 · {1} 个目录（含目标根目录） · {2} 个隐藏项目",
+    "{0} files · {1} folders (including destination root) · {2} hidden items",
+    "ファイル {0} 個 · フォルダ {1} 個（展開先ルートを含む） · 隠し項目 {2} 個"
+  ],
+  ["解压目标", "Extraction destination", "展開先"],
+  ["ZIP 来源", "Source ZIP", "元の ZIP"],
+  ["ZIP 解压核对", "Review ZIP extraction", "ZIP 展開の確認"],
+  ["停止解压", "Stop extraction", "展開を停止"],
+  ["查看解压记录", "View extraction history", "展開履歴を表示"],
+  [
+    "ZIP 解压仍在进行，请在历史中核对结果。",
+    "ZIP extraction is still running. Check the result in history.",
+    "ZIP の展開中です。履歴で結果を確認してください。"
+  ],
+  ["选择要解压的 ZIP 文件", "Choose a ZIP file to extract", "展開する ZIP ファイルを選択"],
+  ["解压 ZIP…", "Extract ZIP…", "ZIP を展開…"],
+  [
     "仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox 需手动选择配置；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。",
     "Only standard profile folders for the selected browser are checked; account names are not read. Select a Firefox profile manually. Guest, private, system, other browsers, and custom locations are not yet supported.",
     "選択したブラウザの標準プロファイルフォルダのみ確認し、アカウント名は読み取りません。Firefox のプロファイルは手動で選択してください。ゲスト、プライベート、システム、その他のブラウザ、カスタムの保存先は未対応です。"
