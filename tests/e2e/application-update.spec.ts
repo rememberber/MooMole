@@ -57,7 +57,11 @@ test('review exact target and ad-hoc source before a single replacement, then re
   expect(bounds!.width).toBeLessThanOrEqual(1200)
   await dialog.getByRole('button', { name: '返回应用列表' }).click()
   await expect(
-    page.getByRole('article').first().getByRole('button', { name: '从新版应用包更新…' }),
+    page
+      .locator('#application-update-fixture')
+      .getByRole('article')
+      .first()
+      .getByRole('button', { name: '从新版应用包更新…' }),
   ).toBeDisabled()
 })
 

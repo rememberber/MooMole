@@ -53,6 +53,7 @@ test('reload follows existing execution and cancellation waits for durable resul
         ![
           'bootstrap',
           'get_mounted_volumes',
+          'get_mole_cleanup',
           'get_transfer_restorations',
           'get_application_restorations',
           'get_folder_archives',

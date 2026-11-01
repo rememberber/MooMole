@@ -4821,3 +4821,134 @@ input[type='checkbox'] {
     transform: none;
   }
 }
+
+.mole-clean-modal {
+  max-width: 760px;
+  width: min(760px, calc(100vw - 48px));
+  padding: 24px;
+}
+.mole-clean-modal > p {
+  line-height: 1.8;
+}
+.mole-clean-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.mole-clean-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+.mole-clean-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.7;
+  margin: 16px 0;
+}
+.mole-clean-choice input {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.mole-clean-scopes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  padding: 0;
+  gap: 10px 20px;
+  margin: 20px 0;
+}
+.mole-clean-scopes li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.mole-clean-scopes svg {
+  color: var(--mint-ink);
+  flex-shrink: 0;
+}
+.mole-clean-scopes small {
+  color: var(--muted);
+  margin-left: auto;
+  font-size: 9px;
+}
+.mole-clean-history-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.mole-clean-history-select select {
+  flex: 1;
+  min-width: 0;
+}
+.mole-clean-run-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mole-clean-run-state span {
+  color: var(--subtle);
+  font-size: 11px;
+}
+.mole-clean-authorization {
+  padding: 16px;
+}
+.mole-clean-authorization label {
+  display: grid;
+  gap: 8px;
+  margin: 15px 0;
+}
+.mole-clean-authorization p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--subtle);
+}
+.mole-clean-modal details {
+  margin-top: 18px;
+}
+.mole-clean-modal summary {
+  cursor: pointer;
+  font-weight: 550;
+}
+.mole-clean-modal details p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.mole-clean-events ul {
+  list-style: none;
+  padding: 0;
+}
+.mole-clean-events li {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  font-size: 11px;
+}
+.mole-clean-events small {
+  color: var(--subtle);
+  overflow-wrap: anywhere;
+}
+.mole-clean-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--soft);
+  font-size: 10px;
+}
+.mole-clean-active {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mole-clean-active > span {
+  flex: 1;
+}

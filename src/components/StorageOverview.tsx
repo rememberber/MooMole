@@ -96,8 +96,10 @@ export function StorageOverview({
         </button>
         <div className="overview-clean-copy">
           <h2>让空间回到你手中</h2>
-          <p>扫描缓存与日志，推荐已检查的可重建缓存。确认后清理，个人文件默认保留。</p>
-          <span className="muted">逐项保护 · 可停止 · 结果可追溯</span>
+          <p>
+            使用 Mole 完整清理规则，处理缓存、过期日志、废纸篓等项目。查看范围与影响，确认后执行。
+          </p>
+          <span className="muted">沿用 Mole 保护 · 可停止 · 逐项记录</span>
         </div>
       </section>
       <section className="overview-volumes" aria-label="所有磁盘空间" aria-busy={loading}>

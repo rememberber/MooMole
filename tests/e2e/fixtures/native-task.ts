@@ -64,6 +64,14 @@ export async function installTaskMock(
                 history: history(),
                 engine: { ...initial.engine, available: true, version: '1.65.0' },
               }
+            if (command === 'get_mole_cleanup')
+              return {
+                version: 1,
+                activeRequest: null,
+                authorizationRequired: false,
+                records: [],
+                current: null,
+              }
             if (command === 'get_history') return history()
             if (command === 'get_mounted_volumes') {
               if (sessionStorage.getItem('mock-volume-error')) throw Error('磁盘读取失败')

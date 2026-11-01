@@ -113,30 +113,3 @@ test('expired capacity stays explicitly old until refreshed; invalid capacity is
   await expect(overview.getByRole('alert')).toContainText('磁盘列表无法核对')
   await expect(overview.locator('article')).toHaveCount(0)
 })
-
-test('overview quick cleanup starts only the clean scan, can be stopped and does not delete on entry', async ({
-  page,
-}) => {
-  await installTaskMock(page, 'new')
-  await page.goto('/')
-  await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
-  const clean = page.getByRole('button', { name: '开始一键清理' })
-  await expect(clean).toBeEnabled()
-  await page.evaluate(() => sessionStorage.removeItem('mock-done'))
-  await clean.click()
-  await expect(page.getByRole('main', { name: '速战速决内容' })).toBeVisible()
-  await expect(page.locator('.quick-intro[role="status"]')).toContainText('正在扫描缓存与日志…')
-  const commands = await page.evaluate(() =>
-    JSON.parse(sessionStorage.getItem('mock-native-commands') ?? '[]'),
-  )
-  expect(
-    commands
-      .filter((call: { command: string }) => call.command === 'start_task')
-      .map((call: { args: { kind: string } }) => call.args.kind),
-  ).toEqual(['status', 'clean'])
-  expect(commands.some((call: { command: string }) => call.command === 'execute_cleanup')).toBe(
-    false,
-  )
-  await page.getByRole('button', { name: '取消', exact: true }).click()
-  await expect(page.getByText('扫描已停止，已取得的结果仍可查看；其余范围未完成。')).toBeVisible()
-})

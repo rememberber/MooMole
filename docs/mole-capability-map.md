@@ -46,7 +46,7 @@ Windows/Linux、账号/云同步、支付订阅、AI 自动清理、无人值守
 | CLI 参数/输入 | 客户端状态与处理 | 依据 |
 | --- | --- | --- |
 | `clean --dry-run` / `-n` | 已接入固定版本 NUL ledger，只读候选与原始日志，跳过需要管理员权限的系统项目 | `bin/clean.sh:main`；客户端 `mole-clean-preview.sh` |
-| `clean` 无参数 | 已有有限日志按项确认/执行，本机占用未知仍保留；其他范围与发布 App 权限验收待完成，不能重新跑全量 clean 替代计划 | 同上 |
+| `clean` 无参数 | 概览提供独立的完整操作范围确认，复用固定上游全部模块；明确永久删除和当前账户废纸篓、可选系统授权、原保护、意图先落盘、取消与独立历史。逐项勾选计划继续独立，不能用全量清理替代。实测边界见 [完整 Mole 清理](mole-clean-parity.md) | `mole-clean-run.sh`；`mole_clean/` |
 | `clean --external PATH` | 待接入外接卷范围及卸载/重挂载身份检查；当前清理页不提供 | 同上 |
 | `clean --whitelist` | Mole 有效规则只读复查已接入；管理界面待做。客户端保护列表单独保存，不等同于修改上游白名单 | 同上；`lib/manage/whitelist.sh` |
 | `clean --debug`、`--help|-h` | 全局诊断/模块说明替代 | `bin/clean.sh:main` |

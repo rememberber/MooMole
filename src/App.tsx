@@ -87,6 +87,7 @@ import { deferredView } from './components/DeferredView'
 import { Modal } from './components/Modal'
 import { focusReturnTarget, restoreFocus } from './lib/focus-return'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
+import { MoleCleanupCenter } from './components/MoleCleanupCenter'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { useMaintenance } from './lib/use-maintenance'
 import { useProjectArtifacts } from './lib/use-project-artifacts'
@@ -283,6 +284,9 @@ export default function App() {
   const scheduledFiles = useScheduledFiles(api.desktop && !!data, scheduledFilesTransport)
   const [page, setPage] = useState<Page>('overview')
   const [diskRefresh, setDiskRefresh] = useState(0)
+  const [moleCleanSignal, setMoleCleanSignal] = useState(0)
+  const [moleCleanHistorySignal, setMoleCleanHistorySignal] = useState(0)
+  const [moleCleanActive, setMoleCleanActive] = useState(false)
   const [quickMode, setQuickMode] = useState<'quick' | 'essential'>('quick')
   useEffect(() => {
     if (!api.desktop) return
@@ -958,6 +962,7 @@ export default function App() {
   const canRunWithoutEngine =
     api.desktop &&
     !busy &&
+    !moleCleanActive &&
     !quickScanning &&
     !aiScan.running &&
     !personalFiles.running &&
@@ -987,7 +992,10 @@ export default function App() {
   const memoryUsage = statusPercent(snapshot?.memory?.used_percent) ?? undefined
   const totalCandidates = cleanup?.items.reduce((sum, item) => sum + (item.size ?? 0), 0)
   const workspaceMotion =
-    (executionActive && !executionTrackingError) || uninstallActive || refreshActive
+    moleCleanActive ||
+    (executionActive && !executionTrackingError) ||
+    uninstallActive ||
+    refreshActive
       ? 'working'
       : (busy && !cancelPending && busy.kind !== 'history') ||
           analysisTask?.state === 'starting' ||
@@ -1171,6 +1179,16 @@ export default function App() {
                   >
                     <FolderOpen size={15} />
                     选择文件夹
+                  </button>
+                )}
+                {page === 'overview' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!api.desktop}
+                    onClick={() => setMoleCleanHistorySignal((value) => value + 1)}
+                  >
+                    <History size={15} />
+                    清理记录
                   </button>
                 )}
                 {page === 'overview' && (
@@ -1622,7 +1640,9 @@ export default function App() {
             page === 'apps' ||
             page === 'maintenance'
               ? '逐项确认'
-              : '只读检查'}
+              : moleCleanActive
+                ? '完整清理执行中'
+                : '只读检查'}
           </span>
         </header>
         <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
@@ -1833,6 +1853,13 @@ export default function App() {
               </button>
             </section>
           )}
+          <MoleCleanupCenter
+            desktop={api.desktop}
+            enabled={canRun && !executionActive}
+            openSignal={moleCleanSignal}
+            historySignal={moleCleanHistorySignal}
+            onActiveChange={setMoleCleanActive}
+          />
           <ExecutionRecoveryNotice
             records={data.executions}
             onReview={() => {
@@ -1887,10 +1914,7 @@ export default function App() {
               desktop={api.desktop}
               refreshSignal={diskRefresh}
               canClean={canRun && !executionActive}
-              onClean={() => {
-                changePage('quickCleanup')
-                void scanQuickCleanup('clean')
-              }}
+              onClean={() => setMoleCleanSignal((value) => value + 1)}
             />
           )}
 
@@ -2505,6 +2529,13 @@ export default function App() {
 
           {page === 'history' && (
             <>
+              <button
+                className="button secondary compact"
+                disabled={!api.desktop}
+                onClick={() => setMoleCleanHistorySignal((value) => value + 1)}
+              >
+                完整 Mole 清理记录
+              </button>
               <MoleHistoryView
                 report={moleHistory}
                 disabled={!!busy || !api.desktop || !data.engine.available}

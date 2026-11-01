@@ -10541,5 +10541,223 @@
     "Click “Scan cleanup items” in the toolbar to check caches and logs again.",
     "上部の「クリーンアップ候補をスキャン」でキャッシュとログを再確認します。"
   ],
-  ["正在扫描缓存与日志…", "Scanning caches and logs…", "キャッシュとログをスキャン中…"]
+  ["正在扫描缓存与日志…", "Scanning caches and logs…", "キャッシュとログをスキャン中…"],
+  ["清理记录", "Cleanup history", "クリーンアップ履歴"],
+  ["完整清理执行中", "Full cleanup running", "完全クリーンアップ実行中"],
+  ["完整 Mole 清理记录", "Full Mole cleanup history", "Mole 完全クリーンアップ履歴"],
+  ["Mole 本轮执行结束", "Mole run finished", "今回の Mole 実行が終了"],
+  ["清理已停止", "Cleanup stopped", "クリーンアップを停止しました"],
+  ["清理未完成", "Cleanup did not finish", "クリーンアップ未完了"],
+  ["清理结果待核查", "Cleanup results need review", "クリーンアップ結果の確認が必要"],
+  ["清理曾中断", "Cleanup was interrupted", "クリーンアップが中断されました"],
+  ["已保存执行意图", "Operation intent recorded", "処理前の記録を保存済み"],
+  ["已确认删除", "Deletion confirmed", "削除を確認済み"],
+  ["结果待核查", "Result needs review", "結果の確認が必要"],
+  ["所有者命令已返回", "Owner command returned", "管理ツールのコマンドが終了"],
+  ["Mole 逐项记录", "Mole item record", "Mole の項目別記録"],
+  ["管理员授权", "Administrator authorization", "管理者認証"],
+  ["本轮结束", "Run finished", "今回の処理が終了"],
+  ["完整清理状态", "Full cleanup status", "完全クリーンアップの状態"],
+  ["完整 Mole 清理进行中", "Full Mole cleanup is running", "Mole 完全クリーンアップ実行中"],
+  ["查看清理进度", "View cleanup progress", "クリーンアップの進行状況"],
+  ["Mole 一键清理", "Mole quick cleanup", "Mole クイッククリーン"],
+  ["完整清理", "Full cleanup", "完全クリーンアップ"],
+  [
+    "使用内置 Mole 的完整清理模块，与 mo clean 使用相同的清理规则。执行时逐项判断符合条件的对象；这不是此前手动勾选项目的清理计划。",
+    "Uses the bundled Mole cleanup modules and the same rules as mo clean. Eligible items are determined during execution. This is separate from a previously selected-item plan.",
+    "内蔵 Mole の全クリーンアップモジュールと mo clean と同じ規則を使用し、処理時に対象を判断します。以前に手動選択した項目の計画とは別の操作です。"
+  ],
+  [
+    "会永久删除 Mole 判定可处理的缓存、过期日志等项目，并处理当前账户废纸篓。不会先移入废纸篓，MooMole 无法撤销这些删除。请先备份重要数据。",
+    "Permanently deletes eligible caches, old logs and other items, including items in this account’s Trash. Items are not moved to Trash first. MooMole cannot undo these deletions. Back up important data first.",
+    "Mole が処理可能と判断したキャッシュや古いログなどを完全に削除し、現在のアカウントのゴミ箱も処理します。先にゴミ箱へ移動する方式ではなく、MooMole では取り消せません。重要なデータを先にバックアップしてください。"
+  ],
+  [
+    "包括需要管理员权限的系统项目",
+    "Include system items requiring administrator access",
+    "管理者権限が必要なシステム項目を含める"
+  ],
+  [
+    "本次只处理当前账户可执行的范围，跳过系统管理员项目。",
+    "This run handles the current account’s permitted scope and skips administrator-only system items.",
+    "今回は現在のアカウントで実行可能な範囲のみを処理し、管理者権限が必要なシステム項目をスキップします。"
+  ],
+  [
+    "正在核对引擎、账户与保护规则…",
+    "Checking the engine, account and protection rules…",
+    "エンジン、アカウント、保護規則を確認中…"
+  ],
+  ["本次跳过", "Skipped this run", "今回はスキップ"],
+  ["仅提示审阅", "Review hint only", "確認の案内のみ"],
+  [
+    "Mole 白名单和 MooMole 保护列表继续生效。正在使用、受保护、权限不足或无法确认的对象，按上游规则保留。Docker 数据、本地快照和个人大文件中的提示项目不会被当作自动删除项。",
+    "Mole’s whitelist and MooMole’s protected paths remain active. Busy, protected, restricted or uncertain items are retained under upstream rules. Review hints for Docker data, local snapshots and large personal files do not authorize automatic deletion.",
+    "Mole のホワイトリストと MooMole の保護リストは引き続き有効です。使用中、保護対象、権限不足、不明な項目は上流の規則に従って保持します。Docker データ、ローカルスナップショット、大きな個人ファイルの確認案内を自動削除の対象にはしません。"
+  ],
+  ["本次操作范围与版本", "Scope and version for this run", "今回の処理範囲とバージョン"],
+  ["内置 Mole {0}", "Bundled Mole {0}", "内蔵 Mole {0}"],
+  ["内置 Mole", "Bundled Mole", "内蔵 Mole"],
+  [
+    "客户端保护 {0} 个位置；Mole 白名单另行生效。",
+    "{0} locations protected by the app; Mole’s whitelist also applies.",
+    "アプリで {0} か所を保護します。Mole のホワイトリストも別途適用します。"
+  ],
+  ["客户端保护", "App protection", "アプリの保護"],
+  [
+    "个位置；Mole 白名单另行生效。",
+    "locations; Mole’s whitelist also applies.",
+    "か所。Mole のホワイトリストも別途適用します。"
+  ],
+  [
+    "执行中可停止；已完成的删除不会撤销。包管理器命令可能已经处理部分内容，中断后不会自动重试。",
+    "You can stop the run; completed deletions are not undone. Package-manager commands may already have processed some content. Interrupted operations are never retried automatically.",
+    "実行中は停止できますが、完了した削除は取り消せません。パッケージ管理コマンドが一部を処理済みの場合があります。中断した操作を自動で再試行することはありません。"
+  ],
+  [
+    "完整清理确认已过期，请重新准备。",
+    "Full cleanup confirmation expired. Prepare again.",
+    "完全クリーンアップの確認期限が切れました。準備し直してください。"
+  ],
+  [
+    "我已了解永久删除和废纸篓处理不可撤销，确认执行上述完整范围。",
+    "I understand that permanent deletion and Trash processing cannot be undone, and confirm the full scope above.",
+    "完全削除とゴミ箱の処理は取り消せないことを理解し、上記の全範囲の実行を確認します。"
+  ],
+  ["确认执行完整清理", "Confirm full cleanup", "完全クリーンアップの実行を確認"],
+  ["清理批次", "Cleanup run", "クリーンアップの実行"],
+  [
+    "尚无完整 Mole 清理记录。",
+    "No full Mole cleanup history yet.",
+    "Mole 完全クリーンアップの履歴はまだありません。"
+  ],
+  ["本机管理员授权", "Local administrator authorization", "この Mac の管理者認証"],
+  [
+    "sudo 正在等待授权。密码仅发送给本次 sudo 授权进程，不写入日志、历史或设置，也不上传。取消会停止本轮清理。",
+    "sudo is waiting for authorization. Your password goes only to this sudo authorization process. It is not saved in logs, history or settings, or uploaded. Cancelling stops this cleanup run.",
+    "sudo が認証を待っています。パスワードは今回の sudo 認証プロセスにのみ送られ、ログ、履歴、設定には保存されず、アップロードもされません。キャンセルすると今回の処理を停止します。"
+  ],
+  ["当前账户密码", "Current account password", "現在のアカウントのパスワード"],
+  ["提交本次授权", "Submit this authorization", "今回の認証を送信"],
+  ["停止本次清理", "Stop this cleanup", "今回のクリーンアップを停止"],
+  [
+    "已保存 {0} 条已确认删除记录，{1} 条模块命令结果。第三方命令内部的文件明细可能不可得，不据命令返回值推算释放量。",
+    "Recorded {0} confirmed deletions and {1} module-command results. Third-party commands may not expose internal file details. Reclaimed space is not inferred from exit status.",
+    "削除確認記録 {0} 件、モジュールコマンドの結果 {1} 件を保存しました。外部コマンド内部のファイル明細は取得できない場合があり、終了状態から解放容量を推定しません。"
+  ],
+  ["已保存", "Recorded", "保存済み"],
+  ["条已确认删除记录，", "confirmed deletions,", "件の削除確認記録、"],
+  [
+    "条模块命令结果。第三方命令内部的文件明细可能不可得，不据命令返回值推算释放量。",
+    "module-command results. Internal file details may be unavailable; exit status does not establish reclaimed space.",
+    "件のコマンド結果。内部のファイル明細は不明な場合があり、終了状態から解放容量を推定しません。"
+  ],
+  [
+    "磁盘可用空间变化：{0}{1}。这是前后观察值，也会受其他程序影响。",
+    "Available disk space change: {0}{1}. These before-and-after observations are also affected by other applications.",
+    "ディスク空き容量の変化：{0}{1}。処理前後の観測値であり、他のアプリの影響も受けます。"
+  ],
+  ["磁盘可用空间变化：", "Available disk space change:", "ディスク空き容量の変化："],
+  [
+    "。这是前后观察值，也会受其他程序影响。",
+    ". These observations are also affected by other applications.",
+    "。処理前後の観測値であり、他のアプリの影響も受けます。"
+  ],
+  [
+    "有已保存意图或不完整结果，需要自行核查实际文件；不会自动重试，也不能把停止当作已经恢复。",
+    "Recorded intents or incomplete results need a check of the actual files. No automatic retry; stopping does not mean recovery.",
+    "保存された処理前の記録または不完全な結果があり、実際のファイルの確認が必要です。自動再試行は行わず、停止を復元完了とは扱いません。"
+  ],
+  ["逐项结果与处理过程", "Item results and processing steps", "項目別結果と処理過程"],
+  [
+    "页面显示最近的 2000 条记录；导出包含完整记录。",
+    "The page shows the latest 2,000 events; exports contain the complete record.",
+    "画面には最新の 2000 件を表示します。エクスポートには全記録を含みます。"
+  ],
+  ["Mole 原始输出与审阅提示", "Mole output and review hints", "Mole の出力と確認の案内"],
+  [
+    "原始输出仅供诊断，不用于决定清理对象；最多保留前 256 KB 文本。",
+    "Raw output is diagnostic only and never selects cleanup targets. Up to the first 256 KB of text is retained.",
+    "元の出力は診断用であり、クリーンアップ対象の決定には使用しません。先頭から最大 256 KB のテキストを保持します。"
+  ],
+  ["保存与核查记录", "Save and review the record", "記録の保存と確認"],
+  [
+    "导出包含本机文件路径，请妥善保管。",
+    "Exports contain local file paths. Keep them private.",
+    "エクスポートにはこの Mac のファイルパスが含まれます。適切に保管してください。"
+  ],
+  ["导出完整清理记录", "Export complete cleanup record", "クリーンアップの全記録をエクスポート"],
+  [
+    "我已核查本批次的实际结果，了解不会撤销或重新执行。",
+    "I have checked this run’s actual results and understand this does not undo or rerun it.",
+    "今回の実際の結果を確認し、この操作は取り消しや再実行を行わないことを理解しました。"
+  ],
+  ["标记为已核查", "Mark as reviewed", "確認済みにする"],
+  [
+    "我已保存导出的记录，确认永久清除本批次历史。",
+    "I have saved the exported record and confirm permanent removal of this run’s history.",
+    "エクスポートした記録を保存し、この実行履歴の完全削除を確認します。"
+  ],
+  ["清除已保存的历史记录", "Clear saved history entry", "保存済みの履歴を消去"],
+  ["在后台继续", "Continue in background", "バックグラウンドで続行"],
+  ["重新读取清理状态", "Read cleanup status again", "クリーンアップ状態を再取得"],
+  [
+    "使用 Mole 完整清理规则，处理缓存、过期日志、废纸篓等项目。查看范围与影响，确认后执行。",
+    "Use Mole’s full cleanup rules for caches, old logs, Trash and other items. Review the scope and effects, then confirm.",
+    "Mole の全クリーンアップ規則でキャッシュ、古いログ、ゴミ箱などを処理します。範囲と影響を確認してから実行します。"
+  ],
+  [
+    "沿用 Mole 保护 · 可停止 · 逐项记录",
+    "Mole protections · Stoppable · Item records",
+    "Mole の保護規則 · 停止可能 · 項目別記録"
+  ],
+  ["系统缓存与过期日志", "System caches and old logs", "システムキャッシュと古いログ"],
+  ["用户缓存、日志与废纸篓", "User caches, logs and Trash", "ユーザーキャッシュ、ログ、ゴミ箱"],
+  ["应用与沙盒缓存", "Application and sandbox caches", "アプリとサンドボックスのキャッシュ"],
+  ["浏览器缓存", "Browser caches", "ブラウザのキャッシュ"],
+  [
+    "云盘与办公软件缓存",
+    "Cloud storage and office caches",
+    "クラウドストレージとオフィスアプリのキャッシュ"
+  ],
+  [
+    "开发工具与包管理器缓存",
+    "Developer-tool and package-manager caches",
+    "開発ツールとパッケージ管理ツールのキャッシュ"
+  ],
+  ["常用应用与实用工具", "Applications and utilities", "アプリとユーティリティ"],
+  ["虚拟化工具缓存", "Virtualization-tool caches", "仮想化ツールのキャッシュ"],
+  ["应用支持目录中的日志", "Application Support logs", "Application Support 内のログ"],
+  [
+    "应用残留与空容器",
+    "Application leftovers and empty containers",
+    "アプリの残存データと空コンテナ"
+  ],
+  ["Apple Silicon 缓存", "Apple Silicon caches", "Apple Silicon のキャッシュ"],
+  [
+    "设备固件下载缓存",
+    "Device firmware download caches",
+    "デバイス用ファームウェアのダウンロードキャッシュ"
+  ],
+  ["失败的 Time Machine 备份", "Failed Time Machine backups", "失敗した Time Machine バックアップ"],
+  [
+    "大文件与设备备份提示",
+    "Large-file and device-backup review hints",
+    "大容量ファイルとデバイスバックアップの確認案内"
+  ],
+  ["工程产物提示", "Project-artifact review hints", "プロジェクト生成物の確認案内"],
+  [
+    "完整清理数据无法核对，未自动重试任何操作。",
+    "Full cleanup data could not be verified. No operation was retried automatically.",
+    "完全クリーンアップのデータを確認できません。操作の自動再試行は行っていません。"
+  ],
+  [
+    "磁盘可用空间变化：尚无完整观察值，不推算释放量。",
+    "Disk free-space change: a complete observation is unavailable; reclaimed space is not estimated.",
+    "空き容量の変化：完全な観測値がないため、解放容量は推定しません。"
+  ],
+  [
+    "使用与 mo clean 相同的完整清理规则，自动处理符合条件的项目。",
+    "Uses the same complete cleanup rules as mo clean to automatically process eligible items.",
+    "mo clean と同じ完全なクリーンアップルールで、条件を満たす項目を自動処理します。"
+  ]
 ]

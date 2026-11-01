@@ -28,6 +28,14 @@ export async function installLiveExecutionMock(page: Page) {
           invoke: async (command: string, args: { runId?: string; itemId?: string } = {}) => {
             const calls = JSON.parse(sessionStorage.getItem('live-calls') || '[]')
             sessionStorage.setItem('live-calls', JSON.stringify([...calls, { command, ...args }]))
+            if (command === 'get_mole_cleanup')
+              return {
+                version: 1,
+                activeRequest: null,
+                authorizationRequired: false,
+                records: [],
+                current: null,
+              }
             if (command === 'get_ai_scan') return null
             if (
               [
