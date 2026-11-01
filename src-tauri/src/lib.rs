@@ -27,6 +27,7 @@ mod app_protection;
 mod app_receipts;
 mod app_shared_rules;
 mod app_uninstall_rules;
+mod app_update_discovery;
 mod app_usage;
 mod application_update;
 mod clean_preview;
@@ -127,6 +128,7 @@ struct AppState {
     mole_clean: Arc<mole_clean::Controller>,
     device_backups: Arc<Mutex<device_backups::Store>>,
     application_updates: Arc<Mutex<application_update::Store>>,
+    app_update_discovery: Arc<Mutex<app_update_discovery::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
     personal_transfers: Arc<Mutex<personal_files::transfer::Store>>,
     storage_monitor: Arc<storage_monitor::Controller>,
@@ -2395,6 +2397,7 @@ pub fn run() {
                     mole_clean: Arc::new(mole_clean::Controller::default()),
                     device_backups: Arc::new(Mutex::new(device_backups::Store::default())),
                     application_updates: Arc::new(Mutex::new(application_update::Store::default())),
+                    app_update_discovery: Arc::new(Mutex::new(app_update_discovery::Store::default())),
                     personal_archives: Arc::new(Mutex::new(
                         personal_files::archive::Store::default(),
                     )),
@@ -2623,6 +2626,10 @@ pub fn run() {
             check_updates,
             device_backups::commands::get_device_backups,
             application_update::commands::prepare_application_update,
+            app_update_discovery::commands::prepare_app_update_discovery,
+            app_update_discovery::commands::check_app_update_discovery,
+            app_update_discovery::commands::discard_app_update_discovery,
+            app_update_discovery::commands::open_app_update_candidate,
             application_update::commands::discard_application_update,
             application_update::commands::execute_application_update,
             application_update::commands::get_application_updates,

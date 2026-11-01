@@ -1,7 +1,7 @@
 use super::*;
 use crate::AppState;
 use std::sync::Arc;
-pub(super) struct Registered {
+pub(crate) struct Registered {
     state: AppState,
     id: String,
 }
@@ -12,7 +12,7 @@ impl Drop for Registered {
         }
     }
 }
-pub(super) fn register(state: &AppState, id: &str) -> Result<(Arc<Job>, Registered), String> {
+pub(crate) fn register(state: &AppState, id: &str) -> Result<(Arc<Job>, Registered), String> {
     uuid::Uuid::parse_str(id).map_err(|_| "应用更新请求标识无效。")?;
     let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     if state.shutdown.closing()

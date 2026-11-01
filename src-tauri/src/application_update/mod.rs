@@ -103,7 +103,7 @@ fn cancelled(job: &Job) -> Result<(), String> {
         Ok(())
     }
 }
-fn version(raw: &str) -> Result<Vec<u64>, String> {
+pub(crate) fn version(raw: &str) -> Result<Vec<u64>, String> {
     let parts = raw.split('.').collect::<Vec<_>>();
     if parts.is_empty()
         || parts.len() > 6

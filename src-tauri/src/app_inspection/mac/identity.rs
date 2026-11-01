@@ -94,6 +94,17 @@ pub(crate) fn update_managed(path: &Path) -> Result<bool, String> {
     }
     Ok(fields.update_managed)
 }
+pub(crate) fn update_feed(
+    path: &Path,
+) -> Result<(Option<String>, Option<String>, Option<String>), String> {
+    let bundle = Bundle::open(path.to_str().ok_or("应用路径无法编码。")?)?;
+    let (evidence, bytes) = Evidence::read(&bundle)?;
+    let fields = parse(&bytes)?;
+    if !evidence.verify(&bundle) {
+        return Err("应用身份文件已变化。".into());
+    }
+    Ok((fields.feed_url, fields.version, fields.build))
+}
 
 // Lifecycle controls bind the bundle, Info.plist and main executable. They do
 // not need the recursive inventory required to authorize whole-App removal.

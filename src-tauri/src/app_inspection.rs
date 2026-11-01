@@ -423,6 +423,7 @@ mod mac {
         package_type: Option<String>,
         minimum_os: Option<String>,
         update_managed: bool,
+        feed_url: Option<String>,
     }
     fn background_marker(value: Option<&AnyObject>) -> crate::app_background::Marker {
         use crate::app_background::Marker;
@@ -501,6 +502,7 @@ mod mac {
                 executable: field("CFBundleExecutable", 255),
                 package_type: field("CFBundlePackageType", 16),
                 minimum_os: field("LSMinimumSystemVersion", 128),
+                feed_url: field("SUFeedURL", 4096),
                 update_managed: ["SMPrivilegedExecutables", "SMAuthorizedClients"]
                     .iter()
                     .any(|key| dictionary.objectForKey(&NSString::from_str(key)).is_some()),
