@@ -56,7 +56,7 @@ export function PersonalFiles({
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [comparison, setComparison] = useState<VideoTarget[] | null>(null)
   const [focusOnly, setFocusOnly] = useState(false)
-  const { photoSequences, setPhotoSequences } = c
+  const { photoSequences, setPhotoSequences, videoCandidates, setVideoCandidates } = c
   const language = useLanguage()
   const software =
     mode === 'software' || mode === 'downloads' || mode === 'offline' || mode === 'chat'
@@ -81,7 +81,9 @@ export function PersonalFiles({
   const fresh =
     !!report &&
     c.root.trim().replace(/\/+$/, '') === report.root &&
-    (mode !== 'similar' || !!report.similarPhotos?.sequence === photoSequences) &&
+    (mode !== 'similar' ||
+      (!!report.similarPhotos?.sequence === photoSequences &&
+        (report.similarPhotos?.method === 'videoFramesVisionV2') === videoCandidates)) &&
     (!softwareSource || report.softwareContent?.source === softwareSource) &&
     (mode !== 'offline' ||
       (!!playlistPath && report.softwareContent?.playlistPath === playlistPath)) &&
@@ -144,9 +146,11 @@ export function PersonalFiles({
           : mode === 'software'
             ? '确认处理软件附件副本'
             : mode === 'similar'
-              ? photoSequences
-                ? '确认处理连续拍摄候选'
-                : '确认处理相似照片'
+              ? videoCandidates
+                ? '确认处理相似视频候选'
+                : photoSequences
+                  ? '确认处理连续拍摄候选'
+                  : '确认处理相似照片'
               : mode === 'duplicates'
                 ? '确认处理重复文件'
                 : '确认处理个人文件'
@@ -171,6 +175,7 @@ export function PersonalFiles({
     browserProfile?.browser,
     browserProfile?.profile,
     photoSequences,
+    videoCandidates,
   ])
   useEffect(() => {
     if (!fresh || c.running) setComparison(null)
@@ -271,7 +276,9 @@ export function PersonalFiles({
                     : mode === 'software'
                       ? '软件附件目录'
                       : mode === 'similar'
-                        ? '相似照片目录'
+                        ? videoCandidates
+                          ? '相似视频目录'
+                          : '相似照片目录'
                         : mode === 'duplicates'
                           ? '重复文件目录'
                           : '个人文件目录'
@@ -286,15 +293,19 @@ export function PersonalFiles({
         </label>
         {mode === 'similar' && (
           <label className="personal-comparison-mode">
-            <span>照片比较方式</span>
+            <span>比较方式</span>
             <select
-              aria-label="照片比较方式"
-              value={photoSequences ? 'sequence' : 'visual'}
+              aria-label="比较方式"
+              value={videoCandidates ? 'video' : photoSequences ? 'sequence' : 'visual'}
               disabled={c.running || pending}
-              onChange={(e) => setPhotoSequences(e.target.value === 'sequence')}
+              onChange={(e) => {
+                setPhotoSequences(e.target.value === 'sequence')
+                setVideoCandidates(e.target.value === 'video')
+              }}
             >
               <option value="visual">视觉相似照片</option>
               <option value="sequence">连续拍摄候选</option>
+              <option value="video">相似视频候选</option>
             </select>
           </label>
         )}
@@ -333,17 +344,26 @@ export function PersonalFiles({
               : mode === 'software'
                 ? '这些是 Mail 打开或下载的附件副本，可能含有尚未另存的编辑内容，不能视为可重建缓存。仅列出超过 30 个完整天数的普通文件；默认不选。处理前请正常退出 Mail，核对内容和原邮件是否仍可取得。'
                 : mode === 'similar'
-                  ? '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。连续拍摄候选还需要照片内的拍摄时间与相机线索，不代表已确认连拍关系。只比较普通目录中的静态图片，不进入照片图库或处理视频。'
+                  ? videoCandidates
+                    ? '按本机采样画面寻找相似视频候选，默认不选，每组至少保留一份。采样不能覆盖整段视频，也不比较声音或字幕；请播放对照并自行核对独有片段，画面相似不代表可以互相替代或删除。'
+                    : '按本机视觉特征寻找相似照片，默认不选。相似不等于相同，可能包含不同表情、细节或唯一内容；请并排比较并自行选择，每组至少保留一张。连续拍摄候选还需要照片内的拍摄时间与相机线索，不代表已确认连拍关系。只比较普通目录中的静态图片，不进入照片图库或处理视频。'
                   : mode === 'duplicates'
                     ? '按文件内容核对并分组，默认不选，每组至少保留一份。相同内容在不同位置仍可能各有用途，请核对路径后选择；文件夹、应用资料库与相似但不同的照片不在本轮范围。'
                     : '按内容需要自行选择个人文件，默认不选。文件较大或久未修改不代表可以删除；本轮处理普通文件，文件夹和应用资料库保留。'}
       </p>
       {mode === 'similar' && (
         <details>
-          <summary>相似照片扫描范围</summary>
+          <summary>{videoCandidates ? '视频采样范围' : '相似照片扫描范围'}</summary>
           <p className="muted">
-            支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32
-            MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。照片图库、RAW、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
+            {videoCandidates ? (
+              '支持普通本地、自包含的 MP4/M4V/MOV，两秒至三十分钟，每份最多 512 MiB。本轮最多尝试 40 份、读取两 GiB；在约 10%、50%、90% 的位置各取一帧，结合相近时长和画面比例寻找候选。采样不检查全部片段、音轨或字幕；图库、云占位、加密、外部引用、其他格式和未解码内容保留。私有临时副本在本次分析结束后清理，取消或超时停止本次解码；达到上限时明确保留未完整状态。'
+            ) : (
+              <>
+                {' '}
+                支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32
+                MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。照片图库、RAW、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
+              </>
+            )}
           </p>
         </details>
       )}
@@ -407,7 +427,12 @@ export function PersonalFiles({
           )}
           {report.similarPhotos && (
             <p className="notice">
-              {report.similarPhotos.sequence ? (
+              {report.similarPhotos.method === 'videoFramesVisionV2' ? (
+                <>
+                  已核对 {report.similarPhotos.checkedFiles} 段视频，找到 {groups.length}{' '}
+                  组采样画面相似候选；请播放核对声音及未采样片段，不自动认定可删除。
+                </>
+              ) : report.similarPhotos.sequence ? (
                 <>
                   已核对 {report.similarPhotos.checkedFiles} 张静态图片，找到 {groups.length}{' '}
                   组连续拍摄候选；{report.similarPhotos.sequence.missingMetadata}{' '}
@@ -436,7 +461,9 @@ export function PersonalFiles({
           )}
           {!fresh && (
             <p className="notice warning">
-              {mode === 'similar' && !!report.similarPhotos?.sequence !== photoSequences
+              {mode === 'similar' &&
+              (!!report.similarPhotos?.sequence !== photoSequences ||
+                (report.similarPhotos?.method === 'videoFramesVisionV2') !== videoCandidates)
                 ? '比较方式已变化，请重新扫描后选择。'
                 : '扫描已过期或整理目录已变化，请重新扫描后选择。'}
             </p>
@@ -490,7 +517,7 @@ export function PersonalFiles({
             </select>
           </div>
           <div className="personal-selection">
-            {(mode === 'personal' || mode === 'duplicates' || software) &&
+            {(mode === 'personal' || mode === 'duplicates' || software || videoCandidates) &&
               report.items.some((item) => comparableVideo(item.path)) && (
                 <>
                   <button
@@ -622,6 +649,7 @@ export function PersonalFiles({
             {displayItems.slice(0, limit).map((item, index) => {
               const group = groups.find((g) => g.itemIds.includes(item.id))
               const photo = report?.similarPhotos?.images.find((p) => p.id === item.id)
+              const video = report?.similarPhotos?.videos?.find((p) => p.id === item.id)
               const lastCopy =
                 !!group &&
                 group.itemIds.filter((id) => !chosen.some((i) => i.id === id)).length <= 1 &&
@@ -634,7 +662,9 @@ export function PersonalFiles({
                     <header className="duplicate-group">
                       <strong>
                         {mode === 'similar' ? (
-                          report.similarPhotos?.sequence ? (
+                          report.similarPhotos?.method === 'videoFramesVisionV2' ? (
+                            `采样画面相似 · ${group.itemIds.length} 段`
+                          ) : report.similarPhotos?.sequence ? (
                             `连续拍摄候选 · ${group.itemIds.length} 张`
                           ) : (
                             `视觉相似 · ${group.itemIds.length} 张`
@@ -649,8 +679,42 @@ export function PersonalFiles({
                         )}
                       </strong>
                       <span>
-                        {mode === 'similar' ? '每组至少保留一张，内容可能不同' : '每组至少保留一份'}
+                        {mode === 'similar' && !videoCandidates
+                          ? '每组至少保留一张，内容可能不同'
+                          : '每组至少保留一份'}
                       </span>
+                      {videoCandidates && group.itemIds.length <= 4 && (
+                        <button
+                          className="button secondary compact"
+                          disabled={
+                            !enabled ||
+                            !fresh ||
+                            c.running ||
+                            pending ||
+                            group.itemIds.some((id) =>
+                              blocked(report.items.find((i) => i.id === id)!.path),
+                            )
+                          }
+                          onClick={() => {
+                            setPreview(null)
+                            setComparison(
+                              group.itemIds.map((id) => {
+                                const i = report.items.find((i) => i.id === id)!
+                                return {
+                                  domain: 'similarPhotos',
+                                  scanId: report.id,
+                                  itemId: i.id,
+                                  path: i.path,
+                                  name: i.name,
+                                  size: i.size,
+                                }
+                              }),
+                            )
+                          }}
+                        >
+                          对比本组视频
+                        </button>
+                      )}
                       {'captureSpanMs' in group && typeof group.captureSpanMs === 'number' && (
                         <small>拍摄跨度 {group.captureSpanMs} 毫秒</small>
                       )}
@@ -692,6 +756,22 @@ export function PersonalFiles({
                     <div>
                       <strong data-i18n="off">{item.name}</strong>
                       <p className="mono full-path">{shortPath(item.path, home)}</p>
+                      {video && (
+                        <>
+                          <p className="muted">
+                            时长 {video.durationMs / 1000} 秒 · 采样帧 {photo?.width} ×{' '}
+                            {photo?.height} 像素
+                          </p>
+                          <div className="video-candidate-frames">
+                            {video.frames.map((frame, index) => (
+                              <figure key={frame.atMs}>
+                                <img src={frame.thumbnail} alt={`采样画面 ${index + 1}`} />
+                                <figcaption>{(frame.atMs / 1000).toFixed(2)} 秒</figcaption>
+                              </figure>
+                            ))}
+                          </div>
+                        </>
+                      )}
                       {photo?.capturedAt && (
                         <p className="muted">
                           拍摄时间：<span data-i18n="off">{photo.capturedAt}</span>
@@ -703,7 +783,9 @@ export function PersonalFiles({
                           : grouped
                             ? chosen.some((i) => i.id === item.id)
                               ? mode === 'similar'
-                                ? '所选照片'
+                                ? videoCandidates
+                                  ? '所选视频'
+                                  : '所选照片'
                                 : '所选副本'
                               : '将保留'
                             : '个人文件 · 需自行确认'}{' '}
@@ -728,7 +810,7 @@ export function PersonalFiles({
                       )}
                     </div>
                     <span>
-                      {photo && (
+                      {photo && !video && (
                         <>
                           {photo.width} × {photo.height} 像素 ·{' '}
                         </>
@@ -756,7 +838,7 @@ export function PersonalFiles({
                       >
                         预览内容
                       </button>
-                      {comparableVideo(item.path) && mode !== 'similar' && (
+                      {comparableVideo(item.path) && (mode !== 'similar' || videoCandidates) && (
                         <button
                           className="button secondary compact"
                           aria-pressed={comparisonIds.includes(item.id)}
@@ -936,7 +1018,13 @@ export function PersonalFiles({
           </div>
           {confirmation.keptFiles && (
             <section className="notice">
-              <strong>{mode === 'similar' ? '本批保留的照片' : '这批保留的副本'}</strong>
+              <strong>
+                {mode === 'similar'
+                  ? videoCandidates
+                    ? '本批保留的视频'
+                    : '本批保留的照片'
+                  : '这批保留的副本'}
+              </strong>
               {confirmation.keptFiles.map((item) => (
                 <p className="mono full-path" key={item.id}>
                   {item.path}
@@ -944,7 +1032,9 @@ export function PersonalFiles({
               ))}
               <p>
                 {mode === 'similar'
-                  ? '每张照片的内容单独核验，视觉相似不代表内容可以互相替代。保留照片变化或缺失时，本项不处理。'
+                  ? videoCandidates
+                    ? '每段视频会独立核对完整内容，采样画面相似不代表声音、字幕或未采样片段相同。保留视频变化或缺失时，本项不处理。'
+                    : '每张照片的内容单独核验，视觉相似不代表内容可以互相替代。保留照片变化或缺失时，本项不处理。'
                   : '执行前会重新核对所选文件与保留副本的内容；保留副本变化或缺失时，本项不处理。'}
               </p>
             </section>

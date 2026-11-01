@@ -205,7 +205,7 @@ const navigation = [
   ['softwareCleanup', Sparkles, '软件清理'],
   ['personalFiles', FolderOpen, '文件整理'],
   ['duplicateFiles', Copy, '重复文件'],
-  ['similarPhotos', Copy, '相似照片'],
+  ['similarPhotos', Copy, '相似照片与视频'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
   ['cleanup', Sparkles, '清理'],
@@ -1283,7 +1283,9 @@ export default function App() {
                     >
                       <Search size={15} />
                       {page === 'similarPhotos'
-                        ? '查找相似照片'
+                        ? activeFiles.videoCandidates
+                          ? '查找相似视频'
+                          : '查找相似照片'
                         : page === 'duplicateFiles'
                           ? '查找重复文件'
                           : '扫描文件'}

@@ -144,7 +144,7 @@ function Comparison({
     <Modal title="视频并排对比" className="video-comparison-modal" onClose={onClose}>
       <h2>视频并排对比</h2>
       <p>
-        逐段核对画面、声音和路径，再选择需要处理的文件。默认不选、不自动播放，也不认定这些视频相同或相似。
+        逐段核对画面、声音和路径，再选择需要处理的文件。默认不选、不自动播放；即使来自相似候选，也需人工核对完整内容。
       </p>
       {!reports && !error && <p role="status">正在准备所选视频…</p>}
       {reports && (

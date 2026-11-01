@@ -10759,5 +10759,237 @@
     "使用与 mo clean 相同的完整清理规则，自动处理符合条件的项目。",
     "Uses the same complete cleanup rules as mo clean to automatically process eligible items.",
     "mo clean と同じ完全なクリーンアップルールで、条件を満たす項目を自動処理します。"
+  ],
+  ["相似照片与视频", "Similar photos and videos", "似ている写真と動画"],
+  ["查找相似视频", "Find similar videos", "似ている動画を探す"],
+  [
+    "来源：相似视频候选。只比较采样画面与时长，声音和未采样片段可能不同；逐项选择并保留原件后处理。",
+    "Source: visual video candidates. Only sampled frames and duration are compared; audio and unsampled sections may differ. Review each file and keep an original before processing.",
+    "出所：似ている動画の候補。比較対象はサンプル画面と長さのみで、音声や未抽出部分は異なる場合があります。各ファイルを確認し、原本を残して処理します。"
+  ],
+  ["确认处理相似视频候选", "Confirm video candidate processing", "動画候補の処理を確認"],
+  ["相似视频目录", "Video comparison folder", "動画を比較するフォルダ"],
+  ["比较方式", "Comparison mode", "比較方法"],
+  ["相似视频候选", "Similar video candidates", "似ている動画の候補"],
+  [
+    "按本机采样画面寻找相似视频候选，默认不选，每组至少保留一份。采样不能覆盖整段视频，也不比较声音或字幕；请播放对照并自行核对独有片段，画面相似不代表可以互相替代或删除。",
+    "Finds visual video candidates from local sample frames. Nothing is selected by default; keep at least one file per group. Samples do not cover the full video or compare audio or subtitles. Play the files and review unique sections yourself; similar pictures do not prove files are interchangeable or disposable.",
+    "本機で抽出したサンプル画面から似ている動画の候補を探します。初期状態は未選択で、各グループに最低1本を残します。動画全体や音声、字幕は比較しません。再生して独自の部分を確認してください。画面が似ていても、代替可能または削除可能とは限りません。"
+  ],
+  ["视频采样范围", "Video sampling scope", "動画サンプルの対象範囲"],
+  [
+    "支持普通本地、自包含的 MP4/M4V/MOV，两秒至三十分钟，每份最多 512 MiB。本轮最多尝试 40 份、读取两 GiB；在约 10%、50%、90% 的位置各取一帧，结合相近时长和画面比例寻找候选。采样不检查全部片段、音轨或字幕；图库、云占位、加密、外部引用、其他格式和未解码内容保留。私有临时副本在本次分析结束后清理，取消或超时停止本次解码；达到上限时明确保留未完整状态。",
+    "Supports ordinary local, self-contained MP4/M4V/MOV videos from two seconds to thirty minutes, up to 512 MiB each. Each scan attempts up to 40 files and reads up to two GiB. Frames near 10%, 50% and 90% are compared with duration and aspect ratio. Whole sequences, audio and subtitles are not checked. Libraries, cloud placeholders, encryption, external references, other formats and undecoded files are retained. Private temporary copies are cleaned after analysis; cancellation or timeout stops this decoder. Limits leave the result explicitly incomplete.",
+    "ローカルにある通常の自己完結型 MP4/M4V/MOV に対応します。長さは2秒から30分、1本512 MiBまで。1回で最大40本を試行し、読み取りは2 GiBまでです。約10%、50%、90%の画面と、長さ・縦横比から候補を探します。全場面、音声、字幕は確認しません。ライブラリ、クラウド上の未取得ファイル、暗号化、外部参照、その他の形式や未復号の内容は保持します。分析終了時に一時コピーを削除し、キャンセルや時間切れで今回の復号を停止します。上限に達した場合は未完了と表示します。"
+  ],
+  [
+    "已核对 {0} 段视频，找到 {1} 组采样画面相似候选；请播放核对声音及未采样片段，不自动认定可删除。",
+    "Checked {0} videos and found {1} groups with similar sampled frames. Play them to review audio and unsampled sections; deletion is never assumed.",
+    "{0}本の動画を確認し、サンプル画面が似ている候補が{1}組見つかりました。再生して音声と未抽出部分を確認してください。削除可能とは自動判定しません。"
+  ],
+  ["段视频，找到", "videos; found", "本の動画を確認、候補は"],
+  [
+    "组采样画面相似候选；请播放核对声音及未采样片段，不自动认定可删除。",
+    "groups with similar sampled frames. Review audio and unsampled sections; deletion is never assumed.",
+    "組です。音声と未抽出部分も再生して確認してください。削除可能とは自動判定しません。"
+  ],
+  ["采样画面相似 · {0} 段", "Similar sampled frames · {0} videos", "似ているサンプル画面 · {0}本"],
+  ["对比本组视频", "Compare this video group", "このグループの動画を比較"],
+  [
+    "时长 {0} 秒 · 采样帧 {1} × {2} 像素",
+    "Duration {0} s · Sample frame {1} × {2} px",
+    "長さ {0}秒 · サンプル画面 {1} × {2}ピクセル"
+  ],
+  ["时长", "Duration", "長さ"],
+  ["秒 · 采样帧", "s · Sample frame", "秒 · サンプル画面"],
+  ["采样画面 {0}", "Sample frame {0}", "サンプル画面 {0}"],
+  ["所选视频", "Selected video", "選択した動画"],
+  ["本批保留的视频", "Videos kept in this batch", "今回保持する動画"],
+  [
+    "每段视频会独立核对完整内容，采样画面相似不代表声音、字幕或未采样片段相同。保留视频变化或缺失时，本项不处理。",
+    "Each video is independently checked against its full-content hash. Similar sample frames do not prove audio, subtitles or unsampled sections are identical. If a kept video changes or is missing, this item is retained.",
+    "各動画の内容全体を個別のハッシュと照合します。サンプル画面が似ていても、音声、字幕、未抽出部分の一致は保証しません。保持する動画が変更または消失した場合、この項目は処理しません。"
+  ],
+  [
+    "逐段核对画面、声音和路径，再选择需要处理的文件。默认不选、不自动播放；即使来自相似候选，也需人工核对完整内容。",
+    "Review pictures, audio and paths section by section, then choose files to process. Nothing is selected or played automatically. Even similarity candidates need manual review of the full content.",
+    "画面、音声、パスを部分ごとに確認し、処理するファイルを選択してください。初期状態は未選択で、自動再生もしません。似ている候補でも、内容全体を手動で確認する必要があります。"
+  ],
+  [
+    "请选择一种媒体比较方式。",
+    "Choose one media comparison mode.",
+    "メディアの比較方法を1つ選択してください。"
+  ],
+  [
+    "视频采样帧尺寸超过本轮范围。",
+    "The video sample frame exceeds the supported dimensions.",
+    "動画のサンプル画面が対応サイズを超えています。"
+  ],
+  [
+    "每组至少保留一份，请撤销一个文件的选择。",
+    "Keep at least one file per group. Deselect a file.",
+    "各グループに最低1つ残してください。ファイルの選択を解除してください。"
+  ],
+  [
+    "选择不属于当前相似媒体分组。",
+    "The selection is outside the current similar-media groups.",
+    "選択項目は現在の類似メディアグループに含まれていません。"
+  ],
+  [
+    "相似媒体选择与保留原件无法核对。",
+    "The media selection and kept originals could not be verified.",
+    "メディアの選択と保持する原本を確認できません。"
+  ],
+  [
+    "缺少本组保留原件的记录。",
+    "The kept original record for this group is missing.",
+    "このグループで保持する原本の記録がありません。"
+  ],
+  [
+    "保留原件已变化或不再位于本机，本项保留。",
+    "The kept original changed or is no longer local. This item was retained.",
+    "保持する原本が変更されたか、ローカルにありません。この項目を保持しました。"
+  ],
+  [
+    "所选视频证据缺失。",
+    "Evidence for the selected video is missing.",
+    "選択した動画の根拠がありません。"
+  ],
+  [
+    "视频或保留原件的内容已变化，本项保留。",
+    "The video or kept original content changed. This item was retained.",
+    "動画または保持する原本の内容が変わりました。この項目を保持しました。"
+  ],
+  [
+    "视频未落地、已保护或超过本轮读取范围，原文件保留。",
+    "The video is not local, is protected or exceeds this read scope. The original was retained.",
+    "動画は未取得、保護対象、または読み取り範囲外です。原本を保持しました。"
+  ],
+  [
+    "视频身份或本地状态已变化，请重新扫描。",
+    "The video identity or local state changed. Scan again.",
+    "動画の識別情報またはローカル状態が変わりました。再走査してください。"
+  ],
+  ["缺少视频身份。", "The video identity is missing.", "動画の識別情報がありません。"],
+  [
+    "视频不是当前账户的普通单链接本地文件。",
+    "The video is not an ordinary local file with a single link owned by this user.",
+    "動画はこのユーザーが所有する通常のローカル単一リンクファイルではありません。"
+  ],
+  [
+    "无法核对视频临时副本的可用空间。",
+    "Free space for the temporary video copy could not be checked.",
+    "動画の一時コピー用の空き容量を確認できません。"
+  ],
+  [
+    "视频临时副本空间不足，原件保持不变。",
+    "There is insufficient space for a temporary video copy. The original is unchanged.",
+    "動画の一時コピー用の空き容量が不足しています。原本は変更していません。"
+  ],
+  [
+    "视频内容核对已停止，未确认的文件保留。",
+    "Video content checking stopped. Unverified files were retained.",
+    "動画内容の確認を停止しました。未確認のファイルは保持しました。"
+  ],
+  [
+    "视频在读取期间变大，请重新扫描。",
+    "The video grew while reading. Scan again.",
+    "読み取り中に動画のサイズが増えました。再走査してください。"
+  ],
+  [
+    "视频临时副本未写完，原件保持不变。",
+    "The temporary video copy was not completed. The original is unchanged.",
+    "動画の一時コピーを完了できませんでした。原本は変更していません。"
+  ],
+  [
+    "视频在读取期间已变化，请重新扫描。",
+    "The video changed while reading. Scan again.",
+    "読み取り中に動画が変わりました。再走査してください。"
+  ],
+  [
+    "视频采样输出超过本轮范围。",
+    "The video sample output exceeds the limit.",
+    "動画サンプルの出力が上限を超えています。"
+  ],
+  [
+    "视频采样格式无法核对。",
+    "The video sample format could not be verified.",
+    "動画サンプルの形式を確認できません。"
+  ],
+  [
+    "视频临时路径无法编码。",
+    "The temporary video path could not be encoded.",
+    "動画の一時パスをエンコードできません。"
+  ],
+  [
+    "视频采样返回格式无法核对。",
+    "The returned video sample format could not be verified.",
+    "返された動画サンプルの形式を確認できません。"
+  ],
+  [
+    "视频采样帧与返回尺寸不匹配。",
+    "The video sample frame does not match the reported dimensions.",
+    "動画のサンプル画面が報告されたサイズと一致しません。"
+  ],
+  ["视频缺少父目录。", "The video has no parent folder.", "動画の親フォルダがありません。"],
+  [
+    "无法定位本地视频采样程序。",
+    "The local video sampling program could not be located.",
+    "ローカルの動画サンプリングプログラムが見つかりません。"
+  ],
+  [
+    "视频采样时长、画面或位置无法核对。",
+    "The video sample duration, picture or position could not be verified.",
+    "動画サンプルの長さ、画面、位置を確認できません。"
+  ],
+  [
+    "视频时间不是已支持的有限时间。",
+    "The video timestamp is not a supported finite time.",
+    "動画の時刻が対応する有限の時間ではありません。"
+  ],
+  [
+    "视频时长超过本轮三十分钟范围。",
+    "The video duration exceeds the thirty-minute scope.",
+    "動画の長さが今回の30分の範囲を超えています。"
+  ],
+  [
+    "视频临时副本路径无法核对。",
+    "The temporary video copy path could not be verified.",
+    "動画の一時コピーのパスを確認できません。"
+  ],
+  [
+    "视频临时副本不是普通本地文件。",
+    "The temporary video copy is not an ordinary local file.",
+    "動画の一時コピーは通常のローカルファイルではありません。"
+  ],
+  [
+    "系统视频采样服务不可用。",
+    "The system video sampling service is unavailable.",
+    "システムの動画サンプリング機能を利用できません。"
+  ],
+  [
+    "视频加密、不可播放或视频轨道数量未支持。",
+    "The video is protected, unplayable or has an unsupported number of video tracks.",
+    "動画は保護対象、再生不可、または動画トラック数が未対応です。"
+  ],
+  [
+    "本轮视频采样支持两秒至三十分钟的普通视频。",
+    "This video sampling supports ordinary videos from two seconds to thirty minutes.",
+    "今回のサンプリングは2秒から30分の通常の動画に対応します。"
+  ],
+  [
+    "视频采样尺寸在画面间变化，本轮保留。",
+    "The video sample dimensions changed between frames. This video was retained.",
+    "サンプル画面間でサイズが変わりました。この動画を保持しました。"
+  ],
+  [
+    "视频采样请求超过范围。",
+    "The video sample request exceeds the limit.",
+    "動画サンプルの要求が上限を超えています。"
+  ],
+  [
+    "视频采样请求格式无法核对。",
+    "The video sample request format could not be verified.",
+    "動画サンプルの要求形式を確認できません。"
   ]
 ]

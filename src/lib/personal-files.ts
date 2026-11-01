@@ -41,12 +41,13 @@ export interface PersonalReport {
     extraBytes: number
   }
   similarPhotos?: {
-    method: 'visionFeaturePrintV2'
+    method: 'visionFeaturePrintV2' | 'videoFramesVisionV2'
     groups: { id: string; itemIds: string[]; captureSpanMs?: number }[]
     images: { id: string; width: number; height: number; thumbnail: string; capturedAt?: string }[]
     checkedFiles: number
     bytesRead: number
     sequence?: { missingMetadata: number }
+    videos?: { id: string; durationMs: number; frames: { atMs: number; thumbnail: string }[] }[]
   }
   softwareContent?: {
     source:
@@ -87,7 +88,12 @@ export interface PersonalMovement {
 export interface PersonalTransport {
   origin?: 'personalFiles' | 'duplicateFiles' | 'similarPhotos' | 'softwareContent'
   read: () => Promise<unknown>
-  start: (root: string, requestId: string, photoSequences?: boolean) => Promise<void>
+  start: (
+    root: string,
+    requestId: string,
+    photoSequences?: boolean,
+    videoCandidates?: boolean,
+  ) => Promise<void>
   startFromAi?: (snapshotId: string, evidenceIds: string[], requestId: string) => Promise<string>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
   discard: (confirmationId: string) => Promise<void>
@@ -133,8 +139,8 @@ export const similarTransport: PersonalTransport = {
   ...personalTransport,
   origin: 'similarPhotos',
   read: () => invoke('get_similar_photos'),
-  start: (root, requestId, photoSequences = false) =>
-    invoke('start_similar_scan', { root, requestId, photoSequences }),
+  start: (root, requestId, photoSequences = false, videoCandidates = false) =>
+    invoke('start_similar_scan', { root, requestId, photoSequences, videoCandidates }),
   prepare: (scanId, selectedIds) => invoke('prepare_similar_trash', { scanId, selectedIds }),
   discard: (confirmationId) => invoke('discard_similar_trash', { confirmationId }),
   execute: (confirmationId, requestId) =>
@@ -358,7 +364,7 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       const s = object(r.similarPhotos)
       if (
         r.duplicates !== undefined ||
-        s.method !== 'visionFeaturePrintV2' ||
+        !['visionFeaturePrintV2', 'videoFramesVisionV2'].includes(s.method as string) ||
         !Array.isArray(s.groups) ||
         s.groups.length > 100 ||
         !Array.isArray(s.images) ||
@@ -371,6 +377,8 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         s.sequence === undefined
           ? undefined
           : { missingMetadata: number(object(s.sequence).missingMetadata) }
+      const videoMethod = s.method === 'videoFramesVisionV2'
+      if (videoMethod ? !!sequence || !Array.isArray(s.videos) : s.videos !== undefined) fail()
       if (sequence && sequence.missingMetadata > number(s.checkedFiles)) fail()
       const groups = (s.groups as unknown[]).map((raw) => {
         const g = object(raw),
@@ -422,6 +430,67 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         }
       })
       if (covered.size !== report.items.length || imageIds.size !== covered.size) fail()
+      let videos: NonNullable<PersonalReport['similarPhotos']>['videos']
+      if (videoMethod) {
+        const seen = new Set<string>()
+        videos = (s.videos as unknown[]).map((raw) => {
+          const v = object(raw),
+            key = id(v.id),
+            durationMs = number(v.durationMs)
+          if (
+            seen.has(key) ||
+            !imageIds.has(key) ||
+            durationMs < 2000 ||
+            durationMs > 1800000 ||
+            !Array.isArray(v.frames) ||
+            v.frames.length !== 3
+          )
+            fail()
+          seen.add(key)
+          const frames = (v.frames as unknown[]).map((raw, i) => {
+            const f = object(raw),
+              atMs = number(f.atMs)
+            if (
+              Math.abs(atMs - Math.floor((durationMs * [1, 5, 9][i]) / 10)) > 250 ||
+              typeof f.thumbnail !== 'string' ||
+              f.thumbnail.length > 150000 ||
+              !/^data:image\/png;base64,iVBOR[A-Za-z0-9+/=]+$/.test(f.thumbnail)
+            )
+              fail()
+            return { atMs, thumbnail: f.thumbnail as string }
+          })
+          return { id: key, durationMs, frames }
+        })
+        if (
+          seen.size !== covered.size ||
+          number(s.checkedFiles) > 40 ||
+          number(s.checkedFiles) < seen.size ||
+          number(s.bytesRead) > 2 * 1024 ** 3 ||
+          images.some((i) => i.width > 384 || i.height > 384) ||
+          report.items.some((i) => !/\.(mp4|m4v|mov)$/i.test(i.path) || i.size > 512 * 1024 ** 2)
+        )
+          fail()
+        for (const g of groups) {
+          const first = videos.find((v) => v.id === g.itemIds[0])!,
+            image = images.find((p) => p.id === first.id)!
+          if (
+            g.itemIds.some((id) => {
+              const v = videos!.find((v) => v.id === id)!,
+                p = images.find((p) => p.id === id)!
+              const a = image.width * p.height,
+                b = p.width * image.height
+              return (
+                Math.abs(v.durationMs - first.durationMs) >
+                  Math.max(
+                    100,
+                    Math.min(1000, Math.floor(Math.min(v.durationMs, first.durationMs) / 100)),
+                  ) || Math.abs(a - b) > Math.max(a, b) * 0.02
+              )
+            })
+          )
+            fail()
+        }
+      }
       if (sequence) {
         if (
           number(s.checkedFiles) > 200 ||
@@ -449,12 +518,13 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
         }
       }
       report.similarPhotos = {
-        method: 'visionFeaturePrintV2',
+        method: s.method as 'visionFeaturePrintV2' | 'videoFramesVisionV2',
         groups,
         images,
         checkedFiles: number(s.checkedFiles),
         bytesRead: number(s.bytesRead),
         ...(sequence ? { sequence } : {}),
+        ...(videos ? { videos } : {}),
       }
     }
     if (r.duplicates !== undefined) {

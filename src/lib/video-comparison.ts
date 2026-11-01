@@ -32,7 +32,9 @@ export function videoTargets(targets: VideoTarget[]): void {
         !uuid(t.itemId) ||
         t.scanId !== targets[0].scanId ||
         t.domain !== targets[0].domain ||
-        !['personalFiles', 'duplicateFiles', 'softwareContent'].includes(t.domain) ||
+        !['personalFiles', 'duplicateFiles', 'softwareContent', 'similarPhotos'].includes(
+          t.domain,
+        ) ||
         !/^\/.+\.(mp4|mov|m4v)$/i.test(t.path) ||
         t.path.split('/').some((p) => p === '.' || p === '..') ||
         !Number.isSafeInteger(t.size) ||

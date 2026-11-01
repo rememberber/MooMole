@@ -4952,3 +4952,27 @@ input[type='checkbox'] {
 .mole-clean-active > span {
   flex: 1;
 }
+
+.video-candidate-frames {
+  display: flex;
+  gap: 5px;
+  margin: 8px 0;
+}
+.video-candidate-frames figure {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.video-candidate-frames img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
+  background: var(--surface);
+  border-radius: 4px;
+}
+.video-candidate-frames figcaption {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}

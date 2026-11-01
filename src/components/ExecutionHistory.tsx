@@ -385,7 +385,9 @@ function ExecutionResults({
       )}
       {detail.origin === 'similarPhotos' && (
         <p className="notice">
-          来源：相似照片。依据视觉特征推荐比较，内容可能不同；逐项选择并保留原件后处理。
+          {detail.revision === 'MooMole.similar-videos.v1'
+            ? '来源：相似视频候选。只比较采样画面与时长，声音和未采样片段可能不同；逐项选择并保留原件后处理。'
+            : '来源：相似照片。依据视觉特征推荐比较，内容可能不同；逐项选择并保留原件后处理。'}
         </p>
       )}
       {detail.origin === 'softwareContent' && (

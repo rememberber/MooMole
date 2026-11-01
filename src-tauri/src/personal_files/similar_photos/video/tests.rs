@@ -8,7 +8,10 @@ fn video_source_content_refuses_protection_cancellation_and_changed_objects_befo
         .unwrap();
     let root = t.path().canonicalize().unwrap();
     let path = root.join("clip.mp4");
-    let bytes = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/media/owned-color.mp4"));
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/fixtures/media/owned-color.mp4"
+    ));
     std::fs::write(&path, bytes).unwrap();
     let job = Arc::new(Job::new(TaskKind::PersonalScan));
     let scan = super::super::super::scan::collect(&root, &[], job.clone()).unwrap();

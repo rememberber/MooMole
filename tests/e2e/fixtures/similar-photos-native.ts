@@ -19,17 +19,30 @@ export async function installSimilarMock(page: Page) {
       }
       const convert = (report: any) => {
         if (!report) return report
+        const video = sessionStorage.getItem('video-candidates') === 'true'
         const items = report.items.map((i: any) => ({
           ...i,
-          name: i.name.replace('.txt', '.png'),
-          path: i.path.replace('.txt', '.png'),
+          name: i.name.replace(/\.(txt|png|mp4)$/, video ? '.mp4' : '.png'),
+          path: i.path.replace(/\.(txt|png|mp4)$/, video ? '.mp4' : '.png'),
         }))
         const { duplicates, ...base } = report
         return {
           ...base,
           items,
           similarPhotos: {
-            method: 'visionFeaturePrintV2',
+            method: video ? 'videoFramesVisionV2' : 'visionFeaturePrintV2',
+            ...(video
+              ? {
+                  videos: items.map((i: any) => ({
+                    id: i.id,
+                    durationMs: 3000,
+                    frames: [300, 1500, 2700].map((atMs) => ({
+                      atMs: sessionStorage.getItem('video-bad-output') && atMs === 300 ? 0 : atMs,
+                      thumbnail,
+                    })),
+                  })),
+                }
+              : {}),
             ...(sessionStorage.getItem('photo-sequences') === 'true'
               ? { sequence: { missingMetadata: 1 } }
               : {}),
@@ -59,8 +72,10 @@ export async function installSimilarMock(page: Page) {
       native.invoke = async (command: string, args: any = {}) => {
         const calls = JSON.parse(sessionStorage.getItem('similar-calls') || '[]')
         sessionStorage.setItem('similar-calls', JSON.stringify([...calls, { command, args }]))
-        if (command === 'start_similar_scan')
+        if (command === 'start_similar_scan') {
           sessionStorage.setItem('photo-sequences', String(args.photoSequences === true))
+          sessionStorage.setItem('video-candidates', String(args.videoCandidates === true))
+        }
         if (command === 'get_similar_photos') {
           const value = await original(aliases[command], args)
           if (value.report) {
@@ -70,7 +85,14 @@ export async function installSimilarMock(page: Page) {
           return value
         }
         if (command === 'get_execution')
-          return { ...(await original(command, args)), origin: 'similarPhotos' }
+          return {
+            ...(await original(command, args)),
+            origin: 'similarPhotos',
+            revision:
+              sessionStorage.getItem('video-candidates') === 'true'
+                ? 'MooMole.similar-videos.v1'
+                : 'MooMole.similar-photos.v1',
+          }
         if (command === 'preview_personal_file') {
           const report = JSON.parse(sessionStorage.getItem('personal-report')!),
             item = report.items.find((i: any) => i.id === args.itemId)
