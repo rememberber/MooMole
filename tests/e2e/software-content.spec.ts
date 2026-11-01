@@ -277,6 +277,55 @@ test('multi-browser profiles bind scans and confirmations and changing a profile
   expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
 })
 
+test('Firefox requires an explicit profile and confirms only the newly scanned profile files', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 960, height: 780 })
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')
+  await main.getByRole('combobox', { name: '浏览器', exact: true }).selectOption('firefox')
+  const profile = main.getByRole('combobox', { name: '浏览器配置目录' })
+  await expect(profile).toBeEnabled()
+  await expect(profile).toHaveValue('')
+  const scan = page.getByRole('button', { name: '扫描下载记录', exact: true })
+  await expect(scan).toBeDisabled()
+  await profile.selectOption('abcd1234.default-release')
+  await expect(main).toContainText('/Firefox/Profiles/abcd1234.default-release/places.sqlite')
+  await scan.click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await list.getByRole('checkbox').first().check()
+  await profile.selectOption('efgh5678.work')
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await expect(list.getByRole('checkbox').first()).toBeDisabled()
+  await scan.click()
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await list.getByRole('checkbox').first().check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认处理浏览器下载' })
+  await expect(dialog).toContainText('Firefox · efgh5678.work')
+  await expect(dialog.getByRole('button', { name: '确认移入废纸篓', exact: true })).toBeDisabled()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({
+    path: testInfo.outputPath('firefox-confirmation.png'),
+    animations: 'disabled',
+  })
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(
+    calls
+      .filter((c: any) => c.command === 'start_software_content')
+      .map((c: any) => c.args.browserProfile),
+  ).toEqual([
+    { browser: 'firefox', profile: 'abcd1234.default-release' },
+    { browser: 'firefox', profile: 'efgh5678.work' },
+  ])
+  expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
+})
+
 test('unknown and failed profile reads block scanning and refresh does not submit a file operation', async ({
   page,
 }) => {
@@ -338,6 +387,17 @@ test('profile controls translate while keeping browser IDs, profile names and ra
       }),
     ).toBeVisible()
   }
+  await page.getByRole('combobox', { name: 'ブラウザ', exact: true }).selectOption('firefox')
+  const firefoxProfile = page.getByRole('combobox', { name: 'ブラウザのプロファイルフォルダ' })
+  await expect(firefoxProfile).toBeEnabled()
+  await expect(firefoxProfile).toHaveValue('')
+  await firefoxProfile.selectOption('abcd1234.default-release')
+  await expect(
+    page.getByText(
+      '/Users/demo/Library/Application Support/Firefox/Profiles/abcd1234.default-release/places.sqlite',
+      { exact: true },
+    ),
+  ).toBeVisible()
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('software-content-calls')!),
   )

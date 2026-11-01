@@ -43,16 +43,19 @@ export async function installSoftwareContentMock(page: Page) {
           chromium: 'Chromium',
           edge: 'Microsoft Edge',
           brave: 'BraveSoftware/Brave-Browser',
+          firefox: 'Firefox/Profiles',
         }
         const names = sessionStorage.getItem('browser-profile-empty')
           ? []
-          : ['Default', 'Profile 2']
+          : browser === 'firefox'
+            ? ['abcd1234.default-release', 'efgh5678.work']
+            : ['Default', 'Profile 2']
         const delay = Number(sessionStorage.getItem(`browser-profile-delay-${browser}`) || '0')
         const response = {
           browser,
           profiles: names.map((profile) => ({
             selection: { browser, profile },
-            historyPath: `/Users/demo/Library/Application Support/${relative[browser]}/${profile}/History`,
+            historyPath: `/Users/demo/Library/Application Support/${relative[browser]}/${profile}/${browser === 'firefox' ? 'places.sqlite' : 'History'}`,
           })),
           complete: !sessionStorage.getItem('browser-profile-incomplete'),
           skipped: 0,

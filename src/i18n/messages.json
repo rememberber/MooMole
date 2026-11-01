@@ -1,4 +1,9 @@
 [
+  [
+    "仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox 需手动选择配置；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。",
+    "Only standard profile folders for the selected browser are checked; account names are not read. Select a Firefox profile manually. Guest, private, system, other browsers, and custom locations are not yet supported.",
+    "選択したブラウザの標準プロファイルフォルダのみ確認し、アカウント名は読み取りません。Firefox のプロファイルは手動で選択してください。ゲスト、プライベート、システム、その他のブラウザ、カスタムの保存先は未対応です。"
+  ],
   ["照片缺少父目录。", "The photo has no parent folder.", "写真の親フォルダがありません。"],
   [
     "所选卷为只读或无法核对写入状态，不能启用定期处理。",

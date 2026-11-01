@@ -6,6 +6,8 @@ Firefox 适配依据 Mozilla 的 [DownloadHistory 实现](https://raw.githubuser
 
 沿用私有数据库/WAL 副本、有界查询、保护、确切文件 ID、当前身份和独立确认。原记录不作为可丢弃、内容仍等于下载时或可再次下载的证明。自建 Places WAL 样例经正式 Mole 规则和系统废纸篓实际处理一项，原数据库/WAL 和未列入文件保持不变；仅按真实收据取回自建样例后由 TempDir 自动清理，SQLite 关闭/重开与归档读回一致。精简证据位于 `.cache/verification/native-evidence.json` 的 `firefox-downloads-native.json` 条目。四项新增后端测试通过；这不代替真实 Firefox 数据兼容性或打包 App 窗口验收。
 
+Firefox 界面节点：浏览器列表新增 Firefox，必须明确选择配置，展示确切 `places.sqlite` 路径；切换后撤销旧选择，重新扫描才可形成新确认。默认零文件选择，复用预览、筛选、独立确认、真实结果与历史。新增 WebKit 流程覆盖未选禁用、切换撤回、确切来源传参和仅一次确认执行；日文模式保持原配置和路径，其他浏览器及个人整理流程继续通过。960×780 确认窗目视检查通过，真实后端报告也由生产前端解析器读入通过。完整 Rust 回归 671 项通过、102 项显式忽略；本次 Firefox 与 Mail 的真实原生测试已另行显式执行通过，前端 240 项、相关页面 24 项及构建/翻译/格式检查通过。未为本节点重复打包 App 或 DMG；真实 Firefox 数据、实际 App 窗口、Safari、其他渠道/位置及完整故障矩阵仍未完成。
+
 2026-10-31：从原先固定 Chrome 默认配置扩展到 Chrome、Chromium、Microsoft Edge 与 Brave 标准位置的下载记录。沿用原有软件内容来源标识 `chromeDownloads` 以保留历史兼容；新增可选的 `browserProfile` 明确绑定浏览器和配置目录，旧记录缺失时仅表示原 Chrome/Default，不自动采用其他位置。
 
 来源依据 Chromium 的 [用户数据目录说明](https://raw.githubusercontent.com/chromium/chromium/main/docs/user_data_dir.md)、[普通/访客/系统配置常量](https://raw.githubusercontent.com/chromium/chromium/main/chrome/common/chrome_constants.h) 及 [下载数据库实现](https://raw.githubusercontent.com/chromium/chromium/main/components/history/core/browser/download_database.cc)。Edge 的标准 macOS 数据根参考 [微软文档](https://learn.microsoft.com/en-us/deployedge/initial-preferences-support-on-microsoft-edge-browser)，Brave 标准根参考 [官方数据目录说明](https://support.brave.app/hc/en-us/articles/4404876135565-How-do-I-uninstall-Brave)及[产品目录配置实现](https://raw.githubusercontent.com/brave/brave-core/master/build/mac/tweak_info_plist.py)。这些资料与各浏览器共享 Chromium 的事实只是来源适配依据；实际读取仍要求识别到普通 `downloads` 表和支持的列，不能仅凭浏览器名称接受未知结构。

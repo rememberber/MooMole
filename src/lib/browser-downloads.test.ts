@@ -14,6 +14,50 @@ const profile = {
   historyPath: `${home}/Library/Application Support/Microsoft Edge/Profile 2/History`,
 }
 describe('browser download source boundaries', () => {
+  it('binds Firefox Places paths to one explicit profile without relaxing Chromium names', () => {
+    const selection = { browser: 'firefox', profile: 'abcd1234.default-release' } as const
+    const historyPath = `${home}/Library/Application Support/Firefox/Profiles/abcd1234.default-release/places.sqlite`
+    expect(browserHistoryPath(home, selection)).toBe(historyPath)
+    expect(
+      readBrowserProfiles(
+        { browser: 'firefox', profiles: [{ selection, historyPath }], complete: true, skipped: 0 },
+        'firefox',
+        home,
+      ).profiles,
+    ).toEqual([{ selection, historyPath }])
+    expect(readBrowserProfile({ browser: 'firefox', profile: '私人 工作' }).profile).toBe(
+      '私人 工作',
+    )
+    for (const profile of [
+      '',
+      '.hidden',
+      'bad.',
+      '../other',
+      'a/b',
+      'a\\b',
+      'a:b',
+      ' a',
+      'a\n',
+      '界'.repeat(43),
+    ])
+      expect(() => readBrowserProfile({ browser: 'firefox', profile })).toThrow()
+    expect(() => readBrowserProfile({ browser: 'chrome', profile: selection.profile })).toThrow()
+    expect(() =>
+      readBrowserProfiles(
+        {
+          browser: 'firefox',
+          profiles: [{ selection, historyPath: historyPath.replace('places.sqlite', 'History') }],
+          complete: true,
+          skipped: 0,
+        },
+        'firefox',
+        home,
+      ),
+    ).toThrow()
+    expect(sameBrowserProfile(selection, { browser: 'firefox', profile: 'efgh5678.work' })).toBe(
+      false,
+    )
+  })
   it('accepts only exact supported profile names and directories within the selected browser', () => {
     expect(
       readBrowserProfiles(

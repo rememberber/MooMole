@@ -42,7 +42,7 @@ export function BrowserDownloadsPicker({
         setProfiles(result)
         // Default is the historical source. Other configurations always require
         // an explicit selection; no automatic first-profile fallback.
-        if (result.profiles.some((p) => p.selection.profile === 'Default'))
+        if (browser !== 'firefox' && result.profiles.some((p) => p.selection.profile === 'Default'))
           onChange({ browser, profile: 'Default' })
       })
       .catch((reason) => {
@@ -120,8 +120,8 @@ export function BrowserDownloadsPicker({
         </p>
       )}
       <p className="muted">
-        仅列出标准位置的 Default 和 Profile
-        数字目录，不读取账户名称。访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。
+        仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox
+        需手动选择配置；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。
       </p>
     </div>
   )
