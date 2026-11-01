@@ -86,7 +86,7 @@ try {
             ...(process.argv.includes('--offline') ? { GOPROXY: 'off', GOSUMDB: 'off' } : {}),
           },
         )
-      for (const name of ['mole-clean-preview.sh', 'mole-review-rules.sh'])
+      for (const name of ['mole-clean-preview.sh', 'mole-review-rules.sh', 'mole-clean-run.sh'])
         cpSync(
           resolve(root, 'scripts', name),
           resolve(destination, name.replace('mole-', 'moomole-')),

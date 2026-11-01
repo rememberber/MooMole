@@ -12,6 +12,7 @@
     "desktop": "node scripts/tauri.mjs dev",
     "engine:prepare": "node scripts/prepare-engine.mjs",
     "test": "vitest run",
+    "test:mole-clean": "node --test scripts/mole-clean-run.test.mjs",
     "test:adapter": "node scripts/test-clean-preview.mjs && node scripts/test-review-rules.mjs",
     "test:engine": "node --test scripts/engine-manifest.test.mjs",
     "test:maintenance": "node --test scripts/maintenance-catalog.test.mjs",

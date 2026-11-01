@@ -39,6 +39,7 @@ pub enum TaskKind {
     StartupManagement,
     PersonalTransfer,
     FolderScan,
+    MoleClean,
 }
 
 impl TaskKind {
@@ -67,6 +68,7 @@ impl TaskKind {
             Self::StartupManagement => "startupmanagement",
             Self::PersonalTransfer => "personaltransfer",
             Self::FolderScan => "folderscan",
+            Self::MoleClean => "moleclean",
         }
     }
     pub(crate) fn exclusive_operation(self) -> bool {
@@ -87,6 +89,7 @@ impl TaskKind {
                 | Self::StartupManagement
                 | Self::PersonalTransfer
                 | Self::FolderScan
+                | Self::MoleClean
         )
     }
 }
@@ -415,7 +418,8 @@ async fn run_kind(
         | TaskKind::PersonalArchive
         | TaskKind::StartupManagement
         | TaskKind::PersonalTransfer
-        | TaskKind::FolderScan => return Err("请使用对应的专用任务入口。".into()),
+        | TaskKind::FolderScan
+        | TaskKind::MoleClean => return Err("请使用对应的专用任务入口。".into()),
     };
     command.current_dir(root);
     let started_at = crate::db::now();
@@ -484,7 +488,8 @@ async fn run_kind(
         | TaskKind::PersonalArchive
         | TaskKind::StartupManagement
         | TaskKind::PersonalTransfer
-        | TaskKind::FolderScan => false,
+        | TaskKind::FolderScan
+        | TaskKind::MoleClean => false,
     };
     if !valid {
         return Err("Mole 数据与当前协议不匹配，请核对引擎版本。".into());
@@ -632,6 +637,7 @@ mod tests {
             "bin/status-go",
             "moomole-clean-preview.sh",
             "moomole-review-rules.sh",
+            "moomole-clean-run.sh",
         ] {
             std::fs::write(root.join(name), "fixture").unwrap();
         }

@@ -21,6 +21,7 @@ const REQUIRED: &[&str] = &[
     "bin/uninstall.sh",
     "moomole-clean-preview.sh",
     "moomole-review-rules.sh",
+    "moomole-clean-run.sh",
 ];
 
 #[derive(Deserialize)]

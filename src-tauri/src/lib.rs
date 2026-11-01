@@ -1,4 +1,9 @@
 mod activity_authorization;
+mod mole_clean;
+
+pub fn run_mole_cleanup_worker() -> bool {
+    mole_clean::bridge::worker()
+}
 mod ai_scan;
 mod analysis_protocol;
 mod app_associations;
@@ -106,6 +111,7 @@ struct AppState {
     search_repairs: Arc<Mutex<Option<maintenance::search_repair::Plan>>>,
     file_restorations: Arc<Mutex<file_restoration::Store>>,
     mounted_volumes: Arc<Mutex<mounted_volumes::Store>>,
+    mole_clean: Arc<mole_clean::Controller>,
     device_backups: Arc<Mutex<device_backups::Store>>,
     application_updates: Arc<Mutex<application_update::Store>>,
     personal_archives: Arc<Mutex<personal_files::archive::Store>>,
@@ -899,6 +905,7 @@ fn start_task(
             | TaskKind::StartupManagement
             | TaskKind::PersonalTransfer
             | TaskKind::FolderScan
+            | TaskKind::MoleClean
     ) {
         return Err("请使用该功能的专用操作入口。".into());
     }
@@ -923,7 +930,8 @@ fn start_task(
     if jobs.len() >= 3
         || jobs.contains_key(&task_id)
         || jobs.values().any(|job| {
-            job.kind == kind
+            job.kind == TaskKind::MoleClean
+                || job.kind == kind
                 || matches!(
                     job.kind,
                     TaskKind::AiScan
@@ -2347,6 +2355,7 @@ pub fn run() {
             if let Ok(cache) = app.path().app_cache_dir() {
                 updates.schedule_maintenance(cache.join("pending-updates"));
             }
+            mole_clean::journal::recover(&connection)?;
             app.manage(AppState {
                     db: Arc::new(Mutex::new(connection)),
                     jobs: Arc::new(Mutex::new(HashMap::new())),
@@ -2369,6 +2378,7 @@ pub fn run() {
                     search_repairs: Arc::new(Mutex::new(None)),
                     file_restorations: Arc::new(Mutex::new(file_restoration::Store::default())),
                     mounted_volumes: Arc::new(Mutex::new(mounted_volumes::Store::default())),
+                    mole_clean: Arc::new(mole_clean::Controller::default()),
                     device_backups: Arc::new(Mutex::new(device_backups::Store::default())),
                     application_updates: Arc::new(Mutex::new(application_update::Store::default())),
                     personal_archives: Arc::new(Mutex::new(
@@ -2527,6 +2537,16 @@ pub fn run() {
             startup_management::commands::acknowledge_startup_management,
             startup_management::commands::open_login_item_settings,
             file_restoration::commands::prepare_file_restoration,
+            mole_clean::prepare_mole_cleanup,
+            mole_clean::discard_mole_cleanup,
+            mole_clean::execute_mole_cleanup,
+            mole_clean::get_mole_cleanup,
+            mole_clean::authorize_mole_cleanup,
+            mole_clean::cancel_mole_cleanup,
+            mole_clean::acknowledge_mole_cleanup,
+            mole_clean::export_mole_cleanup,
+            mole_clean::save_mole_cleanup_export,
+            mole_clean::clear_mole_cleanup_record,
             mounted_volumes::get_mounted_volumes,
             mounted_volumes::resolve_mounted_volume,
             file_restoration::commands::discard_file_restoration,

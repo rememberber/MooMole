@@ -178,7 +178,7 @@ pub async fn output_bounded(
     timeout: Duration,
     limit: u64,
 ) -> Result<Vec<u8>, String> {
-    supervise(command, job, timeout, limit, None, None).await
+    supervise(command, job, timeout, limit, None, None, None).await
 }
 
 pub(crate) async fn output_with_input(
@@ -188,7 +188,27 @@ pub(crate) async fn output_with_input(
     timeout: Duration,
     limit: u64,
 ) -> Result<Vec<u8>, String> {
-    supervise(command, job, timeout, limit, None, Some(input)).await
+    supervise(command, job, timeout, limit, None, Some(input), None).await
+}
+
+/// A private controlling terminal for sudo; stdout/stderr remain bounded pipes.
+/// The caller holds only the master input handle. No terminal output is recorded.
+pub(crate) async fn output_with_terminal(
+    command: Command,
+    job: Arc<Job>,
+    timeout: Duration,
+    terminal: std::fs::File,
+) -> Result<Vec<u8>, String> {
+    supervise(
+        command,
+        job,
+        timeout,
+        OUTPUT_LIMIT,
+        None,
+        None,
+        Some(terminal),
+    )
+    .await
 }
 
 type LineReceiver = Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>;
@@ -205,6 +225,7 @@ pub(crate) async fn stream_lines(
         64 * 1024,
         Some(Box::new(receive)),
         None,
+        None,
     )
     .await
     .map(|_| ())
@@ -216,6 +237,7 @@ async fn supervise(
     limit: u64,
     receive: Option<LineReceiver>,
     input: Option<Vec<u8>>,
+    terminal: Option<std::fs::File>,
 ) -> Result<Vec<u8>, String> {
     if limit == 0 || limit > OUTPUT_LIMIT {
         return Err("输出边界无法识别。".into());
@@ -224,11 +246,27 @@ async fn supervise(
         return Err("任务已取消。".into());
     }
     use std::os::unix::process::CommandExt;
-    command.as_std_mut().process_group(0);
+    let terminal_input = if let Some(terminal) = terminal {
+        // setsid creates an owned process group too; do not setpgid first.
+        unsafe {
+            command.pre_exec(move || {
+                if libc::setsid() < 0 || libc::ioctl(0, libc::TIOCSCTTY as _, 0) < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        Some(Stdio::from(terminal))
+    } else {
+        command.as_std_mut().process_group(0);
+        None
+    };
     // Cleanup belongs to Group. Tokio's implicit PID signal on drop would not
     // share the registration lock or the unreaped-leader ownership boundary.
     command
-        .stdin(if input.is_some() {
+        .stdin(if let Some(terminal) = terminal_input {
+            terminal
+        } else if input.is_some() {
             Stdio::piped()
         } else {
             Stdio::null()

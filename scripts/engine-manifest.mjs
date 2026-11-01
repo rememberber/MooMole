@@ -24,6 +24,7 @@ export const requiredFiles = [
   'bin/uninstall.sh',
   'moomole-clean-preview.sh',
   'moomole-review-rules.sh',
+  'moomole-clean-run.sh',
 ]
 
 export function sourceVersion(text) {
