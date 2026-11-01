@@ -51,6 +51,7 @@ async fn owned_app_mole_list_to_production_native_executor_and_exact_return() {
         result_unavailable: None,
     });
     let source = results.uninstall_target(&task_id, index).unwrap();
+    report["usageHint"] = crate::app_usage::native_fixture_hint(&source);
     let plan = Plan::prepare(source, &t.f.ctx).unwrap();
     let expected_snapshot = plan.bundle_binding().1.clone();
     report["snapshot"] = serde_json::to_value(&expected_snapshot).unwrap();
@@ -158,6 +159,9 @@ async fn owned_app_mole_list_to_production_native_executor_and_exact_return() {
         ["pending", "intent", "moved"]
     );
     eprintln!("Real Mole → immutable selection → fresh native prerequisites → FULL intent → system Trash → moved receipt passed; exact owned App returned, external data retained.");
-    // Keep this owned report/database as explicit evidence; no live authority
-    // is recovered from them and no user's database has been opened or edited.
+    // Successful acceptance retains compact evidence, not a permanent fixture.
+    // A failure before the exact return still keeps its rescue record above.
+    fs::create_dir_all("../.cache").unwrap();
+    persist(Path::new("../.cache/app-uninstall-native.json"), &report);
+    t.f._temp.disable_cleanup(false);
 }

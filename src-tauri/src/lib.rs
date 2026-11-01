@@ -27,6 +27,7 @@ mod app_protection;
 mod app_receipts;
 mod app_shared_rules;
 mod app_uninstall_rules;
+mod app_usage;
 mod application_update;
 mod clean_preview;
 mod cleanup_preparation;
@@ -114,6 +115,7 @@ struct AppState {
     media_slots: Arc<tokio::sync::Semaphore>,
     media_previews: Arc<personal_files::preview::stream::Store>,
     inspection_slots: Arc<tokio::sync::Semaphore>,
+    usage_slots: Arc<tokio::sync::Semaphore>,
     maintenance_slots: Arc<tokio::sync::Semaphore>,
     project_slots: Arc<tokio::sync::Semaphore>,
     installer_slots: Arc<tokio::sync::Semaphore>,
@@ -2377,6 +2379,7 @@ pub fn run() {
                     media_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                     media_previews: Arc::new(personal_files::preview::stream::Store::default()),
                     inspection_slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                    usage_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     maintenance_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     project_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     installer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
@@ -2518,6 +2521,7 @@ pub fn run() {
             get_task_snapshot,
             application_icon,
             inspect_application,
+            app_usage::inspect_application_usage,
             app_control::control_application,
             personal_files::transfer::commands::personal_move_strategy,
             personal_files::transfer::commands::prepare_personal_transfer,

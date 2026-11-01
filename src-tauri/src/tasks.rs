@@ -134,6 +134,35 @@ impl Results {
             .filter(|path| path.len() <= 4096)
             .map(str::to_owned)
     }
+    pub(crate) fn app_usage_rows(
+        &mut self,
+        id: &str,
+        indices: &[usize],
+    ) -> Result<Vec<Value>, String> {
+        self.prune(Instant::now());
+        let snapshot = &self
+            .entries
+            .iter()
+            .find(|e| e.snapshot.id == id)
+            .ok_or("应用清单已不可用，请重新读取。")?
+            .snapshot;
+        if snapshot.kind != "apps" || snapshot.state != "succeeded" {
+            return Err("请先读取完整的应用清单。".into());
+        }
+        let rows = snapshot
+            .result
+            .as_ref()
+            .and_then(Value::as_array)
+            .ok_or("应用清单格式无法核对。")?;
+        indices
+            .iter()
+            .map(|i| {
+                rows.get(*i)
+                    .cloned()
+                    .ok_or("使用线索的应用索引已失效。".into())
+            })
+            .collect()
+    }
 
     // Only retained source rows, not frontend paths or cached IDs/names. Keep
     // invalid rows as unknown and the 65th item as a bounded overflow marker.
@@ -244,6 +273,26 @@ mod tests {
             error: None,
             result_unavailable: None,
         }
+    }
+    #[test]
+    fn usage_rows_bind_successful_lists_exact_indices_and_keep_incomplete_identity_rows() {
+        let mut cache = Results::default();
+        let mut s = snapshot(
+            1,
+            serde_json::json!([{"path":"/Applications/A.app","bundle_id":"org.example.a"},{"path":"/Applications/B.app","bundle_id":""}]),
+        );
+        cache.remember(&s);
+        assert!(cache.app_usage_rows("1", &[0]).is_err());
+        s.kind = "apps".into();
+        cache.remember(&s);
+        let rows = cache.app_usage_rows("1", &[1, 0]).unwrap();
+        assert_eq!(rows[0]["bundle_id"], "");
+        assert_eq!(rows[1]["path"], "/Applications/A.app");
+        assert!(cache.app_usage_rows("1", &[2]).is_err());
+        for e in &mut cache.entries {
+            e.finished = Instant::now() - TTL;
+        }
+        assert!(cache.app_usage_rows("1", &[0]).is_err());
     }
     #[test]
     fn snapshots_bound_count_bytes_and_age_and_keep_final_states() {
