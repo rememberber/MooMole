@@ -87,7 +87,7 @@ export function mount(mode = 'normal') {
     ])
     return (
       <QuickCleanup
-        mode={mode === 'software' ? 'software' : 'quick'}
+        mode={mode === 'software' ? 'software' : mode === 'essential' ? 'essential' : 'quick'}
         preview={preview}
         desktop
         enabled

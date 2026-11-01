@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   BrainCircuit,
@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Box,
   ChevronRight,
-  Clock3,
   Code2,
   Cpu,
   FolderOpen,
@@ -46,7 +45,7 @@ import { BrowserDownloadsPicker } from './components/BrowserDownloadsPicker'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
-import { diskBytes, systemDisk } from './lib/status-disks'
+import { StorageOverview } from './components/StorageOverview'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
 import { ApplicationUpdateCenter } from './components/ApplicationUpdateCenter'
@@ -87,7 +86,6 @@ import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from '.
 import { deferredView } from './components/DeferredView'
 import { Modal } from './components/Modal'
 import { focusReturnTarget, restoreFocus } from './lib/focus-return'
-import { EngineSummary } from './components/EngineSummary'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { useMaintenance } from './lib/use-maintenance'
@@ -284,6 +282,8 @@ export default function App() {
   const folderSchedules = useFolderSchedules(api.desktop && !!data, folderScheduleTransport)
   const scheduledFiles = useScheduledFiles(api.desktop && !!data, scheduledFilesTransport)
   const [page, setPage] = useState<Page>('overview')
+  const [diskRefresh, setDiskRefresh] = useState(0)
+  const [quickMode, setQuickMode] = useState<'quick' | 'essential'>('quick')
   useEffect(() => {
     if (!api.desktop) return
     let live = true
@@ -682,8 +682,9 @@ export default function App() {
     }
   }
 
-  async function scanQuickCleanup(softwareOnly = false) {
+  async function scanQuickCleanup(scope: 'all' | 'software' | 'clean' = 'all') {
     if (!data || quickScanActive.current || busyRef.current) return
+    setQuickMode(scope === 'clean' ? 'essential' : 'quick')
     quickScanActive.current = true
     quickScanCancelled.current = false
     setQuickScanning(true)
@@ -696,7 +697,8 @@ export default function App() {
         ['apps', '应用'],
         ['analyze', '大文件'],
       ] as const) {
-        if (softwareOnly && kind === 'analyze') continue
+        if ((scope === 'software' && kind === 'analyze') || (scope === 'clean' && kind !== 'clean'))
+          continue
         if (quickScanCancelled.current || observation.current.signal.aborted) break
         setQuickScanStatus(`正在扫描${label}…`)
         const success = await execute(kind, kind === 'analyze' ? data.home : undefined)
@@ -707,9 +709,11 @@ export default function App() {
           ? '扫描已停止，已取得的结果仍可查看；其余范围未完成。'
           : failures.length
             ? `${failures.join('、')}扫描未完成，请重新扫描；较早结果仅供参考。`
-            : softwareOnly
-              ? '软件清理扫描完成。按缓存目录标识归组，未发现不代表没有其他数据。'
-              : '扫描完成。大文件来自主目录空间分析，应用大小为 Mole 估算；结果可能不完整。',
+            : scope === 'clean'
+              ? '扫描完成，请确认本轮推荐的缓存；其他项目可展开审阅。'
+              : scope === 'software'
+                ? '软件清理扫描完成。按缓存目录标识归组，未发现不代表没有其他数据。'
+                : '扫描完成。大文件来自主目录空间分析，应用大小为 Mole 估算；结果可能不完整。',
       )
     } finally {
       quickScanActive.current = false
@@ -977,8 +981,6 @@ export default function App() {
     analysisTask?.state !== 'starting'
   const canRun = data.engine.available && canRunWithoutEngine
   const canStartAi = (aiScan.includeMole ? canRun : canRunWithoutEngine) && !executionActive
-  const disk = systemDisk(snapshot?.disks)
-  const diskPercent = disk?.percent ?? null
   const pageName = navigation.find(([id]) => id === page)![2]
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
   const cpuUsage = statusPercent(snapshot?.cpu?.usage) ?? undefined
@@ -1171,14 +1173,24 @@ export default function App() {
                     选择文件夹
                   </button>
                 )}
-                {(page === 'overview' || page === 'status') && (
+                {page === 'overview' && (
+                  <button
+                    className="button secondary compact"
+                    disabled={!api.desktop}
+                    onClick={() => setDiskRefresh((value) => value + 1)}
+                  >
+                    <RefreshCw size={15} />
+                    刷新磁盘
+                  </button>
+                )}
+                {page === 'status' && (
                   <button
                     className="button secondary compact"
                     disabled={!canRun || statusWatch.phase !== 'idle'}
                     onClick={() => void execute('status')}
                   >
                     <RefreshCw size={15} className={busy?.kind === 'status' ? 'spin' : ''} />
-                    {page === 'overview' ? '刷新状态' : '刷新快照'}
+                    刷新快照
                   </button>
                 )}
                 {page === 'status' && (
@@ -1342,7 +1354,15 @@ export default function App() {
                   <button
                     className="button primary compact"
                     disabled={!canRun || executionActive}
-                    onClick={() => void scanQuickCleanup(page === 'softwareCleanup')}
+                    onClick={() =>
+                      void scanQuickCleanup(
+                        page === 'softwareCleanup'
+                          ? 'software'
+                          : quickMode === 'essential'
+                            ? 'clean'
+                            : 'all',
+                      )
+                    }
                   >
                     <Search size={15} />
                     {quickScanning ? '正在扫描…' : cleanPreview ? '重新扫描' : '扫描可清理项'}
@@ -1863,103 +1883,15 @@ export default function App() {
           )}
 
           {page === 'overview' && (
-            <>
-              <EngineSummary engine={data.engine} desktop={api.desktop} />
-              <section className="storage-card card" aria-label="系统卷空间">
-                <div className="storage-main">
-                  <div className="section-top">
-                    <div>
-                      <span className="section-label">磁盘空间</span>
-                      <h2>{snapshot?.host ?? '这台 Mac'}</h2>
-                    </div>
-                    <span className="tag">
-                      {disk ? '系统卷 /' : snapshot ? '系统卷未确认' : '等待快照'}
-                    </span>
-                  </div>
-                  <div className="storage-detail">
-                    <div
-                      className="storage-ring"
-                      data-unknown={diskPercent === null}
-                      role="img"
-                      aria-label={
-                        diskPercent === null
-                          ? '系统卷占用比例未知'
-                          : `系统卷占用比例 ${diskPercent.toFixed(1)}%`
-                      }
-                      style={{ '--used': `${diskPercent ?? 0}%` } as CSSProperties}
-                    >
-                      <div>
-                        <strong>
-                          {diskPercent !== null
-                            ? `${diskPercent.toFixed(0)}%`
-                            : snapshot
-                              ? '未知'
-                              : '—'}
-                        </strong>
-                        <span>已使用</span>
-                      </div>
-                    </div>
-                    <div className="storage-numbers">
-                      <div className="disk-free">
-                        <strong>{snapshot ? diskBytes(disk?.remaining) : '—'}</strong>
-                        <span>报告余量</span>
-                      </div>
-                      <p>
-                        共 {snapshot ? diskBytes(disk?.total) : '—'} ·{' '}
-                        {snapshot?.hardware?.cpu_model ?? '读取后显示设备信息'}
-                      </p>
-                      <div className="disk-legend">
-                        <span>
-                          <i />
-                          已使用 {snapshot ? diskBytes(disk?.used) : '—'}
-                        </span>
-                        <span>
-                          <i />
-                          余量（计算）
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  {snapshot && !disk && (
-                    <p className="storage-scope muted">
-                      未取得唯一的系统卷 / 报告；可在系统状态查看已返回的磁盘。
-                    </p>
-                  )}
-                  {disk?.inconsistent && (
-                    <p className="storage-scope muted">已用超过总量，本次余量与比例无法确认。</p>
-                  )}
-                  <p className="storage-scope muted">
-                    按 Mole 报告总量减去已用计算，不是可清理量；容量可能来自较早缓存。
-                  </p>
-                </div>
-              </section>
-              <div className="metrics-grid">
-                <Metric
-                  label="CPU 使用率"
-                  value={percent(cpuUsage)}
-                  detail={
-                    snapshot?.cpu?.logical_cpu
-                      ? `${snapshot.cpu.logical_cpu} 个逻辑核心`
-                      : '等待系统快照'
-                  }
-                  icon={Cpu}
-                  usage={cpuUsage}
-                />
-                <Metric
-                  label="内存占用"
-                  value={bytes(snapshot?.memory?.used)}
-                  detail={`总内存 ${bytes(snapshot?.memory?.total)}`}
-                  icon={MemoryStick}
-                  usage={memoryUsage}
-                />
-                <Metric
-                  label="运行时间"
-                  value={snapshot?.uptime ?? '—'}
-                  detail={lastSnapshot ? `快照更新于 ${lastSnapshot}` : '刷新后查看当前状态'}
-                  icon={Clock3}
-                />
-              </div>
-            </>
+            <StorageOverview
+              desktop={api.desktop}
+              refreshSignal={diskRefresh}
+              canClean={canRun && !executionActive}
+              onClean={() => {
+                changePage('quickCleanup')
+                void scanQuickCleanup('clean')
+              }}
+            />
           )}
 
           {(page === 'personalFiles' || page === 'duplicateFiles' || page === 'similarPhotos') && (
@@ -2124,7 +2056,7 @@ export default function App() {
               )}
               <QuickCleanup
                 key={page}
-                mode={page === 'softwareCleanup' ? 'software' : 'quick'}
+                mode={page === 'softwareCleanup' ? 'software' : quickMode}
                 preview={cleanPreview}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}

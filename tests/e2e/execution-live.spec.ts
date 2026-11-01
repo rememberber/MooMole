@@ -48,25 +48,30 @@ test('reload follows existing execution and cancellation waits for durable resul
     1,
   )
   expect(
-    calls.every((c: { command: string }) =>
-      [
-        'bootstrap',
-        'get_ai_scan',
-        'list_executions',
-        'get_execution',
-        'cancel_log_cleanup',
-        'list_application_uninstalls',
-        'list_quicklook_refreshes',
-        'plugin:event|listen',
-        'get_folder_schedules',
-        'get_scheduled_files',
-        'get_device_backups',
-        'get_personal_transfers',
-        'get_personal_archives',
-        'get_startup_management',
-      ].includes(c.command),
+    calls.filter(
+      (c: { command: string }) =>
+        ![
+          'bootstrap',
+          'get_mounted_volumes',
+          'get_transfer_restorations',
+          'get_application_restorations',
+          'get_folder_archives',
+          'get_ai_scan',
+          'list_executions',
+          'get_execution',
+          'cancel_log_cleanup',
+          'list_application_uninstalls',
+          'list_quicklook_refreshes',
+          'plugin:event|listen',
+          'get_folder_schedules',
+          'get_scheduled_files',
+          'get_device_backups',
+          'get_personal_transfers',
+          'get_personal_archives',
+          'get_startup_management',
+        ].includes(c.command),
     ),
-  ).toBe(true)
+  ).toEqual([])
 })
 
 test('failed reads preserve last known items and filters then update after recovery', async ({

@@ -10480,5 +10480,66 @@
     "点击顶部“扫描附件副本”，查看可审阅的 Mail 附件副本。",
     "Click “Scan attachment copies” above to review Mail attachment copies.",
     "上部の「添付ファイルのコピーを走査」をクリックして、Mail の添付ファイルのコピーを確認してください。"
-  ]
+  ],
+  [
+    "扫描完成，请确认本轮推荐的缓存；其他项目可展开审阅。",
+    "Scan complete. Confirm the recommended caches, or expand to review other items.",
+    "スキャン完了。今回の推奨キャッシュを確認するか、展開して他の項目を確認してください。"
+  ],
+  ["刷新磁盘", "Refresh disks", "ディスクを更新"],
+  ["审阅清理项目", "Review cleanup items", "クリーンアップ項目を確認"],
+  ["移动硬盘（示例）", "External drive (example)", "外付けドライブ（例）"],
+  ["开始一键清理", "Start quick cleanup", "クイッククリーンを開始"],
+  ["让空间回到你手中", "Make room for what matters", "大切なもののために空き容量を"],
+  [
+    "扫描缓存与日志，推荐已检查的可重建缓存。确认后清理，个人文件默认保留。",
+    "Scan caches and logs, with checked rebuildable caches recommended. Confirm before cleaning; personal files are kept by default.",
+    "キャッシュとログをスキャンし、確認済みの再生成可能なキャッシュを推奨します。確認後に処理し、個人ファイルは既定で保持します。"
+  ],
+  [
+    "逐项保护 · 可停止 · 结果可追溯",
+    "Per-item protection · Stop anytime · Recorded results",
+    "項目ごとの保護 · 停止可能 · 結果を記録"
+  ],
+  ["所有磁盘空间", "All disk space", "すべてのディスク容量"],
+  ["正在读取磁盘…", "Reading disks…", "ディスクを読み取り中…"],
+  ["读取于 {0}", "Read at {0}", "読み取り時刻 {0}"],
+  ["容量尚未读取", "Capacity not yet read", "容量は未取得"],
+  ["示例磁盘", "Example disks", "ディスクの例"],
+  ["正在读取已连接的磁盘…", "Reading connected disks…", "接続されたディスクを読み取り中…"],
+  [
+    "磁盘空间数据已过期，请刷新；连接或移除硬盘后也请刷新列表。",
+    "Disk space data has expired. Refresh the list, including after connecting or disconnecting a drive.",
+    "容量データの有効期限が切れました。ドライブの接続・取り外し後も一覧を更新してください。"
+  ],
+  ["启动磁盘", "Startup disk", "起動ディスク"],
+  ["系统卷", "System volume", "システムボリューム"],
+  ["已挂载卷", "Mounted volume", "マウント済みボリューム"],
+  ["共 {0}", "Total {0}", "合計 {0}"],
+  ["空间占用未知", "Space usage unknown", "容量の使用状況は不明"],
+  ["空间占用 {0}%", "Space usage {0}%", "容量使用率 {0}%"],
+  ["已占用 {0}", "Occupied {0}", "使用済み {0}"],
+  ["已占用", "Occupied", "使用済み"],
+  [
+    "当前位置无法核对，请刷新后重试。",
+    "This location could not be verified. Refresh and try again.",
+    "この場所を確認できません。更新して再試行してください。"
+  ],
+  [
+    "展示启动磁盘及已挂载的本地卷，包含外置硬盘与磁盘映像。APFS 卷可能共享空间，容量不相加；可用空间不代表可清理量。",
+    "Shows the startup disk and mounted local volumes, including external drives and disk images. APFS volumes may share space; capacities are not summed. Available space is not reclaimable space.",
+    "起動ディスクとマウント済みのローカルボリュームを表示します。外付けドライブとディスクイメージを含みます。APFS では領域を共有する場合があるため容量は合算しません。空き容量はクリーンアップ可能量ではありません。"
+  ],
+  ["只读卷", "Read-only volume", "読み取り専用ボリューム"],
+  [
+    "正在扫描缓存与日志，完成后将自动检查推荐项。",
+    "Scanning caches and logs. Recommendations will be checked automatically when complete.",
+    "キャッシュとログをスキャン中です。完了後、推奨項目を自動確認します。"
+  ],
+  [
+    "点击顶部“扫描可清理项”，重新检查缓存与日志。",
+    "Click “Scan cleanup items” in the toolbar to check caches and logs again.",
+    "上部の「クリーンアップ候補をスキャン」でキャッシュとログを再確認します。"
+  ],
+  ["正在扫描缓存与日志…", "Scanning caches and logs…", "キャッシュとログをスキャン中…"]
 ]

@@ -29,6 +29,24 @@ export async function installLiveExecutionMock(page: Page) {
             const calls = JSON.parse(sessionStorage.getItem('live-calls') || '[]')
             sessionStorage.setItem('live-calls', JSON.stringify([...calls, { command, ...args }]))
             if (command === 'get_ai_scan') return null
+            if (
+              [
+                'get_transfer_restorations',
+                'get_application_restorations',
+                'get_folder_archives',
+              ].includes(command)
+            )
+              return { records: [], activeRequests: [] }
+            if (command === 'get_mounted_volumes') {
+              const createdAt = Date.now()
+              return {
+                version: 1,
+                createdAt,
+                expiresAt: createdAt + 120_000,
+                complete: true,
+                volumes: [],
+              }
+            }
             if (command === 'bootstrap') return { ...initial, executions: [current()] }
             if (command === 'list_executions') {
               if (sessionStorage.getItem('live-list-error')) throw new Error('fixture 列表读取失败')

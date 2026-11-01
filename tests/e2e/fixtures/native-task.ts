@@ -65,6 +65,30 @@ export async function installTaskMock(
                 engine: { ...initial.engine, available: true, version: '1.65.0' },
               }
             if (command === 'get_history') return history()
+            if (command === 'get_mounted_volumes') {
+              if (sessionStorage.getItem('mock-volume-error')) throw Error('磁盘读取失败')
+              const createdAt = Date.now()
+              return {
+                version: 1,
+                createdAt,
+                expiresAt: createdAt + 120_000,
+                complete: true,
+                ...JSON.parse(sessionStorage.getItem('mock-volume-report') ?? '{}'),
+                volumes: JSON.parse(sessionStorage.getItem('mock-volumes') ?? 'null') ?? [
+                  {
+                    id: '31d8c490-1245-414b-8d62-0c6aab303555',
+                    kind: 'startup',
+                    name: '',
+                    path: '/',
+                    fileSystem: 'apfs',
+                    readOnly: true,
+                    totalBytes: 512 * 1024 ** 3,
+                    availableBytes: 128 * 1024 ** 3,
+                    canAnalyze: true,
+                  },
+                ],
+              }
+            }
             if (command === 'get_ai_scan') return null
             if (
               command === 'get_transfer_restorations' ||

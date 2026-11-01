@@ -92,3 +92,33 @@ test('one rejected cache inspection preserves other independent recommendations'
   await expect(rejected).not.toBeChecked()
   await expect(rejected.locator('..')).toContainText('推荐检查未完成')
 })
+
+test('overview cleanup offers checked recommendations immediately and keeps optional review collapsed', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/quick-cleanup.tsx')).mount('essential'),
+  )
+  const quick = page.locator('#quick-fixture')
+  await expect(quick.getByRole('button', { name: '一键清理', exact: true })).toBeEnabled()
+  const details = quick.locator('.quick-review-details')
+  await expect(details).not.toHaveAttribute('open')
+  await expect(quick.getByText('大文件', { exact: true })).toHaveCount(0)
+  await expect(quick.getByText('大应用', { exact: true })).toHaveCount(0)
+  await quick.getByRole('button', { name: '一键清理', exact: true }).click()
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('quick-plan')!))).toEqual({
+    scanId: 'scan',
+    ids: ['cache'],
+  })
+  await quick.getByText('审阅清理项目', { exact: true }).click()
+  await expect(
+    quick.getByRole('checkbox', { name: '选择 /Users/demo/Library/Logs/example.log', exact: true }),
+  ).not.toBeChecked()
+  await expect(
+    quick.getByRole('checkbox', {
+      name: '选择 /Users/demo/Library/Caches/com.apple.helpd',
+      exact: true,
+    }),
+  ).toBeChecked()
+})

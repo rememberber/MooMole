@@ -696,10 +696,10 @@ test('disk capacity reports use consistent bytes, retain shared-pool limits and 
   await expect(disks).toContainText('最后报告值 · 独立更新时间未知')
   await expect(rows).toHaveCount(3)
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  const overview = page.getByRole('region', { name: '系统卷空间', exact: true })
-  await expect(overview).toContainText('系统卷 /')
-  await expect(overview).toContainText('6 KB')
-  await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '系统卷占用比例 25.0%')
+  const overview = page.getByRole('region', { name: '所有磁盘空间', exact: true })
+  await expect(overview).toContainText('启动磁盘')
+  await expect(overview).toContainText('128 GB')
+  await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '空间占用 75.0%')
   expect(
     await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts')!).length),
   ).toBe(1)
@@ -726,7 +726,7 @@ test('missing and empty disk reports never turn into a disk total or connected-d
   await expect(disks).toContainText('最后报告值 · 独立更新时间未知')
 })
 
-test('overview refuses to replace the system root with another volume or clamp contradictory root bytes', async ({
+test('overview uses native volumes independently of missing or contradictory Mole disk reports', async ({
   page,
 }) => {
   await open(page)
@@ -748,14 +748,10 @@ test('overview refuses to replace the system root with another volume or clamp c
     await expect(page.getByText('持续采集中 · 约每 2 秒更新', { exact: true })).toBeVisible()
     await expect(process(page)).toContainText('warm-1')
     await page.getByRole('button', { name: '概览', exact: true }).click()
-    const overview = page.getByRole('region', { name: '系统卷空间', exact: true })
-    await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '系统卷占用比例未知')
-    await expect(overview.locator('.storage-ring')).toHaveAttribute('data-unknown', 'true')
-    await expect(overview.locator('.disk-free strong')).toHaveText('未知')
-    await expect(overview).not.toContainText('100%')
-    await expect(overview).toContainText(
-      kind === 'conflict' ? '已用超过总量' : '未取得唯一的系统卷 / 报告',
-    )
+    const overview = page.getByRole('region', { name: '所有磁盘空间', exact: true })
+    await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '空间占用 75.0%')
+    await expect(overview).toContainText('128 GB')
+    await expect(overview).not.toContainText('Internal-looking')
     await page.getByRole('button', { name: '系统状态', exact: true }).click()
     await expect(start(page)).toBeEnabled()
   }

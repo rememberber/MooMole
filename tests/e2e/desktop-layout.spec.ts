@@ -55,9 +55,10 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
       await expect(page.getByText('Fixture App', { exact: true })).toBeVisible()
     }
     if (name === '概览') {
-      const engine = page.getByRole('region', { name: 'Mole CLI 版本' })
-      await expect(engine).toContainText('v1.65.0')
-      expect((await engine.boundingBox())!.y).toBeLessThan(100)
+      const clean = page.getByRole('button', { name: '开始一键清理' })
+      await expect(clean).toBeVisible()
+      expect((await clean.boundingBox())!.y).toBeLessThan(120)
+      await expect(page.getByRole('region', { name: '所有磁盘空间' })).toContainText('启动磁盘')
     }
     for (const theme of ['light', 'dark']) {
       await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme)

@@ -82,6 +82,16 @@ test('native system language overrides WebView locale; failed saves keep the pre
           invoke: async (command: string, args: { settings?: unknown }) => {
             if (command === 'bootstrap')
               return { ...initial, systemLanguage: 'ja-JP', settings: stored() }
+            if (command === 'get_mounted_volumes') {
+              const createdAt = Date.now()
+              return {
+                version: 1,
+                createdAt,
+                expiresAt: createdAt + 120_000,
+                complete: true,
+                volumes: [],
+              }
+            }
             if (command === 'save_settings') {
               if (sessionStorage.getItem('fail-save')) throw new Error('Synthetic save failure')
               sessionStorage.setItem('native-settings', JSON.stringify(args.settings))

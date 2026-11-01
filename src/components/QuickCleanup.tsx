@@ -42,7 +42,7 @@ export function QuickCleanup({
   onUninstall,
   mode = 'quick',
 }: {
-  mode?: 'quick' | 'software'
+  mode?: 'quick' | 'software' | 'essential'
   preview: CleanPreview | null
   home: string
   protectedPaths: string[]
@@ -150,6 +150,8 @@ export function QuickCleanup({
   const needle = query.trim().toLocaleLowerCase(getLocale())
   const matches = (path: string) => path.toLocaleLowerCase(getLocale()).includes(needle)
   const software = mode === 'software'
+  const essential = mode === 'essential'
+  const ReviewContainer = essential ? 'details' : 'div'
   const groups = useMemo(
     () =>
       software
@@ -255,11 +257,13 @@ export function QuickCleanup({
               <span className="motion-text" data-active={checking}>
                 {software
                   ? '选择不再需要的缓存，确认前将逐项检查。所有软件候选默认不选。'
-                  : checking
-                    ? '正在检查默认推荐项，可继续浏览。'
-                    : recommended.length
-                      ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
-                      : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
+                  : essential && scanRunning
+                    ? '正在扫描缓存与日志…'
+                    : checking
+                      ? '正在检查默认推荐项，可继续浏览。'
+                      : recommended.length
+                        ? `${recommended.length} 项低风险缓存通过本轮检查；清理前仍会复核。`
+                        : '本轮暂无通过默认推荐检查的缓存，可自行审阅选择。'}
               </span>
             </p>
           </div>
@@ -281,7 +285,11 @@ export function QuickCleanup({
         <div className="card quick-empty">
           {software
             ? '点击顶部“扫描可清理项”，按软件查看缓存候选并选择处理。'
-            : '点击顶部“扫描可清理项”，汇总缓存、日志、大文件和大应用。'}
+            : essential
+              ? scanRunning
+                ? '正在扫描缓存与日志，完成后将自动检查推荐项。'
+                : '点击顶部“扫描可清理项”，重新检查缓存与日志。'
+              : '点击顶部“扫描可清理项”，汇总缓存、日志、大文件和大应用。'}
         </div>
       ) : (
         <>
@@ -290,233 +298,238 @@ export function QuickCleanup({
               扫描已过期、缺少有效凭据或当前为浏览器示例。请在桌面 App 中重新扫描。
             </p>
           )}
-          <div className="quick-action">
-            <input
-              className="quick-search"
-              type="search"
-              aria-label={software ? '搜索软件或清理项目' : '搜索清理项目'}
-              placeholder={software ? '搜索软件、名称或路径…' : '搜索名称或路径…'}
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setLimit(100)
-              }}
-            />
-            {software && (
-              <select
-                aria-label="软件类型"
-                value={category}
+          <ReviewContainer className={essential ? 'card quick-review-details' : undefined}>
+            {essential && <summary>审阅清理项目</summary>}
+            <div className="quick-action">
+              <input
+                className="quick-search"
+                type="search"
+                aria-label={software ? '搜索软件或清理项目' : '搜索清理项目'}
+                placeholder={software ? '搜索软件、名称或路径…' : '搜索名称或路径…'}
+                value={query}
                 onChange={(event) => {
-                  setCategory(event.target.value as SoftwareCategory)
+                  setQuery(event.target.value)
                   setLimit(100)
                 }}
-              >
-                {softwareCategories.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <label>
-              <input
-                type="checkbox"
-                checked={onlySelected}
-                onChange={(event) => setOnlySelected(event.target.checked)}
-              />{' '}
-              只看已选
-            </label>
-            {!software && (
+              />
+              {software && (
+                <select
+                  aria-label="软件类型"
+                  value={category}
+                  onChange={(event) => {
+                    setCategory(event.target.value as SoftwareCategory)
+                    setLimit(100)
+                  }}
+                >
+                  {softwareCategories.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={onlySelected}
+                  onChange={(event) => setOnlySelected(event.target.checked)}
+                />{' '}
+                只看已选
+              </label>
+              {!software && (
+                <button
+                  className="button secondary compact"
+                  disabled={!enabled || checking || !recommended.length}
+                  onClick={() => {
+                    touched.current = true
+                    setSelected(recommended)
+                  }}
+                >
+                  恢复推荐
+                </button>
+              )}
               <button
                 className="button secondary compact"
-                disabled={!enabled || checking || !recommended.length}
+                disabled={!selected.length || pending}
                 onClick={() => {
                   touched.current = true
-                  setSelected(recommended)
+                  setSelected([])
                 }}
               >
-                恢复推荐
+                清空选择
               </button>
-            )}
-            <button
-              className="button secondary compact"
-              disabled={!selected.length || pending}
-              onClick={() => {
-                touched.current = true
-                setSelected([])
-              }}
-            >
-              清空选择
-            </button>
-          </div>
-          {visibleGroups.map(({ id, label, literal, items: groupedItems }) => {
-            const ids = new Set(groupedItems.map((item) => item.id))
-            const all = items.filter(({ item }) => ids.has(item.id))
-            const members = all
-              .filter(
-                ({ item }) =>
-                  (matches(item.path) ||
-                    (software && (matches(label) || (!literal && matches(translate(label)))))) &&
-                  (!onlySelected || chosen.some((entry) => entry.item.id === item.id)),
+            </div>
+            {visibleGroups.map(({ id, label, literal, items: groupedItems }) => {
+              const ids = new Set(groupedItems.map((item) => item.id))
+              const all = items.filter(({ item }) => ids.has(item.id))
+              const members = all
+                .filter(
+                  ({ item }) =>
+                    (matches(item.path) ||
+                      (software && (matches(label) || (!literal && matches(translate(label)))))) &&
+                    (!onlySelected || chosen.some((entry) => entry.item.id === item.id)),
+                )
+                .sort((a, b) => (b.item.size ?? -1) - (a.item.size ?? -1))
+              const summary = previewTotal(all.map(({ item }) => item))
+              if (software && (needle || onlySelected) && !members.length) return null
+              const eligible = members
+                .filter((entry) => entry.supported && !entry.protected)
+                .map(({ item }) => item.id)
+              return (
+                <details
+                  className="card quick-group"
+                  key={id}
+                  open={software || id === 'cache' || id === 'logs'}
+                >
+                  <summary>
+                    <strong data-i18n={literal ? 'off' : undefined}>{label}</strong>
+                    <span>
+                      {all.length} 项 · {bytes(summary.size)}
+                      {summary.unknown ? ` + ${summary.unknown} 项未知` : ''}
+                    </span>
+                  </summary>
+                  {software && id !== 'unclassified' && (
+                    <p className="quick-group-empty">
+                      本次仅包含下列缓存候选；清理后软件可能需要重新生成或下载缓存。选择后将重新检查保护、占用和文件变化。
+                    </p>
+                  )}
+                  {software && id === 'unclassified' && (
+                    <p className="quick-group-empty">
+                      无法按精确缓存标识归组的候选保留在这里。归组和筛选不会改变原有保护与处理范围。
+                    </p>
+                  )}
+                  {id === 'orphan' && (
+                    <p className="quick-group-empty">
+                      来自 Mole
+                      卸载残留扫描的结构化候选。归属与共享保护仍需专项复查，本轮仅展示并保留，不自动删除。
+                    </p>
+                  )}
+                  {members.length ? (
+                    <>
+                      <div className="quick-group-tools">
+                        <span>
+                          {
+                            all.filter(({ item }) =>
+                              chosen.some((entry) => entry.item.id === item.id),
+                            ).length
+                          }{' '}
+                          项已选
+                        </span>
+                        <button
+                          className="button secondary compact"
+                          disabled={!fresh || !enabled || pending || checking || !eligible.length}
+                          onClick={() =>
+                            select(eligible, !eligible.every((value) => selected.includes(value)))
+                          }
+                        >
+                          {eligible.length && eligible.every((value) => selected.includes(value))
+                            ? software
+                              ? '取消本软件选择'
+                              : '取消本类选择'
+                            : software
+                              ? '选择本软件候选'
+                              : '选择本类可处理项'}
+                        </button>
+                      </div>
+                      {members.slice(0, limit).map(({ item, protected: blocked, supported }) => {
+                        const checked = chosen.some((entry) => entry.item.id === item.id)
+                        const observed = preparations.get(item.id)
+                        return (
+                          <div className="quick-item" key={item.id}>
+                            <input
+                              type="checkbox"
+                              aria-label={`选择 ${item.path}`}
+                              checked={checked}
+                              disabled={
+                                !fresh ||
+                                !supported ||
+                                blocked ||
+                                !enabled ||
+                                pending ||
+                                checking ||
+                                (!checked && chosen.length >= 20)
+                              }
+                              onChange={(event) => select([item.id], event.target.checked)}
+                            />
+                            <div>
+                              <strong data-i18n="off" title={item.path}>
+                                {item.path.split('/').at(-1)}
+                              </strong>
+                              <span className="mono full-path">{shortPath(item.path, home)}</span>
+                              <small>
+                                {blocked
+                                  ? '已保护'
+                                  : !supported
+                                    ? '当前执行范围未覆盖，保留'
+                                    : recommended.includes(item.id)
+                                      ? '低风险推荐 · 本轮检查通过'
+                                      : inspectionErrors[item.id]
+                                        ? '推荐检查未完成，保留并查看详情'
+                                        : observed?.code === 'authorizationRequired'
+                                          ? '需本人授权检查占用，未确认前保留'
+                                          : observed?.code === 'retained' ||
+                                              observed?.code === 'notChecked'
+                                            ? observed.reason
+                                            : '需自行确认用途，清理前逐项复查'}
+                              </small>
+                              <details>
+                                <summary>影响与检查详情</summary>
+                                <p>
+                                  {item.impact?.consequence || '用途和影响尚未确认，请先核对。'}
+                                </p>
+                                <p>{item.impact?.recovery}</p>
+                                {observed && <p>{observed.reason}</p>}
+                                {inspectionErrors[item.id] && <p>{inspectionErrors[item.id]}</p>}
+                              </details>
+                            </div>
+                            <span>{item.size == null ? '大小未知' : bytes(item.size)}</span>
+                            <div className="quick-row-actions">
+                              {onReveal && (
+                                <button
+                                  className="button secondary compact"
+                                  disabled={!desktop}
+                                  onClick={() => onReveal(item.path)}
+                                >
+                                  定位
+                                </button>
+                              )}
+                              {onProtect && (
+                                <button
+                                  className="button secondary compact"
+                                  disabled={!desktop || blocked || pending}
+                                  onClick={() => void protect(item.path)}
+                                >
+                                  保护
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {members.length > limit && (
+                        <button
+                          className="button secondary compact"
+                          onClick={() => setLimit((value) => value + 100)}
+                        >
+                          再显示 100 项
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <p className="quick-group-empty">
+                      {all.length ? '没有匹配项目。' : '本次未发现候选，扫描范围可能不完整。'}
+                    </p>
+                  )}
+                </details>
               )
-              .sort((a, b) => (b.item.size ?? -1) - (a.item.size ?? -1))
-            const summary = previewTotal(all.map(({ item }) => item))
-            if (software && (needle || onlySelected) && !members.length) return null
-            const eligible = members
-              .filter((entry) => entry.supported && !entry.protected)
-              .map(({ item }) => item.id)
-            return (
-              <details
-                className="card quick-group"
-                key={id}
-                open={software || id === 'cache' || id === 'logs'}
-              >
-                <summary>
-                  <strong data-i18n={literal ? 'off' : undefined}>{label}</strong>
-                  <span>
-                    {all.length} 项 · {bytes(summary.size)}
-                    {summary.unknown ? ` + ${summary.unknown} 项未知` : ''}
-                  </span>
-                </summary>
-                {software && id !== 'unclassified' && (
-                  <p className="quick-group-empty">
-                    本次仅包含下列缓存候选；清理后软件可能需要重新生成或下载缓存。选择后将重新检查保护、占用和文件变化。
-                  </p>
-                )}
-                {software && id === 'unclassified' && (
-                  <p className="quick-group-empty">
-                    无法按精确缓存标识归组的候选保留在这里。归组和筛选不会改变原有保护与处理范围。
-                  </p>
-                )}
-                {id === 'orphan' && (
-                  <p className="quick-group-empty">
-                    来自 Mole
-                    卸载残留扫描的结构化候选。归属与共享保护仍需专项复查，本轮仅展示并保留，不自动删除。
-                  </p>
-                )}
-                {members.length ? (
-                  <>
-                    <div className="quick-group-tools">
-                      <span>
-                        {
-                          all.filter(({ item }) =>
-                            chosen.some((entry) => entry.item.id === item.id),
-                          ).length
-                        }{' '}
-                        项已选
-                      </span>
-                      <button
-                        className="button secondary compact"
-                        disabled={!fresh || !enabled || pending || checking || !eligible.length}
-                        onClick={() =>
-                          select(eligible, !eligible.every((value) => selected.includes(value)))
-                        }
-                      >
-                        {eligible.length && eligible.every((value) => selected.includes(value))
-                          ? software
-                            ? '取消本软件选择'
-                            : '取消本类选择'
-                          : software
-                            ? '选择本软件候选'
-                            : '选择本类可处理项'}
-                      </button>
-                    </div>
-                    {members.slice(0, limit).map(({ item, protected: blocked, supported }) => {
-                      const checked = chosen.some((entry) => entry.item.id === item.id)
-                      const observed = preparations.get(item.id)
-                      return (
-                        <div className="quick-item" key={item.id}>
-                          <input
-                            type="checkbox"
-                            aria-label={`选择 ${item.path}`}
-                            checked={checked}
-                            disabled={
-                              !fresh ||
-                              !supported ||
-                              blocked ||
-                              !enabled ||
-                              pending ||
-                              checking ||
-                              (!checked && chosen.length >= 20)
-                            }
-                            onChange={(event) => select([item.id], event.target.checked)}
-                          />
-                          <div>
-                            <strong data-i18n="off" title={item.path}>
-                              {item.path.split('/').at(-1)}
-                            </strong>
-                            <span className="mono full-path">{shortPath(item.path, home)}</span>
-                            <small>
-                              {blocked
-                                ? '已保护'
-                                : !supported
-                                  ? '当前执行范围未覆盖，保留'
-                                  : recommended.includes(item.id)
-                                    ? '低风险推荐 · 本轮检查通过'
-                                    : inspectionErrors[item.id]
-                                      ? '推荐检查未完成，保留并查看详情'
-                                      : observed?.code === 'authorizationRequired'
-                                        ? '需本人授权检查占用，未确认前保留'
-                                        : observed?.code === 'retained' ||
-                                            observed?.code === 'notChecked'
-                                          ? observed.reason
-                                          : '需自行确认用途，清理前逐项复查'}
-                            </small>
-                            <details>
-                              <summary>影响与检查详情</summary>
-                              <p>{item.impact?.consequence || '用途和影响尚未确认，请先核对。'}</p>
-                              <p>{item.impact?.recovery}</p>
-                              {observed && <p>{observed.reason}</p>}
-                              {inspectionErrors[item.id] && <p>{inspectionErrors[item.id]}</p>}
-                            </details>
-                          </div>
-                          <span>{item.size == null ? '大小未知' : bytes(item.size)}</span>
-                          <div className="quick-row-actions">
-                            {onReveal && (
-                              <button
-                                className="button secondary compact"
-                                disabled={!desktop}
-                                onClick={() => onReveal(item.path)}
-                              >
-                                定位
-                              </button>
-                            )}
-                            {onProtect && (
-                              <button
-                                className="button secondary compact"
-                                disabled={!desktop || blocked || pending}
-                                onClick={() => void protect(item.path)}
-                              >
-                                保护
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {members.length > limit && (
-                      <button
-                        className="button secondary compact"
-                        onClick={() => setLimit((value) => value + 100)}
-                      >
-                        再显示 100 项
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <p className="quick-group-empty">
-                    {all.length ? '没有匹配项目。' : '本次未发现候选，扫描范围可能不完整。'}
-                  </p>
-                )}
-              </details>
-            )
-          })}
-          {software && !visibleGroups.length && (
-            <p className="empty-inline">
-              没有匹配的软件缓存候选，可清除筛选、切换软件类型或重新扫描。
-            </p>
-          )}
-          {!software && (
+            })}
+            {software && !visibleGroups.length && (
+              <p className="empty-inline">
+                没有匹配的软件缓存候选，可清除筛选、切换软件类型或重新扫描。
+              </p>
+            )}
+          </ReviewContainer>
+          {!software && !essential && (
             <>
               <details className="card quick-group">
                 <summary>
