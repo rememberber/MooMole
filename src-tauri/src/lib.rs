@@ -4,6 +4,17 @@ mod mole_clean;
 pub fn run_mole_cleanup_worker() -> bool {
     mole_clean::bridge::worker()
 }
+
+/// Internal bounded media worker; no Tauri state, window, database or mutation.
+pub fn run_native_video_worker() -> bool {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.len() == 2 && args[1] == "--moomole-video-worker-v1" {
+        personal_files::similar_photos::video::worker::run();
+        true
+    } else {
+        false
+    }
+}
 mod ai_scan;
 mod analysis_protocol;
 mod app_associations;

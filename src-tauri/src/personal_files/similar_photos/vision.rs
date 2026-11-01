@@ -9,9 +9,9 @@ use objc2_foundation::{NSArray, NSData, NSDictionary, NSError, NSString};
 extern "C" {
     static VNVisionVersionNumber: f64;
 }
-pub(super) struct Feature(Retained<AnyObject>);
+pub(in crate::personal_files::similar_photos) struct Feature(Retained<AnyObject>);
 impl Feature {
-    pub(super) fn new(png: &[u8]) -> Result<Self, String> {
+    pub(in crate::personal_files::similar_photos) fn new(png: &[u8]) -> Result<Self, String> {
         unsafe {
             let _ = VNVisionVersionNumber;
             let request_class = AnyClass::get(c"VNGenerateImageFeaturePrintRequest")
@@ -38,7 +38,10 @@ impl Feature {
             Ok(Self(result))
         }
     }
-    pub(super) fn distance(&self, other: &Self) -> Result<f32, String> {
+    pub(in crate::personal_files::similar_photos) fn distance(
+        &self,
+        other: &Self,
+    ) -> Result<f32, String> {
         unsafe {
             let mut distance = 0f32;
             let mut error: *mut NSError = std::ptr::null_mut();

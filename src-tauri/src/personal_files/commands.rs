@@ -144,7 +144,7 @@ fn start(
     domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start_with_source(root, request_id, domain, None, false, None, state)
+    start_with_source(root, request_id, domain, None, false, None, false, state)
 }
 fn start_with_source(
     root: String,
@@ -153,6 +153,7 @@ fn start_with_source(
     source: Option<software_content::Source>,
     photo_sequences: bool,
     browser_profile: Option<software_content::browser_profiles::Selection>,
+    video_candidates: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
@@ -203,7 +204,9 @@ fn start_with_source(
         let result = collected.and_then(|scan| match domain {
             Domain::DuplicateFiles => duplicates::collect(scan, job),
             Domain::SimilarPhotos => objc2::rc::autoreleasepool(|_| {
-                if photo_sequences {
+                if video_candidates {
+                    similar_photos::video::collect(scan, job, &settings.protected_paths)
+                } else if photo_sequences {
                     similar_photos::collect_with_sequence(
                         scan,
                         job,
@@ -451,8 +454,12 @@ pub(crate) fn start_similar_scan(
     root: String,
     request_id: String,
     photo_sequences: Option<bool>,
+    video_candidates: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    if photo_sequences.unwrap_or(false) && video_candidates.unwrap_or(false) {
+        return Err("请选择一种媒体比较方式。".into());
+    }
     start_with_source(
         root,
         request_id,
@@ -460,6 +467,7 @@ pub(crate) fn start_similar_scan(
         None,
         photo_sequences.unwrap_or(false),
         None,
+        video_candidates.unwrap_or(false),
         state,
     )
 }
@@ -570,6 +578,7 @@ pub(crate) fn start_software_content(
         Some(source),
         false,
         browser_profile,
+        false,
         state,
     )
 }

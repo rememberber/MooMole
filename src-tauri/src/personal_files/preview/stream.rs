@@ -14,7 +14,7 @@ use tauri::{
     http::{header, Request, Response},
     Manager,
 };
-mod containers;
+pub(in crate::personal_files) mod containers;
 pub(crate) const SCHEME: &str = "moomole-media";
 const CHUNK: u64 = 2 * 1024 * 1024;
 const LIMIT: u64 = 16 * 1024 * 1024 * 1024;

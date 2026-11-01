@@ -137,6 +137,21 @@ pub(super) struct Raster {
     image: Owned,
 }
 impl Raster {
+    /// Takes ownership of a bounded image returned by AVAssetImageGenerator.
+    pub(super) unsafe fn from_video_frame(image: Ref) -> Result<Self, String> {
+        let image = Owned::new(image, CGImageRelease)?;
+        let width = CGImageGetWidth(image.0) as u64;
+        let height = CGImageGetHeight(image.0) as u64;
+        if width == 0 || height == 0 || width > 384 || height > 384 {
+            return Err("视频采样帧尺寸超过本轮范围。".into());
+        }
+        Ok(Self {
+            width,
+            height,
+            frames: 1,
+            image,
+        })
+    }
     pub(super) fn decode(bytes: &[u8], max: u32) -> Result<Self, String> {
         unsafe {
             let data = data(bytes)?;

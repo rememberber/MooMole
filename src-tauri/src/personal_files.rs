@@ -146,8 +146,8 @@ impl Plan {
                     automation::REVISION
                 } else if self.software_content.is_some() {
                     software_content::REVISION
-                } else if self.similar_photos.is_some() {
-                    similar_photos::REVISION
+                } else if let Some(proof) = &self.similar_photos {
+                    similar_photos::revision(proof)
                 } else if self.duplicates.is_some() {
                     duplicates::REVISION
                 } else if self.movement.is_some() {
@@ -324,8 +324,8 @@ impl Store {
             protocol: 1,
             revision: if scan.software_content.is_some() {
                 software_content::REVISION
-            } else if similar.is_some() {
-                similar_photos::REVISION
+            } else if let Some(proof) = &similar {
+                similar_photos::revision(proof)
             } else if proof.is_some() {
                 duplicates::REVISION
             } else {

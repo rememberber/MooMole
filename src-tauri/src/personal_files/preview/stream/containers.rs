@@ -97,7 +97,7 @@ pub(super) fn boxes(
     }
     Ok(())
 }
-pub(super) fn self_contained(file: &File, len: u64) -> Result<(), String> {
+pub(in crate::personal_files) fn self_contained(file: &File, len: u64) -> Result<(), String> {
     let (mut offset, mut count, mut moov, mut media) = (0, 0, 0, 0);
     while offset < len {
         count += 1;

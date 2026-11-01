@@ -6,10 +6,18 @@ use std::{
     sync::{atomic::Ordering, Arc},
 };
 mod capture;
+pub(crate) mod video;
 mod vision;
 pub(crate) const MODULE: &str = "similarPhotos";
 pub(super) const REVISION: &str = "MooMole.similar-photos.v1";
 const DISTANCE: f32 = 0.15;
+pub(super) fn revision(proof: &[Keep]) -> &'static str {
+    if proof.first().is_some_and(|p| p.video) {
+        video::REVISION
+    } else {
+        REVISION
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Selected {
@@ -22,6 +30,8 @@ pub(crate) struct Keep {
     pub keeper: Item,
     pub digest: String,
     pub selected: Vec<Selected>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub video: bool,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,6 +72,8 @@ pub(crate) struct Report {
     pub method: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sequence: Option<Sequence>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub videos: Option<Vec<video::Video>>,
 }
 
 fn image(item: &Item, bytes: &[u8], sequences: bool) -> Result<(Image, vision::Feature), String> {
@@ -241,6 +253,7 @@ pub(super) fn collect_with_sequence(
         bytes_read,
         method: "visionFeaturePrintV2",
         sequence: sequences.then_some(Sequence { missing_metadata }),
+        videos: None,
     });
     Ok(scan)
 }
@@ -276,7 +289,7 @@ pub(super) fn selection(
             .iter()
             .filter(|id| !ids.contains(id))
             .find_map(|id| all.iter().find(|i| &i.id == id))
-            .ok_or("每组至少保留一张，请撤销一个照片的选择。")?
+            .ok_or("每组至少保留一份，请撤销一个文件的选择。")?
             .clone();
         let digest = report
             .images
@@ -289,10 +302,11 @@ pub(super) fn selection(
             keeper,
             digest,
             selected,
+            video: report.method == video::METHOD,
         });
     }
     if proof.iter().map(|p| p.selected.len()).sum::<usize>() != chosen.len() {
-        return Err("选择不属于当前相似照片分组。".into());
+        return Err("选择不属于当前相似媒体分组。".into());
     }
     Ok(proof)
 }
@@ -305,8 +319,15 @@ pub(super) fn validate_record(proof: &[Keep], items: &[Item], root: &str) -> Res
     let mut covered = HashSet::new();
     if proof.is_empty()
         || proof.len() > MAX_SELECTED
+        || proof.iter().any(|p| p.video != proof[0].video)
         || proof.iter().any(|p| {
             !hash(&p.digest)
+                || (p.video
+                    && (!video::supported(Path::new(&p.keeper.path))
+                        || items.iter().any(|i| {
+                            !video::supported(Path::new(&i.path)) || i.size > video::FILE_LIMIT
+                        })
+                        || p.keeper.size > video::FILE_LIMIT))
                 || uuid::Uuid::parse_str(&p.keeper.id).is_err()
                 || !ordinary(Path::new(&p.keeper.path))
                 || !Path::new(&p.keeper.path).starts_with(root)
@@ -327,7 +348,7 @@ pub(super) fn validate_record(proof: &[Keep], items: &[Item], root: &str) -> Res
         })
         || covered.len() != items.len()
     {
-        return Err("相似照片选择与保留原件无法核对。".into());
+        return Err("相似媒体选择与保留原件无法核对。".into());
     }
     Ok(())
 }
@@ -338,13 +359,13 @@ fn proof<'a>(plan: &'a Plan, item: &Item) -> Result<&'a Keep, String> {
             p.iter()
                 .find(|p| p.selected.iter().any(|s| s.id == item.id))
         })
-        .ok_or("缺少本组保留照片的记录。".into())
+        .ok_or("缺少本组保留原件的记录。".into())
 }
 pub(super) fn validate_keeper(plan: &Plan, item: &Item) -> Result<(), String> {
     let p = proof(plan, item)?;
     let held = AnchoredPath::open(Path::new(&p.keeper.path))?;
     if held.witness != p.keeper.witness || !held.local_materialized() {
-        return Err("保留照片已变化或不再位于本机，本项保留。".into());
+        return Err("保留原件已变化或不再位于本机，本项保留。".into());
     }
     Ok(())
 }
@@ -352,6 +373,22 @@ pub(super) fn verify(plan: &Plan, item: &Item, job: &Job, rules: &[String]) -> R
     let p = proof(plan, item)?;
     if job.cancelled.load(Ordering::SeqCst) {
         return Err("照片核对已取消。".into());
+    }
+    if p.video {
+        let started = Instant::now();
+        let chosen = video::content(item, rules, job, started, None, &mut 0)?;
+        let keeper = video::content(&p.keeper, rules, job, started, None, &mut 0)?;
+        if chosen
+            != p.selected
+                .iter()
+                .find(|s| s.id == item.id)
+                .ok_or("所选视频证据缺失。")?
+                .digest
+            || keeper != p.digest
+        {
+            return Err("视频或保留原件的内容已变化，本项保留。".into());
+        }
+        return Ok(());
     }
     let chosen = preview::read(item, rules, 32 * 1024 * 1024, true)?;
     let keeper = preview::read(&p.keeper, rules, 32 * 1024 * 1024, true)?;
