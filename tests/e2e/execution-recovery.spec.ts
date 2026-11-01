@@ -43,6 +43,11 @@ test('recovered uncertainty is visible on startup and leads to focused execution
     'get_personal_transfers',
     'get_personal_archives',
     'get_startup_management',
+    'get_transfer_restorations',
+    'get_folder_archives',
+    'get_application_restorations',
+    'get_mole_cleanup',
+    'get_mounted_volumes',
   ])
   expect(calls.filter((command) => !readOnlyCommands.has(command))).toEqual([])
   await page.keyboard.press('Escape')
