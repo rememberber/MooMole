@@ -21,6 +21,7 @@ pub(crate) async fn prepare_application_restoration(
             .map_err(|e| e.to_string())?;
         s.plan = None;
         s.restoration = None;
+        s.retirement = None;
     }
     let original = {
         let db = state.db.lock().map_err(|e| e.to_string())?;

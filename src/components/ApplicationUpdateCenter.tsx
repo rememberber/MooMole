@@ -9,6 +9,8 @@ import {
   type UpdateDraft,
   type AppUpdateRecord,
 } from '../lib/application-update'
+import { retainedApplication, type RetainedAppView } from '../lib/retained-application'
+import { RetainedApplicationCenter, RetainedApplicationHistory } from './RetainedApplicationCenter'
 import { applicationRestoration, type AppRestoreView } from '../lib/application-restoration'
 import {
   ApplicationRestorationCenter,
@@ -33,15 +35,25 @@ export function ApplicationUpdateCenter({
   canRestore?: boolean
 }) {
   const [restore, setRestore] = useState<AppUpdateRecord | null>(null),
+    [retire, setRetire] = useState<AppUpdateRecord | null>(null),
+    [retireActive, setRetireActive] = useState(false),
     [updateActive, setUpdateActive] = useState(false),
     [restoreActive, setRestoreActive] = useState(false),
     [localHistory, setLocalHistory] = useState(false)
   useEffect(
-    () => onActiveChange(updateActive || restoreActive),
-    [updateActive, restoreActive, onActiveChange],
+    () => onActiveChange(updateActive || restoreActive || retireActive),
+    [updateActive, restoreActive, retireActive, onActiveChange],
   )
   return (
     <>
+      <RetainedApplicationCenter
+        source={retire}
+        historyVisible={historyOpen || localHistory}
+        onClose={() => setRetire(null)}
+        onActiveChange={setRetireActive}
+        onOutcome={onOutcome}
+        onHistory={() => setLocalHistory(true)}
+      />
       <ApplicationRestorationCenter
         source={restore}
         historyVisible={historyOpen || localHistory}
@@ -59,10 +71,11 @@ export function ApplicationUpdateCenter({
           onOutcome={onOutcome}
         />
       )}
-      {(historyOpen || localHistory) && !target && !restore && (
+      {(historyOpen || localHistory) && !target && !restore && !retire && (
         <History
-          canRestore={canRestore && !updateActive && !restoreActive}
+          canRestore={canRestore && !updateActive && !restoreActive && !retireActive}
           onRestore={setRestore}
+          onRetire={setRetire}
           onClose={() => {
             setLocalHistory(false)
             onHistoryClose()
@@ -303,10 +316,12 @@ function Update({
 function History({
   onClose,
   onRestore,
+  onRetire,
   canRestore,
 }: {
   onClose: () => void
   onRestore: (r: AppUpdateRecord) => void
+  onRetire: (r: AppUpdateRecord) => void
   canRestore: boolean
 }) {
   const [rows, setRows] = useState<AppUpdateRecord[]>([]),
@@ -317,16 +332,22 @@ function History({
     records: [],
     activeRequests: [],
   })
+  const [retained, setRetained] = useState<RetainedAppView>({ records: [], activeRequests: [] })
   const generation = useRef(0)
   async function load() {
     const token = ++generation.current
     setPending(true)
     setError('')
     try {
-      const [next, restored] = await Promise.all([api.list(), applicationRestoration.read()])
+      const [next, restored, retired] = await Promise.all([
+        api.list(),
+        applicationRestoration.read(),
+        retainedApplication.read(),
+      ])
       if (token === generation.current) {
         setRows(next)
         setRestorations(restored)
+        setRetained(retired)
       }
     } catch (e) {
       if (token === generation.current) setError(String(e))
@@ -341,10 +362,10 @@ function History({
     }
   }, [])
   useEffect(() => {
-    if (!restorations.activeRequests.length) return
+    if (!restorations.activeRequests.length && !retained.activeRequests.length) return
     const timer = setTimeout(() => void load(), 700)
     return () => clearTimeout(timer)
-  }, [restorations])
+  }, [restorations, retained])
   return (
     <Modal
       title="应用更新记录"
@@ -370,6 +391,28 @@ function History({
           <p className="mono full-path">{r.draft.path}</p>
           <p className="mono full-path">{r.backup}</p>
           <div className="modal-actions">
+            {r.state === 'updated' && r.retainedCopyAvailable && (
+              <button
+                className="button secondary compact"
+                disabled={
+                  pending ||
+                  !!error ||
+                  !canRestore ||
+                  restorations.records.some(
+                    (x) =>
+                      x.state === 'running' ||
+                      (['unknown', 'interrupted'].includes(x.state) && x.reviewedAt === null),
+                  ) ||
+                  retained.records.some(
+                    (x) =>
+                      x.state === 'running' || (x.state === 'unknown' && x.reviewedAt === null),
+                  )
+                }
+                onClick={() => onRetire(r)}
+              >
+                检查保留版本与占用…
+              </button>
+            )}
             {r.state === 'updated' && r.recoveryAvailable && (
               <button
                 className="button secondary compact"
@@ -449,6 +492,7 @@ function History({
       ))}
       {!pending && !rows.length && !error && <p>暂无应用更新记录。</p>}
       <ApplicationRestorationHistory view={restorations} pending={pending} onRefresh={load} />
+      <RetainedApplicationHistory view={retained} pending={pending} onRefresh={load} />
       <div className="modal-actions">
         <button className="button secondary" disabled={pending} onClick={() => void load()}>
           刷新记录

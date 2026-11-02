@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 pub(crate) mod commands;
 pub(super) mod journal;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Draft {
@@ -61,6 +61,7 @@ fn fingerprint(r: &super::Record) -> Result<String, String> {
     ))
 }
 fn source(db: &rusqlite::Connection, id: &str) -> Result<super::Record, String> {
+    super::retirement::block_source(db, id)?;
     let row = super::journal::list(db)?
         .into_iter()
         .find(|r| r.id == id)
@@ -306,4 +307,46 @@ fn perform(
     record.reason =
         "旧版应用包已恢复到安装位置，新版包已保留。应用数据未回退，兼容性仍需自行核对。".into();
     Ok(())
+}
+
+pub(super) fn retirement_mapping(
+    c: &rusqlite::Connection,
+    id: &str,
+) -> Result<Option<super::retirement::RestoredMapping>, String> {
+    let rows = journal::list(c)?;
+    let rows = rows
+        .iter()
+        .filter(|r| r.draft.source_id == id)
+        .collect::<Vec<_>>();
+    if rows
+        .iter()
+        .any(|r| ["running", "unknown", "interrupted"].contains(&r.state.as_str()))
+    {
+        return Err("此更新的恢复状态缺少可靠结果，保留包不能自动整理。".into());
+    }
+    let done = rows
+        .iter()
+        .filter(|r| r.state == "restored")
+        .collect::<Vec<_>>();
+    let row = match done.as_slice() {
+        [] => return Ok(None),
+        [r] => r,
+        _ => return Err("保留版本的恢复收据存在歧义。".into()),
+    };
+    let p = row.receipt.as_ref().ok_or("缺少恢复后的双端收据。")?;
+    Ok(Some(super::retirement::RestoredMapping {
+        record_id: row.id.clone(),
+        fingerprint: format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(row).map_err(|e| e.to_string())?)
+        ),
+        installed_device: p.installed_device.clone(),
+        installed_inode: p.installed_inode.clone(),
+        retained_device: p.retained_device.clone(),
+        retained_inode: p.retained_inode.clone(),
+        installed_hash: p.installed_hash.clone(),
+        retained_hash: p.retained_hash.clone(),
+        installed_version: row.draft.to_version.clone(),
+        retained_version: row.draft.from_version.clone(),
+    }))
 }

@@ -101,6 +101,7 @@ export async function installTaskMock(
             if (
               command === 'get_transfer_restorations' ||
               command === 'get_application_restorations' ||
+              command === 'get_retained_application_history' ||
               command === 'get_folder_archives'
             )
               return { records: [], activeRequests: [] }

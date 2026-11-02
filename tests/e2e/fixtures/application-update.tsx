@@ -76,6 +76,8 @@ export function mount(mode = 'normal') {
           return null
         }
         if (command === 'get_application_updates') return mode === 'history' ? [record] : []
+        if (command === 'get_retained_application_history')
+          return { records: [], activeRequests: [] }
         if (command === 'get_application_restorations') return { records: [], activeRequests: [] }
         if (command === 'acknowledge_application_update') {
           record = { ...record, reviewedAt: Date.now() }

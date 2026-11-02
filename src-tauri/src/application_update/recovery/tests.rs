@@ -1,5 +1,21 @@
 use super::*;
 use std::{fs, os::unix::fs::PermissionsExt, process::Command, sync::Mutex};
+pub(in crate::application_update) fn restore_owned(
+    c: &Mutex<db::Database>,
+    original: super::super::Record,
+    ctx: Context,
+    job: &Job,
+) -> Result<serde_json::Value, String> {
+    let plan = Plan::prepare(original, ctx.clone(), job)?;
+    serde_json::to_value(commands::run(
+        plan,
+        uuid::Uuid::new_v4().to_string(),
+        job,
+        c,
+        || Ok(ctx.clone()),
+    )?)
+    .map_err(|e| e.to_string())
+}
 fn draft(root: &Path) -> Draft {
     let source_id = uuid::Uuid::new_v4().to_string();
     let now = db::now();
@@ -300,4 +316,12 @@ fn native_roundtrip(lose_completion: bool) {
 fn real_signed_update_restore_preserves_new_bundle_data_and_reopens_unknown_without_replay() {
     native_roundtrip(false);
     native_roundtrip(true);
+}
+
+pub(in crate::application_update) fn source_available(c: &rusqlite::Connection, id: &str) -> bool {
+    source(c, id).is_ok()
+}
+
+pub(in crate::application_update) fn owned_records(c: &rusqlite::Connection) -> serde_json::Value {
+    serde_json::to_value(journal::list(c).unwrap()).unwrap()
 }

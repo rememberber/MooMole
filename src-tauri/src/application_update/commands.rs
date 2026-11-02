@@ -66,6 +66,7 @@ pub(crate) async fn prepare_application_update(
             .map_err(|e| e.to_string())?;
         s.plan = None;
         s.restoration = None;
+        s.retirement = None;
     }
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -200,9 +201,20 @@ pub(crate) fn get_application_updates(
         .keys()
         .cloned()
         .collect::<Vec<_>>();
+    let retired = retirement::journal::reconcile(&db, &active)?;
     journal::reconcile(&db, &active)?
         .iter()
-        .map(Record::view)
+        .map(|r| {
+            let mut view = r.view()?;
+            let allowed = r.state == "updated"
+                && r.recovery_receipt.is_some()
+                && retirement::available(&retired, &r.id);
+            view["retainedCopyAvailable"] = serde_json::json!(allowed);
+            if !allowed {
+                view["recoveryAvailable"] = serde_json::json!(false);
+            }
+            Ok(view)
+        })
         .collect()
 }
 #[tauri::command]

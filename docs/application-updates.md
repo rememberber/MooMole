@@ -29,3 +29,5 @@
 原生核心 6 项测试（含主动运行的真实签名 App 样例）通过，前端全量 219 项、后端默认全量及构建亦单独运行。后续恢复节点的新增验证见恢复文档。打包 App 的原生窗口与真实系统文件选择器尚未验收：当前会话没有原生窗口控制工具，不以浏览器夹具代替该证据。自动发现/下载更新、管理器对接、需要管理员的应用、更多卷/版本格式、后台组件与完整实际应用兼容性仍在完整目标内。本节点不等同于完整应用更新或发布就绪。
 
 签名判断依据 [Apple 静态签名校验](https://developer.apple.com/documentation/security/secstaticcodecheckvalidity(_:_:_:)) 与 [TN3127 designated requirement](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)。复制和交换使用本机公开 SDK 的 `copyfile.h`、`stdio.h` 声明；没有使用私有接口或解析终端输出决定替换目标。
+
+2026-11-02：成功更新的原始双端收据现可进入[保留应用版本整理](retained-application.md)，先检查实际版本及占用、再单独确认将保留包移入废纸篓；可靠恢复旧版后保留的新版也有对应方向检查。不会自动删除旧版；未知/已移入的收据不能继续恢复或重复整理，原更新记录保持。

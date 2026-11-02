@@ -12167,5 +12167,157 @@
     "归档副本检查等待超时，系统读取或文件窗口可能仍未结束；不会自动重试。",
     "Waiting for the archive-copy check timed out. A system read or file dialog may still be pending; nothing will be retried automatically.",
     "コピー確認の待機がタイムアウトしました。システム読み取りまたはファイル選択画面がまだ終了していない可能性があります。自動再試行はしません。"
+  ],
+  ["检查保留版本与占用…", "Review retained version and size…", "保持バージョンと容量を確認…"],
+  [
+    "保留版本整理仍在进行，请查看处理记录。",
+    "Retained version cleanup is still running. Check its history.",
+    "保持バージョンの整理が進行中です。処理履歴を確認してください。"
+  ],
+  [
+    "查看保留版本整理记录",
+    "View retained version cleanup history",
+    "保持バージョンの整理履歴を表示"
+  ],
+  ["停止保留版本整理", "Stop retained version cleanup", "保持バージョンの整理を停止"],
+  [
+    "整理保留的应用版本",
+    "Clean up a retained application version",
+    "保持中のアプリバージョンを整理"
+  ],
+  ["当前安装版本", "Currently installed version", "現在インストールされているバージョン"],
+  ["待整理的保留版本", "Retained version to clean up", "整理する保持バージョン"],
+  ["保留包逻辑大小", "Retained package logical size", "保持パッケージの論理サイズ"],
+  ["待处理的保留包", "Retained package to process", "処理する保持パッケージ"],
+  [
+    "此前已恢复旧版，这里保留的是当时的新版包。",
+    "The older version was restored earlier. This retained package is the newer version from that update.",
+    "以前に旧バージョンを復元済みです。ここに保持されているのは、その更新時の新バージョンです。"
+  ],
+  [
+    "更新后保留的旧版包可用于恢复此前版本。",
+    "The older package retained after the update can restore the previous version.",
+    "更新後に保持された旧パッケージは、以前のバージョンの復元に使えます。"
+  ],
+  [
+    "保留包将移入废纸篓，此更新记录不能再用于恢复或重复整理。请先确认当前版本可用，并自行备份重要数据。",
+    "The retained package will move to Trash. This update record can no longer restore it or repeat cleanup. First check that the current version works and back up important data.",
+    "保持パッケージをゴミ箱へ移動すると、この更新履歴からの復元や整理の再実行はできなくなります。現在のバージョンが使えることを確認し、重要なデータをバックアップしてください。"
+  ],
+  [
+    "只处理所列保留包；当前安装包和包外数据保留。专用目录为空且身份一致时一并移除。移入废纸篓不会立即释放磁盘空间。",
+    "Only the listed retained package is processed. The installed package and data outside it stay in place. Its dedicated directory is removed only if empty and its identity matches. Moving to Trash does not immediately free disk space.",
+    "一覧の保持パッケージだけを処理し、現在のインストール済みパッケージと外部データは保持します。専用フォルダは空で同一性を確認できた場合のみ削除します。ゴミ箱への移動だけではディスク容量はすぐに空きません。"
+  ],
+  [
+    "保留版本整理与停止边界",
+    "Retained version cleanup and stopping limits",
+    "保持バージョンの整理と停止の範囲"
+  ],
+  [
+    "再次核对更新与恢复收据、两份包的内容、签名、运行状态和保护设置。未知结果、身份变化或目录中有其他内容时保留，不按名称认领旧包。",
+    "Update and restore receipts, both packages, signatures, running state and protection settings are checked again. Unknown results, changed identities or extra directory contents leave packages in place. A name alone cannot identify an old package.",
+    "更新・復元の記録、両パッケージの内容、署名、実行状態、保護設定を再確認します。結果不明、同一性の変化、フォルダ内の追加内容がある場合は保持します。名前だけで旧パッケージを処理対象にはしません。"
+  ],
+  [
+    "系统移入前停止会保留原包；移入后停止不会自动撤回。结果不明时检查安装位置、保留目录和废纸篓，不会自动重试。",
+    "Stopping before the system move keeps the package. Stopping afterward does not undo it. If the result is unknown, check the installation, retained directory and Trash. There is no automatic retry.",
+    "システムによる移動前に停止すれば元のパッケージを保持します。移動後の停止では自動で元に戻しません。結果不明時はインストール先、保持フォルダ、ゴミ箱を確認してください。自動再試行はしません。"
+  ],
+  [
+    "正在核对保留版本与占用，尚未处理文件。",
+    "Checking retained version and size. No files have been processed yet.",
+    "保持バージョンと容量を確認中です。ファイルはまだ処理していません。"
+  ],
+  [
+    "正在复查并移入废纸篓，请等待实际结果。",
+    "Rechecking and moving to Trash. Please wait for the actual result.",
+    "再確認してゴミ箱へ移動中です。実際の結果をお待ちください。"
+  ],
+  [
+    "保留版本整理未返回完整结果，请查看处理记录并核查实际位置；不会自动重试。",
+    "Retained version cleanup did not return a complete result. Review its history and actual locations. It will not retry automatically.",
+    "保持バージョンの整理で完全な結果を取得できませんでした。処理履歴と実際の場所を確認してください。自動再試行はしません。"
+  ],
+  [
+    "我已核对当前和保留版本，同意仅将所列保留包移入废纸篓，了解原恢复副本将不再可用。",
+    "I checked the current and retained versions and agree to move only the listed retained package to Trash. I understand that the original recovery copy will no longer be available.",
+    "現在と保持中のバージョンを確認し、一覧の保持パッケージのみをゴミ箱へ移動することに同意します。元の復元用コピーが使えなくなることを理解しています。"
+  ],
+  [
+    "保留版本确认已过期，请返回后重新检查。",
+    "Retained version confirmation expired. Go back and check again.",
+    "保持バージョンの確認期限が切れました。戻って再確認してください。"
+  ],
+  [
+    "确认将保留版本移入废纸篓",
+    "Confirm moving retained version to Trash",
+    "保持バージョンのゴミ箱への移動を確認"
+  ],
+  ["保留版本整理结果", "Retained version cleanup result", "保持バージョンの整理結果"],
+  [
+    "空的专用保留目录已移除。",
+    "The empty dedicated retained directory was removed.",
+    "空の専用保持フォルダを削除しました。"
+  ],
+  [
+    "专用保留目录的移除未获确认，请检查实际状态。",
+    "Removal of the dedicated retained directory is unconfirmed. Check its actual state.",
+    "専用保持フォルダの削除は確認できていません。実際の状態を確認してください。"
+  ],
+  ["显示保留目录", "Show retained directory", "保持フォルダを表示"],
+  ["显示实际废纸篓位置", "Show actual Trash location", "実際のゴミ箱内の場所を表示"],
+  ["保留版本整理记录", "Retained version cleanup history", "保持バージョンの整理履歴"],
+  [
+    "暂无保留版本整理记录。",
+    "No retained version cleanup history yet.",
+    "保持バージョンの整理履歴はありません。"
+  ],
+  [
+    "请先核对安装位置、保留目录及实际废纸篓位置。记录核查不改变原结果，也不恢复原收据的操作权限。",
+    "First check the installation, retained directory and actual Trash location. Recording a review does not change the result or restore operation permission from the original receipt.",
+    "先にインストール先、保持フォルダ、実際のゴミ箱内の場所を確認してください。確認の記録は元の結果を変更せず、元の記録による操作権限も復活させません。"
+  ],
+  [
+    "我已检查实际位置，了解核查不会补做处理或恢复文件。",
+    "I checked the actual locations and understand that this review does not perform cleanup or restore files.",
+    "実際の場所を確認し、この確認では処理の追加実行やファイルの復元を行わないことを理解しています。"
+  ],
+  [
+    "保留版本整理数据无法核对，请检查处理记录和实际位置；不会自动重试。",
+    "Retained version cleanup data could not be verified. Check its history and actual locations. There is no automatic retry.",
+    "保持バージョンの整理データを確認できません。処理履歴と実際の場所を確認してください。自動再試行はしません。"
+  ],
+  ["保留版本整理进行中", "Retained version cleanup in progress", "保持バージョンの整理中"],
+  [
+    "保留版本已移入废纸篓",
+    "Retained version moved to Trash",
+    "保持バージョンをゴミ箱へ移動しました"
+  ],
+  ["保留版本未处理", "Retained version kept", "保持バージョンをそのまま保持"],
+  [
+    "保留版本整理已取消",
+    "Retained version cleanup cancelled",
+    "保持バージョンの整理をキャンセルしました"
+  ],
+  [
+    "保留版本整理结果待核实",
+    "Retained version cleanup result needs review",
+    "保持バージョンの整理結果の確認が必要です"
+  ],
+  [
+    "保留版本已移入废纸篓，空的专用目录已移除；当前安装包和包外数据保留。",
+    "The retained version moved to Trash and its empty dedicated directory was removed. The installed package and external data were kept.",
+    "保持バージョンをゴミ箱へ移動し、空の専用フォルダを削除しました。インストール済みパッケージと外部データは保持しました。"
+  ],
+  [
+    "保留版本已移入废纸篓，专用目录保留供核对；当前安装包和包外数据保留。",
+    "The retained version moved to Trash. Its dedicated directory remains for review. The installed package and external data were kept.",
+    "保持バージョンをゴミ箱へ移動しました。確認用に専用フォルダを保持しています。インストール済みパッケージと外部データは保持しました。"
+  ],
+  [
+    "保留版本整理已中断，请检查安装位置、保留目录与废纸篓；不会重放。",
+    "Retained version cleanup was interrupted. Check the installation, retained directory and Trash. It will not replay.",
+    "保持バージョンの整理が中断しました。インストール先、保持フォルダ、ゴミ箱を確認してください。再実行はしません。"
   ]
 ]

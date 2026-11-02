@@ -90,6 +90,8 @@ export function mount(mode = 'normal') {
           calls.filter((c) => c.command === 'execute_application_restoration').length,
         )
         if (command === 'get_application_updates') return [source]
+        if (command === 'get_retained_application_history')
+          return { records: [], activeRequests: [] }
         if (command === 'get_application_restorations') return { records, activeRequests: active }
         if (command === 'prepare_application_restoration') {
           if (mode === 'checkingCancel')

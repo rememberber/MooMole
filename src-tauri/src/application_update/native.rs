@@ -100,7 +100,7 @@ impl Drop for Dir {
         }
     }
 }
-fn names(file: &File) -> Result<Vec<CString>> {
+pub(super) fn names(file: &File) -> Result<Vec<CString>> {
     // A new open description avoids sharing a directory offset with the held FD.
     let fresh = open(file, c".", true, false)?;
     use std::os::fd::IntoRawFd;

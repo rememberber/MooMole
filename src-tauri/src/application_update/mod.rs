@@ -19,6 +19,7 @@ pub(crate) mod commands;
 mod journal;
 mod native;
 pub(crate) mod recovery;
+pub(crate) mod retirement;
 mod signing;
 #[cfg(test)]
 mod tests;
@@ -27,6 +28,7 @@ mod tests;
 pub(crate) struct Store {
     plan: Option<Plan>,
     restoration: Option<recovery::Plan>,
+    retirement: Option<retirement::Plan>,
 }
 struct Plan {
     draft: Draft,

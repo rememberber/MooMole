@@ -74,6 +74,16 @@ impl PreparedBundle {
             }
         })
     }
+    // This is only a native identity/reference building block. The retained-App
+    // executor independently validates original receipts and persists intent.
+    pub(crate) fn prepare_retained_copy(
+        path: &Path,
+        snapshot: &identity::Snapshot,
+        created: i64,
+        expires: i64,
+    ) -> Result<Self, String> {
+        autoreleasepool(|_| Self::prepare_with(path, snapshot, created, expires, |_| {}))
+    }
     pub(crate) fn prepare(plan: &Plan, ctx: &Context) -> Result<Self, String> {
         plan.recheck(ctx, crate::db::now())?;
         let (path, snapshot, created_at, expires_at) = plan.bundle_binding();
