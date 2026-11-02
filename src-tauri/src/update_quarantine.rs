@@ -106,10 +106,13 @@ mod native {
         Ok(())
     }
     pub fn mark(path: &Path, source: &str) -> Result<(), String> {
+        mark_from(path, source, crate::updates::RELEASES)
+    }
+    pub fn mark_from(path: &Path, source: &str, origin: &str) -> Result<(), String> {
         let url = Owned::file(path)?;
         let agent = Owned::text("MooMole")?;
         let source = Owned::url(source)?;
-        let origin = Owned::url(crate::updates::RELEASES)?;
+        let origin = Owned::url(origin)?;
         let properties = unsafe {
             let keys = [
                 kLSQuarantineTypeKey,
@@ -142,7 +145,7 @@ mod native {
     }
 }
 #[cfg(target_os = "macos")]
-pub use native::{mark, present};
+pub use native::{mark, mark_from, present};
 #[cfg(not(target_os = "macos"))]
 pub fn mark(_: &std::path::Path, _: &str) -> Result<(), String> {
     Ok(())

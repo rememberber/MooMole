@@ -135,6 +135,40 @@ fn app_declared_feed_is_read_only_bound_to_the_exact_copy_and_expires() {
     assert!(p.probe.feed_url.is_none());
 }
 #[test]
+fn download_key_is_bound_to_installed_identity_and_signed_feed_policy_stays_with_original_updater()
+{
+    use base64::Engine;
+    let (_temp, source, ctx) = fixture();
+    let path = Path::new(source.control_target().0).join("Contents/Info.plist");
+    let before = std::fs::read_to_string(&path).unwrap();
+    let k = base64::engine::general_purpose::STANDARD.encode(
+        ed25519_dalek::SigningKey::from_bytes(&[31; 32])
+            .verifying_key()
+            .to_bytes(),
+    );
+    std::fs::write(
+        &path,
+        before.replace(
+            "</dict>",
+            &format!("<key>SUPublicEDKey</key><string>{k}</string></dict>"),
+        ),
+    )
+    .unwrap();
+    let plan = Plan::prepare(source.clone(), ctx.clone(), &job()).unwrap();
+    assert!(plan.probe.verified_download);
+    let with_policy = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace("</dict>", "<key>SURequireSignedFeed</key><true/></dict>");
+    std::fs::write(&path, with_policy).unwrap();
+    assert!(plan.validate(&ctx, &job()).is_err());
+    assert!(
+        !Plan::prepare(source, ctx, &job())
+            .unwrap()
+            .probe
+            .verified_download
+    );
+}
+#[test]
 #[ignore = "explicit HTTPS GET of public Maccy appcast from an owned temporary App declaration; no browser opening, package download or app changes"]
 fn real_public_appcast_discovery_preserves_owned_application_and_returns_structured_versions() {
     let (_temp, source, ctx) = fixture();

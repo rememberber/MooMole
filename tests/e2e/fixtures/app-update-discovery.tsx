@@ -9,7 +9,13 @@ import { applications } from './application-library'
 
 // Browser transport only: does not contact vendors, open a browser or change apps.
 export function mount(mode = 'normal') {
-  setLanguagePreference(mode === 'en' ? 'en' : mode === 'ja' ? 'ja' : 'zh')
+  setLanguagePreference(
+    mode === 'en' || mode === 'downloadEn'
+      ? 'en'
+      : mode === 'ja' || mode === 'downloadJa'
+        ? 'ja'
+        : 'zh',
+  )
   const host = document.createElement('div')
   host.id = 'app-discovery-fixture'
   host.style.cssText =
@@ -34,6 +40,7 @@ export function mount(mode = 'normal') {
         : '更新地址来自此应用的 Info.plist，尚未访问网络或验证发布者。',
     createdAt: now,
     expiresAt: now + 300000,
+    verifiedDownload: mode.startsWith('download'),
   }
   const release = {
     id: '821324f0-d589-4873-b42a-8061782d839e',
@@ -41,7 +48,8 @@ export function mount(mode = 'normal') {
     build: '11',
     url: 'https://updates.example.org/release.zip',
     kind: 'package',
-    bytes: null,
+    bytes: mode.startsWith('download') ? 1234 : null,
+    downloadable: mode.startsWith('download'),
     requiresReview: true,
   }
   const draft = {
@@ -98,7 +106,29 @@ export function mount(mode = 'normal') {
           rejectActive?.(Error('应用更新来源检查已停止。'))
           return null
         }
-        if (command === 'plugin:dialog|open') return draft.replacement
+        if (command === 'download_app_update_candidate') {
+          if (mode === 'downloadCancel')
+            return new Promise((_, reject) => {
+              rejectActive = reject
+            })
+          if (mode === 'downloadBadSignature')
+            throw Error('下载包签名不匹配，未保存；请使用应用自身更新器核对。')
+          return {
+            probeId: probe.id,
+            candidateId: mode === 'downloadMismatch' ? probe.id : release.id,
+            requestId: args.requestId,
+            path: '/Users/demo/Downloads/MooMole-update-46573b46-9956-492e-b38c-101114edbeec.zip',
+            bytes: 1234,
+            sha256: 'a'.repeat(64),
+            verification: 'installedKeyEd25519',
+          }
+        }
+        if (command === 'plugin:dialog|open')
+          return (args.options as { directory?: boolean })?.directory
+            ? mode === 'downloadDialogCancel'
+              ? null
+              : '/Users/demo/Downloads'
+            : draft.replacement
         if (command === 'prepare_application_update') return draft
         if (command === 'execute_application_update')
           return {

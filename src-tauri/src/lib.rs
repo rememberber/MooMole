@@ -2677,6 +2677,7 @@ pub fn run() {
             app_update_discovery::commands::check_app_update_discovery,
             app_update_discovery::commands::discard_app_update_discovery,
             app_update_discovery::commands::open_app_update_candidate,
+            app_update_discovery::commands::download_app_update_candidate,
             application_update::commands::discard_application_update,
             application_update::commands::execute_application_update,
             application_update::commands::get_application_updates,

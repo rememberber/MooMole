@@ -11,6 +11,15 @@ async fn worker<T: Send + 'static>(
     request_id: String,
     work: impl FnOnce(AppState, Context, Arc<Job>) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
+    worker_for(state, current, request_id, Duration::from_secs(30), work).await
+}
+async fn worker_for<T: Send + 'static>(
+    state: &AppState,
+    current: String,
+    request_id: String,
+    deadline: Duration,
+    work: impl FnOnce(AppState, Context, Arc<Job>) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
     let operation = state.updates.installation.enter()?;
     let slot = state
         .project_slots
@@ -25,9 +34,110 @@ async fn worker<T: Send + 'static>(
         let _resources = (operation, slot, registered);
         work(state, ctx, job)
     });
-    let result = tokio::select! {r=&mut task=>r.map_err(|_|"应用更新来源读取未完成。")?,_=tokio::time::sleep(Duration::from_secs(30))=>return Err("更新来源检查等待超时；系统读取仍占用资源，停止后续步骤，请稍后重试。".into())};
+    let result = tokio::select! {r=&mut task=>r.map_err(|_|"应用更新来源读取未完成；若正在下载，请先核对所选目录，不会自动重试。")?,_=tokio::time::sleep(deadline)=>return Err(if deadline > Duration::from_secs(30) {"下载等待超时；所选目录中可能已有文件，请先核对，不会自动重试。系统工作结束前仍占用资源。"} else {"更新来源检查等待超时；系统读取仍占用资源，停止后续步骤，请稍后重试。"}.into())};
     drop(stop);
     result
+}
+#[tauri::command]
+pub(crate) async fn download_app_update_candidate(
+    probe_id: String,
+    candidate_id: String,
+    request_id: String,
+    directory: String,
+    confirmed: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<download::Delivery, String> {
+    if !confirmed {
+        return Err("请明确选择下载来源和保存目录。".into());
+    }
+    let current = app.config().identifier.clone();
+    let runtime = tokio::runtime::Handle::current();
+    worker_for(
+        &state,
+        current.clone(),
+        request_id.clone(),
+        Duration::from_secs(240),
+        move |state, _ctx, job| {
+            let (plan, release) = {
+                let store = state
+                    .app_update_discovery
+                    .lock()
+                    .map_err(|e| e.to_string())?;
+                let p = store
+                    .plan
+                    .as_ref()
+                    .filter(|p| p.probe.id == probe_id)
+                    .ok_or("更新来源已撤销，请重新检查。")?;
+                let r = store
+                    .report
+                    .as_ref()
+                    .filter(|r| r.probe_id == probe_id)
+                    .and_then(|r| {
+                        r.releases
+                            .iter()
+                            .find(|r| r.id == candidate_id && r.downloadable)
+                    })
+                    .ok_or("此更新没有受支持的大小和签名，使用原更新器。")?;
+                (p.clone(), r.clone())
+            };
+            let key = plan
+                .public_key
+                .as_deref()
+                .ok_or("应用未声明有效更新公钥，请使用原更新器。")?;
+            let recheck = || -> Result<(), String> {
+                validate(&state, &plan, &current, &job)?;
+                let store = state
+                    .app_update_discovery
+                    .lock()
+                    .map_err(|e| e.to_string())?;
+                if store.plan.as_ref().is_none_or(|p| p.probe.id != probe_id)
+                    || store.report.as_ref().is_none_or(|r| {
+                        r.probe_id != probe_id || !r.releases.iter().any(|r| r.id == candidate_id)
+                    })
+                {
+                    return Err("更新来源已撤销，未保存迟到下载。".into());
+                }
+                Ok(())
+            };
+            recheck()?;
+            let settings = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+            crate::personal_files::movement::directory(&directory, &settings)?;
+            // No retained cache: every failed, cancelled or dismissed transfer drops this file.
+            let mut file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+            runtime.block_on(download::fetch(&release, job.clone(), file.as_file_mut()))?;
+            recheck()?;
+            crate::update_quarantine::mark_from(
+                file.path(),
+                &release.url,
+                plan.probe.feed_url.as_deref().ok_or("更新来源缺失。")?,
+            )?;
+            let (path, sha256) = download::save(
+                file.as_file_mut(),
+                &release,
+                key,
+                &directory,
+                &settings,
+                &job,
+                || {
+                    recheck()?;
+                    let latest = db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?;
+                    if !latest.acknowledged || latest.protected_paths != settings.protected_paths {
+                        return Err("下载保护设置已变化，未保存。".into());
+                    }
+                    Ok(())
+                },
+            )?;
+            Ok(download::delivery(
+                &plan.probe.id,
+                &release,
+                request_id,
+                path,
+                sha256,
+            ))
+        },
+    )
+    .await
 }
 fn validate(state: &AppState, plan: &Plan, current: &str, job: &Job) -> Result<(), String> {
     let ctx = crate::app_control::context(state, current)?;

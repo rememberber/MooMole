@@ -9,6 +9,7 @@ struct Item {
     enclosure: Option<String>,
     page: Option<String>,
     bytes: Option<u64>,
+    signature: Option<String>,
     invalid: bool,
     foreign: bool,
 }
@@ -168,6 +169,7 @@ pub(super) fn parse(
                                 i.invalid = true;
                             }
                             i.enclosure = attrs.get("url").cloned();
+                            i.signature = attrs.get("sparkle:edSignature").cloned();
                             if let Some(raw) = attrs.get("length") {
                                 match raw.parse::<u64>() {
                                     // Some deployed feeds use zero for an unknown size.
@@ -288,6 +290,19 @@ pub(super) fn parse(
             .unwrap()
             .cmp(&crate::application_update::version(&a.build).unwrap())
     });
+    for i in 0..releases.len() {
+        for j in i + 1..releases.len() {
+            if releases[i].build == releases[j].build
+                && releases[i].url == releases[j].url
+                && (releases[i].signature != releases[j].signature
+                    || releases[i].bytes != releases[j].bytes)
+            {
+                releases[i].downloadable = false;
+                releases[j].downloadable = false;
+                complete = false;
+            }
+        }
+    }
     releases.dedup_by(|a, b| a.build == b.build && a.url == b.url);
     if inspected == 0 {
         complete = false;
@@ -362,6 +377,12 @@ fn release(
         (i.page.ok_or(())?, "page")
     };
     let url = network::url(&raw).map_err(|_| ())?.to_string();
+    let downloadable = kind == "package"
+        && i.bytes.is_some_and(|n| n <= download::MAX_BYTES)
+        && i.signature
+            .as_deref()
+            .is_some_and(|s| download::signature(s).is_ok())
+        && download::extension(&url).is_ok();
     Ok(Some(Release {
         id: uuid::Uuid::new_v4().to_string(),
         version,
@@ -370,5 +391,7 @@ fn release(
         kind,
         bytes: i.bytes,
         requires_review,
+        signature: i.signature,
+        downloadable,
     }))
 }

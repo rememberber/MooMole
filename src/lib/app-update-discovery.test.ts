@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { readAppUpdateDiscovery, readAppUpdateProbe } from './app-update-discovery'
+import {
+  readAppUpdateDiscovery,
+  readAppUpdateProbe,
+  readAppUpdateDelivery,
+} from './app-update-discovery'
 const target = {
   taskId: '853bf826-4ae1-4695-bc66-85d49e1957b0',
   index: 0,
@@ -27,6 +31,7 @@ const release = {
   kind: 'package' as const,
   bytes: 1234,
   requiresReview: false,
+  downloadable: false,
 }
 const report = {
   probeId: probe.id,
@@ -39,6 +44,34 @@ const report = {
   skipped: 1,
   releases: [release],
 }
+it('accepts only an exact signed delivery and rejects path, candidate, size and verification mismatches', () => {
+  const p = { ...probe, verifiedDownload: true },
+    r = { ...release, downloadable: true },
+    directory = '/Users/demo/Downloads'
+  const d = {
+    probeId: probe.id,
+    candidateId: release.id,
+    requestId,
+    path: directory + '/MooMole-update-46573b46-9956-492e-b38c-101114edbeec.zip',
+    bytes: release.bytes,
+    sha256: 'a'.repeat(64),
+    verification: 'installedKeyEd25519',
+  }
+  expect(readAppUpdateDelivery(d, p, r, requestId, directory)).toEqual(d)
+  for (const patch of [
+    { candidateId: probe.id },
+    { requestId: release.id },
+    { bytes: 12 },
+    { verification: 'https' },
+    { sha256: 'bad' },
+    { path: directory + '/../Other.zip' },
+    { path: directory + '/sub/MooMole-update-46573b46-9956-492e-b38c-101114edbeec.zip' },
+  ])
+    expect(() => readAppUpdateDelivery({ ...d, ...patch }, p, r, requestId, directory)).toThrow()
+  expect(() =>
+    readAppUpdateDelivery(d, { ...p, verifiedDownload: false }, r, requestId, directory),
+  ).toThrow()
+})
 describe('application update discovery boundary', () => {
   it('binds local source to its retained row without a network or install action', () => {
     expect(readAppUpdateProbe(probe, target).feedUrl).toBe(probe.feedUrl)

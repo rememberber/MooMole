@@ -17,6 +17,95 @@ async function calls(page: Page) {
     args: Record<string, unknown>
   }[]
 }
+test('verified download uses an exact candidate and chosen directory without installing or opening it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 780 })
+  const dialog = await start(page, 'download')
+  await dialog.getByRole('button', { name: '向此地址检查', exact: true }).click()
+  await dialog.getByRole('button', { name: '下载并校验更新包…', exact: true }).click()
+  await expect(dialog.getByRole('region', { name: '已校验的更新包' })).toContainText(
+    '签名与已安装应用声明的公钥匹配',
+  )
+  const invoked = await calls(page)
+  const downloads = invoked.filter((c) => c.command === 'download_app_update_candidate')
+  expect(downloads).toHaveLength(1)
+  expect(downloads[0].args).toMatchObject({
+    probeId: '7f786cf6-756c-49a7-b5a7-397fbb7cd15d',
+    candidateId: '821324f0-d589-4873-b42a-8061782d839e',
+    directory: '/Users/demo/Downloads',
+    confirmed: true,
+  })
+  expect(downloads[0].args).not.toHaveProperty('url')
+  expect(
+    invoked.some(
+      (c) =>
+        c.command === 'execute_application_update' || c.command === 'open_app_update_candidate',
+    ),
+  ).toBe(false)
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await dialog.getByRole('region', { name: '已校验的更新包' }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'test-results/app-verified-download.png' })
+})
+for (const lang of ['en', 'ja'])
+  test(`${lang} signed download explains verification and separate installation`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await page.goto('/')
+    await page.evaluate(
+      async (mode) => (await import('/tests/e2e/fixtures/app-update-discovery.tsx')).mount(mode),
+      lang === 'en' ? 'downloadEn' : 'downloadJa',
+    )
+    await page
+      .getByRole('button', {
+        name: lang === 'en' ? 'Check for updates…' : '更新を確認…',
+        exact: true,
+      })
+      .first()
+      .click()
+    const dialog = page.getByRole('dialog')
+    await dialog
+      .getByRole('button', {
+        name: lang === 'en' ? 'Check this address' : 'このアドレスを確認',
+        exact: true,
+      })
+      .click()
+    await dialog
+      .getByRole('button', {
+        name: lang === 'en' ? 'Download and verify package…' : 'パッケージをダウンロードして検証…',
+        exact: true,
+      })
+      .click()
+    const delivered = dialog.getByRole('region', {
+      name: lang === 'en' ? 'Verified update package' : '検証済みの更新パッケージ',
+    })
+    await expect(delivered).toBeVisible()
+    await expect(delivered).toContainText(lang === 'en' ? 'signature matches' : '公開鍵と一致')
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await delivered.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: info.outputPath(`verified-download-${lang}.png`) })
+  })
+for (const mode of [
+  'downloadBadSignature',
+  'downloadMismatch',
+  'downloadDialogCancel',
+  'downloadCancel',
+])
+  test(`download refuses or stops ${mode} without retries or installation`, async ({ page }) => {
+    const dialog = await start(page, mode)
+    await dialog.getByRole('button', { name: '向此地址检查', exact: true }).click()
+    await dialog.getByRole('button', { name: '下载并校验更新包…', exact: true }).click()
+    if (mode === 'downloadCancel')
+      await dialog.getByRole('button', { name: '停止更新来源检查', exact: true }).click()
+    if (mode !== 'downloadDialogCancel') await expect(dialog.getByRole('alert')).toBeVisible()
+    await expect(dialog.getByRole('region', { name: '已校验的更新包' })).toHaveCount(0)
+    const invoked = await calls(page)
+    expect(invoked.filter((c) => c.command === 'download_app_update_candidate')).toHaveLength(
+      mode === 'downloadDialogCancel' ? 0 : 1,
+    )
+    expect(invoked.some((c) => c.command === 'execute_application_update')).toBe(false)
+  })
 test('the actual app list routes only the retained ordinary copy into explicit discovery', async ({
   page,
 }) => {

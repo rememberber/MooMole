@@ -1,5 +1,224 @@
 [
   [
+    "更新签名编码不受支持。",
+    "The update signature encoding is unsupported.",
+    "更新署名のエンコード形式は未対応です。"
+  ],
+  [
+    "更新签名编码无法核对。",
+    "The update signature encoding could not be checked.",
+    "更新署名のエンコードを確認できません。"
+  ],
+  [
+    "更新签名长度无法核对。",
+    "The update signature length could not be checked.",
+    "更新署名の長さを確認できません。"
+  ],
+  [
+    "应用更新公钥无效。",
+    "The application's update public key is invalid.",
+    "アプリの更新用公開鍵が無効です。"
+  ],
+  [
+    "应用更新公钥不受支持。",
+    "The application's update public key is unsupported.",
+    "アプリの更新用公開鍵は未対応です。"
+  ],
+  [
+    "应用内下载首批支持 ZIP 或 DMG 完整包。",
+    "In-app download currently supports complete ZIP or DMG packages.",
+    "アプリ内ダウンロードは現在 ZIP または DMG の完全パッケージに対応しています。"
+  ],
+  [
+    "下载大小与来源声明不一致，未保存安装包。",
+    "The download size differs from the source declaration. No package was saved.",
+    "ダウンロードのサイズが配信元の宣言と異なるため、パッケージを保存しませんでした。"
+  ],
+  [
+    "更新缺少完整包签名。",
+    "The update has no complete-package signature.",
+    "更新に完全パッケージの署名がありません。"
+  ],
+  [
+    "下载包签名不匹配，未保存；请使用应用自身更新器核对。",
+    "The package signature does not match. Nothing was saved; check with the application's own updater.",
+    "パッケージの署名が一致しないため保存しませんでした。アプリ自身の更新機能で確認してください。"
+  ],
+  [
+    "下载大小未知或超过 256 MiB，请使用原更新器。",
+    "The download size is unknown or exceeds 256 MiB. Use the application's own updater.",
+    "サイズが不明または 256 MiB を超えています。アプリ自身の更新機能を使用してください。"
+  ],
+  [
+    "无法创建下载连接。",
+    "The download connection could not be created.",
+    "ダウンロード接続を作成できません。"
+  ],
+  [
+    "更新下载连接失败或超时。",
+    "The update download connection failed or timed out.",
+    "更新のダウンロード接続に失敗したか、タイムアウトしました。"
+  ],
+  [
+    "下载连接地址无法核对。",
+    "The download connection address could not be checked.",
+    "ダウンロード接続先を確認できません。"
+  ],
+  [
+    "更新下载重定向超过上限。",
+    "The update download exceeded the redirect limit.",
+    "更新ダウンロードの転送回数が上限を超えました。"
+  ],
+  [
+    "下载重定向位置缺失。",
+    "The download redirect has no destination.",
+    "ダウンロード転送先がありません。"
+  ],
+  [
+    "下载重定向地址无效。",
+    "The download redirect address is invalid.",
+    "ダウンロード転送先が無効です。"
+  ],
+  [
+    "下载响应、编码或声明大小无法核对。",
+    "The download response, encoding or declared size could not be checked.",
+    "ダウンロード応答、エンコード、宣言されたサイズを確認できません。"
+  ],
+  [
+    "下载内容没有完整读取。",
+    "The download could not be read completely.",
+    "ダウンロード内容を最後まで読み取れませんでした。"
+  ],
+  [
+    "下载内容超过声明大小，已停止。",
+    "The download exceeded its declared size and was stopped.",
+    "ダウンロードが宣言されたサイズを超えたため停止しました。"
+  ],
+  [
+    "下载暂存文件写入失败。",
+    "Writing the temporary download failed.",
+    "一時ダウンロードファイルの書き込みに失敗しました。"
+  ],
+  [
+    "下载未完成，未保存安装包。",
+    "The download is incomplete. No package was saved.",
+    "ダウンロードが未完了のためパッケージを保存しませんでした。"
+  ],
+  [
+    "更新下载未完成。",
+    "The update download did not complete.",
+    "更新のダウンロードが完了しませんでした。"
+  ],
+  [
+    "无法在所选目录创建新的下载文件。",
+    "A new download file could not be created in the selected folder.",
+    "選択したフォルダに新しいダウンロードファイルを作成できません。"
+  ],
+  [
+    "下载内容或隔离属性复制失败。",
+    "Copying the download or its quarantine properties failed.",
+    "ダウンロード内容または隔離属性のコピーに失敗しました。"
+  ],
+  [
+    "下载保存读回不一致。",
+    "The saved download did not match on readback.",
+    "保存したダウンロードの読み戻しが一致しません。"
+  ],
+  [
+    "下载目录已变化，未发布。",
+    "The destination folder changed. The download was not published.",
+    "保存先フォルダが変更されたためダウンロードを確定しませんでした。"
+  ],
+  [
+    "下载暂存位置已变化，未发布。",
+    "The temporary download location changed. Nothing was published.",
+    "一時ダウンロードの場所が変更されたため確定しませんでした。"
+  ],
+  [
+    "下载暂存文件身份已变化，未发布。",
+    "The temporary download identity changed. Nothing was published.",
+    "一時ダウンロードファイルの識別情報が変更されたため確定しませんでした。"
+  ],
+  [
+    "下载保存位置冲突或发布失败，未覆盖已有文件。",
+    "The destination conflicts or publication failed. Existing files were not overwritten.",
+    "保存先が競合しているか確定に失敗しました。既存ファイルは上書きしていません。"
+  ],
+  [
+    "保存后的文件身份无法核对。",
+    "The saved file's identity could not be checked.",
+    "保存後のファイルの識別情報を確認できません。"
+  ],
+  [
+    "下载路径无法编码。",
+    "The download path could not be encoded.",
+    "ダウンロード先のパスをエンコードできません。"
+  ],
+  [
+    "请明确选择下载来源和保存目录。",
+    "Explicitly choose the download source and destination folder.",
+    "ダウンロード元と保存先フォルダを明示的に選択してください。"
+  ],
+  [
+    "此更新没有受支持的大小和签名，使用原更新器。",
+    "This update lacks supported size or signature information. Use the original updater.",
+    "この更新には対応するサイズまたは署名情報がありません。元の更新機能を使用してください。"
+  ],
+  [
+    "应用未声明有效更新公钥，请使用原更新器。",
+    "The app has not declared a valid update public key. Use its own updater.",
+    "アプリが有効な更新用公開鍵を宣言していません。アプリ自身の更新機能を使用してください。"
+  ],
+  [
+    "更新来源已撤销，未保存迟到下载。",
+    "The update source was withdrawn. The late download was not saved.",
+    "更新元が取り消されたため、遅れて完了したダウンロードは保存しませんでした。"
+  ],
+  ["更新来源缺失。", "The update source is missing.", "更新元がありません。"],
+  [
+    "下载保护设置已变化，未保存。",
+    "Download protection settings changed. Nothing was saved.",
+    "ダウンロードの保護設定が変更されたため保存しませんでした。"
+  ],
+  [
+    "应用更新来源读取未完成；若正在下载，请先核对所选目录，不会自动重试。",
+    "The update operation did not complete. If downloading, check the selected folder first. It will not retry automatically.",
+    "更新処理が完了しませんでした。ダウンロード中だった場合は先に選択したフォルダを確認してください。自動再試行しません。"
+  ],
+  [
+    "下载等待超时；所选目录中可能已有文件，请先核对，不会自动重试。系统工作结束前仍占用资源。",
+    "The download wait timed out. A file may already exist in the selected folder; check it first. No automatic retry occurs, and resources remain held until system work ends.",
+    "ダウンロード待機がタイムアウトしました。保存先にファイルが存在する可能性があるため、先に確認してください。自動再試行せず、システム処理が終了するまでリソースを保持します。"
+  ],
+  [
+    "正在下载并校验完整更新包…",
+    "Downloading and verifying the complete update package…",
+    "更新パッケージ全体をダウンロードして検証中…"
+  ],
+  [
+    "请选择更新包保存目录。",
+    "Choose a folder for the update package.",
+    "更新パッケージの保存先フォルダを選択してください。"
+  ],
+  ["下载并校验更新包…", "Download and verify package…", "パッケージをダウンロードして検証…"],
+  [
+    "选择保存目录后开始下载，按已安装应用声明的公钥核对完整包签名；保留系统隔离标记，不覆盖已有文件。来源版本信息尚未签名，下载成功不代表可安装。",
+    "Choose a destination to download and verify the complete package against the public key declared by the installed app. System quarantine is retained and existing files are not overwritten. Feed version claims are unsigned; a verified download still needs separate installation checks.",
+    "保存先を選ぶとダウンロードを開始し、インストール済みアプリが宣言した公開鍵でパッケージ全体の署名を検証します。システムの隔離属性を保持し、既存ファイルは上書きしません。配信元のバージョン情報は未署名です。ダウンロード成功後もインストールの確認が必要です。"
+  ],
+  ["已校验的更新包", "Verified update package", "検証済みの更新パッケージ"],
+  [
+    "更新包已保存，签名与已安装应用声明的公钥匹配。",
+    "Update package saved. Its signature matches the public key declared by the installed app.",
+    "更新パッケージを保存しました。署名はインストール済みアプリが宣言した公開鍵と一致しています。"
+  ],
+  [
+    "请先展开 ZIP 或打开 DMG，再使用“使用已下载应用包…”选择其中的应用，独立核对版本、签名和替换范围。",
+    "Extract the ZIP or open the DMG, then use “Use a downloaded application…” to select the app and independently check its version, signature and replacement scope.",
+    "ZIP を展開するか DMG を開き、「ダウンロード済みアプリを使用…」でアプリを選択して、バージョン、署名、置き換え範囲を個別に確認してください。"
+  ],
+  ["选择更新包保存目录", "Choose update package destination", "更新パッケージの保存先を選択"],
+  [
     "来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。普通目录中的下载、媒体和聊天导出文件可按可靠收据检查恢复；Library 特殊目录请在 Finder 核对。",
     "Source: software content organizing. Files were selected from an exact source; the original application databases are retained. Downloads, media and exported chat files in ordinary folders can be checked for restoration using reliable receipts. Check special Library locations in Finder.",
     "出典：ソフトウェアのコンテンツ整理。明確な出典と選択に従ってファイルを処理し、元のアプリのデータベースは保持しています。通常のフォルダにあるダウンロード、メディア、チャットの書き出しは、信頼できる記録に基づき復元を確認できます。Library 内の特別な場所は Finder で確認してください。"

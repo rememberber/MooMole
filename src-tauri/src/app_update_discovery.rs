@@ -13,6 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 pub(crate) mod commands;
+mod download;
 mod feed;
 mod network;
 #[cfg(test)]
@@ -32,6 +33,7 @@ pub(crate) struct Probe {
     reason: String,
     created_at: i64,
     expires_at: i64,
+    verified_download: bool,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,6 +45,9 @@ pub(crate) struct Release {
     kind: &'static str,
     bytes: Option<u64>,
     requires_review: bool,
+    #[serde(skip_serializing)]
+    signature: Option<String>,
+    downloadable: bool,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +69,7 @@ struct Plan {
     identity: identity::ControlIdentity,
     context: Context,
     issued: Instant,
+    public_key: Option<String>,
 }
 #[derive(Default)]
 pub(crate) struct Store {
@@ -96,6 +102,8 @@ impl Plan {
         }
         let before = identity::capture_control(Path::new(path), id)?;
         let (feed_url, current_version, current_build) = identity::update_feed(Path::new(path))?;
+        let public_key =
+            identity::update_key(Path::new(path))?.filter(|v| download::key(v).is_ok());
         if identity::capture_control(Path::new(path), id)? != before {
             return Err("应用身份或更新来源变化，请刷新列表。".into());
         }
@@ -129,6 +137,7 @@ impl Plan {
             .into(),
             created_at: now,
             expires_at: now + 300000,
+            verified_download: public_key.is_some(),
         };
         Ok(Self {
             probe,
@@ -136,6 +145,7 @@ impl Plan {
             identity: before,
             context: ctx,
             issued: Instant::now(),
+            public_key,
         })
     }
     fn validate(&self, ctx: &Context, job: &Job) -> Result<(), String> {

@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
+import { translate } from '../i18n/translate'
 import type { UninstallTarget } from './app-uninstall'
 export interface AppUpdateProbe {
   id: string
@@ -13,6 +15,7 @@ export interface AppUpdateProbe {
   reason: string
   createdAt: number
   expiresAt: number
+  verifiedDownload?: boolean
 }
 export interface AppUpdateRelease {
   id: string
@@ -22,6 +25,7 @@ export interface AppUpdateRelease {
   kind: 'package' | 'page'
   bytes: number | null
   requiresReview: boolean
+  downloadable?: boolean
 }
 export interface AppUpdateDiscovery {
   probeId: string
@@ -109,6 +113,7 @@ export function readAppUpdateProbe(value: unknown, target: UninstallTarget): App
       reason: text(p.reason),
       createdAt: number(p.createdAt),
       expiresAt: number(p.expiresAt),
+      verifiedDownload: p.verifiedDownload === true,
     }
   if (
     r.taskId !== target.taskId ||
@@ -167,10 +172,16 @@ export function readAppUpdateDiscovery(
         kind: a.kind,
         bytes: a.bytes === null ? null : number(a.bytes),
         requiresReview: a.requiresReview,
+        downloadable: a.downloadable === true,
       }
     if (
       !['package', 'page'].includes(release.kind as string) ||
       typeof release.requiresReview !== 'boolean' ||
+      (release.downloadable &&
+        (release.kind !== 'package' ||
+          !release.bytes ||
+          release.bytes > 256 * 1024 ** 2 ||
+          !/\.(zip|dmg)$/i.test(new URL(release.url).pathname))) ||
       (release.bytes !== null && (!release.bytes || release.bytes > 16 * 1024 ** 3)) ||
       !probe.currentBuild ||
       !newer(release.build, probe.currentBuild)
@@ -190,7 +201,74 @@ export function readAppUpdateDiscovery(
     fail()
   return r as AppUpdateDiscovery
 }
+export interface AppUpdateDelivery {
+  probeId: string
+  candidateId: string
+  requestId: string
+  path: string
+  bytes: number
+  sha256: string
+  verification: 'installedKeyEd25519'
+}
+export function readAppUpdateDelivery(
+  value: unknown,
+  probe: AppUpdateProbe,
+  release: AppUpdateRelease,
+  requestId: string,
+  directory: string,
+): AppUpdateDelivery {
+  const r = object(value)
+  const path = text(r.path),
+    hash = text(r.sha256, 64)
+  if (
+    id(r.probeId) !== probe.id ||
+    id(r.candidateId) !== release.id ||
+    id(r.requestId) !== requestId ||
+    !probe.verifiedDownload ||
+    !release.downloadable ||
+    r.bytes !== release.bytes ||
+    !release.bytes ||
+    release.bytes > 256 * 1024 ** 2 ||
+    !/^[a-f0-9]{64}$/.test(hash) ||
+    r.verification !== 'installedKeyEd25519' ||
+    !directory.startsWith('/') ||
+    directory.split('/').some((p) => p === '.' || p === '..') ||
+    !path.startsWith(directory.replace(/\/$/, '') + '/') ||
+    !/^MooMole-update-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.(zip|dmg)$/.test(
+      path.slice(directory.replace(/\/$/, '').length + 1),
+    )
+  )
+    fail()
+  return r as unknown as AppUpdateDelivery
+}
 export const appUpdateDiscovery = {
+  chooseDownloadDirectory: async () => {
+    const p = await open({
+      directory: true,
+      multiple: false,
+      title: translate('选择更新包保存目录'),
+    })
+    return typeof p === 'string' ? p : null
+  },
+  download: async (
+    probe: AppUpdateProbe,
+    release: AppUpdateRelease,
+    requestId: string,
+    directory: string,
+  ) =>
+    readAppUpdateDelivery(
+      await invoke('download_app_update_candidate', {
+        probeId: probe.id,
+        candidateId: release.id,
+        requestId,
+        directory,
+        confirmed: true,
+      }),
+      probe,
+      release,
+      requestId,
+      directory,
+    ),
   prepare: async (target: UninstallTarget, requestId: string) =>
     readAppUpdateProbe(
       await invoke('prepare_app_update_discovery', {

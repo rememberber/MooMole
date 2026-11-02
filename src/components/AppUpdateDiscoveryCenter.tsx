@@ -4,6 +4,8 @@ import {
   appUpdateDiscovery as api,
   type AppUpdateProbe,
   type AppUpdateDiscovery,
+  type AppUpdateRelease,
+  type AppUpdateDelivery,
 } from '../lib/app-update-discovery'
 import { bytes } from '../lib/format'
 import { useNow } from '../lib/use-now'
@@ -42,7 +44,10 @@ function Discovery({
 }) {
   const [probe, setProbe] = useState<AppUpdateProbe | null>(null),
     [report, setReport] = useState<AppUpdateDiscovery | null>(null),
-    [pending, setPending] = useState<'reading' | 'checking' | 'opening' | null>(null),
+    [pending, setPending] = useState<
+      'reading' | 'checking' | 'opening' | 'choosing' | 'downloading' | null
+    >(null),
+    [delivery, setDelivery] = useState<AppUpdateDelivery | null>(null),
     [error, setError] = useState(''),
     [stopping, setStopping] = useState(false),
     [opened, setOpened] = useState(false)
@@ -69,6 +74,7 @@ function Discovery({
     setProbe(null)
     setReport(null)
     setOpened(false)
+    setDelivery(null)
   }
   async function prepare() {
     if (busy.current) return
@@ -145,6 +151,34 @@ function Discovery({
       }
     }
   }
+  async function download(release: AppUpdateRelease) {
+    if (!probe || expired || busy.current || !probe.verifiedDownload || !release.downloadable)
+      return
+    busy.current = true
+    setPending('choosing')
+    setError('')
+    setStopping(false)
+    setDelivery(null)
+    onActiveChange(true)
+    try {
+      const directory = await api.chooseDownloadDirectory()
+      if (!directory || !alive.current) return
+      const id = crypto.randomUUID()
+      active.current = id
+      setPending('downloading')
+      const result = await api.download(probe, release, id, directory)
+      if (alive.current) setDelivery(result)
+    } catch (e) {
+      if (alive.current) setError(String(e).replace(/^Error: /, ''))
+    } finally {
+      active.current = null
+      busy.current = false
+      if (alive.current) {
+        setPending(null)
+        onActiveChange(false)
+      }
+    }
+  }
   return (
     <Modal
       title="检查此应用更新"
@@ -184,7 +218,11 @@ function Discovery({
             ? '正在读取此副本的更新来源，尚未联网。'
             : pending === 'checking'
               ? '正在向显示的地址检查更新…'
-              : '正在请求浏览器打开所选地址…'}
+              : pending === 'downloading'
+                ? '正在下载并校验完整更新包…'
+                : pending === 'choosing'
+                  ? '请选择更新包保存目录。'
+                  : '正在请求浏览器打开所选地址…'}
         </p>
       )}
       {report && (
@@ -219,11 +257,38 @@ function Discovery({
               >
                 {r.kind === 'package' ? '在浏览器打开下载地址' : '在浏览器打开版本页面'}
               </button>
+              {probe?.verifiedDownload && r.downloadable && (
+                <button
+                  className="button secondary compact"
+                  disabled={!!pending || expired}
+                  onClick={() => void download(r)}
+                >
+                  下载并校验更新包…
+                </button>
+              )}
             </article>
           ))}
         </section>
       )}
       {opened && <p role="status">已请求浏览器打开所选地址；下载是否完成请在浏览器确认。</p>}
+      {report?.releases.some((r) => r.downloadable) && probe?.verifiedDownload && (
+        <p className="notice">
+          选择保存目录后开始下载，按已安装应用声明的公钥核对完整包签名；保留系统隔离标记，不覆盖已有文件。来源版本信息尚未签名，下载成功不代表可安装。
+        </p>
+      )}
+      {delivery && (
+        <section aria-label="已校验的更新包">
+          <p role="status">更新包已保存，签名与已安装应用声明的公钥匹配。</p>
+          <p className="mono full-path" data-i18n="off">
+            {delivery.path}
+          </p>
+          <p data-i18n="off">SHA-256: {delivery.sha256}</p>
+          <p>
+            请先展开 ZIP 或打开
+            DMG，再使用“使用已下载应用包…”选择其中的应用，独立核对版本、签名和替换范围。
+          </p>
+        </section>
+      )}
       {error && (
         <p className="notice warning" role="alert">
           {error}

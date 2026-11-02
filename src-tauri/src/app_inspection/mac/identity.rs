@@ -105,6 +105,21 @@ pub(crate) fn update_feed(
     }
     Ok((fields.feed_url, fields.version, fields.build))
 }
+pub(crate) fn update_key(path: &Path) -> Result<Option<String>, String> {
+    let bundle = Bundle::open(path.to_str().ok_or("应用路径无法编码。")?)?;
+    let (evidence, bytes) = Evidence::read(&bundle)?;
+    let fields = parse(&bytes)?;
+    if !evidence.verify(&bundle) {
+        return Err("应用身份文件已变化。".into());
+    }
+    // Signed-feed policy needs an implementation of that protocol. Even an
+    // unfamiliar/false policy value stays with the application's own updater.
+    Ok(if fields.requires_signed_feed {
+        None
+    } else {
+        fields.update_key
+    })
+}
 
 // Lifecycle controls bind the bundle, Info.plist and main executable. They do
 // not need the recursive inventory required to authorize whole-App removal.
