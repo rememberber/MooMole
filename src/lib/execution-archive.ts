@@ -31,7 +31,7 @@ export type ArchiveCounts = {
   managedApp?: number
 }
 export type ArchiveHeader = {
-  version: 1 | 2 | 3 | 4
+  version: 1 | 2 | 3 | 4 | 5
   id: string
   createdAt: number
   counts: ArchiveCounts
@@ -96,14 +96,19 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    ![1, 2, 3, 4].includes(v.version as number) ||
+    ![1, 2, 3, 4, 5].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )
     fail()
   const scope = counts(v.counts),
     extra = (scope.moleClean ?? 0) + (scope.extraction ?? 0) + (scope.managedApp ?? 0)
-  if ((v.version === 4 && extra === 0) || (v.version !== 4 && extra > 0)) fail()
+  if (
+    ((v.version as number) >= 4 && extra === 0) ||
+    ((v.version as number) < 4 && extra > 0) ||
+    (v.version === 5 && !(scope.managedApp ?? 0))
+  )
+    fail()
   return {
     version: v.version as ArchiveHeader['version'],
     id: id(v.id),
@@ -180,6 +185,7 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
       header.version < 3
     )
       fail()
+    if ('operation' in summary && summary.operation === 'upgrade' && header.version < 5) fail()
     if (
       summary.id !== id(row.id) ||
       summary.state === 'running' ||
@@ -197,6 +203,11 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
     (
       ['cleanup', 'uninstall', 'maintenance', 'moleClean', 'extraction', 'managedApp'] as const
     ).some((k) => (found[k] ?? 0) !== (header.counts[k] ?? 0))
+  )
+    fail()
+  if (
+    (header.version === 5) !==
+    entries.some((e) => 'operation' in e.summary && e.summary.operation === 'upgrade')
   )
     fail()
   return { header, entries }
@@ -263,8 +274,10 @@ export const archiveStateName = (state: string, method?: string) =>
       }[state] ?? '状态待核实')
 
 export const archiveEntryStateName = (kind: ArchiveKind, state: string) =>
-  kind === 'moleClean' && state === 'failed'
-    ? '执行失败，需核对已发生的结果'
-    : kind === 'managedApp' && state === 'removed'
-      ? '包与原 App 已核对不再存在'
-      : ({ retained: '已保留', unknown: '结果待核实' }[state] ?? archiveStateName(state))
+  kind === 'managedApp' && state === 'upgraded'
+    ? '已核对新版包登记、App 版本与签名'
+    : kind === 'moleClean' && state === 'failed'
+      ? '执行失败，需核对已发生的结果'
+      : kind === 'managedApp' && state === 'removed'
+        ? '包与原 App 已核对不再存在'
+        : ({ retained: '已保留', unknown: '结果待核实' }[state] ?? archiveStateName(state))

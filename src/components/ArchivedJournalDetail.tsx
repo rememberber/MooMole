@@ -172,6 +172,11 @@ export function ArchivedJournalDetail({
                   <p data-i18n="off">
                     {r.draft.name} · {r.draft.token} · {r.draft.installedVersion}
                   </p>
+                  {r.draft.upgrade && (
+                    <p data-i18n="off">
+                      {r.draft.installedVersion} → {r.draft.upgrade.version}
+                    </p>
+                  )}
                   <p className="mono full-path" data-i18n="off">
                     {r.draft.path}
                   </p>
@@ -182,7 +187,8 @@ export function ArchivedJournalDetail({
                     {r.reason}
                   </p>
                   <p className="muted">
-                    Homebrew 卸载没有废纸篓收据；归档不会重新调用包管理器，也不提供应用恢复。
+                    Homebrew
+                    操作没有本应用的废纸篓收据；归档不会重新调用包管理器，也不提供版本回滚。
                   </p>
                 </>
               )

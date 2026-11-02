@@ -34,12 +34,29 @@ fn valid(r: &Record) -> Result<(), String> {
         || ![
             "running",
             "removed",
+            "upgraded",
             "retained",
             "cancelled",
             "unknown",
             "interrupted",
         ]
         .contains(&r.state.as_str())
+        || r.draft
+            .upgrade
+            .as_ref()
+            .is_some_and(|o| !upgrade::valid(o, &r.draft.installed_version))
+        || (r.state == "removed" && r.draft.upgrade.is_some())
+        || (r.state == "upgraded"
+            && (r.draft.upgrade.is_none() || r.upgrade_result.is_none() || r.phase != "finished"))
+        || (r.state != "upgraded" && r.upgrade_result.is_some())
+        || r.upgrade_result.as_ref().is_some_and(|p| {
+            r.draft
+                .upgrade
+                .as_ref()
+                .is_none_or(|o| p.version != o.version || p.publisher != o.publisher)
+                || !crate::uninstall_plan::hash(&p.bundle_sha256)
+                || !crate::uninstall_plan::hash(&p.receipt_sha256)
+        })
         || !["checking", "intent", "finished"].contains(&r.phase.as_str())
     {
         return Err("Homebrew 操作记录无法核对，保留记录。".into());

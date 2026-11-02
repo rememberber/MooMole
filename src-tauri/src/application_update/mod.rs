@@ -20,7 +20,7 @@ mod journal;
 mod native;
 pub(crate) mod recovery;
 pub(crate) mod retirement;
-mod signing;
+pub(crate) mod signing;
 #[cfg(test)]
 mod tests;
 

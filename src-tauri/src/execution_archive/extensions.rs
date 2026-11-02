@@ -100,9 +100,11 @@ pub(super) fn summary(kind: Kind, v: &Value) -> Result<Value, String> {
         }
         result_uncertain |= !pending.is_empty();
     }
-    Ok(
-        serde_json::json!({"id":v["id"],"state":v["state"],"createdAt":v["createdAt"],"finishedAt":v["finishedAt"],"reviewedAt":v["reviewedAt"],"name":name,"path":path,"reason":reason,"resultUncertain":result_uncertain}),
-    )
+    let mut summary = serde_json::json!({"id":v["id"],"state":v["state"],"createdAt":v["createdAt"],"finishedAt":v["finishedAt"],"reviewedAt":v["reviewedAt"],"name":name,"path":path,"reason":reason,"resultUncertain":result_uncertain});
+    if kind == Kind::ManagedApp && v["draft"]["upgrade"].is_object() {
+        summary["operation"] = Value::String("upgrade".into());
+    }
+    Ok(summary)
 }
 pub(super) fn mole(c: &Connection, id: &str) -> Result<Value, String> {
     // Bound every large field before allocating it, including the complete

@@ -13090,5 +13090,38 @@
     "Confirm the first-use notice first.",
     "初回利用時の説明を先に確認してください。"
   ],
-  ["应用正在退出。", "The app is closing.", "アプリを終了しています。"]
+  ["应用正在退出。", "The app is closing.", "アプリを終了しています。"],
+  ["通过 Homebrew 升级…", "Upgrade through Homebrew…", "Homebrew でアップグレード…"],
+  [
+    "Homebrew 操作没有本应用的废纸篓收据；归档不会重新调用包管理器，也不提供版本回滚。",
+    "Homebrew operations have no Trash receipt from this app. An archive does not run the manager again or roll back versions.",
+    "Homebrew 操作には本アプリのゴミ箱記録がありません。アーカイブから管理ツールの再実行やバージョンの巻き戻しはできません。"
+  ],
+  [" · Homebrew 操作 {0} 批", " · Homebrew operations: {0}", " · Homebrew 操作 {0} 件"],
+  ["Homebrew 升级", "Homebrew upgrade", "Homebrew アップグレード"],
+  ["通过 Homebrew 升级", "Upgrade through Homebrew", "Homebrew でアップグレード"],
+  [
+    "这会让 Homebrew 下载并替换所选 Cask。新版签名与原发布者要求会在替换后核对，失败或停止也可能已发生修改，没有应用内回滚。请先保存个人数据并退出应用；不会自动退出，也不传入强制、跳过校验或关闭隔离的选项；系统批准状态由 Homebrew 的正常升级流程维护。",
+    "Homebrew will download and replace the selected cask. The new signature and original publisher requirement are checked after replacement; failure or stopping can still leave changes. There is no in-app rollback. Save personal data and quit the app first. This flow does not quit it automatically or pass force, checksum-bypass, or quarantine-disabling options. Homebrew manages system approval through its normal upgrade process.",
+    "Homebrew が選んだ Cask をダウンロードして置き換えます。新しい署名と元の発行元要件は置き換え後に確認するため、失敗や停止でも変更済みの場合があります。アプリ内の巻き戻しはできません。データを保存し、対象アプリを終了してください。自動終了、強制、検証回避、隔離無効化のオプションは使用しません。システムの承認状態は Homebrew の通常の更新処理が管理します。"
+  ],
+  ["准备升级到", "Version to install", "アップグレード先"],
+  ["下载来源", "Download source", "ダウンロード元"],
+  ["原应用发布者", "Original app publisher", "元のアプリの発行元"],
+  [
+    "ad-hoc 签名只能核对完整性，无法认证发布者身份。",
+    "Ad-hoc signatures verify integrity only and cannot authenticate the publisher.",
+    "アドホック署名は完全性のみを検証でき、発行元を認証できません。"
+  ],
+  [
+    "我已核对旧版、新版与来源，了解 Homebrew 替换及没有应用内回滚的边界。",
+    "I reviewed both versions and the source, and understand Homebrew replacement and the lack of in-app rollback.",
+    "旧版、新版、入手元を確認し、Homebrew による置き換えとアプリ内で巻き戻せないことを理解しました。"
+  ],
+  ["确认通过 Homebrew 升级", "Confirm Homebrew upgrade", "Homebrew アップグレードを確認"],
+  [
+    "已核对新版包登记、App 版本与签名",
+    "New package registration, app version and signature verified",
+    "新パッケージ登録、アプリのバージョン、署名を確認済み"
+  ]
 ]

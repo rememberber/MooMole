@@ -130,3 +130,71 @@ pub(super) fn continuity(old: &Path, new: &Path) -> Result<String, String> {
     status(unsafe { SecStaticCodeCheckValidity(new.0, 1 | 8 | 16, requirement.0) })?;
     Ok(team.unwrap())
 }
+
+// Freeze publisher continuity while the old package still exists. Manager-owned
+// upgrades may replace it before our final verification, so never re-read a
+// different old path or weaken the designated requirement to a display name.
+#[derive(Clone, Debug)]
+pub(crate) struct Proof {
+    pub(crate) publisher: String,
+    requirement: Option<Vec<u8>>,
+}
+#[link(name = "Security", kind = "framework")]
+extern "C" {
+    fn SecRequirementCopyData(requirement: CFTypeRef, flags: u32, data: *mut CFTypeRef) -> i32;
+    fn SecRequirementCreateWithData(
+        data: CFTypeRef,
+        flags: u32,
+        requirement: *mut CFTypeRef,
+    ) -> i32;
+}
+pub(crate) fn freeze(path: &Path) -> Result<Proof, String> {
+    let old = code(path)?;
+    let (team, adhoc) = info(&old)?;
+    if adhoc && team.is_none() {
+        return Ok(Proof {
+            publisher: "adHoc".into(),
+            requirement: None,
+        });
+    }
+    let publisher = team
+        .filter(|_| !adhoc)
+        .ok_or("已安装应用的签名发布者无法核对。")?;
+    let mut raw = std::ptr::null();
+    status(unsafe { SecCodeCopyDesignatedRequirement(old.0, 0, &mut raw) })?;
+    let requirement = owned(raw)?;
+    let mut raw = std::ptr::null();
+    status(unsafe { SecRequirementCopyData(requirement.0, 0, &mut raw) })?;
+    let data = owned(raw)?;
+    use core_foundation_sys::data::{CFDataGetBytePtr, CFDataGetLength};
+    let n = unsafe { CFDataGetLength(data.0.cast()) };
+    if !(1..=65536).contains(&n) {
+        return Err("签名要求超过读取范围。".into());
+    }
+    let bytes =
+        unsafe { std::slice::from_raw_parts(CFDataGetBytePtr(data.0.cast()), n as usize) }.to_vec();
+    Ok(Proof {
+        publisher,
+        requirement: Some(bytes),
+    })
+}
+impl Proof {
+    pub(crate) fn verify(&self, path: &Path) -> Result<(), String> {
+        let new = code(path)?;
+        let (team, adhoc) = info(&new)?;
+        if self.publisher == "adHoc" && self.requirement.is_none() && team.is_none() && adhoc {
+            return Ok(());
+        }
+        if adhoc || team.as_deref() != Some(&self.publisher) {
+            return Err("更新后的应用签名发布者与原应用不一致。".into());
+        }
+        use core_foundation_sys::data::CFDataCreate;
+        let b = self.requirement.as_ref().ok_or("原应用缺少签名要求。")?;
+        let data =
+            owned(unsafe { CFDataCreate(std::ptr::null(), b.as_ptr(), b.len() as isize) }.cast())?;
+        let mut raw = std::ptr::null();
+        status(unsafe { SecRequirementCreateWithData(data.0, 0, &mut raw) })?;
+        let requirement = owned(raw)?;
+        status(unsafe { SecStaticCodeCheckValidity(new.0, 1 | 8 | 16, requirement.0) })
+    }
+}

@@ -94,6 +94,38 @@ pub(crate) async fn prepare_managed_app(
     .await
 }
 #[tauri::command]
+pub(crate) async fn prepare_managed_app_upgrade(
+    task_id: String,
+    index: usize,
+    request_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    controller: tauri::State<'_, Controller>,
+) -> Result<Draft, String> {
+    let source = state
+        .results
+        .lock()
+        .map_err(|e| e.to_string())?
+        .uninstall_target(&task_id, index)?;
+    controller.0.lock().map_err(|e| e.to_string())?.plan = None;
+    let owner = controller.inner().clone();
+    let current = app.config().identifier.clone();
+    worker(
+        &state,
+        current.clone(),
+        request_id,
+        true,
+        move |state, ctx, job, runtime| {
+            let plan = runtime.block_on(Plan::prepare_for(source, ctx, job.clone(), true))?;
+            current_source(&state, &plan, &current, &job)?;
+            let out = plan.draft.clone();
+            owner.0.lock().map_err(|e| e.to_string())?.plan = Some(plan);
+            Ok(out)
+        },
+    )
+    .await
+}
+#[tauri::command]
 pub(crate) fn discard_managed_app(
     id: String,
     controller: tauri::State<'_, Controller>,
@@ -123,6 +155,7 @@ pub(super) fn execute(
         finished_at: None,
         reason: "正在重新检查 Homebrew 包。".into(),
         reviewed_at: None,
+        upgrade_result: None,
     };
     journal::begin(&mut *database.lock().map_err(|e| e.to_string())?, &r)?;
     let outcome = (|| -> Result<(), String> {
@@ -137,10 +170,44 @@ pub(super) fn execute(
         }
         live(&plan, &job)?;
         check(&job)?;
+        if plan.draft.upgrade.is_some() {
+            // Keep download time outside the App replacement boundary. A user
+            // may launch or edit the App while a large download is in progress.
+            r.reason =
+                "正在请求 Homebrew 下载并校验新版；尚未请求替换 App，下载缓存可能保留。".into();
+            journal::save(&*database.lock().map_err(|e| e.to_string())?, &r)?;
+            let fetch = upgrade::fetch(&plan.tool, &ctx.home, &plan.draft.token)?;
+            runtime.block_on(crate::process::output_bounded(
+                fetch,
+                job.clone(),
+                Duration::from_secs(120),
+                CAP as u64,
+            ))?;
+            live(&plan, &job)?;
+            let current = runtime.block_on(plan.tool.installed(&ctx.home, job.clone()))?;
+            if !current.packages.iter().any(|p| {
+                p.token == plan.draft.token
+                    && p.path == plan.draft.path
+                    && p.sha256 == plan.package_sha256
+            }) {
+                return Err("下载后包目录已变化，尚未请求替换 App；请重新检查。".into());
+            }
+            live(&plan, &job)?;
+            check(&job)?;
+        }
         r.phase = "intent".into();
-        r.reason = "已保存执行意图，正在请求 Homebrew 卸载所选 Cask。".into();
+        r.reason = if plan.draft.upgrade.is_some() {
+            "已保存执行意图，正在请求 Homebrew 升级所选 Cask。"
+        } else {
+            "已保存执行意图，正在请求 Homebrew 卸载所选 Cask。"
+        }
+        .into();
         journal::save(&*database.lock().map_err(|e| e.to_string())?, &r)?;
-        let command = plan.tool.uninstall_command(&ctx.home, &plan.draft.token)?;
+        let command = if plan.draft.upgrade.is_some() {
+            upgrade::command(&plan.tool, &ctx.home, &plan.draft.token)?
+        } else {
+            plan.tool.uninstall_command(&ctx.home, &plan.draft.token)?
+        };
         runtime
             .block_on(crate::process::output_bounded(
                 command,
@@ -148,9 +215,19 @@ pub(super) fn execute(
                 Duration::from_secs(120),
                 CAP as u64,
             ))
-            .map_err(|_| "Homebrew 未取得完整成功结果；可能部分完成，请核对，不会自动重试。")?;
+            .map_err(|e| {
+                crate::engine::plain_terminal_text(&format!(
+                    "Homebrew 未取得完整成功结果；可能部分完成，请核对，不会自动重试。\n{e}"
+                ))
+            })?;
         check(&job)?;
         let after = runtime.block_on(plan.tool.installed(&ctx.home, job.clone()))?;
+        if plan.draft.upgrade.is_some() {
+            r.upgrade_result = Some(upgrade::after(&plan, &after, &ctx)?);
+            r.state = "upgraded".into();
+            r.reason=if plan.draft.upgrade.as_ref().is_some_and(|o|o.publisher=="adHoc") {"Homebrew 升级成功返回，已核对新版包登记、实际 App 版本、安装收据及签名完整性。ad-hoc 无法认证发布者；没有应用内回滚，请自行核对个人数据兼容性。"}else{"Homebrew 升级成功返回，已核对新版包登记、实际 App 版本、安装收据及原发布者签名要求。没有应用内回滚，请自行核对个人数据兼容性。"}.into();
+            return Ok(());
+        }
         if after.tokens.contains(&plan.draft.token)
             || !matches!(std::fs::symlink_metadata(&plan.draft.path),Err(e)if e.kind()==std::io::ErrorKind::NotFound)
         {
@@ -186,7 +263,7 @@ pub(crate) async fn execute_managed_app(
     controller: tauri::State<'_, Controller>,
 ) -> Result<Record, String> {
     if !confirmed {
-        return Err("请单独确认 Homebrew 卸载及恢复边界。".into());
+        return Err("请单独确认 Homebrew 操作及恢复边界。".into());
     }
     let plan = {
         let mut s = controller.0.lock().map_err(|e| e.to_string())?;

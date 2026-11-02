@@ -24,6 +24,7 @@ export function ApplicationRow({
   canUninstall = false,
   onUninstall,
   onManagedUninstall,
+  onManagedUpgrade,
   onControl,
   canControl = false,
   onUpdate,
@@ -46,6 +47,7 @@ export function ApplicationRow({
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
   onManagedUninstall?: (target: UninstallTarget) => void
+  onManagedUpgrade?: (target: UninstallTarget) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -79,6 +81,24 @@ export function ApplicationRow({
         <span className="app-size">
           {appSizeEstimate(app.size) == null ? '大小未知' : app.size}
         </span>
+        {onManagedUpgrade && app.source === 'Homebrew' && (
+          <button
+            className="button secondary compact"
+            disabled={!canControl || !taskId}
+            onClick={() => {
+              if (taskId)
+                onManagedUpgrade({
+                  taskId,
+                  index,
+                  name: app.name,
+                  path: app.path,
+                  bundleId: app.bundle_id,
+                })
+            }}
+          >
+            通过 Homebrew 升级…
+          </button>
+        )}
         {onUpdate && (
           <button
             className="button secondary compact"

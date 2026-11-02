@@ -66,3 +66,51 @@ describe('managed application protocol', () => {
       expect(() => readManagedRecord({ ...record, ...change })).toThrow()
   })
 })
+
+it('upgrade binds old/new numeric versions, URL/hash/publisher and requires distinct completion proof', () => {
+  const upgrade = {
+      version: '2.0',
+      url: 'https://example.org/owned.zip',
+      sha256: 'b'.repeat(64),
+      publisher: 'adHoc',
+    },
+    d = { ...draft(), upgrade }
+  expect(readManagedDraft(d, target, true).upgrade?.version).toBe('2.0')
+  expect(() => readManagedDraft(d, target, false)).toThrow()
+  expect(() => readManagedDraft(draft(), target, true)).toThrow()
+  for (const patch of [
+    { version: 'latest' },
+    { version: '0.1' },
+    { sha256: 'no_check' },
+    { url: 'javascript:alert(1)' },
+    { url: 'https://user:pass@example.org/file' },
+    { publisher: '' },
+  ])
+    expect(() => readManagedDraft({ ...d, upgrade: { ...upgrade, ...patch } })).toThrow()
+  const r = {
+    id,
+    requestId: id,
+    draft: d,
+    state: 'upgraded',
+    phase: 'finished',
+    createdAt: now,
+    finishedAt: now + 1,
+    reason: 'verified manager outcome',
+    reviewedAt: null,
+    upgradeResult: {
+      version: '2.0',
+      publisher: 'adHoc',
+      bundleSha256: 'c'.repeat(64),
+      receiptSha256: 'd'.repeat(64),
+    },
+  }
+  expect(readManagedRecord(r).state).toBe('upgraded')
+  for (const patch of [
+    { state: 'removed' },
+    { upgradeResult: undefined },
+    { draft: draft() },
+    { upgradeResult: { ...r.upgradeResult, version: '3.0' } },
+    { upgradeResult: { ...r.upgradeResult, bundleSha256: 'bad' } },
+  ])
+    expect(() => readManagedRecord({ ...r, ...patch })).toThrow()
+})

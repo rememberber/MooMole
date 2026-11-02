@@ -6,7 +6,7 @@ type Call = { command: string; args: Record<string, unknown> }
 async function calls(page: Page): Promise<Call[]> {
   return page.evaluate(() => JSON.parse(sessionStorage.getItem('managed-calls') ?? '[]'))
 }
-async function setup(page: Page, mode = 'normal') {
+async function setup(page: Page, mode = 'normal', upgrade = false) {
   await installTaskMock(page, 'apps', undefined, applications)
   await page.addInitScript((mode) => {
     const native = (
@@ -27,7 +27,7 @@ async function setup(page: Page, mode = 'normal') {
       }
       if (command === 'get_managed_apps') return records()
       if (command === 'list_executions') return []
-      if (command === 'prepare_managed_app') {
+      if (command === 'prepare_managed_app' || command === 'prepare_managed_app_upgrade') {
         if (mode === 'unsupported') throw Error('包内容不受支持，请使用原管理工具。')
         const now = Date.now() + (mode === 'future' ? 60000 : 0)
         draft = {
@@ -47,6 +47,14 @@ async function setup(page: Page, mode = 'normal') {
           createdAt: now,
           expiresAt: now + 120000,
         }
+        if (command === 'prepare_managed_app_upgrade')
+          draft.upgrade = {
+            version: '2.0',
+            url: 'https://example.org/owned.zip',
+            sha256: 'b'.repeat(64),
+            publisher: 'adHoc',
+          }
+        if (mode === 'upgrade-wrong-action') delete draft.upgrade
         if (mode === 'late')
           return new Promise((resolve) => {
             release = resolve
@@ -70,7 +78,21 @@ async function setup(page: Page, mode = 'normal') {
           createdAt: Date.now(),
           finishedAt: ['cancel', 'lost'].includes(mode) ? null : Date.now(),
           reviewedAt: null,
-          state: ['cancel', 'lost'].includes(mode) ? 'running' : 'removed',
+          state: ['cancel', 'lost'].includes(mode)
+            ? 'running'
+            : draft.upgrade
+              ? 'upgraded'
+              : 'removed',
+          ...(draft.upgrade && !['cancel', 'lost'].includes(mode)
+            ? {
+                upgradeResult: {
+                  version: '2.0',
+                  publisher: 'adHoc',
+                  bundleSha256: 'c'.repeat(64),
+                  receiptSha256: 'd'.repeat(64),
+                },
+              }
+            : {}),
           phase: ['cancel', 'lost'].includes(mode) ? 'intent' : 'finished',
           reason:
             'Homebrew 命令已成功返回，且重新读取未发现该包登记或原 App 路径。未使用 zap、force 或自动移除依赖；此流程不提供废纸篓收据或应用内恢复。',
@@ -112,8 +134,11 @@ async function setup(page: Page, mode = 'normal') {
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   const rows = page.getByRole('region', { name: 'Mole 应用清单' }).getByRole('article')
   await expect(rows).toHaveCount(5)
-  await rows.nth(1).getByRole('button', { name: '卸载…', exact: true }).click()
-  return page.getByRole('dialog', { name: '通过 Homebrew 卸载' })
+  await rows
+    .nth(1)
+    .getByRole('button', { name: upgrade ? '通过 Homebrew 升级…' : '卸载…', exact: true })
+    .click()
+  return page.getByRole('dialog', { name: upgrade ? '通过 Homebrew 升级' : '通过 Homebrew 卸载' })
 }
 test('actual Homebrew row uses manager review and a separate explicit confirmation, never native Trash', async ({
   page,
@@ -294,3 +319,69 @@ for (const language of ['en', 'ja'] as const)
       animations: 'disabled',
     })
   })
+
+test('Homebrew upgrade has its own review, version transition and proof, with no native uninstall fallback', async ({
+  page,
+}) => {
+  const d = await setup(page, 'normal', true)
+  await expect(d).toContainText('准备升级到')
+  await expect(d).toContainText('https://example.org/owned.zip')
+  await expect(d).toContainText('没有应用内回滚')
+  const confirm = d.getByRole('button', { name: '确认通过 Homebrew 升级', exact: true })
+  await expect(confirm).toBeDisabled()
+  await d.getByRole('checkbox').check()
+  await confirm.dblclick()
+  await expect(d).toContainText('已核对新版包登记、App 版本与签名')
+  const log = await calls(page)
+  expect(log.filter((c) => c.command === 'prepare_managed_app_upgrade')).toHaveLength(1)
+  expect(log.filter((c) => c.command === 'prepare_managed_app')).toHaveLength(0)
+  expect(log.filter((c) => c.command === 'execute_managed_app')).toHaveLength(1)
+  await d.getByRole('button', { name: '返回应用列表' }).click()
+  await page.getByRole('button', { name: '操作历史', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Homebrew 操作历史' })).toContainText('1.0 → 2.0')
+})
+test('an uninstall confirmation cannot be substituted for requested upgrade', async ({ page }) => {
+  const d = await setup(page, 'upgrade-wrong-action', true)
+  await expect(d.getByRole('alert')).toContainText('无法核对')
+  await expect(d.getByRole('button', { name: '确认通过 Homebrew 升级', exact: true })).toHaveCount(
+    0,
+  )
+  expect((await calls(page)).filter((c) => c.command === 'execute_managed_app')).toHaveLength(0)
+})
+
+for (const language of ['en', 'ja'] as const)
+  test(`upgrade review fits in ${language}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await setup(page, 'normal', true)
+    await page.evaluate(
+      async (lang) => (await import('/src/i18n/locale.ts')).setLanguagePreference(lang),
+      language,
+    )
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText(
+      language === 'en' ? 'Upgrade through Homebrew' : 'Homebrew でアップグレード',
+    )
+    await expect(dialog).toContainText('/Users/demo/Applications/Example Beta.app')
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+    await dialog.screenshot({ path: info.outputPath(`managed-upgrade-${language}.png`) })
+  })
+
+test('stopping an upgrade preserves unknown and reconnects without preparing another action', async ({
+  page,
+}) => {
+  const d = await setup(page, 'cancel', true)
+  await d.getByRole('checkbox').check()
+  await d.getByRole('button', { name: '确认通过 Homebrew 升级', exact: true }).click()
+  await expect(d.getByRole('button', { name: '关闭弹窗' })).toHaveCount(0)
+  await d.getByRole('button', { name: '停止本次 Homebrew 任务' }).click()
+  await expect(d).toContainText('结果待核实')
+  await d.getByRole('button', { name: '返回应用列表' }).click()
+  await page.reload()
+  await page.getByRole('button', { name: '操作历史', exact: true }).click()
+  const history = page.getByRole('region', { name: 'Homebrew 操作历史' })
+  await expect(history).toContainText('Homebrew 升级')
+  await expect(history).toContainText('结果待核实')
+  const log = await calls(page)
+  expect(log.filter((c) => c.command === 'execute_managed_app')).toHaveLength(1)
+  expect(log.filter((c) => c.command === 'prepare_managed_app_upgrade')).toHaveLength(1)
+})

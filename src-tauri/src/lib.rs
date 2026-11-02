@@ -2662,6 +2662,7 @@ pub fn run() {
             check_updates,
             device_backups::commands::get_device_backups,
             managed_apps::commands::prepare_managed_app,
+            managed_apps::commands::prepare_managed_app_upgrade,
             managed_apps::commands::discard_managed_app,
             managed_apps::commands::execute_managed_app,
             managed_apps::commands::get_managed_apps,

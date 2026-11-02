@@ -315,7 +315,12 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
         return Err("归档读回不一致。".into());
     }
     Ok(Evidence {
-        version: if extended {
+        version: if saved_entries
+            .iter()
+            .any(|e| e.kind == Kind::ManagedApp && e.summary["operation"] == "upgrade")
+        {
+            5
+        } else if extended {
             4
         } else if moves {
             3
@@ -452,7 +457,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
     let h: Header = serde_json::from_slice(&bytes).map_err(err)?;
     valid_id(&h.id)?;
     if h.format != "MooMole execution evidence"
-        || ![1, 2, 3, 4].contains(&h.version)
+        || ![1, 2, 3, 4, 5].contains(&h.version)
         || (h.version < 4
             && [
                 h.counts.mole_clean,
@@ -461,7 +466,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
             ]
             .iter()
             .any(|n| *n > 0))
-        || (h.version == 4
+        || (h.version >= 4
             && [
                 h.counts.mole_clean,
                 h.counts.extraction,
@@ -469,6 +474,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
             ]
             .iter()
             .all(|n| *n == 0))
+        || (h.version == 5 && h.counts.managed_app == 0)
         || h.created_at < 0
         || h.counts.total() == 0
         || h.counts.total() > 64
@@ -522,7 +528,7 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
     }
     let tables: Tables = serde_json::from_slice(&bytes).map_err(err)?;
     if tables.len()
-        != if h.version == 4 {
+        != if h.version >= 4 {
             16
         } else if h.version == 1 {
             11
@@ -541,6 +547,12 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
         })
     {
         return Err("移动记录需要 v3 归档，不接受降级标头。".into());
+    }
+    let upgrading = entries
+        .iter()
+        .any(|e| e.kind == Kind::ManagedApp && e.summary["operation"] == "upgrade");
+    if upgrading != (h.version == 5) {
+        return Err("Homebrew 升级记录须使用 v5 归档，不接受降级或错配标头。".into());
     }
     if counts != h.counts {
         return Err("归档摘要与实际批次不符。".into());

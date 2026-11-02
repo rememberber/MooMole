@@ -118,7 +118,7 @@ test('v4 includes all shared-capacity journals and reads full Mole pages without
   await mount(page, 'v4')
   const d = page.getByRole('dialog')
   await d.getByRole('button', { name: '检查当前执行记录' }).click()
-  await expect(d).toContainText('完整清理 1 批 · 压缩包解压 1 批 · Homebrew 卸载 1 批')
+  await expect(d).toContainText('完整清理 1 批 · 压缩包解压 1 批 · Homebrew 操作 1 批')
   await d.getByRole('checkbox').check()
   await d.getByRole('button', { name: '保存归档并释放容量' }).dblclick()
   await expect(d.getByRole('button', { name: /查看记录/ })).toHaveCount(6)
@@ -185,3 +185,19 @@ for (const language of ['zh', 'en', 'ja'] as const)
     expect(await d.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
     await d.screenshot({ path: testInfo.outputPath(`archive-v4-${language}-detail.png`) })
   })
+
+test('v5 upgrade archive stays read-only, names the operation and preserves the version transition', async ({
+  page,
+}) => {
+  await mount(page, 'v5')
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: '检查当前执行记录' }).click()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: '保存归档并释放容量' }).click()
+  await dialog.getByRole('button', { name: /Homebrew 升级 ·/ }).click()
+  await expect(dialog).toContainText('已核对新版包登记、App 版本与签名')
+  await expect(dialog).toContainText('1.0 → 2.0')
+  await expect(dialog).toContainText('不提供版本回滚')
+  await expect(dialog.getByRole('button', { name: /确认.*升级|执行|恢复/ })).toHaveCount(0)
+  expect(await calls(page, 'execute_managed_app')).toHaveLength(0)
+})

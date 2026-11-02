@@ -29,7 +29,7 @@ const scope = (v: ArchiveHeader['counts']) =>
   translate(`清理与移动 ${v.cleanup} 批 · 卸载 ${v.uninstall} 批 · 维护 ${v.maintenance} 批`) +
   (v.moleClean ? translate(` · 完整清理 ${v.moleClean} 批`) : '') +
   (v.extraction ? translate(` · 压缩包解压 ${v.extraction} 批`) : '') +
-  (v.managedApp ? translate(` · Homebrew 卸载 ${v.managedApp} 批`) : '')
+  (v.managedApp ? translate(` · Homebrew 操作 ${v.managedApp} 批`) : '')
 export function ExecutionArchiveCenter({
   openSignal,
   enabled,
@@ -271,7 +271,9 @@ export function ExecutionArchiveCenter({
                   'method' in selected.summary &&
                   selected.summary.method === 'move'
                     ? '文件移动'
-                    : archiveKindName[selected.kind]}{' '}
+                    : 'operation' in selected.summary && selected.summary.operation === 'upgrade'
+                      ? 'Homebrew 升级'
+                      : archiveKindName[selected.kind]}{' '}
                   · {archiveEntryStateName(selected.kind, selected.summary.state)}
                 </strong>
                 {detail && isJournalKind(selected.kind) ? (
@@ -378,7 +380,9 @@ export function ExecutionArchiveCenter({
                         'method' in e.summary &&
                         e.summary.method === 'move'
                           ? '文件移动'
-                          : archiveKindName[e.kind]}{' '}
+                          : 'operation' in e.summary && e.summary.operation === 'upgrade'
+                            ? 'Homebrew 升级'
+                            : archiveKindName[e.kind]}{' '}
                         · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
                       </strong>
                       <small>

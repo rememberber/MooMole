@@ -130,6 +130,7 @@ mod tests {
             version: "1.0".into(),
             path: "/Users/demo/Applications/Owned.app".into(),
             sha256: "a".repeat(64),
+            upgrade: None,
         };
         let r = serde_json::json!({"source":{"tap":"author/tap","version":"1.0"},"uninstall_flight_blocks":false,"uninstall_artifacts":[{"app":["Owned.app"]}]});
         let c = serde_json::json!({"default":{"appdir":"/Applications"},"env":{},"explicit":{"appdir":"/Users/demo/Applications"}});

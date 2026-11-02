@@ -451,6 +451,7 @@ export default function App() {
   const [managedTarget, setManagedTarget] = useState<
     import('./lib/app-uninstall').UninstallTarget | null
   >(null)
+  const [managedUpgrade, setManagedUpgrade] = useState(false)
   const [managedActive, setManagedActive] = useState(false)
   const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
   const [startupActive, setStartupActive] = useState(false)
@@ -1711,6 +1712,7 @@ export default function App() {
             refreshSignal={historyEpoch}
             desktop={api.desktop}
             target={managedTarget}
+            upgrade={managedUpgrade}
             onClose={() => setManagedTarget(null)}
             historyVisible={page === 'history'}
             enabled={canRun && !executionActive}
@@ -2413,7 +2415,14 @@ export default function App() {
                     canRun && !executionActive && !appsStale && data.settings.acknowledged
                   }
                   onUninstall={setUninstallTarget}
-                  onManagedUninstall={setManagedTarget}
+                  onManagedUninstall={(target) => {
+                    setManagedUpgrade(false)
+                    setManagedTarget(target)
+                  }}
+                  onManagedUpgrade={(target) => {
+                    setManagedUpgrade(true)
+                    setManagedTarget(target)
+                  }}
                 />
               ) : (
                 <section className="card">

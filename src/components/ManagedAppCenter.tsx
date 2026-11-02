@@ -6,12 +6,14 @@ import {
   readManagedDraft,
   readManagedRecord,
   managedState,
+  managedDraftEqual,
   type ManagedDraft,
   type ManagedRecord,
 } from '../lib/managed-apps'
 import { useNow } from '../lib/use-now'
 export function ManagedAppCenter({
   target,
+  upgrade = false,
   onClose,
   historyVisible,
   refreshSignal = 0,
@@ -21,6 +23,7 @@ export function ManagedAppCenter({
   onChanged,
 }: {
   target: UninstallTarget | null
+  upgrade?: boolean
   onClose: () => void
   historyVisible: boolean
   refreshSignal?: number
@@ -96,11 +99,11 @@ export function ManagedAppCenter({
       .then(() => {
         if (!live) return undefined
         issued = true
-        return t.prepare(target, id)
+        return t.prepare(target, id, upgrade)
       })
       .then((raw) => {
         if (!issued) return
-        const d = readManagedDraft(raw, target)
+        const d = readManagedDraft(raw, target, upgrade)
         planId = d.id
         if (live) setDraft(d)
         else void t.discard(d.id).catch(() => {})
@@ -118,7 +121,7 @@ export function ManagedAppCenter({
       if (issued && request.current === id) void t.cancel(id).catch(() => {})
       if (planId) void t.discard(planId).catch(() => {})
     }
-  }, [target, onActiveChange])
+  }, [target, onActiveChange, upgrade])
   async function execute() {
     if (!draft || !ack || busy || !enabled || now < draft.createdAt || now >= draft.expiresAt)
       return
@@ -130,7 +133,7 @@ export function ManagedAppCenter({
     setError('')
     try {
       const r = readManagedRecord(await t.execute(draft.id, id))
-      if (r.id !== draft.id || r.requestId !== id || r.draft.path !== draft.path)
+      if (r.id !== draft.id || r.requestId !== id || !managedDraftEqual(r.draft, draft))
         throw Error('Homebrew 返回了其他操作的结果。')
       setDraft(null)
       setResult(r)
@@ -156,84 +159,121 @@ export function ManagedAppCenter({
       )}
       {target && (
         <Modal
-          title="通过 Homebrew 卸载"
+          title={upgrade ? '通过 Homebrew 升级' : '通过 Homebrew 卸载'}
           onClose={executing ? undefined : onClose}
+          dismissOnBackdrop={false}
           className="review-plan-modal"
         >
-          <h2>通过 Homebrew 卸载</h2>
-          <p className="mono full-path" data-i18n="off">
-            {target.path}
-          </p>
-          <p className="notice warning">
-            这会由 Homebrew 正常卸载所选
-            Cask，不是移入废纸篓。没有应用内撤销，恢复通常需要重新安装。不会使用
-            zap、强制卸载、忽略依赖或自动移除其他依赖；普通卸载与系统行为仍可能影响相关内容，请先自行保存并退出应用。
-          </p>
-          {busy && <p role="status">正在检查或等待 Homebrew 结束；停止后仍需核对已发生的结果。</p>}
-          {error && (
-            <p role="alert" className="error">
-              {error}
+          <div
+            onClickCapture={(event) => {
+              if (event.detail > 1) {
+                event.preventDefault()
+                event.stopPropagation()
+              }
+            }}
+          >
+            <h2>{upgrade ? '通过 Homebrew 升级' : '通过 Homebrew 卸载'}</h2>
+            <p className="mono full-path" data-i18n="off">
+              {target.path}
             </p>
-          )}
-          {result && (
-            <div role="status">
-              <strong>{managedState[result.state]}</strong>
-              <p>{result.reason}</p>
-            </div>
-          )}
-          {draft && (
-            <>
-              <dl>
-                <dt>Homebrew 包</dt>
-                <dd className="mono" data-i18n="off">
-                  {draft.token}
-                </dd>
-                <dt>已安装版本</dt>
-                <dd data-i18n="off">{draft.installedVersion}</dd>
-                <dt>管理命令位置</dt>
-                <dd className="mono full-path" data-i18n="off">
-                  {draft.managerPath}
-                </dd>
-              </dl>
-              {(now < draft.createdAt || now >= draft.expiresAt) && (
-                <p className="notice warning">确认时间无法核对或已过期，请关闭后重新检查。</p>
-              )}
-              <label className="confirmation-ack">
-                <input
-                  type="checkbox"
-                  checked={ack}
-                  disabled={busy}
-                  onChange={(e) => setAck(e.target.checked)}
-                />
-                我已核对这个包和应用，了解 Homebrew 卸载及重新安装的恢复边界。
-              </label>
+            {upgrade ? (
+              <p className="notice warning">
+                这会让 Homebrew 下载并替换所选
+                Cask。新版签名与原发布者要求会在替换后核对，失败或停止也可能已发生修改，没有应用内回滚。请先保存个人数据并退出应用；不会自动退出，也不传入强制、跳过校验或关闭隔离的选项；系统批准状态由
+                Homebrew 的正常升级流程维护。
+              </p>
+            ) : (
+              <p className="notice warning">
+                这会由 Homebrew 正常卸载所选
+                Cask，不是移入废纸篓。没有应用内撤销，恢复通常需要重新安装。不会使用
+                zap、强制卸载、忽略依赖或自动移除其他依赖；普通卸载与系统行为仍可能影响相关内容，请先自行保存并退出应用。
+              </p>
+            )}
+            {busy && (
+              <p role="status">正在检查或等待 Homebrew 结束；停止后仍需核对已发生的结果。</p>
+            )}
+            {error && (
+              <p role="alert" className="error">
+                {error}
+              </p>
+            )}
+            {result && (
+              <div role="status">
+                <strong>{managedState[result.state]}</strong>
+                <p>{result.reason}</p>
+              </div>
+            )}
+            {draft && (
+              <>
+                <dl>
+                  <dt>Homebrew 包</dt>
+                  <dd className="mono" data-i18n="off">
+                    {draft.token}
+                  </dd>
+                  <dt>已安装版本</dt>
+                  <dd data-i18n="off">{draft.installedVersion}</dd>
+                  {draft.upgrade && (
+                    <>
+                      <dt>准备升级到</dt>
+                      <dd data-i18n="off">{draft.upgrade.version}</dd>
+                      <dt>下载来源</dt>
+                      <dd className="mono full-path" data-i18n="off">
+                        {draft.upgrade.url}
+                      </dd>
+                      <dt>原应用发布者</dt>
+                      <dd data-i18n="off">{draft.upgrade.publisher}</dd>
+                    </>
+                  )}
+                  <dt>管理命令位置</dt>
+                  <dd className="mono full-path" data-i18n="off">
+                    {draft.managerPath}
+                  </dd>
+                </dl>
+                {draft.upgrade?.publisher === 'adHoc' && (
+                  <p className="notice warning">ad-hoc 签名只能核对完整性，无法认证发布者身份。</p>
+                )}
+                {(now < draft.createdAt || now >= draft.expiresAt) && (
+                  <p className="notice warning">确认时间无法核对或已过期，请关闭后重新检查。</p>
+                )}
+                <label className="confirmation-ack">
+                  <input
+                    type="checkbox"
+                    checked={ack}
+                    disabled={busy}
+                    onChange={(e) => setAck(e.target.checked)}
+                  />
+                  {upgrade
+                    ? '我已核对旧版、新版与来源，了解 Homebrew 替换及没有应用内回滚的边界。'
+                    : '我已核对这个包和应用，了解 Homebrew 卸载及重新安装的恢复边界。'}
+                </label>
+                <button
+                  className="button primary"
+                  disabled={
+                    busy || !enabled || !ack || now < draft.createdAt || now >= draft.expiresAt
+                  }
+                  onClick={() => void execute()}
+                >
+                  {upgrade ? '确认通过 Homebrew 升级' : '确认通过 Homebrew 卸载'}
+                </button>
+              </>
+            )}
+            {busy && (
               <button
-                className="button primary"
-                disabled={
-                  busy || !enabled || !ack || now < draft.createdAt || now >= draft.expiresAt
-                }
-                onClick={() => void execute()}
+                className="button secondary"
+                onClick={() => {
+                  if (request.current)
+                    void t.cancel(request.current).catch((e) => setError(String(e)))
+                }}
               >
-                确认通过 Homebrew 卸载
+                停止本次 Homebrew 任务
               </button>
-            </>
-          )}
-          {busy && (
-            <button
-              className="button secondary"
-              onClick={() => {
-                if (request.current)
-                  void t.cancel(request.current).catch((e) => setError(String(e)))
-              }}
-            >
-              停止本次 Homebrew 任务
-            </button>
-          )}
-          {!busy && (
-            <button className="button secondary" onClick={onClose}>
-              返回应用列表
-            </button>
-          )}
+            )}
+            {!busy && (
+              <button className="button secondary" onClick={onClose}>
+                返回应用列表
+              </button>
+            )}
+          </div>
         </Modal>
       )}
       {(historyVisible || target) && rows.length > 0 && (
@@ -242,7 +282,14 @@ export function ManagedAppCenter({
           {rows.map((r) => (
             <article key={r.id}>
               <strong data-i18n="off">{r.draft.token}</strong>
-              <p>{managedState[r.state]}</p>
+              <p>
+                {r.draft.upgrade ? 'Homebrew 升级' : 'Homebrew 卸载'} · {managedState[r.state]}
+              </p>
+              {r.draft.upgrade && (
+                <p data-i18n="off">
+                  {r.draft.installedVersion} → {r.draft.upgrade.version}
+                </p>
+              )}
               <p className="mono full-path" data-i18n="off">
                 {r.draft.path}
               </p>

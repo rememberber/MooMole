@@ -100,6 +100,7 @@ fn record() -> Record {
             token: "author/tap/owned-app".into(),
             name: "Owned".into(),
             installed_version: "1".into(),
+            upgrade: None,
             manager_path: "/opt/homebrew/bin/brew".into(),
             metadata_sha256: "a".repeat(64),
             created_at: now,
@@ -111,6 +112,7 @@ fn record() -> Record {
         finished_at: None,
         reason: "owned".into(),
         reviewed_at: None,
+        upgrade_result: None,
     }
 }
 #[test]
@@ -193,3 +195,5 @@ async fn real_owned_homebrew_cask_uses_production_plan_and_durable_manager_execu
         temp.disable_cleanup(false);let removed=temp.path().to_path_buf();drop(temp);assert!(!removed.exists());std::fs::remove_file("../.cache/managed-app-native-rescue.json").unwrap();std::fs::write("../.cache/managed-app-native.json",serde_json::to_vec(&serde_json::json!({"scope":"real owned Homebrew Cask + production core, not packaged App window or real third-party compatibility","draft":draft,"result":result,"sourceAndUnselectedPreserved":true,"databaseReopenVerified":true,"ownedTemporaryRootAndTapRemoved":true,"noAutoremoveForceZapOrDependencyBypass":true})).unwrap()).unwrap();
     })).await.unwrap();
 }
+
+mod upgrade;

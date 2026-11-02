@@ -14,6 +14,7 @@ export interface JournalSummary {
   path: string
   reason: string
   resultUncertain: boolean
+  operation?: 'upgrade'
 }
 const fail = (): never => {
   throw Error('归档扩展记录无法核对；不会恢复执行或重新调用命令。')
@@ -48,9 +49,12 @@ export function readJournalSummary(v: unknown, kind: JournalKind): JournalSummar
         ? ['completed', 'cancelled', 'failed', 'uncertain', 'interrupted']
         : kind === 'extraction'
           ? ['completed', 'retained', 'cancelled', 'unknown', 'interrupted']
-          : ['removed', 'retained', 'cancelled', 'unknown', 'interrupted']
+          : ['removed', 'upgraded', 'retained', 'cancelled', 'unknown', 'interrupted']
   if (
     !states.includes(String(s.state)) ||
+    (s.operation !== undefined && (kind !== 'managedApp' || s.operation !== 'upgrade')) ||
+    (s.state === 'upgraded' && s.operation !== 'upgrade') ||
+    (s.state === 'removed' && s.operation !== undefined) ||
     !text(s.name, 256) ||
     !s.name ||
     !path(s.path) ||
@@ -183,5 +187,12 @@ export function journalSummary(kind: JournalKind, record: JournalRecord): Journa
     }
   }
   const r = record as ManagedRecord
-  return { ...common, name: r.draft.token, path: r.draft.path, reason: r.reason, resultUncertain }
+  return {
+    ...common,
+    name: r.draft.token,
+    path: r.draft.path,
+    reason: r.reason,
+    resultUncertain,
+    ...(r.draft.upgrade ? { operation: 'upgrade' as const } : {}),
+  }
 }

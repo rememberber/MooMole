@@ -7,12 +7,14 @@ export function Modal({
   children,
   onClose,
   returnFocus,
+  dismissOnBackdrop = true,
   className = '',
 }: {
   title: string
   children: ReactNode
   onClose?: () => void
   returnFocus?: () => HTMLElement | null
+  dismissOnBackdrop?: boolean
   className?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -42,7 +44,7 @@ export function Modal({
         onClose?.()
       }}
       onClick={(event) => {
-        if (event.target === ref.current) {
+        if (dismissOnBackdrop && event.target === ref.current) {
           const rect = ref.current!.getBoundingClientRect()
           if (
             event.clientX < rect.left ||

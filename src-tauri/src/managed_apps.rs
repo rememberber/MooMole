@@ -22,6 +22,7 @@ pub(crate) mod journal;
 mod receipt;
 #[cfg(test)]
 mod tests;
+mod upgrade;
 const CAP: usize = 2 * 1024 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -38,6 +39,8 @@ pub(crate) struct Draft {
     metadata_sha256: String,
     created_at: i64,
     expires_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    upgrade: Option<upgrade::Offer>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -51,6 +54,8 @@ pub(crate) struct Record {
     finished_at: Option<i64>,
     reason: String,
     reviewed_at: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    upgrade_result: Option<upgrade::ResultProof>,
 }
 #[derive(Clone)]
 struct Tool {
@@ -182,6 +187,7 @@ struct Package {
     version: String,
     path: String,
     sha256: String,
+    upgrade: Option<upgrade::Offer>,
 }
 fn text(v: &serde_json::Value, max: usize) -> Result<&str, String> {
     v.as_str()
@@ -266,6 +272,7 @@ fn packages(bytes: &[u8]) -> Result<Catalog, String> {
                 token: token.into(),
                 version: version.into(),
                 path: app.ok_or("没有唯一应用目标。")?,
+                upgrade: upgrade::offer(row).ok(),
                 sha256: format!(
                     "{:x}",
                     Sha256::digest(serde_json::to_vec(row).map_err(|e| e.to_string())?)
@@ -291,6 +298,7 @@ struct Plan {
     issued: Instant,
     receipt: receipt::Stamp,
     package_sha256: String,
+    publisher: Option<crate::application_update::signing::Proof>,
 }
 #[derive(Default)]
 struct Store {
@@ -377,6 +385,14 @@ fn simple_app(path: &Path) -> Result<(), String> {
 }
 impl Plan {
     async fn prepare(source: Source, ctx: Context, job: Arc<Job>) -> Result<Self, String> {
+        Self::prepare_for(source, ctx, job, false).await
+    }
+    async fn prepare_for(
+        source: Source,
+        ctx: Context,
+        job: Arc<Job>,
+        upgrading: bool,
+    ) -> Result<Self, String> {
         guards(&source, &ctx)?;
         check(&job)?;
         let (path, id, name, _) = source.control_target();
@@ -400,6 +416,27 @@ impl Plan {
         }
         let p = &matches[0];
         let receipt = receipt::capture(&tool, p, &ctx)?;
+        let (offer, publisher) = if upgrading {
+            let mut offer = p
+                .upgrade
+                .clone()
+                .ok_or("本次没有可核对的简单 Cask 数值新版；请使用原管理工具检查，未执行升级。")?;
+            if crate::application_update::version(&offer.version)?
+                <= crate::application_update::version(
+                    snapshot
+                        .app_version
+                        .as_deref()
+                        .ok_or("原 App 缺少可核对的版本。")?,
+                )?
+            {
+                return Err("App 实际版本不低于所选 Cask 新版，未升级。".into());
+            }
+            let proof = crate::application_update::signing::freeze(Path::new(path))?;
+            offer.publisher = proof.publisher.clone();
+            (Some(offer), Some(proof))
+        } else {
+            (None, None)
+        };
         let now = db::now();
         let (task, index) = source.address();
         let result = Self {
@@ -427,6 +464,7 @@ impl Plan {
                 ),
                 created_at: now,
                 expires_at: now + 120_000,
+                upgrade: offer,
             },
             source,
             snapshot,
@@ -435,6 +473,7 @@ impl Plan {
             issued: Instant::now(),
             receipt,
             package_sha256: p.sha256.clone(),
+            publisher,
         };
         result.validate(&result.context, &job)?;
         Ok(result)
@@ -472,6 +511,7 @@ impl Plan {
             version: self.draft.installed_version.clone(),
             path: self.draft.path.clone(),
             sha256: self.package_sha256.clone(),
+            upgrade: self.draft.upgrade.clone(),
         };
         if receipt::capture(&self.tool, &package, ctx)? != self.receipt {
             return Err("Homebrew 安装收据已变化，请重新检查。".into());

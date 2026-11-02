@@ -101,3 +101,42 @@ it('rejects truncated or reordered events, malformed token bindings, excess evid
     result = { ...intent, seq: 2, kind: 'removed', path: '/absent/b' }
   expect(() => readJournalRecord({ ...r, events: [intent, result] }, 'moleClean')).toThrow()
 })
+
+it('upgrades require v5 and preserve their evidence without being labelled as uninstalls', () => {
+  const f = fixture(),
+    r = f.records.managedApp
+  r.draft.upgrade = {
+    version: '2.0',
+    url: 'https://example.org/owned.zip',
+    sha256: 'a'.repeat(64),
+    publisher: 'adHoc',
+  }
+  r.state = 'upgraded'
+  r.upgradeResult = {
+    version: '2.0',
+    publisher: 'adHoc',
+    bundleSha256: 'b'.repeat(64),
+    receiptSha256: 'c'.repeat(64),
+  }
+  f.entries = f.entries.map((e) =>
+    e.kind === 'managedApp' ? { ...e, summary: journalSummary('managedApp', r) } : e,
+  )
+  const raw = { ...f, header: { ...f.header, version: 5 } },
+    view = archiveView(raw, archiveId),
+    entry = view.entries.find((e) => e.kind === 'managedApp')!
+  expect(archiveDetail(r, entry)).toEqual(r)
+  expect(archiveEntryStateName('managedApp', 'upgraded')).toContain('新版')
+  for (const version of [1, 2, 3, 4])
+    expect(() => archiveView({ ...raw, header: { ...raw.header, version } }, archiveId)).toThrow()
+  expect(() =>
+    archiveView(
+      {
+        ...raw,
+        entries: f.entries.map((e) =>
+          e.kind === 'managedApp' ? { ...e, summary: { ...e.summary, operation: undefined } } : e,
+        ),
+      },
+      archiveId,
+    ),
+  ).toThrow()
+})
