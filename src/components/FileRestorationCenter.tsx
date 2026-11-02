@@ -96,7 +96,11 @@ function Restoration({
   }
   const item = result?.items[0]
   return (
-    <Modal title={result ? '文件恢复结果' : '恢复原位置'} onClose={pending ? undefined : onClose}>
+    <Modal
+      className="file-restoration-modal"
+      title={result ? '文件恢复结果' : '恢复原位置'}
+      onClose={pending ? undefined : onClose}
+    >
       <h2>{result ? '文件恢复结果' : '恢复原位置'}</h2>
       <dl>
         <dt>当前记录位置</dt>
@@ -111,6 +115,11 @@ function Restoration({
       <p className="notice">
         仅恢复这一份已记录的普通文件，重新核对身份和保护范围。原位置必须存在且没有同名项目；不会覆盖、自动改名或创建目录。当前文件若已被移走、替换或权限受限，将保留并说明原因。
       </p>
+      {target.softwareContent && (
+        <p className="notice">
+          恢复文件会保留原处理记录，不修改浏览器下载记录、聊天导出清单或播放器资料库；应用是否立即识别恢复后的文件需要另行核对。
+        </p>
+      )}
       {checking && <p role="status">正在核对当前文件与原位置…</p>}
       {draft && !result && !pending && now >= draft.expiresAt && (
         <p role="status">恢复确认已过期，请返回后重新检查。</p>

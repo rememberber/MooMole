@@ -48,6 +48,10 @@ test('recovered uncertainty is visible on startup and leads to focused execution
     'get_application_restorations',
     'get_mole_cleanup',
     'get_mounted_volumes',
+    // History observations reconcile records; none prepares or replays a file action.
+    'get_managed_apps',
+    'get_zip_extractions',
+    'get_retained_application_history',
   ])
   expect(calls.filter((command) => !readOnlyCommands.has(command))).toEqual([])
   await page.keyboard.press('Escape')

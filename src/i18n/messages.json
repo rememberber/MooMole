@@ -1,4 +1,24 @@
 [
+  [
+    "来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。普通目录中的下载、媒体和聊天导出文件可按可靠收据检查恢复；Library 特殊目录请在 Finder 核对。",
+    "Source: software content organizing. Files were selected from an exact source; the original application databases are retained. Downloads, media and exported chat files in ordinary folders can be checked for restoration using reliable receipts. Check special Library locations in Finder.",
+    "出典：ソフトウェアのコンテンツ整理。明確な出典と選択に従ってファイルを処理し、元のアプリのデータベースは保持しています。通常のフォルダにあるダウンロード、メディア、チャットの書き出しは、信頼できる記録に基づき復元を確認できます。Library 内の特別な場所は Finder で確認してください。"
+  ],
+  [
+    "恢复文件会保留原处理记录，不修改浏览器下载记录、聊天导出清单或播放器资料库；应用是否立即识别恢复后的文件需要另行核对。",
+    "Restoration keeps the original processing history and does not change browser download records, chat export manifests or player libraries. Check separately whether the application recognizes the restored files immediately.",
+    "ファイルを復元しても元の処理履歴は保持し、ブラウザのダウンロード記録、チャットの書き出し一覧、プレイヤーのライブラリは変更しません。復元後のファイルをアプリがすぐ認識するかは別途確認してください。"
+  ],
+  [
+    "软件内容的 Library 或特殊目录恢复尚未支持，请在 Finder 按实际收据核对。",
+    "Restoring software content to Library or special folders is not supported yet. Check the actual receipt in Finder.",
+    "ソフトウェアのコンテンツを Library や特別なフォルダへ復元する機能は未対応です。実際の記録に基づいて Finder で確認してください。"
+  ],
+  [
+    "恢复只接受活动历史中可靠完成的普通文件记录，其他来源请在 Finder 核对。",
+    "Restoration accepts only reliable, completed ordinary-file records in active history. Check other sources in Finder.",
+    "復元はアクティブな履歴にある確実に完了した通常ファイルの記録のみが対象です。その他の出典は Finder で確認してください。"
+  ],
   ["扫描 Music 本地媒体", "Scan Music local media", "Music のローカルメディアをスキャン"],
   ["Music 导出资料库来源", "Music library export", "Music の書き出したライブラリ"],
   ["选择 Music 导出资料库", "Choose Music library export", "Music の書き出したライブラリを選択"],

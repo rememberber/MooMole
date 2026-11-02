@@ -1,5 +1,6 @@
 use super::*;
 mod music_library;
+mod software_restoration;
 
 #[tokio::test]
 #[ignore = "explicit mounted-volume selection, real Mole analysis/rules and native move inside a unique owned external-volume fixture only"]

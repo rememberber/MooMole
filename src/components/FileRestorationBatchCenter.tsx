@@ -110,6 +110,11 @@ function Batch({
       <p className="notice">
         逐项核对收据和原位置，同卷移回普通文件；不覆盖、不改名、不创建目录。检查未通过时请返回调整选择；执行时遇到冲突或变化则保留该项，继续处理其余项。取消会保留已经恢复的文件，没有整批撤销。
       </p>
+      {target.items.some((i) => i.softwareContent) && (
+        <p className="notice">
+          恢复文件会保留原处理记录，不修改浏览器下载记录、聊天导出清单或播放器资料库；应用是否立即识别恢复后的文件需要另行核对。
+        </p>
+      )}
       <ol className="execution-items" aria-label="批量恢复选择">
         {target.items.map((t) => {
           const d = draft?.items.find((i) => i.sourceItemId === t.itemId),

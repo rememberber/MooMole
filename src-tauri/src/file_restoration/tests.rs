@@ -158,6 +158,37 @@ fn actual_restore_keeps_original_record_and_survives_reopen_and_archive() {
         expected
     );
 }
+
+#[test]
+fn software_history_candidates_keep_strict_original_scope_receipts_and_unsupported_sources() {
+    let mut f = Fixture::new();
+    f.detail.origin = "softwareContent";
+    let settings = db::settings(&f.database.lock().unwrap()).unwrap();
+    assert!(prepare(&f.detail, &f.detail.items[0].id, &f.home, &settings).is_ok());
+    for mode in ["library", "unreliable", "receipt", "cache", "running"] {
+        let mut f = Fixture::new();
+        f.detail.origin = "softwareContent";
+        match mode {
+            "library" => {
+                f.detail.items[0].path = f
+                    .home
+                    .join("Library/Mail Downloads/owned.txt")
+                    .to_str()
+                    .unwrap()
+                    .into()
+            }
+            "unreliable" => f.detail.items[0].state = "uncertain".into(),
+            "receipt" => f.detail.items[0].receipt = None,
+            "cache" => f.detail.origin = "mole",
+            "running" => f.detail.summary.state = "running".into(),
+            _ => unreachable!(),
+        }
+        assert!(
+            prepare(&f.detail, &f.detail.items[0].id, &f.home, &settings).is_err(),
+            "{mode}"
+        );
+    }
+}
 #[test]
 fn restoration_rejects_conflicts_changed_receipts_protection_and_unknown_results() {
     for mode in [
@@ -203,14 +234,21 @@ fn restoration_rejects_conflicts_changed_receipts_protection_and_unknown_results
 }
 
 #[test]
-#[ignore = "real Trash and restoration only for a self-created folder under the current user's home"]
+#[ignore = "real Trash and restoration only for a disposable fixture inside the project's build directory"]
 fn native_trash_receipt_restores_owned_file() {
     let real_home = PathBuf::from(std::env::var_os("HOME").unwrap())
         .canonicalize()
         .unwrap();
+    // Production restoration requires an original path in the real account.
+    // Keep this exceptional fixture inside the disposable project build tree.
+    let target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .canonicalize()
+        .unwrap();
+    assert!(target.starts_with(&real_home));
     let temp = tempfile::Builder::new()
         .prefix("MooMole-restore-owned-")
-        .tempdir_in(&real_home)
+        .tempdir_in(&target)
         .unwrap();
     let f = Fixture::at(temp);
     let witness = crate::observation::witness(&f.current).unwrap();

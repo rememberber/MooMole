@@ -10,7 +10,7 @@ import { watchExecution, preserveExecutionProgress } from '../lib/execution-watc
 import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
 import { CleanupResultSummary } from './CleanupResultSummary'
-import type { RestorationTarget } from '../lib/file-restoration'
+import { restorationCandidate, type RestorationTarget } from '../lib/file-restoration'
 import type { RestorationBatchTarget } from '../lib/file-restoration-batch'
 import { ScheduledRuleSummary } from './ScheduledFiles'
 
@@ -351,14 +351,7 @@ function ExecutionResults({
 }) {
   const [restoreIds, setRestoreIds] = useState<Set<string>>(new Set())
   const restorable = (item: ExecutionDetail['items'][number]) =>
-    !!onRestoreBatch &&
-    detail.state !== 'running' &&
-    ['trash', 'move'].includes(detail.method) &&
-    ['personalFiles', 'duplicateFiles', 'similarPhotos', 'scheduledFiles'].includes(
-      detail.origin ?? '',
-    ) &&
-    item.state === 'moved' &&
-    !!item.receipt
+    !!onRestoreBatch && restorationCandidate(detail, item)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [limit, setLimit] = useState(50)
@@ -392,7 +385,8 @@ function ExecutionResults({
       )}
       {detail.origin === 'softwareContent' && (
         <p className="notice">
-          来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。
+          来源：软件内容整理。按确切来源和文件选择处理，原应用数据库保持原样。普通目录中的下载、媒体和聊天导出文件可按可靠收据检查恢复；Library
+          特殊目录请在 Finder 核对。
         </p>
       )}
       {detail.origin === 'personalFiles' && (
@@ -527,39 +521,27 @@ function ExecutionResults({
                     itemId={item.id}
                     onReveal={onRevealReceipt}
                     method={detail.method}
-                    canRestore={
-                      !!onRestore &&
-                      item.state === 'moved' &&
-                      detail.state !== 'running' &&
-                      [
-                        'personalFiles',
-                        'duplicateFiles',
-                        'similarPhotos',
-                        'scheduledFiles',
-                      ].includes(detail.origin ?? '')
-                    }
+                    canRestore={!!onRestore && restorationCandidate(detail, item)}
                   />
                 )}
-                {onRestore &&
-                  item.state === 'moved' &&
-                  detail.state !== 'running' &&
-                  ['personalFiles', 'duplicateFiles', 'similarPhotos', 'scheduledFiles'].includes(
-                    detail.origin ?? '',
-                  ) && (
-                    <button
-                      className="button secondary compact"
-                      onClick={() =>
-                        onRestore({
-                          runId: detail.id,
-                          itemId: item.id,
-                          currentPath: item.receipt!.destination,
-                          originalPath: item.path,
-                        })
-                      }
-                    >
-                      恢复原位置…
-                    </button>
-                  )}
+                {onRestore && restorationCandidate(detail, item) && (
+                  <button
+                    className="button secondary compact"
+                    onClick={() =>
+                      onRestore({
+                        runId: detail.id,
+                        itemId: item.id,
+                        currentPath: item.receipt!.destination,
+                        originalPath: item.path,
+                        ...(detail.origin === 'softwareContent'
+                          ? { softwareContent: true as const }
+                          : {}),
+                      })
+                    }
+                  >
+                    恢复原位置…
+                  </button>
+                )}
               </div>
             )}
             <ol className="execution-events" aria-label="项目记录顺序">
@@ -597,6 +579,9 @@ function ExecutionResults({
                     itemId: i.id,
                     currentPath: i.receipt!.destination,
                     originalPath: i.path,
+                    ...(detail.origin === 'softwareContent'
+                      ? { softwareContent: true as const }
+                      : {}),
                   })),
               })
             }

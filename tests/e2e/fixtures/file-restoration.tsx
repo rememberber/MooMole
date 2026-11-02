@@ -33,6 +33,19 @@ export function mount(mode = 'normal') {
     events: [],
   }
   const id = '9f3123c1-95a5-4af0-aec8-0b5c82c6a2dd'
+  if (mode.startsWith('software')) {
+    record.origin = 'softwareContent'
+    record.method = 'trash'
+    record.items[0].targetPath = null
+    record.items[0].receipt!.destination = '/Users/demo/.Trash/chosen.txt'
+    if (mode === 'softwareLibrary')
+      record.items[0].path = '/Users/demo/Library/Mail Downloads/chosen.txt'
+    if (mode === 'softwareUnknown') {
+      record.items[0].state = 'uncertain'
+      record.uncertainCount = 1
+      record.movedCount = 0
+    }
+  }
   const calls: { command: string; args: Record<string, unknown> }[] = []
   let finish: ((value: ExecutionDetail) => void) | undefined
   let result: ExecutionDetail
@@ -57,6 +70,7 @@ export function mount(mode = 'normal') {
             id: 'ca9784dc-57d4-481f-9707-0b7a8076e2ab',
             planId: id,
             origin: 'fileRestoration',
+            method: 'move',
             items: [
               {
                 ...record.items[0],

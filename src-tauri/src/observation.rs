@@ -92,7 +92,22 @@ impl AnchoredPath {
         Self::open_with(path, |_, _| {})
     }
 
-    fn open_with(path: &Path, mut hook: impl FnMut(&Path, bool)) -> Result<Self, String> {
+    /// Observe an already known name using directory search access. This
+    /// observation reads metadata, without enumerating directories. Callers still
+    /// need independent receipt authority, permission checks and revalidation.
+    pub(crate) fn open_search(path: &Path) -> Result<Self, String> {
+        Self::open_with_access(path, true, |_, _| {})
+    }
+
+    fn open_with(path: &Path, hook: impl FnMut(&Path, bool)) -> Result<Self, String> {
+        Self::open_with_access(path, false, hook)
+    }
+
+    fn open_with_access(
+        path: &Path,
+        search_only: bool,
+        mut hook: impl FnMut(&Path, bool),
+    ) -> Result<Self, String> {
         if !path.is_absolute()
             || path == Path::new("/")
             || path
@@ -146,7 +161,11 @@ impl AnchoredPath {
             // O_EVTONLY observes regular-file metadata without opening its contents
             // for reading. Every ancestor is opened relative to its held parent.
             let access = if kind == libc::S_IFDIR {
-                libc::O_RDONLY | libc::O_DIRECTORY
+                if search_only {
+                    libc::O_SEARCH
+                } else {
+                    libc::O_RDONLY | libc::O_DIRECTORY
+                }
             } else {
                 libc::O_EVTONLY
             };
@@ -275,6 +294,68 @@ pub fn witness(path: &Path) -> Result<Witness, String> {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn exact_search_observes_known_files_without_directory_read_and_still_refuses_changes() {
+        use std::os::unix::fs::PermissionsExt;
+        let t = tempfile::tempdir().unwrap();
+        let root = t.path().canonicalize().unwrap();
+        let parent = root.join("known");
+        std::fs::create_dir(&parent).unwrap();
+        let file = parent.join("owned");
+        std::fs::write(&file, b"owned exact metadata").unwrap();
+        struct Reset(PathBuf);
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o700));
+            }
+        }
+        let _reset = Reset(parent.clone());
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o300)).unwrap();
+        assert!(AnchoredPath::open(&file).is_err());
+        let held = AnchoredPath::open_search(&file).unwrap();
+        held.validate().unwrap();
+        assert!(held.local_materialized());
+        assert_eq!(
+            held.target().metadata().unwrap().ino(),
+            std::fs::symlink_metadata(&file).unwrap().ino()
+        );
+        assert_eq!(
+            crate::permissions::observe(&held, &crate::permissions::Budget::new())
+                .unwrap()
+                .code,
+            crate::permissions::Code::NoRestrictionObserved
+        );
+        std::os::unix::fs::symlink(&file, parent.join("alias")).unwrap();
+        assert!(AnchoredPath::open_search(&parent.join("alias")).is_err());
+        std::fs::write(&file, b"changed").unwrap();
+        assert!(held.validate().is_err());
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    #[test]
+    fn exact_search_does_not_hide_replaced_ancestors_or_shared_links() {
+        for mode in ["parent", "hardlink"] {
+            let t = tempfile::tempdir().unwrap();
+            let root = t.path().canonicalize().unwrap();
+            let parent = root.join("known");
+            std::fs::create_dir(&parent).unwrap();
+            let file = parent.join("owned");
+            std::fs::write(&file, b"owned").unwrap();
+            let held = AnchoredPath::open_search(&file).unwrap();
+            if mode == "parent" {
+                std::fs::rename(&parent, root.join("old")).unwrap();
+                std::fs::create_dir(&parent).unwrap();
+                std::fs::write(&file, b"owned").unwrap();
+            } else {
+                std::fs::hard_link(&file, parent.join("shared")).unwrap();
+            }
+            assert!(held.validate().is_err());
+            if mode == "hardlink" {
+                assert!(AnchoredPath::open_search(&file).is_err());
+            }
+        }
+    }
 
     #[test]
     fn swapped_target_and_ancestor_are_refused_during_open() {

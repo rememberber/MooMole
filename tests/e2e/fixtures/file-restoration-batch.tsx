@@ -32,6 +32,14 @@ export function mount(mode = 'normal') {
   }
   const planId = crypto.randomUUID(),
     itemIds = [crypto.randomUUID(), crypto.randomUUID()]
+  if (mode === 'software') {
+    record.origin = 'softwareContent'
+    record.method = 'trash'
+    for (const [n, item] of record.items.entries()) {
+      item.targetPath = null
+      item.receipt!.destination = `/Users/demo/.Trash/${n}.txt`
+    }
+  }
   const calls: { command: string; args: Record<string, unknown> }[] = []
   host.dataset.calls = '[]'
   let finish: ((v: ExecutionDetail) => void) | undefined, result: ExecutionDetail
@@ -62,6 +70,7 @@ export function mount(mode = 'normal') {
             id: crypto.randomUUID(),
             planId,
             origin: 'fileRestoration',
+            method: 'move',
             itemCount: 2,
             movedCount: mode === 'conflict' ? 1 : 2,
             uncertainCount: 0,

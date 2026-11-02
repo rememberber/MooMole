@@ -24,6 +24,26 @@ async function select(page: Page, mode = 'normal') {
   await history.getByRole('button', { name: '恢复所选原位置…' }).click()
   return page.getByRole('dialog', { name: '批量恢复原位置' })
 }
+test('software content history selects only reliable files and confirms one durable batch restoration', async ({
+  page,
+}, info) => {
+  const d = await select(page, 'software')
+  await expect(d).toContainText('/Users/demo/.Trash/0.txt')
+  await expect(d).toContainText('/Users/demo/.Trash/1.txt')
+  await expect(d).toContainText('不修改浏览器下载记录、聊天导出清单或播放器资料库')
+  await expect(d.getByRole('button', { name: '确认恢复所选文件' })).toBeDisabled()
+  await page.screenshot({
+    path: info.outputPath('software-restoration-batch.png'),
+    animations: 'disabled',
+  })
+  await d.getByRole('checkbox').check()
+  await d.getByRole('button', { name: '确认恢复所选文件' }).click()
+  await expect(page.getByRole('dialog', { name: '批量恢复结果' })).toContainText('已恢复到原位置')
+  const calls = JSON.parse(
+    (await page.locator('#batch-restoration-fixture').getAttribute('data-calls'))!,
+  )
+  expect(calls.filter((c: any) => c.command === 'execute_file_restoration_batch')).toHaveLength(1)
+})
 for (const mode of ['normal', 'conflict'])
   test(`batch restoration ${mode} confirms the full selection and records each result`, async ({
     page,

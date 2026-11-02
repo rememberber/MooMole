@@ -1,10 +1,29 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { ExecutionDetail } from '../types'
+// A history candidate only: the native prepare step rereads authoritative
+// records, exact receipt, current identity, destination and permissions.
+export function restorationCandidate(
+  detail: Pick<ExecutionDetail, 'state' | 'method' | 'origin'>,
+  item: Pick<ExecutionDetail['items'][number], 'state' | 'path' | 'receipt'>,
+): boolean {
+  return (
+    detail.state !== 'running' &&
+    ['trash', 'move'].includes(detail.method) &&
+    item.state === 'moved' &&
+    !!item.receipt &&
+    (['personalFiles', 'duplicateFiles', 'similarPhotos', 'scheduledFiles'].includes(
+      detail.origin ?? '',
+    ) ||
+      (detail.origin === 'softwareContent' &&
+        !item.path.split('/').some((p) => p.toLowerCase() === 'library')))
+  )
+}
 export interface RestorationTarget {
   runId: string
   itemId: string
   currentPath: string
   originalPath: string
+  softwareContent?: true
 }
 export interface RestorationDraft {
   id: string

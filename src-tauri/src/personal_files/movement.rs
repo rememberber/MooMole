@@ -203,6 +203,7 @@ pub(crate) struct Prepared {
     destination: PathBuf,
     old_name: CString,
     new_name: CString,
+    search_source: bool,
 }
 impl Prepared {
     pub(crate) fn new(
@@ -211,7 +212,31 @@ impl Prepared {
         target: &str,
         settings: &db::Settings,
     ) -> Result<Self, String> {
-        let source = AnchoredPath::open(Path::new(&item.path))?;
+        Self::with_source_access(item, movement, target, settings, false)
+    }
+    /// Restoration already has a verified receipt for this exact source name.
+    /// Search-only ancestors avoid requesting directory contents; all native
+    /// identity, ACL, flag, volume and write/search checks remain mandatory.
+    pub(crate) fn from_receipt(
+        item: &Item,
+        movement: &Movement,
+        target: &str,
+        settings: &db::Settings,
+    ) -> Result<Self, String> {
+        Self::with_source_access(item, movement, target, settings, true)
+    }
+    fn with_source_access(
+        item: &Item,
+        movement: &Movement,
+        target: &str,
+        settings: &db::Settings,
+        search_source: bool,
+    ) -> Result<Self, String> {
+        let source = if search_source {
+            AnchoredPath::open_search(Path::new(&item.path))?
+        } else {
+            AnchoredPath::open(Path::new(&item.path))?
+        };
         if source.witness != item.witness || !source.local_materialized() {
             return Err("移动源文件已变化，请重新扫描。".into());
         }
@@ -255,6 +280,7 @@ impl Prepared {
             destination,
             old_name,
             new_name,
+            search_source,
         })
     }
     pub(crate) fn move_checked(
@@ -359,7 +385,12 @@ impl Prepared {
             let source_parent = self.source.witness.nodes[self.source.witness.nodes.len() - 2]
                 .path
                 .as_path();
-            if AnchoredPath::open(source_parent)?.witness.nodes
+            let current_parent = if self.search_source {
+                AnchoredPath::open_search(source_parent)?
+            } else {
+                AnchoredPath::open(source_parent)?
+            };
+            if current_parent.witness.nodes
                 != self.source.witness.nodes[..self.source.witness.nodes.len() - 1]
             {
                 return Err("移动后源目录绑定已变化。".into());

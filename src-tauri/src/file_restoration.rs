@@ -43,6 +43,16 @@ pub(crate) struct Plan {
     issued: Option<Instant>,
 }
 impl Plan {
+    pub(crate) fn draft(&self) -> Draft {
+        Draft {
+            id: self.id.clone(),
+            source_run_id: self.source.run_id.clone(),
+            source_item_id: self.source.item_id.clone(),
+            current_path: self.item.path.clone(),
+            original_path: self.source.original_path.clone(),
+            expires_at: self.expires_at,
+        }
+    }
     pub(crate) fn validate_record(&self) -> Result<(), String> {
         if self.module != MODULE
             || self.protocol != 1
@@ -118,7 +128,7 @@ impl Plan {
                 return Err("当前文件或原位置与保护范围重叠，本项保留。".into());
             }
         }
-        let held = AnchoredPath::open(Path::new(&self.item.path))?;
+        let held = AnchoredPath::open_search(Path::new(&self.item.path))?;
         let meta = held.target().metadata().map_err(|e| e.to_string())?;
         if held.witness != self.item.witness
             || !held.local_materialized()
@@ -143,12 +153,16 @@ fn source(detail: &execution::Detail, item_id: &str) -> Result<Source, String> {
     if detail.summary.state == "running"
         || !matches!(
             detail.origin,
-            "personalFiles" | "duplicateFiles" | "similarPhotos" | "scheduledFiles"
+            "personalFiles"
+                | "duplicateFiles"
+                | "similarPhotos"
+                | "scheduledFiles"
+                | "softwareContent"
         )
         || !matches!(detail.summary.method.as_str(), "trash" | "move")
     {
         return Err(
-            "首批恢复支持已结束的个人文件或重复文件处理，其他记录请先在 Finder 核查。".into(),
+            "恢复只接受活动历史中可靠完成的普通文件记录，其他来源请在 Finder 核对。".into(),
         );
     }
     let item = detail
@@ -158,6 +172,11 @@ fn source(detail: &execution::Detail, item_id: &str) -> Result<Source, String> {
         .ok_or("原批次没有此项目。")?;
     if item.state != "moved" {
         return Err("此项没有可靠的完成记录，不能自动恢复。".into());
+    }
+    if detail.origin == "softwareContent" && !personal_files::ordinary(Path::new(&item.path)) {
+        return Err(
+            "软件内容的 Library 或特殊目录恢复尚未支持，请在 Finder 按实际收据核对。".into(),
+        );
     }
     Ok(Source {
         run_id: detail.summary.id.clone(),
@@ -195,14 +214,7 @@ impl Store {
         Ok(self.generation)
     }
     fn publish(&mut self, plan: Plan) -> Draft {
-        let d = Draft {
-            id: plan.id.clone(),
-            source_run_id: plan.source.run_id.clone(),
-            source_item_id: plan.source.item_id.clone(),
-            current_path: plan.item.path.clone(),
-            original_path: plan.source.original_path.clone(),
-            expires_at: plan.expires_at,
-        };
+        let d = plan.draft();
         self.offer = Some(Offered {
             plan,
             issued: Instant::now(),
@@ -228,14 +240,14 @@ impl Store {
         }
     }
 }
-fn prepare(
+pub(crate) fn prepare(
     detail: &execution::Detail,
     item_id: &str,
     home: &Path,
     settings: &db::Settings,
 ) -> Result<Plan, String> {
     let source = source(detail, item_id)?;
-    let held = AnchoredPath::open(Path::new(&source.receipt.destination)).map_err(|e| format!("无法核对收据位置，可能已被移走或权限受限。请在 Finder 核对当前文件，不会猜测或重新执行原操作。{e}"))?;
+    let held = AnchoredPath::open_search(Path::new(&source.receipt.destination)).map_err(|e| format!("无法核对收据位置，可能已被移走或权限受限。请在 Finder 核对当前文件，不会猜测或重新执行原操作。{e}"))?;
     let meta = held.target().metadata().map_err(|e| e.to_string())?;
     let directory = Path::new(&source.original_path)
         .parent()
@@ -281,7 +293,7 @@ fn bounded(s: &str) -> String {
     }
     s[..n].replace('\0', " ")
 }
-fn run(
+pub(crate) fn run(
     database: Arc<std::sync::Mutex<db::Database>>,
     home: PathBuf,
     plan: Plan,
@@ -297,7 +309,7 @@ fn run(
         job.bind_execution(&run)?;
         if !job.cancelled.load(Ordering::SeqCst) {
             let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
-            let target = movement::Prepared::new(
+            let target = movement::Prepared::from_receipt(
                 &plan.item,
                 &plan.movement,
                 &plan.source.original_path,

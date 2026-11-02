@@ -82,7 +82,7 @@ impl Plan {
         }
         Ok(())
     }
-    fn draft(&self) -> Draft {
+    pub(crate) fn draft(&self) -> Draft {
         Draft {
             id: self.id.clone(),
             source_run_id: self.plans[0].source.run_id.clone(),
@@ -101,7 +101,7 @@ impl Plan {
         }
     }
 }
-fn prepare(
+pub(crate) fn prepare(
     detail: &execution::Detail,
     ids: &[String],
     home: &Path,
@@ -129,7 +129,7 @@ fn prepare(
     plan.fresh()?;
     Ok(plan)
 }
-fn run(
+pub(crate) fn run(
     database: Arc<std::sync::Mutex<db::Database>>,
     home: PathBuf,
     plan: Plan,
@@ -159,7 +159,12 @@ fn run(
                 let settings = db::settings(&db)?;
                 p.validate_source(&db)?;
                 p.validate(&home, &settings)?;
-                movement::Prepared::new(&p.item, &p.movement, &p.source.original_path, &settings)
+                movement::Prepared::from_receipt(
+                    &p.item,
+                    &p.movement,
+                    &p.source.original_path,
+                    &settings,
+                )
             })();
             match prepared {
                 Err(e) => execution::skip(
