@@ -275,3 +275,46 @@ fn real_native_process_path_observes_owned_bundle_helper_and_never_terminates_it
     assert!(!after.report.can_execute);
     eprintln!("Owned native helper observed exactly; after owned child exit: {:?}; no idle/service/management authority inferred",after.report.code);
 }
+
+#[test]
+fn native_kernel_state_excludes_only_a_confirmed_unreaped_owned_child() {
+    struct Owned(Child);
+    impl Drop for Owned {
+        fn drop(&mut self) {
+            if matches!(self.0.try_wait(), Ok(None)) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+    }
+    let mut child = Owned(Command::new("/bin/sleep").arg("30").spawn().unwrap());
+    let pid = child.0.id();
+    assert!(!native_zombie(pid as i32));
+    assert!(!native_zombie(0));
+    assert!(!native_zombie(-1));
+    child.0.kill().unwrap();
+    let began = Instant::now();
+    loop {
+        let mut info = std::mem::MaybeUninit::<libc::siginfo_t>::zeroed();
+        let rc = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid,
+                &mut *info.as_mut_ptr(),
+                libc::WEXITED | libc::WNOWAIT | libc::WNOHANG,
+            )
+        };
+        assert_eq!(rc, 0);
+        let info = unsafe { info.assume_init() };
+        if crate::process::terminal_child_event(pid, &info) {
+            break;
+        }
+        assert!(began.elapsed() < Duration::from_secs(2));
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(native_zombie(pid as i32));
+    let pids = Native.pids().unwrap();
+    assert!(!pids.contains(&(pid as i32)));
+    assert!(pids.contains(&(std::process::id() as i32)));
+    child.0.wait().unwrap();
+}

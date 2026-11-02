@@ -1918,6 +1918,7 @@ dependencies = [
 name = "moomole"
 version = "0.2.0"
 dependencies = [
+ "cc",
  "core-foundation-sys",
  "flate2",
  "libc",

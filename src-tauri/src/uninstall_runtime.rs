@@ -117,6 +117,12 @@ trait Processes {
     fn pids(&mut self) -> Result<BTreeSet<i32>, &'static str>;
     fn executable(&mut self, pid: i32) -> Result<PathBuf, &'static str>;
 }
+extern "C" {
+    fn moomole_process_is_zombie(pid: libc::c_int) -> libc::c_int;
+}
+fn native_zombie(pid: i32) -> bool {
+    unsafe { moomole_process_is_zombie(pid) == 1 }
+}
 struct Native;
 impl Processes for Native {
     fn pids(&mut self) -> Result<BTreeSet<i32>, &'static str> {
@@ -137,6 +143,11 @@ impl Processes for Native {
             }
             // PID 0 is kernel_task, not a userspace App executable.
         }
+        // A zombie retains a PID until its parent reaps it, but has no
+        // executable. Filter only full, matching SDK kernel zombie frames,
+        // in BOTH surrounding inventories. Denied/short/unknown frames remain
+        // in the set and still require a readable executable path.
+        set.retain(|pid| !native_zombie(*pid));
         if !set.contains(&1) || !set.contains(&(std::process::id() as i32)) {
             return Err("processListIncomplete");
         }
@@ -183,7 +194,11 @@ pub(crate) fn require_stopped(path: &Path, root: (u64, u64)) -> Result<(), Strin
     if finding.code == Code::NotObserved {
         Ok(())
     } else {
-        Err("应用包内仍有运行程序，或进程检查不完整。请自行退出后重试。".into())
+        Err(format!(
+            "应用包内仍有运行程序，或进程检查不完整。请自行退出后重试。检查状态：{:?}；原因：{}。",
+            finding.code,
+            finding.issue.unwrap_or("observedProcess")
+        ))
     }
 }
 fn contains_executable(

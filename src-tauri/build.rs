@@ -13,5 +13,11 @@ fn main() {
             "应用版本不一致：{path} 与 Cargo.toml；请运行 npm run version:sync"
         );
     }
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rerun-if-changed=native/process_state.c");
+        cc::Build::new()
+            .file("native/process_state.c")
+            .compile("moomole_process_state");
+    }
     tauri_build::build()
 }
