@@ -1,12 +1,12 @@
 use super::*;
 use std::{fs, os::unix::fs::symlink};
-fn config() -> db::Settings {
+pub(super) fn config() -> db::Settings {
     db::Settings {
         acknowledged: true,
         ..Default::default()
     }
 }
-fn job() -> Job {
+pub(super) fn job() -> Job {
     Job::new(TaskKind::PersonalArchive)
 }
 fn write_zip(path: &Path, names: &[(&str, &[u8])]) {
@@ -148,6 +148,7 @@ fn staging_never_removes_unexpected_content_or_replaced_objects() {
         None,
         &job(),
         Instant::now(),
+        None,
     )
     .unwrap();
     let path = out.join(s.name.to_str().unwrap());

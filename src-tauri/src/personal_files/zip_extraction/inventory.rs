@@ -93,6 +93,14 @@ fn preflight(f: &mut File, job: &Job, start: Instant) -> Result<usize, String> {
     Ok(count as usize)
 }
 pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>, String> {
+    read_password(f, job, start, None).map(|(entries, _)| entries)
+}
+pub(super) fn read_password(
+    f: &mut File,
+    job: &Job,
+    start: Instant,
+    password: Option<&password::Password>,
+) -> Result<(Vec<Entry>, bool), String> {
     let count = preflight(f, job, start)?;
     check(job, start)?;
     let mut zip = zip::ZipArchive::new(f).map_err(|_| "ZIP 结构无法读取。")?;
@@ -104,11 +112,11 @@ pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>
     let mut listed = HashSet::new();
     let mut bytes = 0u64;
     let mut names = 0usize;
+    let mut encrypted = false;
     for index in 0..zip.len() {
         check(job, start)?;
-        let mut entry = zip
-            .by_index(index)
-            .map_err(|_| "ZIP 加密、压缩方法或条目结构尚未支持。")?;
+        let mut entry = password::open(&mut zip, index, password)?;
+        encrypted |= entry.encrypted();
         let raw =
             std::str::from_utf8(entry.name_raw()).map_err(|_| "ZIP 名称必须是可核对的 UTF-8。")?;
         let directory = entry.is_dir();
@@ -190,7 +198,7 @@ pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>
             return Err("ZIP 解压后的文件和目录超过 10000 项。".into());
         }
     }
-    Ok(nodes.into_values().collect())
+    Ok((nodes.into_values().collect(), encrypted))
 }
 pub(super) fn insert(
     nodes: &mut BTreeMap<String, Entry>,

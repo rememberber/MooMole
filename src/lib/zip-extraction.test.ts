@@ -36,6 +36,18 @@ const record = {
   reason: 'owned',
   reviewedAt: null,
 }
+it('encrypted scope stays ZIP-only and cannot appear without a password in a fresh preparation', () => {
+  const d = { ...draft, encrypted: true }
+  expect(readZipExtractionDraft(d).encrypted).toBe(true)
+  const requested = { root: d.root, directory: '/Users/demo/Documents', filename: 'Extracted' }
+  expect(() => readZipExtractionDraft(d, requested)).toThrow()
+  expect(readZipExtractionDraft(d, { ...requested, hasPassword: true }).encrypted).toBe(true)
+  expect(() => readZipExtractionDraft({ ...d, encrypted: 'yes' })).toThrow()
+  expect(() =>
+    readZipExtractionDraft({ ...d, format: 'tar', root: '/Users/demo/Trip.tar' }),
+  ).toThrow()
+  expect(readZipExtractionRecord({ ...record, draft: d }).draft.encrypted).toBe(true)
+})
 it('ZIP review binds source, new directory, bounded data, metadata files and safe sample paths', () => {
   expect(
     readZipExtractionDraft(draft, {

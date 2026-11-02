@@ -18,6 +18,7 @@ fn valid(r: &Record) -> Result<(), String> {
         || !ordinary(output)
         || parent.is_none_or(|p| p.starts_with(&d.root))
         || Format::from_path(Path::new(&d.root)) != Some(d.format)
+        || (d.encrypted && d.format != Format::Zip)
         || !hash(&d.source_sha256)
         || d.directories == 0
         || d.files.saturating_add(d.directories) > 10000

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 export interface ZipExtractionDraft {
+  encrypted?: true
   format?: 'zip' | 'tar' | 'tarGzip'
   macMetadata?: {
     items: number
@@ -100,10 +101,17 @@ function readMacMetadata(v: unknown): NonNullable<ZipExtractionDraft['macMetadat
 }
 export function readZipExtractionDraft(
   v: unknown,
-  requested?: { root: string; directory: string; filename: string; restoreMetadata?: boolean },
+  requested?: {
+    root: string
+    directory: string
+    filename: string
+    restoreMetadata?: boolean
+    hasPassword?: boolean
+  },
 ): ZipExtractionDraft {
   const a = object(v),
     d = {
+      ...(a.encrypted === undefined ? {} : { encrypted: a.encrypted as true }),
       ...(a.format === undefined ? {} : { format: a.format as 'zip' | 'tar' | 'tarGzip' }),
       ...(a.macMetadata === undefined ? {} : { macMetadata: readMacMetadata(a.macMetadata) }),
       id: id(a.id),
@@ -124,6 +132,7 @@ export function readZipExtractionDraft(
   if (
     !['zip', 'tar', 'tarGzip'].some((known) => known === format) ||
     extractionFormat(d.root) !== format ||
+    (d.encrypted !== undefined && (d.encrypted !== true || format !== 'zip')) ||
     (d.macMetadata !== undefined &&
       (format !== 'zip' ||
         d.macMetadata.items !== d.files + d.directories - 1 ||
@@ -145,7 +154,8 @@ export function readZipExtractionDraft(
     (requested &&
       (d.root !== requested.root ||
         d.outputPath !== `${requested.directory}/${requested.filename}` ||
-        !!d.macMetadata !== !!requested.restoreMetadata))
+        !!d.macMetadata !== !!requested.restoreMetadata ||
+        (d.encrypted && !requested.hasPassword)))
   )
     fail()
   d.samples = (a.samples as unknown[]).map((v) => {
@@ -231,6 +241,7 @@ export const zipExtraction = {
     filename: string,
     requestId: string,
     restoreMetadata = false,
+    password = '',
   ) =>
     readZipExtractionDraft(
       await invoke('prepare_zip_extraction', {
@@ -239,8 +250,9 @@ export const zipExtraction = {
         filename,
         requestId,
         ...(restoreMetadata ? { restoreMetadata: true } : {}),
+        ...(password ? { password } : {}),
       }),
-      { root, directory, filename, restoreMetadata },
+      { root, directory, filename, restoreMetadata, hasPassword: !!password },
     ),
   discard: (id: string) => invoke('discard_zip_extraction', { id }),
   execute: async (draft: ZipExtractionDraft, requestId: string) => {

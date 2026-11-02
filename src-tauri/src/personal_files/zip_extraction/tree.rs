@@ -104,6 +104,7 @@ impl Stage {
         q: Option<&[u8]>,
         job: &Job,
         start: Instant,
+        password: Option<&password::Password>,
     ) -> Result<(), String> {
         input.rewind().map_err(|e| e.to_string())?;
         let mut zip = if format == Format::Zip {
@@ -146,10 +147,11 @@ impl Stage {
             put_quarantine(&file, q)?;
             if !e.directory {
                 let mut content: Box<dyn Read + '_> = if let Some(z) = zip.as_mut() {
-                    Box::new(
-                        z.by_index(e.index.ok_or("解压条目没有内容索引。")?)
-                            .map_err(|e| e.to_string())?,
-                    )
+                    Box::new(password::open(
+                        z,
+                        e.index.ok_or("解压条目没有内容索引。")?,
+                        password,
+                    )?)
                 } else {
                     input
                         .seek(SeekFrom::Start(e.offset.ok_or("解压条目没有内容位置。")?))

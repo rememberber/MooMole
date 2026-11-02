@@ -1,5 +1,46 @@
 [
   [
+    "这是密码保护的 ZIP。解压结果为明文，文件名和历史范围仍可见；密码不写入历史，解压完成后请妥善保管输出文件。",
+    "This ZIP is password protected. Extracted files are plaintext, and filenames and history scope remain visible. The password is not saved in history; protect the extracted files.",
+    "この ZIP はパスワードで保護されています。展開後のファイルは平文で、ファイル名と履歴の範囲は確認できます。パスワードは履歴に保存しません。展開したファイルを適切に管理してください。"
+  ],
+  ["ZIP 密码（如需要）", "ZIP password (if needed)", "ZIP パスワード（必要な場合）"],
+  [
+    "压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。ZIP 支持存储、Deflate 和密码解压；密码只用于本次检查与执行，不验证文件来源。旧式 ZIP 加密强度较低，输出为明文。另支持普通 TAR、TAR.GZ/TGZ（单个 Gzip 成员）。TAR 的路径与大小扩展经核对后使用，原权限与嵌入元数据不应用；链接、特殊文件、稀疏布局、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。",
+    "Archives are limited to 2 GiB, with up to 8 GiB of output, 10,000 items and 64 levels. ZIP supports Stored, Deflate and password extraction. The password is used only for this check and extraction; it does not verify the source. Legacy ZIP encryption is weak, and output is plaintext. Ordinary TAR and TAR.GZ/TGZ with one Gzip member are also supported. TAR path and size extensions are checked; original permissions and embedded metadata are not applied. Links, special files, sparse layouts, escaping names or unverified entries reject the whole archive. The destination must be an existing ordinary folder; a same-name output is never overwritten.",
+    "圧縮ファイルは最大 2 GiB、展開後は最大 8 GiB、10,000 項目、64 階層です。ZIP は無圧縮、Deflate、パスワードによる展開に対応します。パスワードは今回の確認と展開にのみ使用し、出典は認証しません。旧式 ZIP 暗号の強度は低く、出力は平文です。通常の TAR と単一 Gzip メンバーの TAR.GZ/TGZ にも対応します。TAR のパスとサイズ拡張は確認して使用し、元の権限や埋め込みメタデータは適用しません。リンク、特殊ファイル、スパース形式、範囲外の名前、確認不能な項目を含む場合は全体を拒否します。既存の通常フォルダを保存先に選択してください。同名の出力は上書きしません。"
+  ],
+  [
+    "ZIP 密码须为 1–1024 字节，不会保存到历史。",
+    "The ZIP password must contain 1–1024 bytes and will not be saved in history.",
+    "ZIP パスワードは 1～1024 バイトで入力してください。履歴には保存しません。"
+  ],
+  [
+    "ZIP 密码不正确或无法验证，请重新检查；未解压。",
+    "The ZIP password is incorrect or could not be verified. Check it again; nothing was extracted.",
+    "ZIP パスワードが正しくないか確認できません。再度確認してください。展開していません。"
+  ],
+  [
+    "此 ZIP 需要密码，请输入后重新检查。",
+    "This ZIP needs a password. Enter it and check again.",
+    "この ZIP にはパスワードが必要です。入力して再確認してください。"
+  ],
+  [
+    "ZIP 加密、压缩方法或条目结构无法读取，未解压。",
+    "The ZIP encryption, compression method or entry structure could not be read. Nothing was extracted.",
+    "ZIP の暗号、圧縮方式、項目の構造を読み取れません。展開していません。"
+  ],
+  [
+    "密码解压目前支持 ZIP；TAR 请清空密码后检查。",
+    "Password extraction currently supports ZIP. Clear the password before checking a TAR archive.",
+    "パスワードによる展開は現在 ZIP に対応しています。TAR はパスワードを消去して確認してください。"
+  ],
+  [
+    "密码解压记录须使用 v7 归档，不接受降级或错配标头。",
+    "Password extraction records require v7 archives. Downgraded or mismatched headers are refused.",
+    "パスワード展開の記録には v7 アーカイブが必要です。古い版や不一致のヘッダーは拒否します。"
+  ],
+  [
     "更新签名编码不受支持。",
     "The update signature encoding is unsupported.",
     "更新署名のエンコード形式は未対応です。"

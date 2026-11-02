@@ -167,3 +167,23 @@ it('Mac restoration requires v6 and its exact read-only scope; downgraded or mis
     expect(() => archiveView({ ...raw, header: { ...raw.header, version } }, archiveId)).toThrow()
   expect(() => archiveView({ ...raw, entries: fixture().entries }, archiveId)).toThrow()
 })
+it('password extraction is preserved only in v7 archives and never makes imported records executable', () => {
+  const f = fixture(),
+    r = f.records.extraction
+  r.draft.format = 'zip'
+  r.draft.root = '/Users/demo/Archives/owned.zip'
+  r.draft.encrypted = true
+  f.entries = f.entries.map((e) =>
+    e.kind === 'extraction' ? { ...e, summary: journalSummary('extraction', r) } : e,
+  )
+  const raw = { ...f, header: { ...f.header, version: 7 } },
+    view = archiveView(raw, archiveId)
+  const entry = view.entries.find((e) => e.kind === 'extraction')!
+  expect(archiveDetail(r, entry)).toEqual(r)
+  expect(() =>
+    archiveDetail({ ...r, draft: { ...r.draft, encrypted: undefined } }, entry),
+  ).toThrow()
+  for (const version of [1, 2, 3, 4, 5, 6])
+    expect(() => archiveView({ ...raw, header: { ...raw.header, version } }, archiveId)).toThrow()
+  expect(() => archiveView({ ...raw, entries: fixture().entries }, archiveId)).toThrow()
+})

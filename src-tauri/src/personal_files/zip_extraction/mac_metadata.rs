@@ -220,6 +220,7 @@ impl Metadata {
         entries: &mut Vec<Entry>,
         job: &Job,
         start: Instant,
+        password: Option<&password::Password>,
     ) -> Result<Self, String> {
         input.rewind().map_err(|e| e.to_string())?;
         let mut zip = zip::ZipArchive::new(input.try_clone().map_err(|e| e.to_string())?)
@@ -247,9 +248,7 @@ impl Metadata {
             if bytes > TOTAL_LIMIT {
                 return Err("Mac 元数据总量超过 256 MiB，未恢复。".into());
             }
-            let mut raw = zip
-                .by_index(e.index.ok_or(INVALID)?)
-                .map_err(|e| e.to_string())?;
+            let mut raw = password::open(&mut zip, e.index.ok_or(INVALID)?, password)?;
             let mut b = Vec::with_capacity(e.size as usize);
             let mut buf = [0; 128 * 1024];
             loop {
@@ -299,9 +298,11 @@ impl Metadata {
             if e.name == "__MACOSX" || e.name.starts_with("__MACOSX/") {
                 return Err(INVALID.into());
             }
-            let raw = zip
-                .by_index(e.index.ok_or("ZIP 缺少明确的目录属性，无法完整恢复。")?)
-                .map_err(|e| e.to_string())?;
+            let raw = password::open(
+                &mut zip,
+                e.index.ok_or("ZIP 缺少明确的目录属性，无法完整恢复。")?,
+                password,
+            )?;
             let mode = raw.unix_mode().ok_or(INVALID)? & 0o7777;
             if mode & 0o7000 != 0 || mode & 0o400 == 0 || (e.directory && mode & 0o100 == 0) {
                 return Err("ZIP 含特殊或不可读权限，未恢复属性。".into());

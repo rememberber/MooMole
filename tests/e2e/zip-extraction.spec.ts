@@ -41,10 +41,68 @@ async function setup(page: Page, mode = 'normal') {
   await modal.getByRole('textbox', { name: '新文件夹名称' }).fill('Trip')
   if (mode.startsWith('mac'))
     await modal.getByRole('checkbox', { name: '恢复 Mac 标签、资源分支及文件属性（ZIP）' }).check()
+  if (mode.startsWith('encrypted'))
+    await modal.getByLabel('ZIP 密码（如需要）', { exact: true }).fill('owned passphrase')
   await modal.getByRole('button', { name: '检查压缩包内容', exact: true }).click()
   return modal
 }
+test('password ZIP reviews plaintext output and sends the secret only for preparation', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 960, height: 780 })
+  const modal = await setup(page, 'encrypted')
+  await expect(modal).toContainText('解压结果为明文')
+  await expect(modal.getByRole('button', { name: '确认解压压缩包', exact: true })).toBeDisabled()
+  await modal.getByRole('checkbox', { name: /我已核对/ }).check()
+  await modal.getByRole('button', { name: '确认解压压缩包', exact: true }).click()
+  await expect(modal).toContainText('压缩包已解压，原压缩包保留')
+  const calls = await page.locator('#zip-extraction-fixture').getAttribute('data-calls')
+  const parsed = JSON.parse(calls!) as { command: string; args: Record<string, unknown> }[]
+  expect(parsed.filter((c) => c.command === 'prepare_zip_extraction')).toHaveLength(1)
+  expect(parsed.find((c) => c.command === 'prepare_zip_extraction')?.args.password).toBe(
+    'owned passphrase',
+  )
+  expect(parsed.filter((c) => c.command === 'execute_zip_extraction')).toHaveLength(1)
+  expect(parsed.find((c) => c.command === 'execute_zip_extraction')?.args).not.toHaveProperty(
+    'password',
+  )
+  expect(await modal.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('password-zip.png') })
+})
+test('wrong ZIP password clears the input and never creates an execution request', async ({
+  page,
+}) => {
+  const modal = await setup(page, 'encryptedWrong')
+  await expect(modal.getByRole('alert')).toContainText('ZIP 密码不正确')
+  await expect(modal.getByLabel('ZIP 密码（如需要）', { exact: true })).toHaveValue('')
+  expect(await page.locator('#zip-extraction-fixture').getAttribute('data-executions')).toBe('0')
+})
 
+for (const language of ['en', 'ja'])
+  test(`${language} password ZIP explains plaintext without auto-extracting`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await setup(page, 'encrypted')
+    await page.evaluate(
+      async (language) =>
+        (await import('/src/i18n/locale.ts')).setLanguagePreference(language as 'en' | 'ja'),
+      language,
+    )
+    const d = page.getByRole('dialog', {
+      name: language === 'en' ? 'Extract archive' : 'アーカイブを展開',
+      exact: true,
+    })
+    await expect(d).toContainText(
+      language === 'en' ? 'Extracted files are plaintext' : '展開後のファイルは平文',
+    )
+    expect(await d.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
+    await expect(page.locator('#zip-extraction-fixture')).toHaveAttribute('data-executions', '0')
+    await page.screenshot({
+      path: info.outputPath(`password-${language}.png`),
+      animations: 'disabled',
+    })
+  })
 test('Mac property restoration reviews executable and hidden scope, confirms once and survives history readback', async ({
   page,
 }, info) => {

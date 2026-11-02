@@ -229,7 +229,7 @@ fn malformed_or_unmatched_sidecar_and_security_attributes_refuse_entire_metadata
     bad[pos..pos + 20].copy_from_slice(b"com.apple.system.Bad");
     assert!(parse(&bad, false).is_err());
     entries.retain(|e| e.name != "Original/.notes");
-    assert!(Metadata::read(&mut f, &mut entries, &job(), Instant::now()).is_err());
+    assert!(Metadata::read(&mut f, &mut entries, &job(), Instant::now(), None).is_err());
     put(
         &source.join(".notes"),
         "com.apple.TextEncoding",
@@ -304,6 +304,7 @@ fn restored_read_only_directories_clean_up_on_cancel_but_replacements_are_retain
         p.quarantine.as_deref(),
         &job(),
         Instant::now(),
+        None,
     )
     .unwrap();
     s.restore(p.metadata.as_ref().unwrap(), &job(), Instant::now())
@@ -326,6 +327,7 @@ fn restored_read_only_directories_clean_up_on_cancel_but_replacements_are_retain
         p.quarantine.as_deref(),
         &job(),
         Instant::now(),
+        None,
     )
     .unwrap();
     s.restore(p.metadata.as_ref().unwrap(), &job(), Instant::now())

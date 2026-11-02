@@ -31,7 +31,7 @@ export type ArchiveCounts = {
   managedApp?: number
 }
 export type ArchiveHeader = {
-  version: 1 | 2 | 3 | 4 | 5 | 6
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7
   id: string
   createdAt: number
   counts: ArchiveCounts
@@ -96,7 +96,7 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    ![1, 2, 3, 4, 5, 6].includes(v.version as number) ||
+    ![1, 2, 3, 4, 5, 6, 7].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )
@@ -107,7 +107,7 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
     ((v.version as number) >= 4 && extra === 0) ||
     ((v.version as number) < 4 && extra > 0) ||
     (v.version === 5 && !(scope.managedApp ?? 0)) ||
-    (v.version === 6 && !(scope.extraction ?? 0))
+    ((v.version === 6 || v.version === 7) && !(scope.extraction ?? 0))
   )
     fail()
   return {
@@ -187,6 +187,7 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
     )
       fail()
     if ('macMetadata' in summary && summary.macMetadata && header.version < 6) fail()
+    if ('encrypted' in summary && summary.encrypted && header.version < 7) fail()
     if ('operation' in summary && summary.operation === 'upgrade' && header.version < 5) fail()
     if (
       summary.id !== id(row.id) ||
@@ -211,7 +212,8 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
     (header.version === 5 &&
       !entries.some((e) => 'operation' in e.summary && e.summary.operation === 'upgrade')) ||
     (header.version === 6 &&
-      !entries.some((e) => 'macMetadata' in e.summary && e.summary.macMetadata))
+      !entries.some((e) => 'macMetadata' in e.summary && e.summary.macMetadata)) ||
+    (header.version === 7 && !entries.some((e) => 'encrypted' in e.summary && e.summary.encrypted))
   )
     fail()
   return { header, entries }

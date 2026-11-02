@@ -19,6 +19,7 @@ export function mount(mode = 'normal') {
     now = Date.now(),
     createdAt = now - (mode === 'expired' ? 120001 : 0)
   const draft = {
+    ...(mode.startsWith('encrypted') ? { encrypted: true } : {}),
     ...(format ? { format } : {}),
     id,
     root: `/Users/demo/Archives/Trip.${format === 'tar' ? 'tar' : format === 'tarGzip' ? 'tar.gz' : 'zip'}`,
@@ -72,6 +73,11 @@ export function mount(mode = 'normal') {
         )
         if (command === 'get_zip_extractions') return { records, activeRequests: active }
         if (command === 'prepare_zip_extraction') {
+          if (
+            mode === 'encryptedWrong' ||
+            (mode.startsWith('encrypted') && args.password !== 'owned passphrase')
+          )
+            throw Error('ZIP 密码不正确或无法验证，请重新检查；未解压。')
           if (mode === 'refused')
             throw Error('owned folder contains protected content; no partial archive')
           if (mode === 'checkingCancel')

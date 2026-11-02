@@ -107,6 +107,12 @@ export function ZipExtractionCenter({
 function Scope({ draft: d }: { draft: ZipExtractionDraft }) {
   return (
     <section aria-label="压缩包解压核对">
+      {d.encrypted && (
+        <p className="notice warning">
+          这是密码保护的
+          ZIP。解压结果为明文，文件名和历史范围仍可见；密码不写入历史，解压完成后请妥善保管输出文件。
+        </p>
+      )}
       <dl className="application-update-facts">
         <dt>格式</dt>
         <dd data-i18n="off">
@@ -162,6 +168,7 @@ function Create({
     [directory, setDirectory] = useState(`${home}/Documents`),
     [filename, setFilename] = useState('Extracted'),
     [restoreMetadata, setRestoreMetadata] = useState(false),
+    [password, setPassword] = useState(''),
     [draft, setDraft] = useState<ZipExtractionDraft | null>(null),
     [pending, setPending] = useState<'checking' | 'creating' | 'choosing' | null>(null),
     [error, setError] = useState(''),
@@ -199,6 +206,7 @@ function Create({
         revoke()
         if (source) {
           setRoot(selected)
+          setPassword('')
           if (extractionFormat(selected) !== 'zip') setRestoreMetadata(false)
         } else setDirectory(selected)
       }
@@ -223,13 +231,16 @@ function Create({
     const id = crypto.randomUUID()
     request.current = id
     try {
-      const d = await transport.prepare(
+      const preparing = transport.prepare(
         root.trim().replace(/\/+$/, ''),
         directory.trim().replace(/\/+$/, ''),
         filename.trim(),
         id,
         restoreMetadata,
+        password,
       )
+      setPassword('')
+      const d = await preparing
       if (alive.current) {
         owned.current = d
         setDraft(d)
@@ -306,6 +317,7 @@ function Create({
               disabled={!!pending}
               onChange={(e) => {
                 setRoot(e.target.value)
+                setPassword('')
                 if (extractionFormat(e.target.value.trim()) !== 'zip') setRestoreMetadata(false)
               }}
             />
@@ -317,6 +329,20 @@ function Create({
           >
             选择压缩包文件…
           </button>
+          {extractionFormat(root.trim()) === 'zip' && (
+            <label className="personal-path">
+              <span>ZIP 密码（如需要）</span>
+              <input
+                type="password"
+                aria-label="ZIP 密码（如需要）"
+                autoComplete="off"
+                spellCheck={false}
+                value={password}
+                disabled={!!pending}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+          )}
           <label className="personal-path">
             <span>解压目标目录</span>
             <input
@@ -360,8 +386,9 @@ function Create({
       <details>
         <summary>解压范围、元数据与取消边界</summary>
         <p>
-          压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。支持未加密 ZIP 的存储和 Deflate
-          压缩，以及普通 TAR、TAR.GZ/TGZ（单个 Gzip 成员）。TAR
+          压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。ZIP 支持存储、Deflate
+          和密码解压；密码只用于本次检查与执行，不验证文件来源。旧式 ZIP
+          加密强度较低，输出为明文。另支持普通 TAR、TAR.GZ/TGZ（单个 Gzip 成员）。TAR
           的路径与大小扩展经核对后使用，原权限与嵌入元数据不应用；链接、特殊文件、稀疏布局、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。
         </p>
         <p>

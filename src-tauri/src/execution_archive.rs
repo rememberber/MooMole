@@ -317,6 +317,11 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     Ok(Evidence {
         version: if saved_entries
             .iter()
+            .any(|e| e.kind == Kind::Extraction && e.summary["encrypted"] == true)
+        {
+            7
+        } else if saved_entries
+            .iter()
             .any(|e| e.kind == Kind::Extraction && e.summary["macMetadata"] == true)
         {
             6
@@ -462,7 +467,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
     let h: Header = serde_json::from_slice(&bytes).map_err(err)?;
     valid_id(&h.id)?;
     if h.format != "MooMole execution evidence"
-        || ![1, 2, 3, 4, 5, 6].contains(&h.version)
+        || ![1, 2, 3, 4, 5, 6, 7].contains(&h.version)
         || (h.version < 4
             && [
                 h.counts.mole_clean,
@@ -481,6 +486,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
             .all(|n| *n == 0))
         || (h.version == 5 && h.counts.managed_app == 0)
         || (h.version == 6 && h.counts.extraction == 0)
+        || (h.version == 7 && h.counts.extraction == 0)
         || h.created_at < 0
         || h.counts.total() == 0
         || h.counts.total() > 64
@@ -560,6 +566,12 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
     let mac_metadata = entries
         .iter()
         .any(|e| e.kind == Kind::Extraction && e.summary["macMetadata"] == true);
+    let encrypted = entries
+        .iter()
+        .any(|e| e.kind == Kind::Extraction && e.summary["encrypted"] == true);
+    if (encrypted && h.version < 7) || (h.version == 7 && !encrypted) {
+        return Err("密码解压记录须使用 v7 归档，不接受降级或错配标头。".into());
+    }
     if (mac_metadata && h.version < 6) || (h.version == 6 && !mac_metadata) {
         return Err("Mac 属性恢复记录须使用 v6 归档，不接受降级或错配标头。".into());
     }

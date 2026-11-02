@@ -21,6 +21,7 @@ pub(crate) mod commands;
 mod inventory;
 pub(crate) mod journal;
 mod mac_metadata;
+mod password;
 mod tar;
 #[cfg(test)]
 mod tests;
@@ -61,6 +62,8 @@ impl Format {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Draft {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    encrypted: bool,
     #[serde(default, skip_serializing_if = "Format::is_zip")]
     format: Format,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,6 +124,7 @@ pub(super) struct Plan {
     directory: movement::Movement,
     rules: Vec<String>,
     issued: Instant,
+    password: Option<password::Password>,
 }
 fn check(job: &Job, start: Instant) -> Result<(), String> {
     archive::check(job, start)
@@ -213,6 +217,25 @@ impl Plan {
         job: &Job,
         restore_metadata: bool,
     ) -> Result<Self, String> {
+        Self::prepare_password(
+            root,
+            directory,
+            filename,
+            settings,
+            job,
+            restore_metadata,
+            None,
+        )
+    }
+    pub(super) fn prepare_password(
+        root: &Path,
+        directory: &str,
+        filename: &str,
+        settings: &db::Settings,
+        job: &Job,
+        restore_metadata: bool,
+        password: Option<password::Password>,
+    ) -> Result<Self, String> {
         let start = Instant::now();
         check(job, start)?;
         if filename.is_empty() || filename.len() > 200 || filename.contains(['/', '\\', ':']) {
@@ -258,16 +281,19 @@ impl Plan {
             return Err("压缩包在读取时变化，请重新检查。".into());
         }
         let format = Format::from_path(root).ok_or("不支持的压缩包格式。")?;
+        if password.is_some() && format != Format::Zip {
+            return Err("密码解压目前支持 ZIP；TAR 请清空密码后检查。".into());
+        }
         if restore_metadata && format != Format::Zip {
             return Err("Mac 元数据恢复目前支持 ZIP；TAR 可选择仅解压正文。".into());
         }
         if format == Format::TarGzip {
             snapshot = tar::inflate(&mut snapshot, job, start)?;
         }
-        let mut entries = if format == Format::Zip {
-            inventory::read(&mut snapshot, job, start)?
+        let (mut entries, encrypted) = if format == Format::Zip {
+            inventory::read_password(&mut snapshot, job, start, password.as_ref())?
         } else {
-            tar::read(&mut snapshot, job, start)?
+            (tar::read(&mut snapshot, job, start)?, false)
         };
         let bytes = entries.iter().map(|e| e.size).sum();
         let metadata = if restore_metadata {
@@ -276,6 +302,7 @@ impl Plan {
                 &mut entries,
                 job,
                 start,
+                password.as_ref(),
             )?)
         } else {
             None
@@ -288,6 +315,7 @@ impl Plan {
         capacity(parent.target(), bytes)?;
         let now = db::now();
         let draft = Draft {
+            encrypted,
             format,
             mac_metadata: metadata.as_ref().map(|m| m.summary.clone()),
             id: uuid::Uuid::new_v4().to_string(),
@@ -340,6 +368,7 @@ impl Plan {
             },
             rules: settings.protected_paths.clone(),
             issued: Instant::now(),
+            password,
         })
     }
     fn time(&self) -> Result<(), String> {
@@ -422,6 +451,7 @@ pub(super) fn run(
             plan.quarantine.as_deref(),
             job,
             start,
+            plan.password.as_ref(),
         )?;
         s.verify(&plan.entries, plan.quarantine.as_deref(), job, start)?;
         if let Some(metadata) = &plan.metadata {
