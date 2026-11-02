@@ -47,15 +47,22 @@ export async function installSoftwareContentMock(page: Page) {
         }
         const names = sessionStorage.getItem('browser-profile-empty')
           ? []
-          : browser === 'firefox'
-            ? ['abcd1234.default-release', 'efgh5678.work']
-            : ['Default', 'Profile 2']
+          : browser === 'safari'
+            ? ['Standard', 'Sandbox']
+            : browser === 'firefox'
+              ? ['abcd1234.default-release', 'efgh5678.work']
+              : ['Default', 'Profile 2']
         const delay = Number(sessionStorage.getItem(`browser-profile-delay-${browser}`) || '0')
         const response = {
           browser,
           profiles: names.map((profile) => ({
             selection: { browser, profile },
-            historyPath: `/Users/demo/Library/Application Support/${relative[browser]}/${profile}/${browser === 'firefox' ? 'places.sqlite' : 'History'}`,
+            historyPath:
+              browser === 'safari'
+                ? profile === 'Standard'
+                  ? '/Users/demo/Library/Safari/Downloads.plist'
+                  : '/Users/demo/Library/Containers/com.apple.Safari/Data/Library/Safari/Downloads.plist'
+                : `/Users/demo/Library/Application Support/${relative[browser]}/${profile}/${browser === 'firefox' ? 'places.sqlite' : 'History'}`,
           })),
           complete: !sessionStorage.getItem('browser-profile-incomplete'),
           skipped: 0,

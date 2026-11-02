@@ -6,6 +6,7 @@ export const downloadBrowsers = [
   { id: 'edge', label: 'Microsoft Edge', directory: 'Microsoft Edge' },
   { id: 'brave', label: 'Brave', directory: 'BraveSoftware/Brave-Browser' },
   { id: 'firefox', label: 'Firefox', directory: 'Firefox/Profiles' },
+  { id: 'safari', label: 'Safari', directory: '' },
 ] as const
 export type DownloadBrowser = (typeof downloadBrowsers)[number]['id']
 export interface BrowserProfile {
@@ -20,20 +21,26 @@ export function readBrowserProfile(value: unknown): BrowserProfile {
     Object.keys(v).some((k) => !['browser', 'profile'].includes(k)) ||
     !downloadBrowsers.some((b) => b.id === v.browser) ||
     typeof v.profile !== 'string' ||
-    !(v.browser === 'firefox'
-      ? v.profile.length > 0 &&
-        new TextEncoder().encode(v.profile).length <= 128 &&
-        !v.profile.startsWith('.') &&
-        !v.profile.endsWith('.') &&
-        v.profile.trim() === v.profile &&
-        !/[\p{Cc}/\\:]/u.test(v.profile)
-      : /^(Default|Profile (0|[1-9][0-9]{0,9}))$/.test(v.profile))
+    !(v.browser === 'safari'
+      ? ['Standard', 'Sandbox'].includes(v.profile)
+      : v.browser === 'firefox'
+        ? v.profile.length > 0 &&
+          new TextEncoder().encode(v.profile).length <= 128 &&
+          !v.profile.startsWith('.') &&
+          !v.profile.endsWith('.') &&
+          v.profile.trim() === v.profile &&
+          !/[\p{Cc}/\\:]/u.test(v.profile)
+        : /^(Default|Profile (0|[1-9][0-9]{0,9}))$/.test(v.profile))
   )
     throw Error('浏览器配置返回格式无法核对。')
   return { browser: v.browser as DownloadBrowser, profile: v.profile }
 }
 export function browserHistoryPath(home: string, selection: BrowserProfile) {
   const checked = readBrowserProfile(selection)
+  if (checked.browser === 'safari')
+    return checked.profile === 'Standard'
+      ? `${home}/Library/Safari/Downloads.plist`
+      : `${home}/Library/Containers/com.apple.Safari/Data/Library/Safari/Downloads.plist`
   return `${home}/Library/Application Support/${downloadBrowsers.find((b) => b.id === checked.browser)!.directory}/${checked.profile}/${checked.browser === 'firefox' ? 'places.sqlite' : 'History'}`
 }
 export function sameBrowserProfile(a: BrowserProfile | null, b: BrowserProfile | null) {

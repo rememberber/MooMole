@@ -12599,5 +12599,15 @@
     "本次涉及 RAW 原片。系统预览或保留 JPEG 不能替代 RAW 的原始信息；请先核对需要保留的原片。只处理所列文件，不自动处理同名 JPEG 或 XMP。",
     "This selection includes RAW originals. A system preview or retained JPEG cannot replace the original RAW information. Check which originals you need to keep. Only the listed files are handled; same-name JPEG or XMP files are not included automatically.",
     "選択には RAW 原本が含まれます。システムプレビューや保持した JPEG は RAW の元情報の代わりにはなりません。必要な原本を確認してください。処理対象は一覧のファイルのみで、同名の JPEG や XMP は自動で含めません。"
+  ],
+  [
+    "Safari 的 Standard 与 Sandbox 分别表示标准和沙盒下载列表，并非浏览配置。请明确选择一个列表；访问受限或未发现时保持未知，不扫描其他资料。仅列出有完成日期、字节计数相符且没有错误或续传标记的普通本地文件；下载记录不能证明文件可丢弃或能再次下载。",
+    "Safari Standard and Sandbox refer to the standard and sandbox download lists, not browsing profiles. Select a list explicitly. Restricted or missing sources remain unknown; no other data is scanned. Only ordinary local files with a finish date, matching byte counts and no error or resume markers are listed. A download record does not prove a file can be discarded or downloaded again.",
+    "Safari の Standard と Sandbox は標準とサンドボックスのダウンロード一覧で、閲覧プロファイルではありません。一覧を明示的に選択してください。アクセス制限や未検出は不明として扱い、他のデータは走査しません。完了日時と一致するバイト数があり、エラーや再開情報のない通常のローカルファイルのみ表示します。記録は破棄可能性や再ダウンロードを保証しません。"
+  ],
+  [
+    "仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox 需手动选择配置，Safari 需手动选择下载列表；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。",
+    "Checks only standard source locations for the selected browser, without reading account names. Firefox requires a profile selection; Safari requires a download-list selection. Guest, private, system profiles, other browsers and custom locations are not yet supported.",
+    "選択したブラウザの標準の保存場所のみを確認し、アカウント名は読み取りません。Firefox はプロファイル、Safari はダウンロード一覧の選択が必要です。ゲスト、プライベート、システムのプロファイル、その他のブラウザ、カスタムの保存場所は未対応です。"
   ]
 ]

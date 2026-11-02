@@ -11,15 +11,20 @@ pub(crate) enum Browser {
     Edge,
     Brave,
     Firefox,
+    Safari,
 }
 impl Browser {
     pub(super) fn root(self, home: &Path) -> PathBuf {
+        if self == Self::Safari {
+            return home.join("Library/Safari");
+        }
         home.join("Library/Application Support").join(match self {
             Self::Chrome => "Google/Chrome",
             Self::Chromium => "Chromium",
             Self::Edge => "Microsoft Edge",
             Self::Brave => "BraveSoftware/Brave-Browser",
             Self::Firefox => "Firefox/Profiles",
+            Self::Safari => unreachable!(),
         })
     }
     pub(super) fn database_name(self) -> &'static str {
@@ -69,6 +74,15 @@ pub(super) fn profile_name(name: &str) -> bool {
 }
 impl Selection {
     pub(in crate::personal_files) fn history(&self, home: &Path) -> Result<PathBuf, String> {
+        if self.browser == Browser::Safari && ordinary(home) {
+            return match self.profile.as_str() {
+                "Standard" => Ok(home.join("Library/Safari/Downloads.plist")),
+                "Sandbox" => Ok(home.join(
+                    "Library/Containers/com.apple.Safari/Data/Library/Safari/Downloads.plist",
+                )),
+                _ => Err("Safari 仅支持标准或沙盒下载列表，不接受任意配置路径。".into()),
+            };
+        }
         if !self.browser.accepts_profile(&self.profile) || !ordinary(home) {
             return Err("浏览器或配置目录不属于已支持的固定范围。".into());
         }
@@ -108,6 +122,9 @@ pub(in crate::personal_files) fn discover(
 ) -> Result<Profiles, String> {
     if !ordinary(home) {
         return Err("账户目录范围无法核对。".into());
+    }
+    if browser == Browser::Safari {
+        return super::safari::discover(home, rules);
     }
     let root = browser.root(home);
     if protected(&root, rules)? {

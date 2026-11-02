@@ -14,6 +14,46 @@ const profile = {
   historyPath: `${home}/Library/Application Support/Microsoft Edge/Profile 2/History`,
 }
 describe('browser download source boundaries', () => {
+  it('Safari resolves only the two fixed lists and never treats the selection as a directory', () => {
+    for (const [profile, path] of [
+      ['Standard', '/Library/Safari/Downloads.plist'],
+      ['Sandbox', '/Library/Containers/com.apple.Safari/Data/Library/Safari/Downloads.plist'],
+    ]) {
+      const selection = { browser: 'safari', profile } as const
+      expect(browserHistoryPath(home, selection)).toBe(home + path)
+      expect(
+        readBrowserProfiles(
+          {
+            browser: 'safari',
+            profiles: [{ selection, historyPath: home + path }],
+            complete: true,
+            skipped: 0,
+          },
+          'safari',
+          home,
+        ).profiles,
+      ).toHaveLength(1)
+    }
+    for (const profile of ['Default', 'Profile 2', '../Standard', 'Sandbox/child', 'standard', ''])
+      expect(() => readBrowserProfile({ browser: 'safari', profile })).toThrow()
+    expect(() =>
+      readBrowserProfiles(
+        {
+          browser: 'safari',
+          profiles: [
+            {
+              selection: { browser: 'safari', profile: 'Standard' },
+              historyPath: home + '/Library/Safari/History.db',
+            },
+          ],
+          complete: true,
+          skipped: 0,
+        },
+        'safari',
+        home,
+      ),
+    ).toThrow()
+  })
   it('binds Firefox Places paths to one explicit profile without relaxing Chromium names', () => {
     const selection = { browser: 'firefox', profile: 'abcd1234.default-release' } as const
     const historyPath = `${home}/Library/Application Support/Firefox/Profiles/abcd1234.default-release/places.sqlite`
@@ -71,7 +111,7 @@ describe('browser download source boundaries', () => {
       { ...selection, profile: 'Profile 01' },
       { ...selection, profile: 'Guest Profile' },
       { ...selection, profile: 'Profile 2\n' },
-      { ...selection, browser: 'safari' },
+      { ...selection, browser: 'unsupported' },
       { ...selection, root: '/other' },
     ])
       expect(() => readBrowserProfile(malformed)).toThrow()

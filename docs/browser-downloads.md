@@ -1,5 +1,7 @@
 # 多浏览器、多配置下载整理
 
+2026-11-02：已补 [Safari 下载整理](safari-downloads.md) 的两处固定列表来源、完成/未知状态、独立确认及实际处理。Safari 列表不是浏览 Profile；本机真实列表访问受限，未绕过或宣称真实兼容性验收通过。下文各历史节点中的 Safari 待办由本节点补充实现范围，实际数据/窗口验证和完整来源覆盖仍保留。
+
 2026-11-01 Firefox 后端节点：新增 `~/Library/Application Support/Firefox/Profiles/<配置>/places.sqlite` 标准来源；只检测普通本地配置和数据库元数据，不读取账户名、`prefs.js`、`profiles.ini`、Cookies、登录或密钥文件。配置名使用磁盘目录名，禁止越界、隐藏、控制字符及超过 128 UTF-8 字节的名称；其他浏览器仍使用原 Default/Profile 数字规则。旧计划缺少 browserProfile 时仍仅解释为 Chrome/Default。
 
 Firefox 适配依据 Mozilla 的 [DownloadHistory 实现](https://raw.githubusercontent.com/mozilla-firefox/firefox/main/toolkit/components/downloads/DownloadHistory.sys.mjs) 和 [下载访问类型定义](https://raw.githubusercontent.com/mozilla-firefox/firefox/main/toolkit/components/places/nsINavHistoryService.idl)：仅查询普通 `moz_places`、`moz_historyvisits`、`moz_annos`、`moz_anno_attributes` 表，以下载访问类型 7、唯一的 `downloads/destinationFileURI` 和 `downloads/metaData` 注释核对来源。只有 state=1 且未标记 deleted 的本地 file URI 可进入文件核对；失败、取消、暂停和已删除跳过，缺失、歧义、损坏及超限记录保持未完整。不返回普通浏览 URL/标题，不依靠 `downloads.json` 会话记录推断已完成状态。

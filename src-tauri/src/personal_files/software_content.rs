@@ -7,6 +7,7 @@ pub(crate) mod browser_profiles;
 mod chromium;
 pub(super) mod firefox;
 mod playlist;
+pub(super) mod safari;
 mod telegram;
 pub(crate) const MODULE: &str = "softwareContent";
 pub(super) const REVISION: &str = "MooMole.software-content.v1";

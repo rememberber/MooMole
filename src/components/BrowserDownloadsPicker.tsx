@@ -42,7 +42,11 @@ export function BrowserDownloadsPicker({
         setProfiles(result)
         // Default is the historical source. Other configurations always require
         // an explicit selection; no automatic first-profile fallback.
-        if (browser !== 'firefox' && result.profiles.some((p) => p.selection.profile === 'Default'))
+        if (
+          browser !== 'firefox' &&
+          browser !== 'safari' &&
+          result.profiles.some((p) => p.selection.profile === 'Default')
+        )
           onChange({ browser, profile: 'Default' })
       })
       .catch((reason) => {
@@ -119,9 +123,15 @@ export function BrowserDownloadsPicker({
           配置检查未完整覆盖，部分配置未读取；未知范围保持原样。
         </p>
       )}
+      {browser === 'safari' && (
+        <p className="notice">
+          Safari 的 Standard 与 Sandbox
+          分别表示标准和沙盒下载列表，并非浏览配置。请明确选择一个列表；访问受限或未发现时保持未知，不扫描其他资料。仅列出有完成日期、字节计数相符且没有错误或续传标记的普通本地文件；下载记录不能证明文件可丢弃或能再次下载。
+        </p>
+      )}
       <p className="muted">
-        仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox
-        需手动选择配置；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。
+        仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox 需手动选择配置，Safari
+        需手动选择下载列表；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。
       </p>
     </div>
   )

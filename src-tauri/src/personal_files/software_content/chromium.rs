@@ -69,6 +69,9 @@ pub(super) fn collect_profile(
     rules: &[String],
     job: Arc<Job>,
 ) -> Result<Scan, String> {
+    if profile.browser == browser_profiles::Browser::Safari {
+        return super::safari::collect(home, profile, rules, job);
+    }
     let source = Source::ChromeDownloads;
     if !ordinary(home) {
         return Err("账户目录范围无法核对。".into());
