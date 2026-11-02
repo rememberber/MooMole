@@ -10,11 +10,17 @@ export const softwareContentSources = [
   { id: 'mailDownloads', label: 'Mail 旧位置附件副本', relative: 'Library/Mail Downloads' },
   { id: 'chromeDownloads', label: '浏览器已完成下载', relative: '' },
   { id: 'vlcPlaylist', label: 'VLC 播放列表中的本地影音', relative: '' },
+  { id: 'musicLibrary', label: 'Music 导出资料库中的本地媒体', relative: '' },
   { id: 'telegramExport', label: 'Telegram 聊天导出附件', relative: '' },
 ] as const
 export type SoftwareContentSource = (typeof softwareContentSources)[number]['id']
 export function softwareContentRoot(home: string, source: SoftwareContentSource) {
-  if (source === 'chromeDownloads' || source === 'vlcPlaylist' || source === 'telegramExport')
+  if (
+    source === 'chromeDownloads' ||
+    source === 'vlcPlaylist' ||
+    source === 'musicLibrary' ||
+    source === 'telegramExport'
+  )
     return home
   return home ? `${home}/${softwareContentSources.find((s) => s.id === source)!.relative}` : ''
 }
@@ -33,7 +39,7 @@ export function softwareContentTransport(
       return invoke('start_software_content', {
         source,
         requestId,
-        ...(source === 'vlcPlaylist' ? { playlistPath } : {}),
+        ...(source === 'vlcPlaylist' || source === 'musicLibrary' ? { playlistPath } : {}),
         ...(source === 'telegramExport' ? { exportPath } : {}),
         ...(source === 'chromeDownloads' ? { browserProfile } : {}),
       })

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { installSoftwareContentMock } from './fixtures/software-content-native'
 async function open(page: import('@playwright/test').Page) {
   await installSoftwareContentMock(page)
@@ -7,6 +8,128 @@ async function open(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: '附件、下载与离线', exact: true }).click()
   return page.getByRole('main', { name: '软件清理内容' })
 }
+test('Music local media requires a selected XML, previews exact files and executes only after independent confirmation', async ({
+  page,
+}, info) => {
+  const data = readFileSync(new URL('../fixtures/media/owned-color.mp4', import.meta.url))
+  await page.route('http://moomole-media.localhost/**', async (route) => {
+    const range = route.request().headers()['range'],
+      match = range?.match(/^bytes=(\d+)-(\d*)$/)
+    const start = match ? Number(match[1]) : 0,
+      end = match?.[2] ? Math.min(Number(match[2]), data.length - 1) : data.length - 1
+    await route.fulfill({
+      status: range ? 206 : 200,
+      contentType: 'video/mp4',
+      headers: {
+        'accept-ranges': 'bytes',
+        'content-range': `bytes ${start}-${end}/${data.length}`,
+      },
+      body: data.subarray(start, end + 1),
+    })
+  })
+  const main = await open(page)
+  await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('musicLibrary')
+  const scan = page.getByRole('button', { name: '扫描 Music 本地媒体', exact: true })
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.setItem('music-picker-cancelled', '1'))
+  await main.getByRole('button', { name: '选择 Music 导出资料库', exact: true }).click()
+  await expect(scan).toBeDisabled()
+  await page.evaluate(() => sessionStorage.removeItem('music-picker-cancelled'))
+  await main.getByRole('button', { name: '选择 Music 导出资料库', exact: true }).click()
+  await expect(main.getByRole('textbox', { name: 'Music 导出资料库来源' })).toHaveValue(
+    '/Users/demo/Exports/Library.xml',
+  )
+  await scan.click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await list.getByRole('button', { name: '预览内容' }).first().click()
+  const preview = page.getByRole('dialog', { name: '文件内容预览' })
+  await expect(preview.locator('video')).toBeVisible()
+  await expect
+    .poll(() => preview.locator('video').evaluate((e: HTMLVideoElement) => e.videoWidth))
+    .toBe(160)
+  await expect(preview.getByRole('button', { name: '播放', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: '返回文件列表' }).click()
+  await list.getByRole('checkbox').first().check()
+  await main.getByRole('button', { name: '移入废纸篓…' }).click()
+  const d = page.getByRole('dialog', { name: '确认处理 Music 本地媒体', exact: true })
+  await expect(d).toContainText('可能使 Music 中的引用失效')
+  await expect(d.getByRole('button', { name: '确认移入废纸篓', exact: true })).toBeDisabled()
+  await page.setViewportSize({ width: 960, height: 780 })
+  expect(await d.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('music-confirm.png'), animations: 'disabled' })
+  await d.getByRole('checkbox').check()
+  await d.getByRole('button', { name: '确认移入废纸篓', exact: true }).click()
+  await expect(main.getByRole('region', { name: '个人文件处理结果' })).toBeVisible()
+  const calls = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem('software-content-calls')!),
+  )
+  expect(calls.find((c: any) => c.command === 'start_software_content').args).toMatchObject({
+    source: 'musicLibrary',
+    playlistPath: '/Users/demo/Exports/Library.xml',
+  })
+  expect(calls.filter((c: any) => c.command === 'execute_software_trash')).toHaveLength(1)
+  expect(
+    calls.find((c: any) => c.command === 'prepare_software_trash').args.selectedIds,
+  ).toHaveLength(1)
+})
+test('changing Music exports or switching back from VLC withdraws old choices under the same account root', async ({
+  page,
+}) => {
+  const main = await open(page)
+  const source = main.getByRole('combobox', { name: '软件内容来源' })
+  await source.selectOption('musicLibrary')
+  await main.getByRole('button', { name: '选择 Music 导出资料库', exact: true }).click()
+  await page.getByRole('button', { name: '扫描 Music 本地媒体', exact: true }).click()
+  const list = main.getByRole('region', { name: '个人文件列表' })
+  await list.getByRole('checkbox').first().check()
+  await page.evaluate(() =>
+    sessionStorage.setItem('music-picker-path', '/Users/demo/Exports/Other.xml'),
+  )
+  await main.getByRole('button', { name: '选择 Music 导出资料库', exact: true }).click()
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await page.getByRole('button', { name: '扫描 Music 本地媒体', exact: true }).click()
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+  await source.selectOption('vlcPlaylist')
+  await expect(main.getByRole('button', { name: '移入废纸篓…' })).toBeDisabled()
+  await source.selectOption('musicLibrary')
+  await expect(list.getByRole('checkbox').first()).not.toBeChecked()
+})
+for (const [language, sourceLabel, picker, scan] of [
+  [
+    'en',
+    'Local media from a Music library export',
+    'Choose Music library export',
+    'Scan Music local media',
+  ],
+  [
+    'ja',
+    'Music のライブラリ書き出し内のローカルメディア',
+    'Music の書き出したライブラリを選択',
+    'Music のローカルメディアをスキャン',
+  ],
+])
+  test(`${language} Music export scope keeps exact paths and defaults to zero selection`, async ({
+    page,
+  }, info) => {
+    const main = await open(page)
+    await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('musicLibrary')
+    await page.evaluate(
+      async (language) => (await import('/src/i18n/locale.ts')).setLanguagePreference(language),
+      language,
+    )
+    await expect(page.getByRole('option', { name: sourceLabel, exact: true })).toHaveCount(1)
+    await page.getByRole('button', { name: picker, exact: true }).click()
+    await page.getByRole('button', { name: scan, exact: true }).click()
+    await expect(page.locator('input[readonly]').first()).toBeVisible()
+    await expect(page.locator('input[value="/Users/demo/Exports/Library.xml"]')).toBeVisible()
+    await page.setViewportSize({ width: 960, height: 780 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: info.outputPath(`music-${language}.png`),
+      animations: 'disabled',
+    })
+  })
 test('chat exports require a selected JSON manifest, scoped previews and separately confirmed attachments', async ({
   page,
 }) => {

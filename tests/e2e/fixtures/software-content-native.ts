@@ -6,7 +6,10 @@ export async function installSoftwareContentMock(page: Page) {
     const native = (window as any).__TAURI_INTERNALS__,
       original = native.invoke
     const root = (source: string) =>
-      source === 'chromeDownloads' || source === 'vlcPlaylist' || source === 'telegramExport'
+      source === 'chromeDownloads' ||
+      source === 'vlcPlaylist' ||
+      source === 'musicLibrary' ||
+      source === 'telegramExport'
         ? '/Users/demo'
         : source === 'mailDownloads'
           ? '/Users/demo/Library/Mail Downloads'
@@ -31,6 +34,13 @@ export async function installSoftwareContentMock(page: Page) {
           : sessionStorage.getItem('export-picker-path') ||
               '/Users/demo/Downloads/ChatExport/result.json'
       }
+      if (
+        command === 'plugin:dialog|open' &&
+        args.options?.filters?.[0]?.extensions?.includes('xml')
+      )
+        return sessionStorage.getItem('music-picker-cancelled')
+          ? null
+          : sessionStorage.getItem('music-picker-path') || '/Users/demo/Exports/Library.xml'
       if (command === 'plugin:dialog|open')
         return sessionStorage.getItem('playlist-picker-cancelled')
           ? null
@@ -84,13 +94,13 @@ export async function installSoftwareContentMock(page: Page) {
           .map((i: any) => ({
             ...i,
             name:
-              source === 'vlcPlaylist'
+              source === 'vlcPlaylist' || source === 'musicLibrary'
                 ? i.name === 'old.zip'
                   ? 'offline.mov'
                   : 'recording.wav'
                 : i.name,
             path:
-              source === 'vlcPlaylist'
+              source === 'vlcPlaylist' || source === 'musicLibrary'
                 ? `/Users/demo/Movies/${i.name === 'old.zip' ? 'offline.mov' : 'recording.wav'}`
                 : source === 'telegramExport'
                   ? `${args.exportPath.slice(0, args.exportPath.lastIndexOf('/'))}/files/${i.name}`
@@ -98,17 +108,27 @@ export async function installSoftwareContentMock(page: Page) {
           }))
         report.softwareContent = {
           source,
-          minimumAgeDays: ['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(source)
+          minimumAgeDays: [
+            'chromeDownloads',
+            'vlcPlaylist',
+            'musicLibrary',
+            'telegramExport',
+          ].includes(source)
             ? 0
             : 31,
-          minimumDirectoryBytes: ['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(
-            source,
-          )
+          minimumDirectoryBytes: [
+            'chromeDownloads',
+            'vlcPlaylist',
+            'musicLibrary',
+            'telegramExport',
+          ].includes(source)
             ? 0
             : 5242880,
           minimumSizeMet: true,
           executionSupported: source !== 'mailSandboxDownloads',
-          ...(source === 'vlcPlaylist' ? { playlistPath: args.playlistPath } : {}),
+          ...(source === 'vlcPlaylist' || source === 'musicLibrary'
+            ? { playlistPath: args.playlistPath }
+            : {}),
           ...(source === 'chromeDownloads' ? { browserProfile: args.browserProfile } : {}),
           ...(source === 'telegramExport' ? { exportPath: args.exportPath } : {}),
         }
@@ -144,6 +164,27 @@ export async function installSoftwareContentMock(page: Page) {
           content: { kind: 'text', text: 'owned attachment preview', truncated: false },
         }
       }
+      if (command === 'prepare_media_preview') {
+        const report = JSON.parse(sessionStorage.getItem('personal-report')!),
+          item = report.items.find((i: any) => i.id === args.itemId)
+        if (args.domain !== 'softwareContent' || args.scanId !== report.id || !item)
+          throw Error('wrong software media scope')
+        const leaseId = '42345678-1234-4123-8123-123456789abc'
+        return {
+          scanId: report.id,
+          itemId: item.id,
+          path: item.path,
+          content: {
+            kind: 'media',
+            mediaKind: 'video',
+            mime: 'video/mp4',
+            leaseId,
+            url: `http://moomole-media.localhost/${leaseId}/media`,
+            expiresAt: Date.now() + 60000,
+          },
+        }
+      }
+      if (command === 'release_media_preview') return null
       return original(aliases[command] ?? command, args)
     }
   })

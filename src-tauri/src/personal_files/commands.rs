@@ -203,6 +203,13 @@ fn start_with_source(
                 &settings.protected_paths,
                 job.clone(),
             )
+        } else if source == Some(software_content::Source::MusicLibrary) {
+            software_content::collect_music_library(
+                &state.home,
+                &PathBuf::from(root),
+                &settings.protected_paths,
+                job.clone(),
+            )
         } else if source == Some(software_content::Source::VlcPlaylist) {
             software_content::collect_playlist(
                 &state.home,
@@ -581,7 +588,10 @@ pub(crate) fn start_software_content(
         profile.history(&state.home)?;
     }
     if (source != software_content::Source::TelegramExport && export_path.is_some())
-        || (source != software_content::Source::VlcPlaylist && playlist_path.is_some())
+        || (!matches!(
+            source,
+            software_content::Source::VlcPlaylist | software_content::Source::MusicLibrary
+        ) && playlist_path.is_some())
     {
         return Err("软件内容来源与清单类型不匹配。".into());
     }
@@ -589,6 +599,10 @@ pub(crate) fn start_software_content(
         export_path
             .filter(|s| !s.is_empty() && s.len() <= 4096)
             .ok_or("请先选择 Telegram Desktop 导出的 result.json。")?
+    } else if source == software_content::Source::MusicLibrary {
+        playlist_path
+            .filter(|s| !s.is_empty() && s.len() <= 4096)
+            .ok_or("请先选择 Music 导出的 XML 资料库。")?
     } else if source == software_content::Source::VlcPlaylist {
         playlist_path
             .filter(|s| !s.is_empty() && s.len() <= 4096)

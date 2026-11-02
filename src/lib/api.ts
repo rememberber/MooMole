@@ -272,6 +272,16 @@ export const chooseMediaPlaylist = async (): Promise<string | null> => {
   })
   return typeof selected === 'string' ? selected : null
 }
+export const chooseMusicLibrary = async (): Promise<string | null> => {
+  if (!desktop) return null
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title: translate('选择 Music 导出的 XML 资料库'),
+    filters: [{ name: 'XML', extensions: ['xml'] }],
+  })
+  return typeof selected === 'string' ? selected : null
+}
 export const chooseTelegramExport = async (): Promise<string | null> => {
   if (!desktop) return null
   const selected = await open({

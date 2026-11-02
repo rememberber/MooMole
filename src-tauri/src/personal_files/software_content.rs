@@ -6,6 +6,7 @@ use std::{os::unix::fs::MetadataExt, path::PathBuf, process::Command, sync::Arc}
 pub(crate) mod browser_profiles;
 mod chromium;
 pub(super) mod firefox;
+mod music_library;
 mod playlist;
 pub(super) mod safari;
 mod telegram;
@@ -28,13 +29,14 @@ pub(crate) enum Source {
     MailSandboxDownloads,
     ChromeDownloads,
     VlcPlaylist,
+    MusicLibrary,
     TelegramExport,
 }
 impl Source {
     fn recorded_files(self) -> bool {
         matches!(
             self,
-            Self::ChromeDownloads | Self::VlcPlaylist | Self::TelegramExport
+            Self::ChromeDownloads | Self::VlcPlaylist | Self::MusicLibrary | Self::TelegramExport
         )
     }
     pub(super) fn path(self, home: &Path) -> PathBuf {
@@ -46,7 +48,10 @@ impl Source {
             Self::MailSandboxDownloads => {
                 "Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
             }
-            Self::ChromeDownloads | Self::VlcPlaylist | Self::TelegramExport => unreachable!(),
+            Self::ChromeDownloads
+            | Self::VlcPlaylist
+            | Self::MusicLibrary
+            | Self::TelegramExport => unreachable!(),
         })
     }
 }
@@ -83,7 +88,9 @@ impl Binding {
         if self.source.recorded_files() {
             return path.starts_with(&root)
                 && ordinary(path)
-                && (path == root || self.source != Source::VlcPlaylist || playlist::media(path));
+                && (path == root
+                    || !matches!(self.source, Source::VlcPlaylist | Source::MusicLibrary)
+                    || playlist::media(path));
         }
         path == root
             || path.strip_prefix(&root).is_ok_and(|r| {
@@ -106,14 +113,19 @@ impl Binding {
                 .last()
                 .is_none_or(|n| n.path != Path::new(root))
             || (!self.source.recorded_files() && self.allocated_at_scan < MINIMUM)
-            || (self.source == Source::VlcPlaylist
+            || (matches!(self.source, Source::VlcPlaylist | Source::MusicLibrary)
                 && self.playlist.as_ref().is_none_or(|w| {
                     w.version != crate::observation::VERSION
                         || w.nodes.last().is_none_or(|n| {
-                            !playlist::manifest_allowed(&n.path, Path::new(&self.home))
+                            if self.source == Source::MusicLibrary {
+                                !music_library::manifest_allowed(&n.path, Path::new(&self.home))
+                            } else {
+                                !playlist::manifest_allowed(&n.path, Path::new(&self.home))
+                            }
                         })
                 }))
-            || (self.source != Source::VlcPlaylist && self.playlist.is_some())
+            || (!matches!(self.source, Source::VlcPlaylist | Source::MusicLibrary)
+                && self.playlist.is_some())
             || (self.source != Source::TelegramExport && self.telegram_export.is_some())
             || (self.source == Source::TelegramExport
                 && self.telegram_export.as_ref().is_none_or(|w| {
@@ -174,7 +186,7 @@ impl Binding {
                 return Err("浏览器配置目录身份已变化，请重新扫描；本项保留。".into());
             }
         }
-        if self.source == Source::VlcPlaylist {
+        if matches!(self.source, Source::VlcPlaylist | Source::MusicLibrary) {
             let witness = self
                 .playlist
                 .as_ref()
@@ -230,6 +242,14 @@ pub(super) fn collect_browser(
 ) -> Result<Scan, String> {
     chromium::collect_profile(home, profile, rules, job)
 }
+pub(super) fn collect_music_library(
+    home: &Path,
+    manifest: &Path,
+    rules: &[String],
+    job: Arc<Job>,
+) -> Result<Scan, String> {
+    music_library::collect(home, manifest, rules, job)
+}
 pub(super) fn collect_playlist(
     home: &Path,
     manifest: &Path,
@@ -246,6 +266,9 @@ pub(super) fn collect(
 ) -> Result<Scan, String> {
     if source == Source::ChromeDownloads {
         return chromium::collect(home, source, rules, job);
+    }
+    if source == Source::MusicLibrary {
+        return Err("请先选择 Music 导出的 XML 资料库。".into());
     }
     if source == Source::VlcPlaylist {
         return Err("请先选择 VLC 导出的 M3U8 播放列表。".into());

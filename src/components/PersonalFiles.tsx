@@ -139,7 +139,9 @@ export function PersonalFiles({
     : items
   const title =
     mode === 'offline'
-      ? '确认处理离线影音文件'
+      ? softwareSource === 'musicLibrary'
+        ? '确认处理 Music 本地媒体'
+        : '确认处理离线影音文件'
       : mode === 'chat'
         ? '确认处理聊天导出附件'
         : mode === 'downloads'
@@ -337,7 +339,9 @@ export function PersonalFiles({
       </form>
       <p className="muted">
         {mode === 'offline'
-          ? '选择 VLC 导出的 M3U8 播放列表，找出其中的本地影音文件，默认不选。文件可能是唯一原件，无法保证可重新下载；移走后原播放列表可能无法继续播放。仅处理你选择的普通文件，播放列表及播放器数据库保持原样；流媒体、未列入的文件与未支持的格式保留。可预览部分普通影音，播放取决于系统编码支持。'
+          ? softwareSource === 'musicLibrary'
+            ? '在 Music 中选择“文件 → 资料库 → 导出资料库”，保存 XML 后在这里选择。仅定位其中明确列出的本地媒体，默认不选；不读取或修改 Music 内部资料库。文件可能是唯一副本，移走可能使 Music 或播放列表中的引用失效，能否重新下载未知。云端、受保护标记、缺失和不支持的条目保留；先预览并关闭相关文件，再逐项确认。'
+            : '选择 VLC 导出的 M3U8 播放列表，找出其中的本地影音文件，默认不选。文件可能是唯一原件，无法保证可重新下载；移走后原播放列表可能无法继续播放。仅处理你选择的普通文件，播放列表及播放器数据库保持原样；流媒体、未列入的文件与未支持的格式保留。可预览部分普通影音，播放取决于系统编码支持。'
           : mode === 'chat'
             ? '只根据所选 Telegram Desktop JSON 导出清单定位包内附件，默认不选，不扫描软件内部资料库。导出附件可能是唯一副本，无法保证可重新下载；移走会使导出包中的对应链接失效。聊天正文清单、未列入文件和未知格式保留，不影响线上聊天或发送删除消息；先预览并关闭相关文件，再逐项确认。'
             : mode === 'downloads'
@@ -907,7 +911,9 @@ export function PersonalFiles({
             : mode === 'downloads'
               ? '选择浏览器和配置目录，再点击顶部“扫描下载记录”。'
               : mode === 'offline'
-                ? '选择播放列表，再点击顶部“扫描离线影音”。'
+                ? softwareSource === 'musicLibrary'
+                  ? '选择 Music 导出的 XML 资料库，再点击顶部“扫描 Music 本地媒体”。'
+                  : '选择播放列表，再点击顶部“扫描离线影音”。'
                 : mode === 'software'
                   ? '点击顶部“扫描附件副本”，查看可审阅的 Mail 附件副本。'
                   : '选择下载目录或其他个人目录，再点击顶部“扫描文件”。'}
@@ -990,6 +996,12 @@ export function PersonalFiles({
             <p className="notice warning">
               本次涉及 RAW 原片。系统预览或保留 JPEG 不能替代 RAW
               的原始信息；请先核对需要保留的原片。只处理所列文件，不自动处理同名 JPEG 或 XMP。
+            </p>
+          )}
+          {softwareSource === 'musicLibrary' && (
+            <p className="notice">
+              仅处理下面明确选中的本地媒体，可能使 Music 中的引用失效；导出的
+              XML、内部资料库和未选文件保留。文件是否为唯一副本、能否重新下载需要自行核对。
             </p>
           )}
           {mode === 'chat' && (

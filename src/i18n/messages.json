@@ -1,4 +1,62 @@
 [
+  ["扫描 Music 本地媒体", "Scan Music local media", "Music のローカルメディアをスキャン"],
+  ["Music 导出资料库来源", "Music library export", "Music の書き出したライブラリ"],
+  ["选择 Music 导出资料库", "Choose Music library export", "Music の書き出したライブラリを選択"],
+  [
+    "确认处理 Music 本地媒体",
+    "Confirm Music local media removal",
+    "Music のローカルメディアの処理を確認"
+  ],
+  [
+    "在 Music 中选择“文件 → 资料库 → 导出资料库”，保存 XML 后在这里选择。仅定位其中明确列出的本地媒体，默认不选；不读取或修改 Music 内部资料库。文件可能是唯一副本，移走可能使 Music 或播放列表中的引用失效，能否重新下载未知。云端、受保护标记、缺失和不支持的条目保留；先预览并关闭相关文件，再逐项确认。",
+    "In Music, choose File → Library → Export Library, save the XML, then select it here. Locate only explicitly listed local media; nothing is selected by default. Music's internal library is not read or changed. Files may be unique copies, moving them may break Music or playlist references, and downloading them again is not guaranteed. Cloud, protection-marked, missing and unsupported entries are retained. Preview and close related files before confirming each selection.",
+    "Music の「ファイル → ライブラリ → ライブラリを書き出す」で XML を保存して、ここで選択します。明示されたローカルメディアのみを確認し、既定では何も選択しません。Music 内部のライブラリは読み取りも変更もしません。唯一のコピーの可能性があり、移動すると Music やプレイリストの参照が無効になる場合があります。再ダウンロードできる保証はありません。クラウド、保護マーク付き、不明・非対応の項目は保持します。プレビューして関連ファイルを閉じてから、個別に確認してください。"
+  ],
+  [
+    "选择 Music 导出的 XML 资料库，再点击顶部“扫描 Music 本地媒体”。",
+    "Select a Music XML library export, then click “Scan Music local media” in the toolbar.",
+    "Music の XML ライブラリ書き出しを選択し、上部の「Music のローカルメディアをスキャン」をクリックしてください。"
+  ],
+  [
+    "仅处理下面明确选中的本地媒体，可能使 Music 中的引用失效；导出的 XML、内部资料库和未选文件保留。文件是否为唯一副本、能否重新下载需要自行核对。",
+    "Only the explicitly selected local media below will be removed. Music references may break; the exported XML, internal library and unselected files are retained. Check whether these are unique copies and whether you can download them again.",
+    "以下で明示的に選んだローカルメディアのみを処理します。Music の参照が無効になる場合があります。書き出した XML、内部ライブラリ、未選択のファイルは保持します。唯一のコピーか、再ダウンロードできるかはご自身で確認してください。"
+  ],
+  [
+    "选择 Music 导出的 XML 资料库",
+    "Choose a Music XML library export",
+    "Music の XML ライブラリ書き出しを選択"
+  ],
+  [
+    "Music 导出资料库中的本地媒体",
+    "Local media from a Music library export",
+    "Music のライブラリ書き出し内のローカルメディア"
+  ],
+  [
+    "Music 导出资料库结构、字段或容量无法核对，请重新导出 XML；原资料库和文件保留。",
+    "The Music export structure, fields or size cannot be verified. Export a new XML file; the original library and files are retained.",
+    "Music 書き出しの構造、フィールド、容量を確認できません。XML を書き出し直してください。元のライブラリとファイルは保持します。"
+  ],
+  [
+    "请选择本账户普通目录中由 Music 导出的 XML 资料库。",
+    "Choose a Music XML library export in a regular folder belonging to this account.",
+    "このアカウントの通常のフォルダにある Music の XML ライブラリ書き出しを選択してください。"
+  ],
+  [
+    "请先选择 Music 导出的 XML 资料库。",
+    "Select a Music XML library export first.",
+    "先に Music の XML ライブラリ書き出しを選択してください。"
+  ],
+  [
+    "Music 导出资料库超过本轮 2000 条曲目上限，请导出较小的播放列表。",
+    "The Music export exceeds this pass's 2,000-track limit. Export a smaller playlist.",
+    "Music 書き出しが今回の上限 2,000 曲を超えています。小さいプレイリストを書き出してください。"
+  ],
+  [
+    "Music XML 读取已停止或超过结构上限，未确认范围保留。",
+    "Music XML reading stopped or exceeded its structure limit. Unverified content is retained.",
+    "Music XML の読み取りが停止したか、構造の上限を超えました。未確認の内容は保持します。"
+  ],
   ["内容与属性容量预算：", "Content and attribute budget: ", "内容と属性の容量見積もり："],
   [
     "Mac 元数据不完整、存在歧义或包含未支持属性；未恢复。可另选仅解压正文保留原始元数据文件。",

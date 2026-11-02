@@ -75,6 +75,7 @@ export interface PersonalReport {
       | 'mailSandboxDownloads'
       | 'chromeDownloads'
       | 'vlcPlaylist'
+      | 'musicLibrary'
       | 'telegramExport'
     minimumAgeDays: number
     minimumDirectoryBytes: number
@@ -388,23 +389,28 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
           'mailSandboxDownloads',
           'chromeDownloads',
           'vlcPlaylist',
+          'musicLibrary',
           'telegramExport',
         ].includes(s.source as string) ||
         s.minimumAgeDays !==
-          (['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(s.source as string)
+          (['chromeDownloads', 'vlcPlaylist', 'musicLibrary', 'telegramExport'].includes(
+            s.source as string,
+          )
             ? 0
             : 31) ||
         s.minimumDirectoryBytes !==
-          (['chromeDownloads', 'vlcPlaylist', 'telegramExport'].includes(s.source as string)
+          (['chromeDownloads', 'vlcPlaylist', 'musicLibrary', 'telegramExport'].includes(
+            s.source as string,
+          )
             ? 0
             : 5242880) ||
         typeof s.minimumSizeMet !== 'boolean' ||
         typeof s.executionSupported !== 'boolean' ||
         s.executionSupported !== (s.source !== 'mailSandboxDownloads') ||
         (!s.minimumSizeMet && report.items.length) ||
-        (s.source === 'vlcPlaylist'
+        (s.source === 'vlcPlaylist' || s.source === 'musicLibrary'
           ? !path(s.playlistPath).startsWith(`${root}/`) ||
-            !/\.m3u8$/i.test(s.playlistPath as string)
+            !(s.source === 'musicLibrary' ? /\.xml$/i : /\.m3u8$/i).test(s.playlistPath as string)
           : s.playlistPath !== undefined) ||
         (s.source === 'telegramExport'
           ? !path(s.exportPath).startsWith(`${root}/`) ||
@@ -425,12 +431,15 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
           | 'mailSandboxDownloads'
           | 'chromeDownloads'
           | 'vlcPlaylist'
+          | 'musicLibrary'
           | 'telegramExport',
         minimumAgeDays: s.minimumAgeDays as number,
         minimumDirectoryBytes: s.minimumDirectoryBytes as number,
         minimumSizeMet: s.minimumSizeMet as boolean,
         executionSupported: s.executionSupported as boolean,
-        ...(s.source === 'vlcPlaylist' ? { playlistPath: path(s.playlistPath) } : {}),
+        ...(s.source === 'vlcPlaylist' || s.source === 'musicLibrary'
+          ? { playlistPath: path(s.playlistPath) }
+          : {}),
         ...(s.source === 'telegramExport' ? { exportPath: path(s.exportPath) } : {}),
         ...(browserProfile ? { browserProfile } : {}),
       }

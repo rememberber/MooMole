@@ -311,10 +311,17 @@ export default function App() {
     useState<SoftwareContentSource>('mailSandboxDownloads')
   const [mediaPlaylist, setMediaPlaylist] = useState('')
   const [telegramExport, setTelegramExport] = useState('')
+  const [musicLibrary, setMusicLibrary] = useState('')
   const [browserProfile, setBrowserProfile] = useState<BrowserProfile | null>(null)
   const contentTransport = useMemo(
-    () => softwareContentTransport(softwareSource, mediaPlaylist, telegramExport, browserProfile),
-    [softwareSource, mediaPlaylist, telegramExport, browserProfile],
+    () =>
+      softwareContentTransport(
+        softwareSource,
+        softwareSource === 'musicLibrary' ? musicLibrary : mediaPlaylist,
+        telegramExport,
+        browserProfile,
+      ),
+    [softwareSource, mediaPlaylist, musicLibrary, telegramExport, browserProfile],
   )
   const softwareFiles = usePersonalFiles(
     page === 'softwareCleanup' && softwareTab === 'attachments',
@@ -1393,18 +1400,21 @@ export default function App() {
                         !canRun ||
                         executionActive ||
                         (softwareSource === 'vlcPlaylist' && !mediaPlaylist) ||
+                        (softwareSource === 'musicLibrary' && !musicLibrary) ||
                         (softwareSource === 'telegramExport' && !telegramExport) ||
                         (softwareSource === 'chromeDownloads' && !browserProfile)
                       }
                       onClick={() => void softwareFiles.start()}
                     >
-                      {softwareSource === 'vlcPlaylist'
-                        ? '扫描离线影音'
-                        : softwareSource === 'telegramExport'
-                          ? '扫描聊天导出附件'
-                          : softwareSource === 'chromeDownloads'
-                            ? '扫描下载记录'
-                            : '扫描附件副本'}
+                      {softwareSource === 'musicLibrary'
+                        ? '扫描 Music 本地媒体'
+                        : softwareSource === 'vlcPlaylist'
+                          ? '扫描离线影音'
+                          : softwareSource === 'telegramExport'
+                            ? '扫描聊天导出附件'
+                            : softwareSource === 'chromeDownloads'
+                              ? '扫描下载记录'
+                              : '扫描附件副本'}
                     </button>
                   ))}
                 {(page === 'quickCleanup' ||
@@ -2126,6 +2136,29 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {softwareSource === 'musicLibrary' && (
+                <div className="personal-scope">
+                  <label className="personal-path">
+                    <span>Music 导出资料库来源</span>
+                    <input aria-label="Music 导出资料库来源" value={musicLibrary} readOnly />
+                  </label>
+                  <button
+                    className="button secondary compact"
+                    disabled={!api.desktop || softwareFiles.running}
+                    onClick={async () => {
+                      try {
+                        const path = await api.chooseMusicLibrary()
+                        if (path) setMusicLibrary(path)
+                      } catch (reason) {
+                        setError(String(reason))
+                      }
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    选择 Music 导出资料库
+                  </button>
+                </div>
+              )}
               {softwareSource === 'telegramExport' && (
                 <div className="personal-scope">
                   <label className="personal-path">
@@ -2153,7 +2186,7 @@ export default function App() {
                 key={softwareSource}
                 controller={softwareFiles}
                 mode={
-                  softwareSource === 'vlcPlaylist'
+                  softwareSource === 'vlcPlaylist' || softwareSource === 'musicLibrary'
                     ? 'offline'
                     : softwareSource === 'telegramExport'
                       ? 'chat'
@@ -2162,7 +2195,7 @@ export default function App() {
                         : 'software'
                 }
                 softwareSource={softwareSource}
-                playlistPath={mediaPlaylist}
+                playlistPath={softwareSource === 'musicLibrary' ? musicLibrary : mediaPlaylist}
                 exportPath={telegramExport}
                 browserProfile={browserProfile}
                 home={data.home}

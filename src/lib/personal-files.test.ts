@@ -159,6 +159,36 @@ describe('personal file boundaries', () => {
       expect(() => readPersonalSnapshot(changed)).toThrow()
     }
   })
+  it('Music XML reports bind their exact manifest and retain a distinct source from VLC or browser records', () => {
+    const source = report()
+    source.softwareContent = {
+      source: 'musicLibrary',
+      minimumAgeDays: 0,
+      minimumDirectoryBytes: 0,
+      minimumSizeMet: true,
+      executionSupported: true,
+      playlistPath: source.root + '/Library.xml',
+    }
+    const snapshot = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+    expect(readPersonalSnapshot(snapshot).report?.softwareContent?.source).toBe('musicLibrary')
+    for (const patch of [
+      { playlistPath: undefined },
+      { playlistPath: '/Users/other/Library.xml' },
+      { playlistPath: source.root + '/offline.m3u8' },
+      { source: 'vlcPlaylist' },
+      { source: 'chromeDownloads' },
+      { minimumAgeDays: 31 },
+      { exportPath: source.root + '/result.json' },
+      { browserProfile: { browser: 'chrome', profile: 'Default' } },
+    ]) {
+      expect(() =>
+        readPersonalSnapshot({
+          ...snapshot,
+          report: { ...source, softwareContent: { ...source.softwareContent, ...patch } },
+        }),
+      ).toThrow()
+    }
+  })
   it('similar groups allow different content sizes but bind thumbnails and the retained original', () => {
     const source = report()
     source.items = source.items.map((i, index) => ({
