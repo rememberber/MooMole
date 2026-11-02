@@ -21,6 +21,10 @@ pub(crate) fn reserve(db: &Transaction<'_>, reserved: i64) -> Result<(), String>
     count += extractions;
     used += extractions * 131072;
     blocked += pending;
+    let (managed, pending) = crate::managed_apps::journal::reservations(db)?;
+    count += managed;
+    used += managed * 32768;
+    blocked += pending;
     if invalid != 0 || reserved <= 0 {
         return Err("执行记录容量字段无效；保留记录供核查。".into());
     }

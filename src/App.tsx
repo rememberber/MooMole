@@ -41,6 +41,7 @@ import {
 } from './lib/software-content'
 import { usePersonalFiles } from './lib/use-personal-files'
 import type { BrowserProfile } from './lib/browser-downloads'
+import { ManagedAppCenter } from './components/ManagedAppCenter'
 import { BrowserDownloadsPicker } from './components/BrowserDownloadsPicker'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -443,6 +444,10 @@ export default function App() {
   const [deviceBackupsOpenSignal, setDeviceBackupsOpenSignal] = useState(0)
   const [spaceExplanation, setSpaceExplanation] = useState<{ path: string | null } | null>(null)
   const [registrationIntent, setRegistrationIntent] = useState(false)
+  const [managedTarget, setManagedTarget] = useState<
+    import('./lib/app-uninstall').UninstallTarget | null
+  >(null)
+  const [managedActive, setManagedActive] = useState(false)
   const [appsTab, setAppsTab] = useState<'installed' | 'startup'>('installed')
   const [startupActive, setStartupActive] = useState(false)
   const [startupToolbar, setStartupToolbar] = useState<HTMLElement | null>(null)
@@ -507,7 +512,8 @@ export default function App() {
   )
   const executionActive =
     api.desktop &&
-    (transferActive ||
+    (managedActive ||
+      transferActive ||
       startupActive ||
       fileArchiveActive ||
       folderArchiveActive ||
@@ -979,6 +985,7 @@ export default function App() {
     !uninstallActive &&
     !appControlActive &&
     !applicationUpdateActive &&
+    !managedActive &&
     !appDiscoveryActive &&
     !deviceBackupsActive &&
     !startupActive &&
@@ -1688,6 +1695,15 @@ export default function App() {
               </button>
             </div>
           )}
+          <ManagedAppCenter
+            desktop={api.desktop}
+            target={managedTarget}
+            onClose={() => setManagedTarget(null)}
+            historyVisible={page === 'history'}
+            enabled={canRun && !executionActive}
+            onActiveChange={setManagedActive}
+            onChanged={() => setAppsStale(true)}
+          />
           <StartupManagement
             visible={page === 'apps' && appsTab === 'startup'}
             historyVisible={page === 'history'}
@@ -2351,6 +2367,7 @@ export default function App() {
                     canRun && !executionActive && !appsStale && data.settings.acknowledged
                   }
                   onUninstall={setUninstallTarget}
+                  onManagedUninstall={setManagedTarget}
                 />
               ) : (
                 <section className="card">

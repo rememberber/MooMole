@@ -12609,5 +12609,130 @@
     "仅检测所选浏览器的标准配置目录，不读取账户名称。Firefox 需手动选择配置，Safari 需手动选择下载列表；访客、无痕、系统配置、其他浏览器及自定义位置尚未支持。",
     "Checks only standard source locations for the selected browser, without reading account names. Firefox requires a profile selection; Safari requires a download-list selection. Guest, private, system profiles, other browsers and custom locations are not yet supported.",
     "選択したブラウザの標準の保存場所のみを確認し、アカウント名は読み取りません。Firefox はプロファイル、Safari はダウンロード一覧の選択が必要です。ゲスト、プライベート、システムのプロファイル、その他のブラウザ、カスタムの保存場所は未対応です。"
+  ],
+  [
+    "Homebrew 操作历史返回异常。",
+    "Homebrew operation history could not be verified.",
+    "Homebrew の操作履歴を確認できません。"
+  ],
+  [
+    "Homebrew 返回了其他操作的结果。",
+    "Homebrew returned a result for a different operation.",
+    "Homebrew から別の操作の結果が返されました。"
+  ],
+  ["通过 Homebrew 卸载", "Uninstall with Homebrew", "Homebrew でアンインストール"],
+  [
+    "这会由 Homebrew 正常卸载所选 Cask，不是移入废纸篓。没有应用内撤销，恢复通常需要重新安装。不会使用 zap、强制卸载、忽略依赖或自动移除其他依赖；普通卸载与系统行为仍可能影响相关内容，请先自行保存并退出应用。",
+    "Homebrew will uninstall the selected Cask; this does not move it to Trash. There is no in-app undo, and recovery usually requires reinstalling. This does not use zap, force, ignore-dependencies or automatic dependency removal. Normal uninstallation and system behavior may still affect related content. Save your work and quit the app first.",
+    "選択した Cask を Homebrew で通常アンインストールします。ゴミ箱への移動ではありません。アプリ内では元に戻せず、通常は再インストールが必要です。zap、強制削除、依存関係の無視、他の依存パッケージの自動削除は使用しません。通常のアンインストールやシステムの動作でも関連データに影響する場合があります。先に作業を保存し、アプリを終了してください。"
+  ],
+  [
+    "正在检查或等待 Homebrew 结束；停止后仍需核对已发生的结果。",
+    "Checking or waiting for Homebrew; after stopping, check what has already happened.",
+    "Homebrew の確認または終了を待っています。停止後も実際の結果を確認してください。"
+  ],
+  ["Homebrew 包", "Homebrew package", "Homebrew パッケージ"],
+  ["已安装版本", "Installed version", "インストール済みバージョン"],
+  ["管理命令位置", "Manager command location", "管理コマンドの場所"],
+  [
+    "确认时间无法核对或已过期，请关闭后重新检查。",
+    "Confirmation time is unknown or expired. Close this window and check again.",
+    "確認の時刻が不明か有効期限が切れています。閉じてから再確認してください。"
+  ],
+  [
+    "我已核对这个包和应用，了解 Homebrew 卸载及重新安装的恢复边界。",
+    "I have checked this package and app and understand the Homebrew uninstall and reinstall recovery limits.",
+    "このパッケージとアプリを確認し、Homebrew のアンインストールと再インストールによる復元の制限を理解しました。"
+  ],
+  [
+    "确认通过 Homebrew 卸载",
+    "Confirm uninstall with Homebrew",
+    "Homebrew でのアンインストールを確認"
+  ],
+  ["停止本次 Homebrew 任务", "Stop this Homebrew task", "今回の Homebrew タスクを停止"],
+  ["Homebrew 操作历史", "Homebrew operation history", "Homebrew 操作履歴"],
+  [
+    "已核查实际 App 与包状态",
+    "I checked the actual app and package state",
+    "実際のアプリとパッケージの状態を確認済み"
+  ],
+  [
+    "Homebrew 返回结果无法核对，请查看实际包状态；不会自动重试。",
+    "The Homebrew result could not be verified. Check the actual package state; nothing will retry automatically.",
+    "Homebrew の結果を確認できません。実際のパッケージの状態を確認してください。自動で再試行しません。"
+  ],
+  ["Homebrew 正在处理", "Homebrew is processing", "Homebrew で処理中"],
+  [
+    "已核对包与原 App 不再存在",
+    "Package registration and original app path are no longer present",
+    "パッケージ登録と元のアプリの場所が存在しないことを確認済み"
+  ],
+  ["本次保留", "Retained this time", "今回は保持"],
+  ["执行前已停止", "Stopped before execution", "実行前に停止済み"],
+  ["任务已中断", "Task interrupted", "タスクが中断されました"],
+  [
+    "Homebrew 命令已成功返回，且重新读取未发现该包登记或原 App 路径。未使用 zap、force 或自动移除依赖；此流程不提供废纸篓收据或应用内恢复。",
+    "Homebrew returned success, and a fresh check found neither the package registration nor the original app path. No zap, force or automatic dependency removal was used. This flow provides no Trash receipt or in-app restore.",
+    "Homebrew が正常終了し、再確認でパッケージ登録と元のアプリの場所が見つからないことを確認しました。zap、強制削除、依存パッケージの自動削除は使用していません。この操作にはゴミ箱の記録やアプリ内の復元はありません。"
+  ],
+  [
+    "未找到唯一、已安装且仅包含此 App 的 Homebrew Cask；请使用原管理工具，未改走普通卸载。",
+    "No unique installed Homebrew Cask containing only this app was found. Use its original manager; ordinary app removal was not used.",
+    "このアプリのみを含む、インストール済みの一意な Homebrew Cask が見つかりません。元の管理ツールを使用してください。通常のアプリ削除には切り替えません。"
+  ],
+  [
+    "带后台或特权组件的应用需通过原管理工具卸载。",
+    "Use the original manager to uninstall apps with background or privileged components.",
+    "バックグラウンドまたは特権コンポーネントを持つアプリは、元の管理ツールでアンインストールしてください。"
+  ],
+  [
+    "含商店收据、后台或特权组件的应用需通过原管理工具卸载。",
+    "Use the original manager for apps with a store receipt, background or privileged components.",
+    "ストアのレシート、バックグラウンドまたは特権コンポーネントを持つアプリは、元の管理ツールを使用してください。"
+  ],
+  [
+    "Homebrew 操作已请求停止。",
+    "Stopping the Homebrew operation was requested.",
+    "Homebrew 操作の停止を要求しました。"
+  ],
+  [
+    "Homebrew 确认已过期或保护设置变化，请重新检查。",
+    "The Homebrew confirmation expired or protection settings changed. Check again.",
+    "Homebrew の確認期限が切れたか、保護設定が変更されました。再確認してください。"
+  ],
+  [
+    "Homebrew 包、版本或内容声明已变化，保留。",
+    "The Homebrew package, version or contents declaration changed. Retained.",
+    "Homebrew のパッケージ、バージョン、または内容の宣言が変わったため、保持しました。"
+  ],
+  [
+    "Homebrew 未取得完整成功结果；可能部分完成，请核对，不会自动重试。",
+    "Homebrew did not return a complete successful result. It may have partly completed; check the actual state. It will not retry automatically.",
+    "Homebrew の完全な成功結果を取得できませんでした。一部完了している可能性があるため、実際の状態を確認してください。自動で再試行しません。"
+  ],
+  [
+    "Homebrew 命令已返回，但包登记或应用位置仍存在/未知，请核对。",
+    "Homebrew returned, but the package registration or app location still exists or is unknown. Check the actual state.",
+    "Homebrew は終了しましたが、パッケージ登録またはアプリの場所が存在するか不明です。実際の状態を確認してください。"
+  ],
+  [
+    "先前 Homebrew 任务已中断；可能部分完成，请核对 App 及包管理器状态，不会自动重放。",
+    "The previous Homebrew task was interrupted and may have partly completed. Check the app and package manager state; it will not replay automatically.",
+    "前回の Homebrew タスクは中断され、一部完了している可能性があります。アプリとパッケージ管理ツールの状態を確認してください。自動で再実行しません。"
+  ],
+  [
+    "Homebrew 已安装来源、版本或卸载脚本状态不受支持。",
+    "The installed Homebrew source, version or uninstall-script state is unsupported.",
+    "インストール済み Homebrew のソース、バージョン、またはアンインストールスクリプトの状態に対応していません。"
+  ],
+  [
+    "安装收据包含多个或未支持的处理对象，请使用原管理工具。",
+    "The installation receipt contains multiple or unsupported items. Use the original manager.",
+    "インストール記録に複数または未対応の処理対象があります。元の管理ツールを使用してください。"
+  ],
+  [
+    "已安装收据的实际目标与所选 App 不同，保留。",
+    "The installed receipt points to a different target than the selected app. Retained.",
+    "インストール記録の実際の対象が選択したアプリと異なるため、保持しました。"
   ]
 ]

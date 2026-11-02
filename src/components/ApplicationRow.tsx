@@ -23,6 +23,7 @@ export function ApplicationRow({
   onReveal,
   canUninstall = false,
   onUninstall,
+  onManagedUninstall,
   onControl,
   canControl = false,
   onUpdate,
@@ -44,6 +45,7 @@ export function ApplicationRow({
   onDiscoverUpdate?: (target: UninstallTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
+  onManagedUninstall?: (target: UninstallTarget) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -134,11 +136,19 @@ export function ApplicationRow({
         {onUninstall && (
           <button
             className="button secondary compact"
-            disabled={!canUninstall || !taskId || app.source !== 'App'}
-            title={app.source !== 'App' ? '请使用对应管理工具卸载' : '先检查卸载范围，不会直接执行'}
+            disabled={
+              !canUninstall ||
+              !taskId ||
+              (app.source !== 'App' && !(app.source === 'Homebrew' && onManagedUninstall))
+            }
+            title={
+              app.source !== 'App' && !(app.source === 'Homebrew' && onManagedUninstall)
+                ? '请使用对应管理工具卸载'
+                : '先检查卸载范围，不会直接执行'
+            }
             onClick={() => {
               if (taskId)
-                onUninstall({
+                (app.source === 'Homebrew' ? onManagedUninstall : onUninstall)?.({
                   taskId,
                   index,
                   name: app.name,

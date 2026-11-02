@@ -19,6 +19,7 @@ export function ApplicationLibrary({
   onReveal,
   canUninstall = false,
   onUninstall,
+  onManagedUninstall,
   onControl,
   canControl = false,
   onUpdate,
@@ -37,6 +38,7 @@ export function ApplicationLibrary({
   onDiscoverUpdate?: (target: UninstallTarget) => void
   canUninstall?: boolean
   onUninstall?: (target: UninstallTarget) => void
+  onManagedUninstall?: (target: UninstallTarget) => void
 }) {
   const [query, setQuery] = useState('')
   const [source, setSource] = useState('all')
@@ -306,6 +308,7 @@ export function ApplicationLibrary({
             onDiscoverUpdate={onDiscoverUpdate}
             canUninstall={canUninstall && !refreshing}
             onUninstall={onUninstall}
+            onManagedUninstall={onManagedUninstall}
           />
         ))}
         {!visible.length && (

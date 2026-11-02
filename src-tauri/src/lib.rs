@@ -30,6 +30,7 @@ mod analysis_protocol;
 mod app_associations;
 mod app_background;
 mod app_control;
+mod managed_apps;
 mod app_discovery;
 mod app_icons;
 mod app_inspection;
@@ -2382,6 +2383,7 @@ pub fn run() {
                 updates.schedule_maintenance(cache.join("pending-updates"));
             }
             mole_clean::journal::recover(&connection)?;
+            app.manage(managed_apps::Controller::default());
             app.manage(AppState {
                     db: Arc::new(Mutex::new(connection)),
                     jobs: Arc::new(Mutex::new(HashMap::new())),
@@ -2643,6 +2645,11 @@ pub fn run() {
             open_official,
             check_updates,
             device_backups::commands::get_device_backups,
+            managed_apps::commands::prepare_managed_app,
+            managed_apps::commands::discard_managed_app,
+            managed_apps::commands::execute_managed_app,
+            managed_apps::commands::get_managed_apps,
+            managed_apps::commands::acknowledge_managed_app,
             application_update::commands::prepare_application_update,
             application_update::retirement::commands::prepare_retained_application,
             application_update::retirement::commands::discard_retained_application,
