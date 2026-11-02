@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 export interface ZipExtractionDraft {
   format?: 'zip' | 'tar' | 'tarGzip'
+  macMetadata?: {
+    items: number
+    attributes: number
+    executable: number
+    finderHidden: number
+    skippedQuarantine: number
+  }
   id: string
   root: string
   outputPath: string
@@ -72,13 +79,33 @@ function path(v: unknown): string {
     ? s
     : fail()
 }
+function readMacMetadata(v: unknown): NonNullable<ZipExtractionDraft['macMetadata']> {
+  const a = object(v)
+  if (
+    Object.keys(a).some(
+      (k) =>
+        !['items', 'attributes', 'executable', 'finderHidden', 'skippedQuarantine'].includes(k),
+    )
+  )
+    fail()
+  const result = {
+    items: number(a.items),
+    attributes: number(a.attributes),
+    executable: number(a.executable),
+    finderHidden: number(a.finderHidden),
+    skippedQuarantine: number(a.skippedQuarantine),
+  }
+  if (result.items > 9999 || result.attributes > result.items * 1026) fail()
+  return result
+}
 export function readZipExtractionDraft(
   v: unknown,
-  requested?: { root: string; directory: string; filename: string },
+  requested?: { root: string; directory: string; filename: string; restoreMetadata?: boolean },
 ): ZipExtractionDraft {
   const a = object(v),
     d = {
       ...(a.format === undefined ? {} : { format: a.format as 'zip' | 'tar' | 'tarGzip' }),
+      ...(a.macMetadata === undefined ? {} : { macMetadata: readMacMetadata(a.macMetadata) }),
       id: id(a.id),
       root: path(a.root),
       outputPath: path(a.outputPath),
@@ -97,6 +124,13 @@ export function readZipExtractionDraft(
   if (
     !['zip', 'tar', 'tarGzip'].some((known) => known === format) ||
     extractionFormat(d.root) !== format ||
+    (d.macMetadata !== undefined &&
+      (format !== 'zip' ||
+        d.macMetadata.items !== d.files + d.directories - 1 ||
+        d.macMetadata.executable > d.files ||
+        d.macMetadata.finderHidden > d.macMetadata.items ||
+        d.macMetadata.skippedQuarantine > d.macMetadata.items ||
+        d.metadataBytes > 256 * 1024 ** 2)) ||
     parent === d.root ||
     parent.startsWith(d.root + '/') ||
     d.files + d.directories > 10000 ||
@@ -110,7 +144,8 @@ export function readZipExtractionDraft(
     a.samples.length > d.files + d.directories ||
     (requested &&
       (d.root !== requested.root ||
-        d.outputPath !== `${requested.directory}/${requested.filename}`))
+        d.outputPath !== `${requested.directory}/${requested.filename}` ||
+        !!d.macMetadata !== !!requested.restoreMetadata))
   )
     fail()
   d.samples = (a.samples as unknown[]).map((v) => {
@@ -190,10 +225,22 @@ export function readZipExtractionView(v: unknown): ZipExtractionView {
   return { records, activeRequests }
 }
 export const zipExtraction = {
-  prepare: async (root: string, directory: string, filename: string, requestId: string) =>
+  prepare: async (
+    root: string,
+    directory: string,
+    filename: string,
+    requestId: string,
+    restoreMetadata = false,
+  ) =>
     readZipExtractionDraft(
-      await invoke('prepare_zip_extraction', { root, directory, filename, requestId }),
-      { root, directory, filename },
+      await invoke('prepare_zip_extraction', {
+        root,
+        directory,
+        filename,
+        requestId,
+        ...(restoreMetadata ? { restoreMetadata: true } : {}),
+      }),
+      { root, directory, filename, restoreMetadata },
     ),
   discard: (id: string) => invoke('discard_zip_extraction', { id }),
   execute: async (draft: ZipExtractionDraft, requestId: string) => {

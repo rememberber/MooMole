@@ -31,7 +31,7 @@ export type ArchiveCounts = {
   managedApp?: number
 }
 export type ArchiveHeader = {
-  version: 1 | 2 | 3 | 4 | 5
+  version: 1 | 2 | 3 | 4 | 5 | 6
   id: string
   createdAt: number
   counts: ArchiveCounts
@@ -96,7 +96,7 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    ![1, 2, 3, 4, 5].includes(v.version as number) ||
+    ![1, 2, 3, 4, 5, 6].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )
@@ -106,7 +106,8 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   if (
     ((v.version as number) >= 4 && extra === 0) ||
     ((v.version as number) < 4 && extra > 0) ||
-    (v.version === 5 && !(scope.managedApp ?? 0))
+    (v.version === 5 && !(scope.managedApp ?? 0)) ||
+    (v.version === 6 && !(scope.extraction ?? 0))
   )
     fail()
   return {
@@ -185,6 +186,7 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
       header.version < 3
     )
       fail()
+    if ('macMetadata' in summary && summary.macMetadata && header.version < 6) fail()
     if ('operation' in summary && summary.operation === 'upgrade' && header.version < 5) fail()
     if (
       summary.id !== id(row.id) ||
@@ -206,8 +208,10 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
   )
     fail()
   if (
-    (header.version === 5) !==
-    entries.some((e) => 'operation' in e.summary && e.summary.operation === 'upgrade')
+    (header.version === 5 &&
+      !entries.some((e) => 'operation' in e.summary && e.summary.operation === 'upgrade')) ||
+    (header.version === 6 &&
+      !entries.some((e) => 'macMetadata' in e.summary && e.summary.macMetadata))
   )
     fail()
   return { header, entries }
@@ -219,6 +223,10 @@ export function archiveDetail(raw: unknown, entry: ArchiveEntry): ArchiveDetail 
       summary = journalSummary(entry.kind, record)
     if (
       record.id !== entry.id ||
+      JSON.stringify(summary.macMetadata) !==
+        JSON.stringify((entry.summary as JournalSummary).macMetadata) ||
+      JSON.stringify(summary.operation) !==
+        JSON.stringify((entry.summary as JournalSummary).operation) ||
       Object.entries(entry.summary).some(
         ([k, value]) =>
           JSON.stringify(summary[k as keyof JournalSummary]) !== JSON.stringify(value),

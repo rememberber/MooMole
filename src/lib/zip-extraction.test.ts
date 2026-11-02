@@ -102,3 +102,36 @@ it('TAR and gzip TAR formats bind the source suffix while old ZIP records retain
   for (const format of ['tar', 'tarGzip', 'unknown', null])
     expect(() => readZipExtractionDraft({ ...draft, format })).toThrow()
 })
+
+it('Mac restoration is explicit and binds its complete property scope to ZIP, request and result', () => {
+  const macMetadata = {
+      items: 1,
+      attributes: 4,
+      executable: 1,
+      finderHidden: 1,
+      skippedQuarantine: 1,
+    },
+    d = { ...draft, macMetadata },
+    requested = {
+      root: d.root,
+      directory: '/Users/demo/Documents',
+      filename: 'Extracted',
+      restoreMetadata: true,
+    }
+  expect(readZipExtractionDraft(d, requested)).toEqual(d)
+  expect(readZipExtractionRecord({ ...record, draft: d }).draft.macMetadata).toEqual(macMetadata)
+  expect(() => readZipExtractionDraft(d, { ...requested, restoreMetadata: false })).toThrow()
+  expect(() => readZipExtractionDraft(draft, requested)).toThrow()
+  for (const patch of [
+    { macMetadata: null },
+    { macMetadata: { ...macMetadata, items: 2 } },
+    { macMetadata: { ...macMetadata, executable: 2 } },
+    { macMetadata: { ...macMetadata, finderHidden: 2 } },
+    { macMetadata: { ...macMetadata, skippedQuarantine: 2 } },
+    { macMetadata: { ...macMetadata, attributes: 1027 } },
+    { macMetadata: { ...macMetadata, approval: true } },
+    { format: 'tar', root: '/Users/demo/Archives/Trip.tar' },
+    { bytes: 1024 ** 3, metadataBytes: 256 * 1024 ** 2 + 1 },
+  ])
+    expect(() => readZipExtractionDraft({ ...d, ...patch })).toThrow()
+})

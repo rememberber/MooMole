@@ -39,9 +39,86 @@ async function setup(page: Page, mode = 'normal') {
     .getByRole('textbox', { name: '解压目标目录', exact: true })
     .fill('/Users/demo/Extracted')
   await modal.getByRole('textbox', { name: '新文件夹名称' }).fill('Trip')
+  if (mode.startsWith('mac'))
+    await modal.getByRole('checkbox', { name: '恢复 Mac 标签、资源分支及文件属性（ZIP）' }).check()
   await modal.getByRole('button', { name: '检查压缩包内容', exact: true }).click()
   return modal
 }
+
+test('Mac property restoration reviews executable and hidden scope, confirms once and survives history readback', async ({
+  page,
+}, info) => {
+  const modal = await setup(page, 'mac'),
+    confirm = modal.getByRole('button', { name: '确认解压压缩包' })
+  await expect(modal).toContainText('恢复 5 项的普通权限与修改时间、4 个数据属性')
+  await expect(modal).toContainText('1 个有执行权限的文件和 1 个 Finder 隐藏项目')
+  await expect(modal).toContainText('全部输出使用新的系统隔离标记')
+  await expect(confirm).toBeDisabled()
+  await page.setViewportSize({ width: 960, height: 780 })
+  expect(await modal.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('mac-restore-review.png'), animations: 'disabled' })
+  await modal.getByRole('checkbox').check()
+  await confirm.click()
+  await expect(modal.getByRole('region', { name: '压缩包解压结果' })).toContainText(
+    '压缩包已解压，原压缩包保留',
+  )
+  await modal.getByRole('button', { name: '关闭解压窗口' }).click()
+  await page
+    .locator('#zip-extraction-fixture')
+    .getByRole('region', { name: '压缩包解压记录' })
+    .getByRole('button')
+    .filter({ hasText: '压缩包已解压' })
+    .click()
+  await expect(page.getByRole('dialog', { name: '压缩包解压记录' })).toContainText('恢复 5 项')
+  const calls = JSON.parse(
+    (await page.locator('#zip-extraction-fixture').getAttribute('data-calls'))!,
+  )
+  expect(calls.find((c: any) => c.command === 'prepare_zip_extraction').args.restoreMetadata).toBe(
+    true,
+  )
+  expect(calls.filter((c: any) => c.command === 'execute_zip_extraction')).toHaveLength(1)
+})
+test('metadata mode mismatches never allow confirmation and a new TAR source clears the option', async ({
+  page,
+}) => {
+  const modal = await setup(page, 'macMismatch')
+  await expect(modal.getByRole('alert')).toContainText('压缩包解压数据无法核对')
+  await expect(modal.getByRole('button', { name: '确认解压压缩包' })).toHaveCount(0)
+  await modal
+    .getByRole('textbox', { name: '压缩包来源', exact: true })
+    .fill('/Users/demo/Archives/Trip.tar')
+  const option = modal.getByRole('checkbox', { name: '恢复 Mac 标签、资源分支及文件属性（ZIP）' })
+  await expect(option).not.toBeChecked()
+  await expect(option).toBeDisabled()
+  await expect(page.locator('#zip-extraction-fixture')).toHaveAttribute('data-executions', '0')
+})
+test('Mac property scope translates in English and Japanese without changing paths or enabling execution', async ({
+  page,
+}) => {
+  await setup(page, 'mac')
+  for (const [language, title, scope] of [
+    [
+      'en',
+      'Extract archive',
+      'Restore permissions and modification times for 5 items and 4 data attributes',
+    ],
+    ['ja', 'アーカイブを展開', '5 項目の通常のアクセス権と変更日時、4 個のデータ属性'],
+  ]) {
+    await page.evaluate(
+      async (language) => (await import('/src/i18n/locale.ts')).setLanguagePreference(language),
+      language,
+    )
+    const modal = page.getByRole('dialog', { name: title, exact: true })
+    await expect(modal).toContainText(scope)
+    await expect(modal).toContainText('/Users/demo/Archives/Trip.zip')
+    await expect(
+      modal.getByRole('button', {
+        name: language === 'en' ? 'Confirm archive extraction' : 'アーカイブの展開を確認',
+        exact: true,
+      }),
+    ).toBeDisabled()
+  }
+})
 test('ZIP extraction reviews hidden scope and metadata limits before explicit execution and history', async ({
   page,
 }, testInfo) => {

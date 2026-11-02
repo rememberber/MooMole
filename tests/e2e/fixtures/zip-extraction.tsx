@@ -78,6 +78,17 @@ export function mount(mode = 'normal') {
             return new Promise((_, reject) => {
               release = () => reject(Error('owned folder preparation cancelled'))
             })
+          if (args.restoreMetadata && mode !== 'macMismatch') {
+            Object.assign(draft, {
+              macMetadata: {
+                items: 5,
+                attributes: 4,
+                executable: 1,
+                finderHidden: 1,
+                skippedQuarantine: 1,
+              },
+            })
+          }
           return { ...draft, ...(mode === 'mismatch' ? { root: '/Users/demo/Other' } : {}) }
         }
         if (command === 'execute_zip_extraction') {

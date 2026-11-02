@@ -1,4 +1,126 @@
 [
+  ["内容与属性容量预算：", "Content and attribute budget: ", "内容と属性の容量見積もり："],
+  [
+    "Mac 元数据不完整、存在歧义或包含未支持属性；未恢复。可另选仅解压正文保留原始元数据文件。",
+    "Mac metadata is incomplete, ambiguous or contains unsupported attributes. Nothing was restored. You can choose data-only extraction to retain the raw metadata files.",
+    "Mac メタデータが不完全、曖昧、または非対応の属性を含むため復元しませんでした。本文のみの展開を選ぶと元のメタデータファイルを保持できます。"
+  ],
+  [
+    "ZIP 未提供明确的 Unix 修改时间，不能完整恢复文件属性。",
+    "The ZIP does not provide an explicit Unix modification time; file properties cannot be fully restored.",
+    "ZIP に明示的な Unix 変更日時がないため、ファイル属性を完全に復元できません。"
+  ],
+  [
+    "Mac 元数据总量超过 256 MiB，未恢复。",
+    "Mac metadata exceeds the 256 MiB total limit. Nothing was restored.",
+    "Mac メタデータが合計 256 MiB の上限を超えたため復元しませんでした。"
+  ],
+  [
+    "ZIP 缺少明确的目录属性，无法完整恢复。",
+    "The ZIP lacks explicit directory properties; full restoration is unavailable.",
+    "ZIP に明示的なフォルダ属性がないため完全に復元できません。"
+  ],
+  [
+    "ZIP 含特殊或不可读权限，未恢复属性。",
+    "The ZIP contains special or unreadable permissions. Properties were not restored.",
+    "ZIP に特殊な権限または読み取れない権限があるため属性を復元しませんでした。"
+  ],
+  [
+    "无法创建解压内容的系统隔离标记，未恢复。",
+    "Could not create a system quarantine marker for the extracted content. Nothing was restored.",
+    "展開内容のシステム隔離マーカーを作成できなかったため復元しませんでした。"
+  ],
+  [
+    "系统隔离标记未能读回核对，未恢复。",
+    "The system quarantine marker could not be read back and verified. Nothing was restored.",
+    "システム隔離マーカーを読み戻して確認できなかったため復元しませんでした。"
+  ],
+  [
+    "解压临时内容存在未核对的属性或 ACL，未恢复。",
+    "The staged content contains unverified attributes or an ACL. Nothing was restored.",
+    "一時展開内容に未確認の属性または ACL があるため復元しませんでした。"
+  ],
+  [
+    "Mac 属性写入失败，未发布解压结果。",
+    "Writing Mac attributes failed. The extraction result was not published.",
+    "Mac 属性の書き込みに失敗したため展開結果を公開しませんでした。"
+  ],
+  [
+    "解压权限或修改时间未恢复，未发布。",
+    "Permissions or modification times could not be restored. The result was not published.",
+    "アクセス権または変更日時を復元できなかったため結果を公開しませんでした。"
+  ],
+  [
+    "Mac 属性同步未完成，未发布。",
+    "Mac attribute synchronization did not complete. The result was not published.",
+    "Mac 属性の同期が完了しなかったため結果を公開しませんでした。"
+  ],
+  [
+    "Mac 属性、权限或修改时间读回不符，未确认成功。",
+    "Mac attributes, permissions or modification times did not match on readback. Success was not confirmed.",
+    "Mac 属性、アクセス権、変更日時の読み戻し結果が一致しないため成功を確認していません。"
+  ],
+  [
+    "Mac 元数据恢复目前支持 ZIP；TAR 可选择仅解压正文。",
+    "Mac metadata restoration currently supports ZIP. For TAR, choose data-only extraction.",
+    "Mac メタデータの復元は現在 ZIP に対応しています。TAR は本文のみの展開を選んでください。"
+  ],
+  [
+    "ZIP 正文、Mac 数据属性、普通权限和修改时间已恢复并核验；原包保留，输出使用新的隔离标记，历史安全批准和所有者未恢复。",
+    "ZIP data, Mac data attributes, ordinary permissions and modification times were restored and verified. The archive is retained. Output uses a new quarantine marker; historical security approval and ownership were not restored.",
+    "ZIP の本文、Mac データ属性、通常のアクセス権、変更日時を復元して確認しました。元のアーカイブは保持しています。出力には新しい隔離マーカーを付け、過去のセキュリティ承認と所有者は復元していません。"
+  ],
+  [
+    "Mac 属性范围不完整。",
+    "The Mac property scope is incomplete.",
+    "Mac 属性の対象範囲が不完全です。"
+  ],
+  [
+    "Mac 属性没有对应的本次解压对象。",
+    "Mac properties do not have a matching object in this extraction.",
+    "Mac 属性に対応する今回の展開対象がありません。"
+  ],
+  [
+    "解压内容身份变化，未恢复属性。",
+    "The extracted content identity changed. Properties were not restored.",
+    "展開内容の識別情報が変わったため属性を復元しませんでした。"
+  ],
+  [
+    "Mac 属性恢复记录须使用 v6 归档，不接受降级或错配标头。",
+    "Mac property restoration records require v6 archives; downgraded or mismatched headers are refused.",
+    "Mac 属性の復元記録には v6 アーカイブが必要です。ダウングレードまたは不一致のヘッダーは受け付けません。"
+  ],
+  [
+    "含 Mac 数据属性、普通权限和修改时间恢复；历史安全批准未恢复。",
+    "Includes restored Mac data attributes, ordinary permissions and modification times; historical security approval was not restored.",
+    "Mac のデータ属性、通常のアクセス権、変更日時を復元した記録です。過去のセキュリティ承認は復元していません。"
+  ],
+  ["Mac 属性恢复", "Mac attribute restoration", "Mac 属性の復元"],
+  [
+    "解压内容与属性预算 / 其中元数据",
+    "Content and attribute budget / metadata portion",
+    "内容と属性の容量見積もり / うちメタデータ"
+  ],
+  [
+    "恢复 {0} 项的普通权限与修改时间、{1} 个数据属性；包含 {2} 个有执行权限的文件和 {3} 个 Finder 隐藏项目。{4} 项历史隔离记录不应用，全部输出使用新的系统隔离标记。",
+    "Restore permissions and modification times for {0} items and {1} data attributes, including {2} executable files and {3} Finder-hidden items. Ignore {4} historical quarantine records; all output receives a new system quarantine marker.",
+    "{0} 項目の通常のアクセス権と変更日時、{1} 個のデータ属性を復元します。実行権限のあるファイル {2} 個と Finder で非表示の項目 {3} 個を含みます。過去の隔離記録 {4} 件は適用せず、すべての出力に新しいシステム隔離マーカーを付けます。"
+  ],
+  [
+    "恢复 ZIP 中配对的 Mac 数据属性、普通权限与修改时间，包含执行权限和 Finder 隐藏标志。全部输出使用新的隔离标记，历史安全批准不恢复；外层目标目录仅本账户可访问。",
+    "Restore paired Mac data attributes, ordinary permissions and modification times from ZIP, including executable permissions and Finder-hidden flags. All output receives a new quarantine marker; historical security approval is not restored. Only this account can access the outer output folder.",
+    "ZIP 内の対応する Mac データ属性、通常のアクセス権、変更日時を復元します。実行権限と Finder の非表示フラグも含みます。すべての出力に新しい隔離マーカーを付け、過去のセキュリティ承認は復元しません。外側の出力フォルダにはこのアカウントのみアクセスできます。"
+  ],
+  [
+    "恢复 Mac 标签、资源分支及文件属性（ZIP）",
+    "Restore Mac tags, resource forks and file attributes (ZIP)",
+    "Mac のタグ、リソースフォーク、ファイル属性を復元（ZIP）"
+  ],
+  [
+    "默认仅解压正文：文件权限为 600，目录为 700，Mac 元数据副本保留为独立文件。选中 Mac 恢复时，核对配对的 AppleDouble 后恢复标签、资源分支、支持的数据属性、普通权限和修改时间；每项元数据最多 32 MiB，总量最多 256 MiB。缺少明确属性、包含 ACL、别名或未支持属性时整份拒绝，不静默跳过。两种模式都不恢复所有者、不自动打开或执行内容。",
+    "By default, extract data only: files use 600 and folders 700 permissions; Mac metadata remains in separate files. Mac restoration validates paired AppleDouble records, then restores tags, resource forks, supported data attributes, ordinary permissions and modification times. Metadata is limited to 32 MiB per item and 256 MiB in total. Missing explicit properties, ACLs, aliases or unsupported attributes refuse the entire restoration. Neither mode restores ownership or automatically opens or executes content.",
+    "既定では本文のみ展開します。ファイルの権限は 600、フォルダは 700 で、Mac メタデータは別ファイルに保持します。Mac 復元を選ぶと、対応する AppleDouble を確認してタグ、リソースフォーク、対応するデータ属性、通常のアクセス権、変更日時を復元します。メタデータは 1 項目 32 MiB、合計 256 MiB までです。明示的な属性の不足、ACL、エイリアス、非対応の属性がある場合は全体を拒否します。どちらも所有者を復元せず、内容を自動で開いたり実行したりしません。"
+  ],
   [
     "使用线索的应用索引已失效。",
     "The application index for this usage hint is no longer valid.",

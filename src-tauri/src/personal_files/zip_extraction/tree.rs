@@ -192,6 +192,26 @@ impl Stage {
         job: &Job,
         start: Instant,
     ) -> Result<(), String> {
+        self.verify_inner(entries, q, None, job, start)
+    }
+    pub(super) fn verify_metadata(
+        &self,
+        entries: &[Entry],
+        q: Option<&[u8]>,
+        metadata: &mac_metadata::Metadata,
+        job: &Job,
+        start: Instant,
+    ) -> Result<(), String> {
+        self.verify_inner(entries, q, Some(metadata), job, start)
+    }
+    fn verify_inner(
+        &self,
+        entries: &[Entry],
+        q: Option<&[u8]>,
+        metadata: Option<&mac_metadata::Metadata>,
+        job: &Job,
+        start: Instant,
+    ) -> Result<(), String> {
         self.validate()?;
         if quarantine(&self.root)?.as_deref() != q {
             return Err("解压目录隔离属性变化，未确认成功。".into());
@@ -214,11 +234,22 @@ impl Stage {
             let m = f.metadata().map_err(|e| e.to_string())?;
             if self.owned.get(&e.name) != Some(&identity(&f)?)
                 || m.uid() != unsafe { libc::geteuid() }
-                || m.mode() & 0o7777 != if e.directory { 0o700 } else { 0o600 }
+                || m.mode() & 0o7777
+                    != metadata
+                        .and_then(|m| m.entries.get(&e.name))
+                        .map(|p| p.mode)
+                        .unwrap_or(if e.directory { 0o700 } else { 0o600 })
                 || !e.directory && (!m.is_file() || m.nlink() != 1 || m.len() != e.size)
                 || quarantine(&f)?.as_deref() != q
             {
                 return Err("解压内容身份、权限或隔离属性变化，未确认成功。".into());
+            }
+            if let Some(metadata) = metadata {
+                metadata
+                    .entries
+                    .get(&e.name)
+                    .ok_or("Mac 属性范围不完整。")?
+                    .verify(&f)?;
             }
             if !e.directory && archive::digest(&mut f, job, start, e.size)? != e.sha256 {
                 return Err("解压文件读回核对失败。".into());
@@ -292,6 +323,28 @@ impl Stage {
         }
         self.validate()
     }
+    pub(super) fn restore(
+        &self,
+        metadata: &mac_metadata::Metadata,
+        job: &Job,
+        start: Instant,
+    ) -> Result<(), String> {
+        // Children first: directory timestamps must be applied after all writes.
+        for (path, properties) in metadata.entries.iter().rev() {
+            check(job, start)?;
+            let expected = self
+                .owned
+                .get(path)
+                .ok_or("Mac 属性没有对应的本次解压对象。")?;
+            let (parent, name) = self.parent_for(path)?;
+            let file = open(&parent, &name, expected.2)?;
+            if identity(&file)? != *expected {
+                return Err("解压内容身份变化，未恢复属性。".into());
+            }
+            properties.apply(&file)?;
+        }
+        Ok(())
+    }
     pub(super) fn publish(&mut self, name: &str) -> Result<(), String> {
         self.validate()?;
         let name = CString::new(name).map_err(|e| e.to_string())?;
@@ -318,6 +371,24 @@ impl Stage {
         }
         if self.validate().is_err() {
             return false;
+        }
+        // Restore writability only on precisely owned directories before cleanup.
+        // Never chmod a replacement or recurse into unexpected user content.
+        for (path, expected) in self.owned.iter().filter(|(_, id)| id.2) {
+            let attempt = (|| -> Result<(), String> {
+                let (p, n) = self.parent_for(path)?;
+                let f = open(&p, &n, true)?;
+                if identity(&f)? != *expected {
+                    return Err("changed".into());
+                }
+                if unsafe { libc::fchmod(f.as_raw_fd(), 0o700) } != 0 {
+                    return Err("retained".into());
+                }
+                Ok(())
+            })();
+            if attempt.is_err() {
+                return false;
+            }
         }
         let mut okay = true;
         for (path, expected) in self.owned.iter().rev() {

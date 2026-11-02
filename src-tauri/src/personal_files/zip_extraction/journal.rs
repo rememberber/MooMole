@@ -24,6 +24,15 @@ fn valid(r: &Record) -> Result<(), String> {
         || d.hidden > d.files.saturating_add(d.directories)
         || d.bytes > 8 * 1024 * 1024 * 1024
         || d.metadata_bytes > d.bytes
+        || d.mac_metadata.as_ref().is_some_and(|s| {
+            d.format != Format::Zip
+                || s.items != d.files.saturating_add(d.directories).saturating_sub(1)
+                || s.attributes > s.items.saturating_mul(1026)
+                || s.executable > d.files
+                || s.finder_hidden > s.items
+                || s.skipped_quarantine > s.items
+                || d.metadata_bytes > 256 * 1024 * 1024
+        })
         || d.samples.len() > 50
         || d.samples.len() > d.files.saturating_add(d.directories)
         || d.samples.iter().any(|s| {

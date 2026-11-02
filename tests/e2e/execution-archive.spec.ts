@@ -15,6 +15,23 @@ const calls = (page: import('@playwright/test').Page, command: string) =>
     (command) => window.archiveFixture.calls.filter((c) => c.command === command),
     command,
   )
+
+test('v6 Mac restoration keeps its scope in read-only archived details', async ({ page }, info) => {
+  await mount(page, 'v6')
+  const d = page.getByRole('dialog')
+  await d.getByRole('button', { name: '检查当前执行记录' }).click()
+  await d.getByRole('checkbox').check()
+  await d.getByRole('button', { name: '保存归档并释放容量' }).click()
+  await d.getByRole('button', { name: /Mac 属性恢复 · ZIP/ }).click()
+  await expect(d).toContainText('含 Mac 数据属性、普通权限和修改时间恢复；历史安全批准未恢复。')
+  await expect(d).toContainText('/Users/demo/Archives/owned.zip')
+  await expect(d.getByRole('button', { name: /确认解压|恢复 Mac/ })).toHaveCount(0)
+  await page.screenshot({
+    path: info.outputPath('mac-restore-archive.png'),
+    animations: 'disabled',
+  })
+  expect(await calls(page, 'detail')).toHaveLength(1)
+})
 test('archive requires exact scope and explicit confirmation, retires live capacity once and reads all three original modules', async ({
   page,
 }, testInfo) => {

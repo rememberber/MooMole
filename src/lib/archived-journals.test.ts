@@ -140,3 +140,30 @@ it('upgrades require v5 and preserve their evidence without being labelled as un
     ),
   ).toThrow()
 })
+
+it('Mac restoration requires v6 and its exact read-only scope; downgraded or mismatched records are refused', () => {
+  const f = fixture(),
+    r = f.records.extraction
+  r.draft.format = 'zip'
+  r.draft.root = '/Users/demo/Archives/owned.zip'
+  r.draft.macMetadata = {
+    items: r.draft.files + r.draft.directories - 1,
+    attributes: 4,
+    executable: 1,
+    finderHidden: 1,
+    skippedQuarantine: 1,
+  }
+  f.entries = f.entries.map((e) =>
+    e.kind === 'extraction' ? { ...e, summary: journalSummary('extraction', r) } : e,
+  )
+  const raw = { ...f, header: { ...f.header, version: 6 } },
+    view = archiveView(raw, archiveId),
+    entry = view.entries.find((e) => e.kind === 'extraction')!
+  expect(archiveDetail(r, entry)).toEqual(r)
+  expect(() =>
+    archiveDetail({ ...r, draft: { ...r.draft, macMetadata: undefined } }, entry),
+  ).toThrow()
+  for (const version of [1, 2, 3, 4, 5])
+    expect(() => archiveView({ ...raw, header: { ...raw.header, version } }, archiveId)).toThrow()
+  expect(() => archiveView({ ...raw, entries: fixture().entries }, archiveId)).toThrow()
+})

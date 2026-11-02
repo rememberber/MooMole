@@ -16,6 +16,7 @@ import * as api from '../lib/api'
 import {
   zipExtraction as transport,
   zipExtractionState,
+  extractionFormat,
   type ZipExtractionDraft,
   type ZipExtractionRecord,
   type ZipExtractionView,
@@ -119,11 +120,18 @@ function Scope({ draft: d }: { draft: ZipExtractionDraft }) {
         <dd>
           {d.files} 个文件 · {d.directories} 个目录（含目标根目录） · {d.hidden} 个隐藏项目
         </dd>
-        <dt>解压数据 / 其中元数据文件</dt>
+        <dt>{d.macMetadata ? '解压内容与属性预算 / 其中元数据' : '解压数据 / 其中元数据文件'}</dt>
         <dd>
           {bytes(d.bytes)} / {bytes(d.metadataBytes)}
         </dd>
       </dl>
+      {d.macMetadata && (
+        <p className="notice warning" data-i18n="off">
+          {translate(
+            `恢复 ${d.macMetadata.items} 项的普通权限与修改时间、${d.macMetadata.attributes} 个数据属性；包含 ${d.macMetadata.executable} 个有执行权限的文件和 ${d.macMetadata.finderHidden} 个 Finder 隐藏项目。${d.macMetadata.skippedQuarantine} 项历史隔离记录不应用，全部输出使用新的系统隔离标记。`,
+          )}
+        </p>
+      )}
       <details>
         <summary>查看前 {d.samples.length} 项名称</summary>
         <ul className="folder-archive-samples">
@@ -153,6 +161,7 @@ function Create({
   const [root, setRoot] = useState(''),
     [directory, setDirectory] = useState(`${home}/Documents`),
     [filename, setFilename] = useState('Extracted'),
+    [restoreMetadata, setRestoreMetadata] = useState(false),
     [draft, setDraft] = useState<ZipExtractionDraft | null>(null),
     [pending, setPending] = useState<'checking' | 'creating' | 'choosing' | null>(null),
     [error, setError] = useState(''),
@@ -188,8 +197,10 @@ function Create({
       const selected = await (source ? chooseZip() : api.chooseDirectory('选择解压目标目录'))
       if (selected && alive.current) {
         revoke()
-        if (source) setRoot(selected)
-        else setDirectory(selected)
+        if (source) {
+          setRoot(selected)
+          if (extractionFormat(selected) !== 'zip') setRestoreMetadata(false)
+        } else setDirectory(selected)
       }
     } catch (e) {
       setError(String(e))
@@ -217,6 +228,7 @@ function Create({
         directory.trim().replace(/\/+$/, ''),
         filename.trim(),
         id,
+        restoreMetadata,
       )
       if (alive.current) {
         owned.current = d
@@ -280,8 +292,9 @@ function Create({
         的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。
       </p>
       <p className="notice warning">
-        完整解压包含隐藏文件。Mac
-        元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原压缩包的隔离属性。
+        {restoreMetadata
+          ? '恢复 ZIP 中配对的 Mac 数据属性、普通权限与修改时间，包含执行权限和 Finder 隐藏标志。全部输出使用新的隔离标记，历史安全批准不恢复；外层目标目录仅本账户可访问。'
+          : '完整解压包含隐藏文件。Mac 元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原压缩包的隔离属性。'}
       </p>
       {!draft && !submitted && (
         <>
@@ -291,7 +304,10 @@ function Create({
               aria-label="压缩包来源"
               value={root}
               disabled={!!pending}
-              onChange={(e) => setRoot(e.target.value)}
+              onChange={(e) => {
+                setRoot(e.target.value)
+                if (extractionFormat(e.target.value.trim()) !== 'zip') setRestoreMetadata(false)
+              }}
             />
           </label>
           <button
@@ -317,6 +333,18 @@ function Create({
           >
             选择目标目录…
           </button>
+          <label className="application-update-consent">
+            <input
+              type="checkbox"
+              checked={restoreMetadata}
+              disabled={!!pending || extractionFormat(root.trim()) !== 'zip'}
+              onChange={(e) => {
+                revoke()
+                setRestoreMetadata(e.target.checked)
+              }}
+            />
+            恢复 Mac 标签、资源分支及文件属性（ZIP）
+          </label>
           <label className="personal-path">
             <span>新文件夹名称</span>
             <input
@@ -337,8 +365,11 @@ function Create({
           的路径与大小扩展经核对后使用，原权限与嵌入元数据不应用；链接、特殊文件、稀疏布局、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。
         </p>
         <p>
-          只创建普通文件和目录。文件权限为 600，目录为 700，不恢复原执行权限、时间、所有者、ACL
-          或嵌入元数据；Mac 元数据副本保留在 __MACOSX 或 ._ 文件中，不作为完整备份恢复。
+          默认仅解压正文：文件权限为 600，目录为 700，Mac 元数据副本保留为独立文件。选中 Mac
+          恢复时，核对配对的 AppleDouble
+          后恢复标签、资源分支、支持的数据属性、普通权限和修改时间；每项元数据最多 32 MiB，总量最多
+          256 MiB。缺少明确属性、包含
+          ACL、别名或未支持属性时整份拒绝，不静默跳过。两种模式都不恢复所有者、不自动打开或执行内容。
         </p>
         <p>
           发布前重新核对原压缩包、目标及全部解压内容。停止后清理本次临时内容；已发布结果不自动删除。中断或结果未知时需核对实际位置，不自动继续或重试。
@@ -435,7 +466,12 @@ function Outcome({
       <strong>{zipExtractionState[r.state]}</strong>
       <p>{r.reason}</p>
       <p className="mono full-path">{r.draft.outputPath}</p>
-      {r.state === 'completed' && r.artifact && <p>解压数据大小：{bytes(r.artifact.bytes)}</p>}
+      {r.state === 'completed' && r.artifact && (
+        <p>
+          {r.draft.macMetadata ? '内容与属性容量预算：' : '解压数据大小：'}
+          {bytes(r.artifact.bytes)}
+        </p>
+      )}
       {['unknown', 'interrupted'].includes(r.state) && (
         <p className="mono full-path">{r.temporaryPath}</p>
       )}

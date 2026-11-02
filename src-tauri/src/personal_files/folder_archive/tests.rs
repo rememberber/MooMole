@@ -156,6 +156,74 @@ fn get(path: &Path, key: &std::ffi::CStr) -> Vec<u8> {
     );
     bytes
 }
+
+#[test]
+fn folder_archive_and_in_app_mac_extraction_roundtrip_preserves_originals_and_root_properties() {
+    let (t, root, out) = fixture();
+    let cfg = settings();
+    put(&root, c"org.moomole.owned", b"root metadata");
+    put(
+        &root.join("Nested/data.txt"),
+        c"com.apple.ResourceFork",
+        b"owned resource fork",
+    );
+    put(
+        &root.join("Nested/data.txt"),
+        c"com.apple.metadata:_kMDItemUserTags",
+        b"<?xml version=\"1.0\"?><plist version=\"1.0\"><array><string>Red\n6</string></array></plist>",
+    );
+    fs::set_permissions(
+        root.join("Nested/data.txt"),
+        fs::Permissions::from_mode(0o444),
+    )
+    .unwrap();
+    let c = db::open_owned(&t.path().join("roundtrip.sqlite")).unwrap();
+    db::save_settings(&c, &cfg).unwrap();
+    let db = Mutex::new(c);
+    let p = Plan::prepare(&root, out.to_str().unwrap(), "roundtrip.zip", &cfg, &job()).unwrap();
+    let archived = run(&db, p, uuid::Uuid::new_v4().to_string(), &job()).unwrap();
+    assert_eq!(archived.state, "completed", "{}", archived.reason);
+    let zip = out.join("roundtrip.zip");
+    let before = fs::read(&zip).unwrap();
+    let p = zip_extraction::Plan::prepare_mode(
+        &zip,
+        out.to_str().unwrap(),
+        "Restored",
+        &cfg,
+        &job(),
+        true,
+    )
+    .unwrap();
+    let r = zip_extraction::run(&db, p, uuid::Uuid::new_v4().to_string(), &job()).unwrap();
+    let r = serde_json::to_value(r).unwrap();
+    assert_eq!(r["state"], "completed", "{r}");
+    let restored = out.join("Restored/Source");
+    assert_eq!(get(&restored, c"org.moomole.owned"), b"root metadata");
+    for name in ["", "Empty", "Nested", "Nested/data.txt", ".hidden"] {
+        let source = root.join(name);
+        let target = restored.join(name);
+        let m = fs::metadata(&source).unwrap();
+        let n = fs::metadata(&target).unwrap();
+        assert_eq!(m.mode() & 0o7777, n.mode() & 0o7777);
+        assert_eq!(m.mtime(), n.mtime());
+        if m.is_file() {
+            assert_eq!(fs::read(&source).unwrap(), fs::read(&target).unwrap());
+        }
+    }
+    assert_eq!(
+        get(&restored.join("Nested/data.txt"), c"com.apple.ResourceFork"),
+        b"owned resource fork"
+    );
+    assert_eq!(
+        get(
+            &restored.join("Nested/data.txt"),
+            c"com.apple.metadata:_kMDItemUserTags"
+        ),
+        b"<?xml version=\"1.0\"?><plist version=\"1.0\"><array><string>Red\n6</string></array></plist>"
+    );
+    assert_eq!(fs::read(&zip).unwrap(), before);
+    assert!(!out.join("Restored/__MACOSX").exists());
+}
 fn timestamp(path: &Path, seconds: i64) {
     let held = AnchoredPath::open(path).unwrap();
     let times = [libc::timespec {

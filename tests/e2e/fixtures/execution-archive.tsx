@@ -22,7 +22,7 @@ export function mount(mode = 'normal') {
     cleanup,
     uninstall,
     maintenance,
-    ...(['v4', 'v5'].includes(mode) ? archivedJournals(at) : {}),
+    ...(['v4', 'v5', 'v6'].includes(mode) ? archivedJournals(at) : {}),
   }
   if (mode === 'v5' && details.managedApp) {
     details.managedApp.draft.upgrade = {
@@ -37,6 +37,17 @@ export function mount(mode = 'normal') {
       publisher: 'adHoc',
       bundleSha256: 'b'.repeat(64),
       receiptSha256: 'c'.repeat(64),
+    }
+  }
+  if (mode === 'v6' && details.extraction) {
+    details.extraction.draft.format = 'zip'
+    details.extraction.draft.root = '/Users/demo/Archives/owned.zip'
+    details.extraction.draft.macMetadata = {
+      items: 1,
+      attributes: 4,
+      executable: 1,
+      finderHidden: 1,
+      skippedQuarantine: 1,
     }
   }
   const summaries = Object.entries(details).map(([kind, detail]) => {
@@ -61,14 +72,14 @@ export function mount(mode = 'normal') {
   })
   const header = {
     format: 'MooMole execution evidence',
-    version: mode === 'v5' ? 5 : ['v4', 'v5'].includes(mode) ? 4 : 1,
+    version: mode === 'v6' ? 6 : mode === 'v5' ? 5 : ['v4', 'v5', 'v6'].includes(mode) ? 4 : 1,
     id: archiveId,
     createdAt: at,
     counts: {
       cleanup: 1,
       uninstall: 1,
       maintenance: 1,
-      ...(['v4', 'v5'].includes(mode) ? { moleClean: 1, extraction: 1, managedApp: 1 } : {}),
+      ...(['v4', 'v5', 'v6'].includes(mode) ? { moleClean: 1, extraction: 1, managedApp: 1 } : {}),
     },
     payloadSha256: 'a'.repeat(64),
     payloadBytes: 12345,

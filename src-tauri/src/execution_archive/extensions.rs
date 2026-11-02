@@ -104,6 +104,9 @@ pub(super) fn summary(kind: Kind, v: &Value) -> Result<Value, String> {
     if kind == Kind::ManagedApp && v["draft"]["upgrade"].is_object() {
         summary["operation"] = Value::String("upgrade".into());
     }
+    if kind == Kind::Extraction && v["draft"]["macMetadata"].is_object() {
+        summary["macMetadata"] = Value::Bool(true);
+    }
     Ok(summary)
 }
 pub(super) fn mole(c: &Connection, id: &str) -> Result<Value, String> {

@@ -37,6 +37,7 @@ pub(crate) async fn prepare_zip_extraction(
     directory: String,
     filename: String,
     request_id: String,
+    restore_metadata: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Draft, String> {
     let operation = state.updates.installation.enter()?;
@@ -61,7 +62,14 @@ pub(crate) async fn prepare_zip_extraction(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _resources = (operation, slot, registered);
-        let plan = Plan::prepare(Path::new(&root), &directory, &filename, &settings, &job)?;
+        let plan = Plan::prepare_mode(
+            Path::new(&root),
+            &directory,
+            &filename,
+            &settings,
+            &job,
+            restore_metadata.unwrap_or(false),
+        )?;
         if db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?.protected_paths
             != settings.protected_paths
         {

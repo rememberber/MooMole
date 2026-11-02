@@ -273,7 +273,9 @@ export function ExecutionArchiveCenter({
                     ? '文件移动'
                     : 'operation' in selected.summary && selected.summary.operation === 'upgrade'
                       ? 'Homebrew 升级'
-                      : archiveKindName[selected.kind]}{' '}
+                      : 'macMetadata' in selected.summary && selected.summary.macMetadata
+                        ? 'Mac 属性恢复'
+                        : archiveKindName[selected.kind]}{' '}
                   · {archiveEntryStateName(selected.kind, selected.summary.state)}
                 </strong>
                 {detail && isJournalKind(selected.kind) ? (
@@ -382,7 +384,9 @@ export function ExecutionArchiveCenter({
                           ? '文件移动'
                           : 'operation' in e.summary && e.summary.operation === 'upgrade'
                             ? 'Homebrew 升级'
-                            : archiveKindName[e.kind]}{' '}
+                            : 'macMetadata' in e.summary && e.summary.macMetadata
+                              ? 'Mac 属性恢复'
+                              : archiveKindName[e.kind]}{' '}
                         · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
                       </strong>
                       <small>

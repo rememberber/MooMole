@@ -139,6 +139,9 @@ export function ArchivedJournalDetail({
                   <p className="mono full-path" data-i18n="off">
                     → {r.draft.outputPath}
                   </p>
+                  {r.draft.macMetadata && (
+                    <p>含 Mac 数据属性、普通权限和修改时间恢复；历史安全批准未恢复。</p>
+                  )}
                   <p>
                     {r.draft.files} 个文件 · {r.draft.directories} 个目录 · {bytes(r.draft.bytes)}
                   </p>

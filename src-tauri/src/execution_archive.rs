@@ -317,6 +317,11 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     Ok(Evidence {
         version: if saved_entries
             .iter()
+            .any(|e| e.kind == Kind::Extraction && e.summary["macMetadata"] == true)
+        {
+            6
+        } else if saved_entries
+            .iter()
             .any(|e| e.kind == Kind::ManagedApp && e.summary["operation"] == "upgrade")
         {
             5
@@ -457,7 +462,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
     let h: Header = serde_json::from_slice(&bytes).map_err(err)?;
     valid_id(&h.id)?;
     if h.format != "MooMole execution evidence"
-        || ![1, 2, 3, 4, 5].contains(&h.version)
+        || ![1, 2, 3, 4, 5, 6].contains(&h.version)
         || (h.version < 4
             && [
                 h.counts.mole_clean,
@@ -475,6 +480,7 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
             .iter()
             .all(|n| *n == 0))
         || (h.version == 5 && h.counts.managed_app == 0)
+        || (h.version == 6 && h.counts.extraction == 0)
         || h.created_at < 0
         || h.counts.total() == 0
         || h.counts.total() > 64
@@ -551,7 +557,13 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
     let upgrading = entries
         .iter()
         .any(|e| e.kind == Kind::ManagedApp && e.summary["operation"] == "upgrade");
-    if upgrading != (h.version == 5) {
+    let mac_metadata = entries
+        .iter()
+        .any(|e| e.kind == Kind::Extraction && e.summary["macMetadata"] == true);
+    if (mac_metadata && h.version < 6) || (h.version == 6 && !mac_metadata) {
+        return Err("Mac 属性恢复记录须使用 v6 归档，不接受降级或错配标头。".into());
+    }
+    if (upgrading && h.version < 5) || (h.version == 5 && !upgrading) {
         return Err("Homebrew 升级记录须使用 v5 归档，不接受降级或错配标头。".into());
     }
     if counts != h.counts {

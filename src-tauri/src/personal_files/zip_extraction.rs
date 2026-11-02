@@ -1,5 +1,5 @@
 //! Explicit ZIP data extraction into a new, exclusively published directory.
-//! No source deletion, execution, overwrite, link creation or metadata unpacking.
+//! No source deletion, execution, overwrite or link creation. Mac restoration is opt-in.
 use super::*;
 use crate::{
     db,
@@ -20,6 +20,7 @@ use std::{
 pub(crate) mod commands;
 mod inventory;
 pub(crate) mod journal;
+mod mac_metadata;
 mod tar;
 #[cfg(test)]
 mod tests;
@@ -62,6 +63,8 @@ impl Format {
 pub(crate) struct Draft {
     #[serde(default, skip_serializing_if = "Format::is_zip")]
     format: Format,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mac_metadata: Option<mac_metadata::Summary>,
     id: String,
     root: String,
     output_path: String,
@@ -113,6 +116,8 @@ pub(super) struct Plan {
     snapshot: File,
     entries: Vec<Entry>,
     quarantine: Option<Vec<u8>>,
+    source_quarantine: Option<Vec<u8>>,
+    metadata: Option<mac_metadata::Metadata>,
     directory: movement::Movement,
     rules: Vec<String>,
     issued: Instant,
@@ -190,12 +195,23 @@ fn capacity(file: &File, bytes: u64) -> Result<(), String> {
     Ok(())
 }
 impl Plan {
+    #[cfg(test)]
     fn prepare(
         root: &Path,
         directory: &str,
         filename: &str,
         settings: &db::Settings,
         job: &Job,
+    ) -> Result<Self, String> {
+        Self::prepare_mode(root, directory, filename, settings, job, false)
+    }
+    pub(super) fn prepare_mode(
+        root: &Path,
+        directory: &str,
+        filename: &str,
+        settings: &db::Settings,
+        job: &Job,
+        restore_metadata: bool,
     ) -> Result<Self, String> {
         let start = Instant::now();
         check(job, start)?;
@@ -242,19 +258,38 @@ impl Plan {
             return Err("压缩包在读取时变化，请重新检查。".into());
         }
         let format = Format::from_path(root).ok_or("不支持的压缩包格式。")?;
+        if restore_metadata && format != Format::Zip {
+            return Err("Mac 元数据恢复目前支持 ZIP；TAR 可选择仅解压正文。".into());
+        }
         if format == Format::TarGzip {
             snapshot = tar::inflate(&mut snapshot, job, start)?;
         }
-        let entries = if format == Format::Zip {
+        let mut entries = if format == Format::Zip {
             inventory::read(&mut snapshot, job, start)?
         } else {
             tar::read(&mut snapshot, job, start)?
         };
         let bytes = entries.iter().map(|e| e.size).sum();
+        let metadata = if restore_metadata {
+            Some(mac_metadata::Metadata::read(
+                &mut snapshot,
+                &mut entries,
+                job,
+                start,
+            )?)
+        } else {
+            None
+        };
+        let output_quarantine = if restore_metadata {
+            Some(mac_metadata::fresh_quarantine()?)
+        } else {
+            q.clone()
+        };
         capacity(parent.target(), bytes)?;
         let now = db::now();
         let draft = Draft {
             format,
+            mac_metadata: metadata.as_ref().map(|m| m.summary.clone()),
             id: uuid::Uuid::new_v4().to_string(),
             root: root.to_str().ok_or("压缩包路径无法编码。")?.into(),
             output_path: output.to_str().ok_or("解压路径无法编码。")?.into(),
@@ -265,14 +300,18 @@ impl Plan {
                 .filter(|e| e.name.split('/').any(|s| s.starts_with('.')))
                 .count(),
             bytes,
-            metadata_bytes: entries
-                .iter()
-                .filter(|e| {
-                    e.name.starts_with("__MACOSX/")
-                        || e.name.split('/').any(|s| s.starts_with("._"))
-                })
-                .map(|e| e.size)
-                .sum(),
+            metadata_bytes: if let Some(m) = &metadata {
+                m.bytes
+            } else {
+                entries
+                    .iter()
+                    .filter(|e| {
+                        e.name.starts_with("__MACOSX/")
+                            || e.name.split('/').any(|s| s.starts_with("._"))
+                    })
+                    .map(|e| e.size)
+                    .sum()
+            },
             source_sha256: format!("{:x}", hash.finalize()),
             samples: entries
                 .iter()
@@ -290,7 +329,9 @@ impl Plan {
             witness: held.witness,
             snapshot,
             entries,
-            quarantine: q,
+            quarantine: output_quarantine,
+            source_quarantine: q,
+            metadata,
             directory: movement::Movement {
                 directory: directory.into(),
                 witness: parent.witness,
@@ -334,7 +375,7 @@ impl Plan {
         let mut f = archive::open_read(&held)?;
         let size = f.metadata().map_err(|e| e.to_string())?.len();
         if archive::digest(&mut f, job, start, size)? != self.draft.source_sha256
-            || quarantine(&f)? != self.quarantine
+            || quarantine(&f)? != self.source_quarantine
         {
             return Err("原压缩包内容或隔离属性变化，未发布解压结果。".into());
         }
@@ -342,7 +383,7 @@ impl Plan {
         Ok(parent)
     }
 }
-fn run(
+pub(super) fn run(
     database: &Mutex<db::Database>,
     mut plan: Plan,
     request: String,
@@ -383,6 +424,16 @@ fn run(
             start,
         )?;
         s.verify(&plan.entries, plan.quarantine.as_deref(), job, start)?;
+        if let Some(metadata) = &plan.metadata {
+            s.restore(metadata, job, start)?;
+            s.verify_metadata(
+                &plan.entries,
+                plan.quarantine.as_deref(),
+                metadata,
+                job,
+                start,
+            )?;
+        }
         let settings = db::settings(&*database.lock().map_err(|e| e.to_string())?)?;
         let current = plan.validate(&settings, job, start)?;
         if current.witness.nodes != parent.witness.nodes {
@@ -397,14 +448,16 @@ fn run(
             .iter()
             .map(|e| (&e.name, e.directory, e.size, &e.sha256))
             .collect::<Vec<_>>();
+        let mut artifact_hash = Sha256::new();
+        artifact_hash.update(serde_json::to_vec(&manifest).map_err(|e| e.to_string())?);
+        if let Some(metadata) = &plan.metadata {
+            metadata.hash_into(&mut artifact_hash);
+        }
         r.artifact = Some(Artifact {
             device: m.dev().to_string(),
             inode: m.ino().to_string(),
             bytes: plan.draft.bytes,
-            sha256: format!(
-                "{:x}",
-                Sha256::digest(serde_json::to_vec(&manifest).map_err(|e| e.to_string())?)
-            ),
+            sha256: format!("{:x}", artifact_hash.finalize()),
         });
         r.phase = "publishing".into();
         r.reason = "即将发布已核对的解压文件夹。".into();
@@ -420,21 +473,32 @@ fn run(
         if (m.dev(), m.ino()) != (n.dev(), n.ino()) {
             return Err("已发布解压文件夹身份无法核对，请检查实际位置。".into());
         }
-        s.verify(
-            &plan.entries,
-            plan.quarantine.as_deref(),
-            &Job::new(TaskKind::PersonalArchive),
-            start,
-        )?;
+        let verification = Job::new(TaskKind::PersonalArchive);
+        if let Some(metadata) = &plan.metadata {
+            s.verify_metadata(
+                &plan.entries,
+                plan.quarantine.as_deref(),
+                metadata,
+                &verification,
+                start,
+            )?;
+        } else {
+            s.verify(
+                &plan.entries,
+                plan.quarantine.as_deref(),
+                &verification,
+                start,
+            )?;
+        }
         output.validate()?;
         Ok(())
     })();
     match result {
         Ok(()) => {
             r.state = "completed".into();
-            r.reason =
-                "压缩包正文已解压并核验，原压缩包保留；原权限、时间、所有者与嵌入元数据未应用。"
-                    .into();
+            r.reason = if plan.metadata.is_some() {
+                "ZIP 正文、Mac 数据属性、普通权限和修改时间已恢复并核验；原包保留，输出使用新的隔离标记，历史安全批准和所有者未恢复。"
+            } else { "压缩包正文已解压并核验，原压缩包保留；原权限、时间、所有者与嵌入元数据未应用。" }.into();
         }
         Err(e) => {
             r.state = if r.phase == "publishing" {

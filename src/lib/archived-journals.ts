@@ -15,6 +15,7 @@ export interface JournalSummary {
   reason: string
   resultUncertain: boolean
   operation?: 'upgrade'
+  macMetadata?: true
 }
 const fail = (): never => {
   throw Error('归档扩展记录无法核对；不会恢复执行或重新调用命令。')
@@ -52,6 +53,7 @@ export function readJournalSummary(v: unknown, kind: JournalKind): JournalSummar
           : ['removed', 'upgraded', 'retained', 'cancelled', 'unknown', 'interrupted']
   if (
     !states.includes(String(s.state)) ||
+    (s.macMetadata !== undefined && (kind !== 'extraction' || s.macMetadata !== true)) ||
     (s.operation !== undefined && (kind !== 'managedApp' || s.operation !== 'upgrade')) ||
     (s.state === 'upgraded' && s.operation !== 'upgrade') ||
     (s.state === 'removed' && s.operation !== undefined) ||
@@ -184,6 +186,7 @@ export function journalSummary(kind: JournalKind, record: JournalRecord): Journa
       path: r.draft.outputPath,
       reason: r.reason,
       resultUncertain,
+      ...(r.draft.macMetadata ? { macMetadata: true as const } : {}),
     }
   }
   const r = record as ManagedRecord
