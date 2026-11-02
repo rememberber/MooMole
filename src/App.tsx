@@ -1306,7 +1306,7 @@ export default function App() {
                     disabled={!canRun || executionActive}
                     onClick={() => setZipExtractionSignal((v) => v + 1)}
                   >
-                    解压 ZIP…
+                    解压压缩包…
                   </button>
                 )}
                 {page === 'personalFiles' && (

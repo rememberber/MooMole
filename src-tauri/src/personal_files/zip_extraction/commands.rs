@@ -12,14 +12,14 @@ impl Drop for Registered {
     }
 }
 fn register(state: &AppState, id: &str) -> Result<(Arc<Job>, Registered), String> {
-    uuid::Uuid::parse_str(id).map_err(|_| "ZIP 解压请求标识无效。")?;
+    uuid::Uuid::parse_str(id).map_err(|_| "压缩包解压请求标识无效。")?;
     let mut jobs = state.jobs.lock().map_err(|e| e.to_string())?;
     if state.shutdown.closing()
         || jobs.len() >= 3
         || jobs.contains_key(id)
         || jobs.values().any(|j| j.kind.exclusive_operation())
     {
-        return Err("请先结束当前任务，再开始 ZIP 解压。".into());
+        return Err("请先结束当前任务，再开始压缩包解压。".into());
     }
     let job = Arc::new(Job::new(TaskKind::PersonalArchive));
     jobs.insert(id.into(), job.clone());
@@ -65,7 +65,7 @@ pub(crate) async fn prepare_zip_extraction(
         if db::settings(&*state.db.lock().map_err(|e| e.to_string())?)?.protected_paths
             != settings.protected_paths
         {
-            return Err("保护设置在检查期间变化，请重新准备 ZIP 解压。".into());
+            return Err("保护设置在检查期间变化，请重新准备压缩包解压。".into());
         }
         plan.time()?;
         archive::check(&job, Instant::now())?;
@@ -128,7 +128,7 @@ pub(crate) async fn execute_zip_extraction(
     let plan = {
         let mut s = state.personal_archives.lock().map_err(|e| e.to_string())?;
         if s.extraction_plan.as_ref().is_none_or(|p| p.draft.id != id) {
-            return Err("ZIP 解压确认已使用或撤销，请重新检查。".into());
+            return Err("压缩包解压确认已使用或撤销，请重新检查。".into());
         }
         let p = s.extraction_plan.take().unwrap();
         p.time()?;
@@ -176,9 +176,9 @@ pub(crate) fn acknowledge_zip_extraction(
     let mut r = journal::list(&db)?
         .into_iter()
         .find(|r| r.id == id)
-        .ok_or("ZIP 解压记录不存在。")?;
+        .ok_or("压缩包解压记录不存在。")?;
     if !["unknown", "interrupted"].contains(&r.state.as_str()) {
-        return Err("此 ZIP 解压无需未知结果确认。".into());
+        return Err("此压缩包解压无需未知结果确认。".into());
     }
     r.reviewed_at = Some(db::now().max(r.created_at));
     journal::save(&db, &r)

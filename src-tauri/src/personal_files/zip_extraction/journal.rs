@@ -17,9 +17,7 @@ fn valid(r: &Record) -> Result<(), String> {
         || !ordinary(Path::new(&d.root))
         || !ordinary(output)
         || parent.is_none_or(|p| p.starts_with(&d.root))
-        || Path::new(&d.root)
-            .extension()
-            .is_none_or(|s| !s.eq_ignore_ascii_case("zip"))
+        || Format::from_path(Path::new(&d.root)) != Some(d.format)
         || !hash(&d.source_sha256)
         || d.directories == 0
         || d.files.saturating_add(d.directories) > 10000
@@ -66,7 +64,7 @@ fn valid(r: &Record) -> Result<(), String> {
                 || a.inode.parse::<u64>().ok().is_none_or(|n| n == 0)
         })
     {
-        return Err("ZIP 解压记录无法核对，保留原记录。".into());
+        return Err("压缩包解压记录无法核对，保留原记录。".into());
     }
     Ok(())
 }
@@ -94,16 +92,16 @@ pub(super) fn list(c: &Connection) -> Result<Vec<Record>, String> {
     let mut out = vec![];
     for row in rows {
         let (id, request, raw) = row.map_err(|e| e.to_string())?;
-        let r: Record = serde_json::from_str(&raw.ok_or("ZIP 解压记录超过容量。")?)
-            .map_err(|_| "ZIP 解压记录格式无法核对。")?;
+        let r: Record = serde_json::from_str(&raw.ok_or("压缩包解压记录超过容量。")?)
+            .map_err(|_| "压缩包解压记录格式无法核对。")?;
         valid(&r)?;
         if r.id != id || r.request_id != request {
-            return Err("ZIP 解压记录标识不一致。".into());
+            return Err("压缩包解压记录标识不一致。".into());
         }
         out.push(r);
     }
     if out.len() > 64 {
-        return Err("ZIP 解压记录超过本轮 64 条容量。".into());
+        return Err("压缩包解压记录超过本轮 64 条容量。".into());
     }
     Ok(out)
 }
@@ -113,16 +111,16 @@ pub(super) fn save(c: &Connection, r: &Record) -> Result<(), String> {
         .pragma_query_value(None, "synchronous", |r| r.get(0))
         .map_err(|e| e.to_string())?;
     if full < 2 {
-        return Err("ZIP 解压需要 FULL 同步记录。".into());
+        return Err("压缩包解压需要 FULL 同步记录。".into());
     }
     let raw = serde_json::to_string(r).map_err(|e| e.to_string())?;
     if raw.len() > 131072 {
-        return Err("ZIP 解压记录超过容量。".into());
+        return Err("压缩包解压记录超过容量。".into());
     }
     c.execute_batch(TABLE).map_err(|e| e.to_string())?;
     let n=c.execute("INSERT INTO zip_extractions(id,request_id,body) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET body=excluded.body WHERE request_id=excluded.request_id",params![r.id,r.request_id,raw]).map_err(|e|e.to_string())?;
     if n != 1 {
-        return Err("ZIP 解压记录被其他请求占用。".into());
+        return Err("压缩包解压记录被其他请求占用。".into());
     }
     Ok(())
 }
@@ -134,7 +132,7 @@ pub(in crate::personal_files) fn admission(c: &Connection) -> Result<(), String>
                 || ["unknown", "interrupted"].contains(&r.state.as_str()) && r.reviewed_at.is_none()
         })
     {
-        return Err("请先核对未完成的 ZIP 解压；本轮最多保留 64 条记录。".into());
+        return Err("请先核对未完成的压缩包解压；本轮最多保留 64 条记录。".into());
     }
     Ok(())
 }
@@ -172,7 +170,7 @@ pub(super) fn reconcile(c: &Connection, active: &[String]) -> Result<Vec<Record>
             .into();
             r.finished_at = Some(db::now().max(r.created_at));
             r.reason =
-                "先前 ZIP 解压已中断，请核对目标和临时路径；不会自动发布、删除或重放。".into();
+                "先前压缩包解压已中断，请核对目标和临时路径；不会自动发布、删除或重放。".into();
             save(c, r)?;
         }
     }

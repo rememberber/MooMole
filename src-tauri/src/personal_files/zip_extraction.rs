@@ -20,6 +20,7 @@ use std::{
 pub(crate) mod commands;
 mod inventory;
 pub(crate) mod journal;
+mod tar;
 #[cfg(test)]
 mod tests;
 mod tree;
@@ -31,9 +32,36 @@ pub(crate) struct Sample {
     name: String,
     directory: bool,
 }
+#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Format {
+    #[default]
+    Zip,
+    Tar,
+    TarGzip,
+}
+impl Format {
+    fn is_zip(&self) -> bool {
+        *self == Self::Zip
+    }
+    fn from_path(path: &Path) -> Option<Self> {
+        let n = path.file_name()?.to_str()?.to_ascii_lowercase();
+        if n.ends_with(".tar.gz") || n.ends_with(".tgz") {
+            Some(Self::TarGzip)
+        } else if n.ends_with(".tar") {
+            Some(Self::Tar)
+        } else if n.ends_with(".zip") {
+            Some(Self::Zip)
+        } else {
+            None
+        }
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Draft {
+    #[serde(default, skip_serializing_if = "Format::is_zip")]
+    format: Format,
     id: String,
     root: String,
     output_path: String,
@@ -77,6 +105,7 @@ struct Entry {
     size: u64,
     sha256: String,
     index: Option<usize>,
+    offset: Option<u64>,
 }
 pub(super) struct Plan {
     draft: Draft,
@@ -96,11 +125,9 @@ fn source(path: &Path, settings: &db::Settings) -> Result<AnchoredPath, String> 
         || unsafe { libc::geteuid() } == 0
         || !ordinary(path)
         || protected(path, &settings.protected_paths)?
-        || !path
-            .extension()
-            .is_some_and(|s| s.eq_ignore_ascii_case("zip"))
+        || Format::from_path(path).is_none()
     {
-        return Err("请选择未受保护的本地 ZIP 文件。".into());
+        return Err("请选择未受保护的本地 ZIP、TAR 或 TAR.GZ/TGZ 文件。".into());
     }
     let h = AnchoredPath::open(path)?;
     let m = h.target().metadata().map_err(|e| e.to_string())?;
@@ -110,7 +137,7 @@ fn source(path: &Path, settings: &db::Settings) -> Result<AnchoredPath, String> 
         || !h.local_materialized()
         || m.len() > MAX_PACKED
     {
-        return Err("ZIP 必须是本账户的普通本地文件，压缩包最多 2 GiB。".into());
+        return Err("压缩包必须是本账户的普通本地文件，压缩包最多 2 GiB。".into());
     }
     Ok(h)
 }
@@ -129,10 +156,10 @@ fn quarantine(file: &File) -> Result<Option<Vec<u8>>, String> {
         if std::io::Error::last_os_error().raw_os_error() == Some(libc::ENOATTR) {
             return Ok(None);
         }
-        return Err("ZIP 隔离属性无法核对，未解压。".into());
+        return Err("压缩包隔离属性无法核对，未解压。".into());
     }
     if n > 65536 {
-        return Err("ZIP 隔离属性超过读取上限。".into());
+        return Err("压缩包隔离属性超过读取上限。".into());
     }
     let mut v = vec![0; n as usize];
     if unsafe {
@@ -146,7 +173,7 @@ fn quarantine(file: &File) -> Result<Option<Vec<u8>>, String> {
         )
     } != n
     {
-        return Err("ZIP 隔离属性在读取期间变化。".into());
+        return Err("压缩包隔离属性在读取期间变化。".into());
     }
     Ok(Some(v))
 }
@@ -200,7 +227,7 @@ impl Plan {
             }
             size += n as u64;
             if size > m.len() {
-                return Err("ZIP 在读取时变化，请重新检查。".into());
+                return Err("压缩包在读取时变化，请重新检查。".into());
             }
             snapshot
                 .write_all(&buffer[..n])
@@ -212,15 +239,24 @@ impl Plan {
             || archive::stamp(&m) != archive::stamp(&input.metadata().map_err(|e| e.to_string())?)
             || quarantine(&input)? != q
         {
-            return Err("ZIP 在读取时变化，请重新检查。".into());
+            return Err("压缩包在读取时变化，请重新检查。".into());
         }
-        let entries = inventory::read(&mut snapshot, job, start)?;
+        let format = Format::from_path(root).ok_or("不支持的压缩包格式。")?;
+        if format == Format::TarGzip {
+            snapshot = tar::inflate(&mut snapshot, job, start)?;
+        }
+        let entries = if format == Format::Zip {
+            inventory::read(&mut snapshot, job, start)?
+        } else {
+            tar::read(&mut snapshot, job, start)?
+        };
         let bytes = entries.iter().map(|e| e.size).sum();
         capacity(parent.target(), bytes)?;
         let now = db::now();
         let draft = Draft {
+            format,
             id: uuid::Uuid::new_v4().to_string(),
-            root: root.to_str().ok_or("ZIP 路径无法编码。")?.into(),
+            root: root.to_str().ok_or("压缩包路径无法编码。")?.into(),
             output_path: output.to_str().ok_or("解压路径无法编码。")?.into(),
             files: entries.iter().filter(|e| !e.directory).count(),
             directories: entries.iter().filter(|e| e.directory).count() + 1,
@@ -293,14 +329,14 @@ impl Plan {
         let parent = self.directory.validate_directory(settings)?;
         let held = source(Path::new(&self.draft.root), settings)?;
         if held.witness != self.witness {
-            return Err("原 ZIP 或祖先身份已变化，请重新检查。".into());
+            return Err("原压缩包或祖先身份已变化，请重新检查。".into());
         }
         let mut f = archive::open_read(&held)?;
         let size = f.metadata().map_err(|e| e.to_string())?.len();
         if archive::digest(&mut f, job, start, size)? != self.draft.source_sha256
             || quarantine(&f)? != self.quarantine
         {
-            return Err("原 ZIP 内容或隔离属性变化，未发布解压结果。".into());
+            return Err("原压缩包内容或隔离属性变化，未发布解压结果。".into());
         }
         held.validate()?;
         Ok(parent)
@@ -327,7 +363,7 @@ fn run(
         state: "running".into(),
         phase: "building".into(),
         artifact: None,
-        reason: "正在核对并解压 ZIP，原压缩包保留。".into(),
+        reason: "正在核对并解压压缩包，原压缩包保留。".into(),
         reviewed_at: None,
     };
     journal::begin(&mut *database.lock().map_err(|e| e.to_string())?, &r)?;
@@ -340,6 +376,7 @@ fn run(
         let s = stage.as_mut().unwrap();
         s.extract(
             &mut plan.snapshot,
+            plan.draft.format,
             &plan.entries,
             plan.quarantine.as_deref(),
             job,
@@ -396,7 +433,8 @@ fn run(
         Ok(()) => {
             r.state = "completed".into();
             r.reason =
-                "ZIP 正文已解压并核验，原压缩包保留；Mac 元数据文件保留为独立文件，未应用。".into();
+                "压缩包正文已解压并核验，原压缩包保留；原权限、时间、所有者与嵌入元数据未应用。"
+                    .into();
         }
         Err(e) => {
             r.state = if r.phase == "publishing" {

@@ -1919,6 +1919,7 @@ name = "moomole"
 version = "0.2.0"
 dependencies = [
  "core-foundation-sys",
+ "flate2",
  "libc",
  "objc2",
  "objc2-app-kit",

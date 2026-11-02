@@ -86,3 +86,19 @@ it('reconnects only exact live requests without treating expected artifact data 
   expect(() => readZipExtractionView({ records: [running], activeRequests: [id] })).toThrow()
   expect(() => readZipExtractionView({ records: [record, record], activeRequests: [] })).toThrow()
 })
+it('TAR and gzip TAR formats bind the source suffix while old ZIP records retain their exact shape', () => {
+  expect(readZipExtractionDraft(draft)).toEqual(draft)
+  for (const [format, suffix] of [
+    ['tar', 'tar'],
+    ['tarGzip', 'tar.gz'],
+    ['tarGzip', 'tgz'],
+  ]) {
+    const d = { ...draft, format, root: `/Users/demo/Archives/Trip.${suffix}` }
+    expect(readZipExtractionDraft(d)).toEqual(d)
+    expect(readZipExtractionRecord({ ...record, draft: d }).draft).toEqual(d)
+    expect(() => readZipExtractionDraft({ ...d, format: 'zip' })).toThrow()
+    expect(() => readZipExtractionDraft({ ...d, format: undefined })).toThrow()
+  }
+  for (const format of ['tar', 'tarGzip', 'unknown', null])
+    expect(() => readZipExtractionDraft({ ...draft, format })).toThrow()
+})

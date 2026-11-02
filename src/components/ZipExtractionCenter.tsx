@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { translate } from '../i18n/translate'
 async function chooseZip() {
   const selected = await open({
-    title: '选择要解压的 ZIP 文件',
+    title: translate('选择要解压的压缩包文件'),
     directory: false,
     multiple: false,
-    filters: [{ name: 'ZIP', extensions: ['zip'] }],
+    filters: [{ name: translate('压缩包'), extensions: ['zip', 'tar', 'gz', 'tgz'] }],
   })
   return typeof selected === 'string' ? selected : null
 }
@@ -73,7 +74,7 @@ export function ZipExtractionCenter({
     <>
       {view.activeRequests.length > 0 && !open && (
         <section className="card" role="status">
-          <p>ZIP 解压仍在进行，请在历史中核对结果。</p>
+          <p>压缩包解压仍在进行，请在历史中核对结果。</p>
           <button className="button secondary compact" onClick={onHistory}>
             查看解压记录
           </button>
@@ -104,9 +105,13 @@ export function ZipExtractionCenter({
 }
 function Scope({ draft: d }: { draft: ZipExtractionDraft }) {
   return (
-    <section aria-label="ZIP 解压核对">
+    <section aria-label="压缩包解压核对">
       <dl className="application-update-facts">
-        <dt>ZIP 来源</dt>
+        <dt>格式</dt>
+        <dd data-i18n="off">
+          {d.format === 'tar' ? 'TAR' : d.format === 'tarGzip' ? 'TAR.GZ / TGZ' : 'ZIP'}
+        </dd>
+        <dt>压缩包来源</dt>
         <dd className="mono full-path">{d.root}</dd>
         <dt>解压目标</dt>
         <dd className="mono full-path">{d.outputPath}</dd>
@@ -129,7 +134,7 @@ function Scope({ draft: d }: { draft: ZipExtractionDraft }) {
             </li>
           ))}
         </ul>
-        <p>这只是名称预览；确认范围是整个 ZIP，包含未在预览中列出的文件和隐藏内容。</p>
+        <p>这只是名称预览；确认范围是整个压缩包，包含未在预览中列出的文件和隐藏内容。</p>
       </details>
     </section>
   )
@@ -265,23 +270,25 @@ function Create({
   const expired = !!draft && (now < draft.createdAt || now >= draft.expiresAt)
   return (
     <Modal
-      title="解压 ZIP"
+      title="解压压缩包"
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>解压 ZIP</h2>
-      <p>将 ZIP 的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。</p>
+      <h2>解压压缩包</h2>
+      <p>
+        将 ZIP、TAR 或 TAR.GZ/TGZ
+        的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。
+      </p>
       <p className="notice warning">
         完整解压包含隐藏文件。Mac
-        元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原 ZIP
-        的隔离属性。
+        元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原压缩包的隔离属性。
       </p>
       {!draft && !submitted && (
         <>
           <label className="personal-path">
-            <span>ZIP 来源</span>
+            <span>压缩包来源</span>
             <input
-              aria-label="ZIP 来源"
+              aria-label="压缩包来源"
               value={root}
               disabled={!!pending}
               onChange={(e) => setRoot(e.target.value)}
@@ -292,7 +299,7 @@ function Create({
             disabled={!!pending}
             onClick={() => void choose(true)}
           >
-            选择 ZIP 文件…
+            选择压缩包文件…
           </button>
           <label className="personal-path">
             <span>解压目标目录</span>
@@ -326,15 +333,15 @@ function Create({
         <summary>解压范围、元数据与取消边界</summary>
         <p>
           压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。支持未加密 ZIP 的存储和 Deflate
-          压缩；链接、特殊文件、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。
+          压缩，以及普通 TAR、TAR.GZ/TGZ（单个 Gzip 成员）。TAR
+          的路径与大小扩展经核对后使用，原权限与嵌入元数据不应用；链接、特殊文件、稀疏布局、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。
         </p>
         <p>
           只创建普通文件和目录。文件权限为 600，目录为 700，不恢复原执行权限、时间、所有者、ACL
           或嵌入元数据；Mac 元数据副本保留在 __MACOSX 或 ._ 文件中，不作为完整备份恢复。
         </p>
         <p>
-          发布前重新核对原
-          ZIP、目标及全部解压内容。停止后清理本次临时内容；已发布结果不自动删除。中断或结果未知时需核对实际位置，不自动继续或重试。
+          发布前重新核对原压缩包、目标及全部解压内容。停止后清理本次临时内容；已发布结果不自动删除。中断或结果未知时需核对实际位置，不自动继续或重试。
         </p>
       </details>
       {pending && (
@@ -342,7 +349,7 @@ function Create({
           {pending === 'choosing'
             ? '正在等待目录选择…'
             : pending === 'checking'
-              ? '正在完整核对 ZIP 条目和内容，尚未解压。'
+              ? '正在完整核对压缩包条目和内容，尚未解压。'
               : '正在解压并读回核验，请等待发布结果。'}
         </p>
       )}
@@ -353,7 +360,7 @@ function Create({
         </p>
       )}
       {submitted && !pending && !record && (
-        <p>ZIP 解压请求未返回完整结果，请在历史中检查实际位置；不会自动重试。</p>
+        <p>压缩包解压请求未返回完整结果，请在历史中检查实际位置；不会自动重试。</p>
       )}
       {draft && !submitted && (
         <label className="application-update-consent">
@@ -363,7 +370,7 @@ function Create({
             disabled={!!pending || expired}
             onChange={(e) => setAck(e.target.checked)}
           />
-          我已核对全部内容、隐藏范围及元数据边界，同意解压到新文件夹并保留原 ZIP。
+          我已核对全部内容、隐藏范围及元数据边界，同意解压到新文件夹并保留原压缩包。
         </label>
       )}
       {expired && !submitted && <p role="status">解压范围确认已过期，请重新检查。</p>}
@@ -395,7 +402,7 @@ function Create({
             disabled={!root.trim() || !directory.trim() || !filename.trim()}
             onClick={() => void prepare()}
           >
-            {draft ? '重新检查解压范围' : '检查 ZIP 内容'}
+            {draft ? '重新检查解压范围' : '检查压缩包内容'}
           </button>
         )}
         {draft && !submitted && !pending && (
@@ -409,7 +416,7 @@ function Create({
             disabled={!!pending || !ack || expired}
             onClick={() => void execute()}
           >
-            确认解压 ZIP
+            确认解压压缩包
           </button>
         )}
       </div>
@@ -424,7 +431,7 @@ function Outcome({
   onError: (s: string) => void
 }) {
   return (
-    <section aria-label="ZIP 解压结果">
+    <section aria-label="压缩包解压结果">
       <strong>{zipExtractionState[r.state]}</strong>
       <p>{r.reason}</p>
       <p className="mono full-path">{r.draft.outputPath}</p>
@@ -443,7 +450,7 @@ function Outcome({
           className="button secondary compact"
           onClick={() => void transport.reveal(r.draft.root).catch((e) => onError(String(e)))}
         >
-          查看原 ZIP
+          查看原压缩包
         </button>
       </div>
     </section>
@@ -483,14 +490,14 @@ export function ZipExtractionHistory() {
   }, [epoch])
   const current = view.records.find((r) => r.id === selected)
   return (
-    <section className="card" aria-label="ZIP 解压记录">
+    <section className="card" aria-label="压缩包解压记录">
       <div className="list-toolbar">
-        <h2>ZIP 解压记录</h2>
+        <h2>压缩包解压记录</h2>
         <button className="button secondary compact" onClick={() => setEpoch((v) => v + 1)}>
           刷新解压记录
         </button>
       </div>
-      {!view.records.length && !error && <p className="muted">暂无 ZIP 解压记录。</p>}
+      {!view.records.length && !error && <p className="muted">暂无压缩包解压记录。</p>}
       {view.records.map((r) => (
         <button
           key={r.id}
@@ -515,11 +522,11 @@ export function ZipExtractionHistory() {
       )}
       {current && (
         <Modal
-          title="ZIP 解压记录"
+          title="压缩包解压记录"
           className="application-update-modal"
           onClose={pending ? undefined : () => setSelected(null)}
         >
-          <h2>ZIP 解压记录</h2>
+          <h2>压缩包解压记录</h2>
           <Outcome record={current} onError={setError} />
           <Scope draft={current.draft} />
           {error && (

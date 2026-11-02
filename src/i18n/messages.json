@@ -12319,5 +12319,258 @@
     "保留版本整理已中断，请检查安装位置、保留目录与废纸篓；不会重放。",
     "Retained version cleanup was interrupted. Check the installation, retained directory and Trash. It will not replay.",
     "保持バージョンの整理が中断しました。インストール先、保持フォルダ、ゴミ箱を確認してください。再実行はしません。"
+  ],
+  ["解压压缩包…", "Extract archive…", "アーカイブを展開…"],
+  ["选择要解压的压缩包文件", "Choose an archive to extract", "展開するアーカイブを選択"],
+  ["压缩包", "Archive", "アーカイブ"],
+  [
+    "压缩包解压仍在进行，请在历史中核对结果。",
+    "Archive extraction is still running. Check the result in history.",
+    "アーカイブの展開中です。履歴で結果を確認してください。"
+  ],
+  ["压缩包解压核对", "Review archive extraction", "アーカイブ 展開の確認"],
+  ["格式", "Format", "形式"],
+  ["压缩包来源", "Source archive", "元の アーカイブ"],
+  [
+    "这只是名称预览；确认范围是整个压缩包，包含未在预览中列出的文件和隐藏内容。",
+    "This is a name preview. Confirmation covers the entire archive, including files and hidden content not shown here.",
+    "名前のプレビューです。ここに表示されていないファイルや隠し項目も含め、アーカイブ 全体を確認します。"
+  ],
+  ["解压压缩包", "Extract archive", "アーカイブを展開"],
+  [
+    "将 ZIP、TAR 或 TAR.GZ/TGZ 的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。",
+    "Extract the complete contents of a ZIP, TAR or TAR.GZ/TGZ into a new folder. Keep the source archive, without overwriting files or opening extracted content.",
+    "ZIP、TAR、TAR.GZ/TGZ の全内容を新しいフォルダに展開します。元のアーカイブを保持し、既存ファイルの上書きや展開内容の自動起動はしません。"
+  ],
+  ["选择压缩包文件…", "Choose archive file…", "アーカイブ ファイルを選択…"],
+  [
+    "压缩包最多 2 GiB，解压内容最多 8 GiB、10000 项和 64 层。支持未加密 ZIP 的存储和 Deflate 压缩，以及普通 TAR、TAR.GZ/TGZ（单个 Gzip 成员）。TAR 的路径与大小扩展经核对后使用，原权限与嵌入元数据不应用；链接、特殊文件、稀疏布局、越界名称和无法核对的条目整份拒绝。目标必须是已有普通目录，新文件夹同名不覆盖。",
+    "Archives are limited to 2 GiB; extracted data to 8 GiB, 10,000 entries and 64 levels. Supports unencrypted stored/Deflate ZIP, ordinary TAR and single-member TAR.GZ/TGZ. Verified TAR path and size extensions are used; original permissions and embedded metadata are not applied. Links, special files, sparse layouts, escaping names or unverifiable entries reject the whole archive. Choose an existing ordinary destination directory. An existing output name is never overwritten.",
+    "アーカイブは最大 2 GiB、展開データは最大 8 GiB、10,000 項目、64 階層です。非暗号化 ZIP（無圧縮・Deflate）、通常の TAR、単一 Gzip メンバーの TAR.GZ/TGZ に対応します。TAR のパスとサイズ拡張を確認して使用し、元の権限と埋め込みメタデータは適用しません。リンク、特殊ファイル、疎なレイアウト、範囲外の名前、確認不能な項目を含む場合は全体を拒否します。既存の通常フォルダを選択してください。同名の出力先を上書きしません。"
+  ],
+  [
+    "发布前重新核对原压缩包、目标及全部解压内容。停止后清理本次临时内容；已发布结果不自动删除。中断或结果未知时需核对实际位置，不自动继续或重试。",
+    "The source archive, destination and all extracted data are checked again before publication. Stopping cleans up this run’s temporary content; published results are retained. Check actual locations after interruption or an unknown result; nothing resumes or retries automatically.",
+    "公開前に元の アーカイブ、展開先、展開内容全体を再確認します。停止時は今回の一時データを削除しますが、公開済みの結果は保持します。中断や結果不明の場合は実際の場所を確認してください。自動再開や再試行はしません。"
+  ],
+  [
+    "正在完整核对压缩包条目和内容，尚未解压。",
+    "Checking all archive entries and data; extraction has not started.",
+    "アーカイブの項目と内容をすべて確認しています。まだ展開していません。"
+  ],
+  [
+    "压缩包解压请求未返回完整结果，请在历史中检查实际位置；不会自动重试。",
+    "The extraction request did not return a complete result. Check actual locations in history; it will not retry automatically.",
+    "展開要求の完全な結果が返されませんでした。履歴から実際の場所を確認してください。自動再試行はしません。"
+  ],
+  [
+    "我已核对全部内容、隐藏范围及元数据边界，同意解压到新文件夹并保留原压缩包。",
+    "I reviewed all content, hidden items and metadata limits, and agree to extract into a new folder while keeping the original archive.",
+    "内容全体、隠し項目、メタデータの制限を確認し、元の アーカイブを保持して新しいフォルダへ展開することに同意します。"
+  ],
+  ["检查压缩包内容", "Check archive contents", "アーカイブの内容を確認"],
+  ["确认解压压缩包", "Confirm archive extraction", "アーカイブの展開を確認"],
+  ["压缩包解压结果", "Archive extraction result", "アーカイブの展開結果"],
+  ["查看原压缩包", "Reveal original archive", "元の アーカイブを表示"],
+  ["压缩包解压记录", "Archive extraction history", "アーカイブの展開履歴"],
+  ["暂无压缩包解压记录。", "No archive extractions yet.", "アーカイブの展開履歴はありません。"],
+  [
+    "压缩包解压数据无法核对，请检查解压记录与实际位置；不会自动重试。",
+    "Extraction data could not be verified. Check extraction history and actual locations; it will not retry automatically.",
+    "展開データを確認できません。展開履歴と実際の場所を確認してください。自動再試行はしません。"
+  ],
+  ["正在解压压缩包", "Extracting archive", "アーカイブを展開中"],
+  [
+    "压缩包已解压，原压缩包保留",
+    "Archive extracted; source archive kept",
+    "アーカイブを展開し、元のアーカイブを保持しました"
+  ],
+  ["压缩包解压已取消", "Archive extraction cancelled", "アーカイブの展開をキャンセルしました"],
+  [
+    "压缩包解压结果待核实",
+    "Archive extraction result needs checking",
+    "アーカイブの展開結果は確認が必要です"
+  ],
+  ["压缩包解压已中断", "Archive extraction interrupted", "アーカイブの展開が中断されました"],
+  [
+    "完整解压包含隐藏文件。Mac 元数据文件保留为独立文件，未恢复标签或资源分支；输出采用本账户专用权限，并保留原压缩包的隔离属性。",
+    "Full extraction includes hidden files. Mac metadata files remain separate files; tags and resource forks are not restored. Output uses private account permissions and keeps the source archive’s quarantine attribute.",
+    "全体の展開には隠しファイルも含まれます。Mac メタデータファイルは独立したファイルとして保持し、タグやリソースフォークは復元しません。出力にはアカウント専用の権限を設定し、元のアーカイブの隔離属性を保持します。"
+  ],
+  [
+    "先前压缩包解压已中断，请核对目标和临时路径；不会自动发布、删除或重放。",
+    "The previous extraction was interrupted. Check the destination and temporary path; nothing is published, deleted or replayed automatically.",
+    "以前の アーカイブ 展開が中断されました。展開先と一時パスを確認してください。自動で公開、削除、再実行はしません。"
+  ],
+  [
+    "请先核对未完成的压缩包解压；本轮最多保留 64 条记录。",
+    "Review unfinished archive extractions first; up to 64 records are retained.",
+    "未完了の アーカイブ 展開を先に確認してください。記録は最大 64 件です。"
+  ],
+  [
+    "压缩包解压记录被其他请求占用。",
+    "The archive extraction record belongs to another request.",
+    "アーカイブ の展開記録は別のリクエストが使用しています。"
+  ],
+  [
+    "压缩包解压需要 FULL 同步记录。",
+    "archive extraction requires FULL synchronous recording.",
+    "アーカイブ の展開には FULL 同期の記録が必要です。"
+  ],
+  [
+    "压缩包解压记录超过本轮 64 条容量。",
+    "archive extraction history exceeds the current capacity of 64 records.",
+    "アーカイブ の展開履歴が今回の上限である 64 件を超えています。"
+  ],
+  [
+    "压缩包解压记录标识不一致。",
+    "archive extraction record identifiers do not match.",
+    "アーカイブ の展開記録の識別情報が一致しません。"
+  ],
+  [
+    "压缩包解压记录格式无法核对。",
+    "The archive extraction record format could not be verified.",
+    "アーカイブ の展開記録の形式を確認できません。"
+  ],
+  [
+    "压缩包解压记录超过容量。",
+    "The archive extraction record exceeds capacity.",
+    "アーカイブ の展開記録が容量を超えています。"
+  ],
+  [
+    "压缩包解压记录无法核对，保留原记录。",
+    "The extraction record could not be verified; the original record is retained.",
+    "アーカイブ の展開記録を確認できないため、元の記録を保持します。"
+  ],
+  [
+    "此压缩包解压无需未知结果确认。",
+    "This extraction does not need an unknown-result review.",
+    "この アーカイブ 展開には結果不明の確認は必要ありません。"
+  ],
+  [
+    "压缩包解压记录不存在。",
+    "The archive extraction record does not exist.",
+    "アーカイブ の展開記録がありません。"
+  ],
+  [
+    "压缩包解压确认已使用或撤销，请重新检查。",
+    "archive extraction confirmation was used or revoked. Check again.",
+    "アーカイブ 展開の確認は使用済み、または取り消されています。再確認してください。"
+  ],
+  [
+    "保护设置在检查期间变化，请重新准备压缩包解压。",
+    "Protection settings changed during inspection. Prepare archive extraction again.",
+    "確認中に保護設定が変わりました。アーカイブ の展開を再準備してください。"
+  ],
+  [
+    "请先结束当前任务，再开始压缩包解压。",
+    "Finish the current task before starting archive extraction.",
+    "現在のタスクを終了してから アーカイブ を展開してください。"
+  ],
+  [
+    "压缩包解压请求标识无效。",
+    "The archive extraction request ID is invalid.",
+    "アーカイブ 展開のリクエスト ID が無効です。"
+  ],
+  [
+    "正在核对并解压压缩包，原压缩包保留。",
+    "Checking and extracting archive; the original archive is retained.",
+    "アーカイブ を確認して展開しています。元の圧縮ファイルは保持します。"
+  ],
+  [
+    "原压缩包内容或隔离属性变化，未发布解压结果。",
+    "Source archive data or quarantine changed; extracted data was not published.",
+    "元の アーカイブ の内容または隔離属性が変わったため、展開結果を公開していません。"
+  ],
+  [
+    "原压缩包或祖先身份已变化，请重新检查。",
+    "The source archive or an ancestor changed identity. Check again.",
+    "元の アーカイブ または親階層の識別情報が変わりました。再確認してください。"
+  ],
+  [
+    "压缩包路径无法编码。",
+    "The archive path cannot be encoded.",
+    "アーカイブ のパスをエンコードできません。"
+  ],
+  [
+    "压缩包在读取时变化，请重新检查。",
+    "The archive changed during reading. Check again.",
+    "読み取り中に アーカイブ が変わりました。再確認してください。"
+  ],
+  [
+    "压缩包隔离属性在读取期间变化。",
+    "The archive quarantine attribute changed while being read.",
+    "読み取り中に アーカイブ の隔離属性が変わりました。"
+  ],
+  [
+    "压缩包隔离属性超过读取上限。",
+    "The archive quarantine attribute exceeds the read limit.",
+    "アーカイブ の隔離属性が読み取り上限を超えています。"
+  ],
+  [
+    "压缩包隔离属性无法核对，未解压。",
+    "archive quarantine could not be checked; nothing was extracted.",
+    "アーカイブ の隔離属性を確認できないため、展開していません。"
+  ],
+  [
+    "压缩包必须是本账户的普通本地文件，压缩包最多 2 GiB。",
+    "The archive must be an ordinary local file owned by this account, up to 2 GiB.",
+    "アーカイブ はこのアカウント所有の通常のローカルファイルで、最大 2 GiB である必要があります。"
+  ],
+  [
+    "请选择未受保护的本地 ZIP、TAR 或 TAR.GZ/TGZ 文件。",
+    "Choose an unprotected local ZIP, TAR or TAR.GZ/TGZ file.",
+    "保護対象ではないローカルの ZIP、TAR、TAR.GZ/TGZ ファイルを選択してください。"
+  ],
+  [
+    "TAR 结构、路径、类型或容量无法完整核对，整份未解压。",
+    "TAR structure, paths, types or capacity could not be fully verified. Nothing was extracted.",
+    "TAR の構造、パス、種類、容量を完全に確認できないため、全体を展開しませんでした。"
+  ],
+  [
+    "Gzip 内容或 CRC 校验失败，未解压。",
+    "Gzip content or CRC verification failed. Nothing was extracted.",
+    "Gzip の内容または CRC の検証に失敗したため、展開しませんでした。"
+  ],
+  [
+    "Gzip 含多个成员或尾随数据，本次未解压。",
+    "This Gzip contains multiple members or trailing data and was not extracted.",
+    "この Gzip には複数のメンバーまたは末尾データがあるため、展開しませんでした。"
+  ],
+  [
+    "TAR 含尚未适配的 PAX 扩展（含链接或稀疏布局），整份未解压。",
+    "This TAR contains unsupported PAX extensions, such as link or sparse layouts. Nothing was extracted.",
+    "この TAR には未対応の PAX 拡張（リンクや疎なレイアウトなど）があるため、全体を展開しませんでした。"
+  ],
+  [
+    "TAR 末尾含其他归档或未知数据，整份未解压。",
+    "Other archives or unknown data follow this TAR. Nothing was extracted.",
+    "この TAR の末尾に別のアーカイブまたは不明なデータがあるため、全体を展開しませんでした。"
+  ],
+  [
+    "TAR 头校验失败，整份未解压。",
+    "TAR header verification failed. Nothing was extracted.",
+    "TAR ヘッダの検証に失敗したため、全体を展開しませんでした。"
+  ],
+  [
+    "TAR 头格式未支持，整份未解压。",
+    "The TAR header format is unsupported. Nothing was extracted.",
+    "未対応の TAR ヘッダ形式のため、全体を展開しませんでした。"
+  ],
+  [
+    "TAR 含链接、特殊文件或未支持的条目，整份未解压。",
+    "This TAR contains links, special files or unsupported entries. Nothing was extracted.",
+    "この TAR にはリンク、特殊ファイル、未対応の項目があるため、全体を展開しませんでした。"
+  ],
+  [
+    "TAR 名称重复或别名冲突，整份未解压。",
+    "TAR names are duplicated or aliases conflict. Nothing was extracted.",
+    "TAR の名前が重複しているか別名が競合するため、全体を展開しませんでした。"
+  ],
+  ["不支持的压缩包格式。", "Unsupported archive format.", "未対応のアーカイブ形式です。"],
+  [
+    "压缩包正文已解压并核验，原压缩包保留；原权限、时间、所有者与嵌入元数据未应用。",
+    "Archive data was extracted and verified. The source archive was kept; original permissions, times, ownership and embedded metadata were not applied.",
+    "アーカイブのデータを展開して検証しました。元のアーカイブを保持し、元の権限、時刻、所有者、埋め込みメタデータは適用していません。"
   ]
 ]

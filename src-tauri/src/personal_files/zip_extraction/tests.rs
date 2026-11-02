@@ -141,8 +141,15 @@ fn staging_never_removes_unexpected_content_or_replaced_objects() {
     let mut p = Plan::prepare(&zip, out.to_str().unwrap(), "Extracted", &cfg, &job()).unwrap();
     let parent = movement::directory(out.to_str().unwrap(), &cfg).unwrap();
     let mut s = tree::Stage::create(&parent, &p.draft.id).unwrap();
-    s.extract(&mut p.snapshot, &p.entries, None, &job(), Instant::now())
-        .unwrap();
+    s.extract(
+        &mut p.snapshot,
+        p.draft.format,
+        &p.entries,
+        None,
+        &job(),
+        Instant::now(),
+    )
+    .unwrap();
     let path = out.join(s.name.to_str().unwrap());
     fs::write(path.join("user-added"), b"retain").unwrap();
     assert!(s.verify(&p.entries, None, &job(), Instant::now()).is_err());

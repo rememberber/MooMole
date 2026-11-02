@@ -168,6 +168,7 @@ pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>
                     size: 0,
                     sha256: String::new(),
                     index: None,
+                    offset: None,
                 },
             )?;
         }
@@ -182,6 +183,7 @@ pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>
                 size,
                 sha256,
                 index: Some(index),
+                offset: None,
             },
         )?;
         if nodes.len() + 1 > 10000 {
@@ -190,7 +192,7 @@ pub(super) fn read(f: &mut File, job: &Job, start: Instant) -> Result<Vec<Entry>
     }
     Ok(nodes.into_values().collect())
 }
-fn insert(
+pub(super) fn insert(
     nodes: &mut BTreeMap<String, Entry>,
     folded: &mut HashMap<String, String>,
     entry: Entry,
@@ -204,7 +206,7 @@ fn insert(
         return Err("ZIP 名称发生大小写或文件/目录冲突，未解压。".into());
     }
     folded.insert(key, entry.name.clone());
-    if entry.index.is_some() || !nodes.contains_key(&entry.name) {
+    if entry.index.is_some() || entry.offset.is_some() || !nodes.contains_key(&entry.name) {
         nodes.insert(entry.name.clone(), entry);
     }
     Ok(())

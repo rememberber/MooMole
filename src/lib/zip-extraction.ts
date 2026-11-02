@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 export interface ZipExtractionDraft {
+  format?: 'zip' | 'tar' | 'tarGzip'
   id: string
   root: string
   outputPath: string
@@ -30,8 +31,18 @@ export interface ZipExtractionView {
   records: ZipExtractionRecord[]
   activeRequests: string[]
 }
+export function extractionFormat(path: string): 'zip' | 'tar' | 'tarGzip' | null {
+  const name = path.toLowerCase()
+  return name.endsWith('.tar.gz') || name.endsWith('.tgz')
+    ? 'tarGzip'
+    : name.endsWith('.tar')
+      ? 'tar'
+      : name.endsWith('.zip')
+        ? 'zip'
+        : null
+}
 function fail(): never {
-  throw Error('ZIP 解压数据无法核对，请检查解压记录与实际位置；不会自动重试。')
+  throw Error('压缩包解压数据无法核对，请检查解压记录与实际位置；不会自动重试。')
 }
 function object(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : fail()
@@ -67,6 +78,7 @@ export function readZipExtractionDraft(
 ): ZipExtractionDraft {
   const a = object(v),
     d = {
+      ...(a.format === undefined ? {} : { format: a.format as 'zip' | 'tar' | 'tarGzip' }),
       id: id(a.id),
       root: path(a.root),
       outputPath: path(a.outputPath),
@@ -80,9 +92,11 @@ export function readZipExtractionDraft(
       createdAt: number(a.createdAt),
       expiresAt: number(a.expiresAt),
     }
-  const parent = d.outputPath.slice(0, d.outputPath.lastIndexOf('/'))
+  const parent = d.outputPath.slice(0, d.outputPath.lastIndexOf('/')),
+    format = a.format === undefined ? 'zip' : a.format
   if (
-    !d.root.toLowerCase().endsWith('.zip') ||
+    !['zip', 'tar', 'tarGzip'].some((known) => known === format) ||
+    extractionFormat(d.root) !== format ||
     parent === d.root ||
     parent.startsWith(d.root + '/') ||
     d.files + d.directories > 10000 ||
@@ -200,10 +214,10 @@ export const zipExtraction = {
   reveal: (path: string) => invoke('reveal_path', { path }),
 }
 export const zipExtractionState: Record<ZipExtractionRecord['state'], string> = {
-  running: '正在解压 ZIP',
-  completed: 'ZIP 已解压，原压缩包保留',
+  running: '正在解压压缩包',
+  completed: '压缩包已解压，原压缩包保留',
   retained: '未发布解压结果，原压缩包保留',
-  cancelled: 'ZIP 解压已取消',
-  unknown: 'ZIP 解压结果待核实',
-  interrupted: 'ZIP 解压已中断',
+  cancelled: '压缩包解压已取消',
+  unknown: '压缩包解压结果待核实',
+  interrupted: '压缩包解压已中断',
 }

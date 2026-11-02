@@ -6,6 +6,9 @@ import {
 } from '../../../src/components/ZipExtractionCenter'
 // Browser IPC fixture only: never extracts or opens user files.
 export function mount(mode = 'normal') {
+  const variant = mode.split(':')
+  const format = variant[0] === 'tar' ? 'tar' : variant[0] === 'tarGzip' ? 'tarGzip' : undefined
+  if (format) mode = variant[1] ?? 'normal'
   const host = document.createElement('div')
   host.id = 'zip-extraction-fixture'
   host.style.cssText =
@@ -16,8 +19,9 @@ export function mount(mode = 'normal') {
     now = Date.now(),
     createdAt = now - (mode === 'expired' ? 120001 : 0)
   const draft = {
+    ...(format ? { format } : {}),
     id,
-    root: '/Users/demo/Archives/Trip.zip',
+    root: `/Users/demo/Archives/Trip.${format === 'tar' ? 'tar' : format === 'tarGzip' ? 'tar.gz' : 'zip'}`,
     outputPath: '/Users/demo/Extracted/Trip',
     files: 3,
     directories: 3,
@@ -118,7 +122,7 @@ export function mount(mode = 'normal') {
     return (
       <>
         <button disabled={busy} onClick={() => setSignal((v) => v + 1)}>
-          解压 ZIP…
+          解压压缩包…
         </button>
         <p role="status">{busy ? 'fixture busy' : 'fixture idle'}</p>
         <ZipExtractionCenter

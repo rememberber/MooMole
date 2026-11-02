@@ -99,13 +99,21 @@ impl Stage {
     pub(super) fn extract(
         &mut self,
         input: &mut File,
+        format: Format,
         entries: &[Entry],
         q: Option<&[u8]>,
         job: &Job,
         start: Instant,
     ) -> Result<(), String> {
         input.rewind().map_err(|e| e.to_string())?;
-        let mut zip = zip::ZipArchive::new(input).map_err(|e| e.to_string())?;
+        let mut zip = if format == Format::Zip {
+            Some(
+                zip::ZipArchive::new(input.try_clone().map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?,
+            )
+        } else {
+            None
+        };
         put_quarantine(&self.root, q)?;
         for e in entries {
             check(job, start)?;
@@ -137,27 +145,35 @@ impl Stage {
             self.owned.insert(e.name.clone(), identity(&file)?);
             put_quarantine(&file, q)?;
             if !e.directory {
-                let mut input = zip
-                    .by_index(e.index.ok_or("解压条目没有内容索引。")?)
-                    .map_err(|e| e.to_string())?;
+                let mut content: Box<dyn Read + '_> = if let Some(z) = zip.as_mut() {
+                    Box::new(
+                        z.by_index(e.index.ok_or("解压条目没有内容索引。")?)
+                            .map_err(|e| e.to_string())?,
+                    )
+                } else {
+                    input
+                        .seek(SeekFrom::Start(e.offset.ok_or("解压条目没有内容位置。")?))
+                        .map_err(|e| e.to_string())?;
+                    Box::new((&mut *input).take(e.size))
+                };
                 let mut hash = Sha256::new();
                 let mut bytes = 0u64;
                 let mut b = [0; 128 * 1024];
                 loop {
                     check(job, start)?;
-                    let n = input.read(&mut b).map_err(|e| e.to_string())?;
+                    let n = content.read(&mut b).map_err(|e| e.to_string())?;
                     if n == 0 {
                         break;
                     }
                     bytes += n as u64;
                     if bytes > e.size {
-                        return Err("ZIP 解压内容超过核对大小。".into());
+                        return Err("压缩包解压内容超过核对大小。".into());
                     }
                     file.write_all(&b[..n]).map_err(|e| e.to_string())?;
                     hash.update(&b[..n]);
                 }
                 if bytes != e.size || format!("{:x}", hash.finalize()) != e.sha256 {
-                    return Err("ZIP 解压内容校验失败，未发布。".into());
+                    return Err("压缩包解压内容校验失败，未发布。".into());
                 }
                 file.sync_all().map_err(|e| e.to_string())?;
                 if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_FULLFSYNC) } != 0 {
