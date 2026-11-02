@@ -1,3 +1,4 @@
+import { ArchiveRetirementPanel } from './ArchiveRetirementPanel'
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { bytes, dateTime } from '../lib/format'
@@ -46,6 +47,8 @@ export function ExecutionArchiveCenter({
   const [view, setView] = useState<ArchiveView | null>(null),
     [selected, setSelected] = useState<ArchiveEntry | null>(null),
     [detail, setDetail] = useState<ArchiveDetail | null>(null)
+  const [retireHeader, setRetireHeader] = useState<ArchiveHeader | null | undefined>(undefined),
+    [retireActive, setRetireActive] = useState(false)
   const mounted = useRef(true),
     request = useRef(0),
     guard = useRef(false),
@@ -83,6 +86,7 @@ export function ExecutionArchiveCenter({
   }
   useEffect(() => {
     if (openSignal > 0 && enabled) {
+      setRetireHeader(undefined)
       setOpen(true)
       setPreview(null)
       setView(null)
@@ -93,7 +97,7 @@ export function ExecutionArchiveCenter({
     }
   }, [openSignal])
   function close() {
-    if (blocking.current) return
+    if (blocking.current || retireActive) return
     request.current++
     setOpen(false)
     setPreview(null)
@@ -147,11 +151,18 @@ export function ExecutionArchiveCenter({
     await refresh()
     await openArchive(result.id)
   }
-  const title = preview ? '确认归档' : selected ? '归档记录' : '执行归档'
+  const title =
+    retireHeader !== undefined
+      ? '整理本机归档副本'
+      : preview
+        ? '确认归档'
+        : selected
+          ? '归档记录'
+          : '执行归档'
   return open ? (
     <Modal
       title={title}
-      onClose={busy && blocking.current ? undefined : close}
+      onClose={(busy && blocking.current) || retireActive ? undefined : close}
       className="review-plan-modal"
     >
       <div
@@ -163,280 +174,318 @@ export function ExecutionArchiveCenter({
           }
         }}
       >
-        <h2>{title}</h2>
-        <p className="muted">
-          仅整理本机执行历史，不处理原文件或废纸篓，不恢复执行，也不会自动重试。
-        </p>
-        {error && (
-          <p className="notice warning" role="alert">
-            {error}
-          </p>
-        )}
-        {needsRefresh && !busy && (
-          <button
-            className="button secondary"
-            onClick={() =>
-              void run(async () => {
-                await onChanged()
-                await refresh()
-                setNeedsRefresh(false)
-              })
-            }
-          >
-            刷新活动记录和归档
-          </button>
-        )}
-        {notice && (
-          <p className="notice" role="status">
-            {notice}
-          </p>
-        )}
-        {busy && <p role="status">正在核对或保存归档…</p>}
-        {preview ? (
-          <>
-            <strong>{scope(preview.counts)}</strong>
-            <p>
-              先保存并核对完整归档，再从活动历史移出。原计划、逐项结果、收据、事件及核查标记都会保留。
-            </p>
-            <p>
-              本批预留容量 {bytes(preview.reservedBytes)}
-              ，归档仍占磁盘空间。归档含个人路径和检查结果，不含原文件正文；导出后请妥善保管。
-            </p>
-            <p>未知结果保持未知，不代表操作成功或文件已恢复。</p>
-            <label className="uninstall-ack">
-              <input
-                type="checkbox"
-                checked={ack}
-                disabled={busy}
-                onChange={(e) => setAck(e.target.checked)}
-              />
-              我已核对归档范围，了解原证据会保留，活动历史将移入归档。
-            </label>
-            <div className="modal-actions">
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => {
-                  setPreview(null)
-                  setAck(false)
-                }}
-              >
-                返回
-              </button>
-              <button
-                className="button primary"
-                disabled={busy || !ack}
-                onClick={() => void run(save, true)}
-              >
-                保存归档并释放容量
-              </button>
-            </div>
-          </>
-        ) : selected ? (
-          <>
-            <strong>
-              {selected.kind === 'cleanup' &&
-              'method' in selected.summary &&
-              selected.summary.method === 'move'
-                ? '文件移动'
-                : archiveKindName[selected.kind]}{' '}
-              · {archiveStateName(selected.summary.state)}
-            </strong>
-            {detail && (
-              <>
-                {selected.kind === 'cleanup' && (
-                  <CleanupResultSummary detail={detail as ExecutionDetail} />
-                )}
-                {'path' in detail && <p className="mono full-path">{detail.path}</p>}
-                {detail.reviewedAt !== null && (
-                  <p className="notice">已人工核查；原结果保持，核查不证明操作成功或已恢复。</p>
-                )}
-                {'reason' in detail && <p>{detail.reason}</p>}
-                {'items' in detail &&
-                  detail.items.map((item, i) => (
-                    <article className="saved-plan-row" key={i}>
-                      <div>
-                        <strong>
-                          {'path' in item
-                            ? item.path
-                            : item.step === 'generators'
-                              ? 'Quick Look 生成器列表'
-                              : '缩略图缓存'}{' '}
-                          ·{' '}
-                          {archiveStateName(
-                            item.state,
-                            'method' in detail ? detail.method : undefined,
-                          )}
-                        </strong>
-                        <p>
-                          {'step' in item ? refreshReason(item.reason, item.stop) : item.reason}
-                        </p>
-                        {'targetPath' in item && item.targetPath && (
-                          <p className="mono full-path">→ {item.targetPath}</p>
-                        )}
-                        {'receipt' in item && item.receipt && (
-                          <p className="mono full-path">当时移入位置：{item.receipt.destination}</p>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                {'receipt' in detail && detail.receipt && (
-                  <p className="mono full-path">
-                    当时移入位置：{detail.receipt.actual.destination}
-                  </p>
-                )}
-                <p className="muted">
-                  收据记录的是当时位置，当前可能已变化。需要取回时请在 Finder
-                  核对对象；原位置已有同名对象时不要覆盖。
-                </p>
-                <details>
-                  <summary>原始执行记录</summary>
-                  <pre
-                    className="mono full-path"
-                    style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-                  >
-                    {JSON.stringify(detail, null, 2)}
-                  </pre>
-                </details>
-              </>
-            )}
-            <div className="modal-actions">
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => {
-                  request.current++
-                  setSelected(null)
-                  setDetail(null)
-                }}
-              >
-                返回归档
-              </button>
-            </div>
-          </>
-        ) : view ? (
-          <>
-            <p>
-              {dateTime(view.header.createdAt)} · {scope(view.header.counts)} · 只读
-            </p>
-            {view.entries.map((e) => (
-              <button
-                key={e.kind + e.id}
-                className="saved-plan-row"
-                disabled={busy}
-                onClick={() => void run(() => read(e))}
-              >
-                <span>
-                  <strong>
-                    {e.kind === 'cleanup' && 'method' in e.summary && e.summary.method === 'move'
-                      ? '文件移动'
-                      : archiveKindName[e.kind]}{' '}
-                    · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
-                  </strong>
-                  <small>
-                    {archiveStateName(e.summary.state)}
-                    {e.summary.reviewedAt !== null ? ' · 已人工核查' : ''}
-                  </small>
-                </span>
-                <span>查看记录</span>
-              </button>
-            ))}
-            <div className="modal-actions">
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => {
-                  setView(null)
-                  setNotice('')
-                  void run(refresh)
-                }}
-              >
-                返回列表
-              </button>
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    if (await transport.export(view.header.id))
-                      setNotice('归档已导出；本机归档继续保留。')
-                  }, true)
-                }
-              >
-                导出归档…
-              </button>
-            </div>
-          </>
+        {retireHeader !== undefined ? (
+          <ArchiveRetirementPanel
+            key={retireHeader?.id ?? 'history'}
+            header={retireHeader}
+            onActiveChange={setRetireActive}
+            onBack={() => {
+              setRetireHeader(undefined)
+              setView(null)
+              void run(refresh)
+            }}
+            onChanged={refresh}
+          />
         ) : (
           <>
-            <p>
-              归档已结束且完成必要核查的执行记录，可释放活动历史的 64 批 / 64 MiB
-              预留上限。运行中或未核查的未知结果须先处理。
+            <h2>{title}</h2>
+            <p className="muted">
+              仅整理本机执行历史，不处理原文件或废纸篓，不恢复执行，也不会自动重试。
             </p>
-            <div className="modal-actions">
+            {error && (
+              <p className="notice warning" role="alert">
+                {error}
+              </p>
+            )}
+            {needsRefresh && !busy && (
               <button
-                className="button primary"
-                disabled={busy || needsRefresh}
+                className="button secondary"
                 onClick={() =>
                   void run(async () => {
-                    const p = archivePreview(await transport.prepare())
-                    setPreview(p)
-                    setAck(false)
+                    await onChanged()
+                    await refresh()
+                    setNeedsRefresh(false)
                   })
                 }
               >
-                检查当前执行记录
+                刷新活动记录和归档
               </button>
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    const raw = await transport.import()
-                    if (raw === null) return
-                    const h = archiveHeader(raw)
-                    await refresh()
-                    await openArchive(h.id)
-                  }, true)
-                }
-              >
-                打开归档文件…
-              </button>
-              <button
-                className="button text"
-                disabled={busy}
-                onClick={() => void run(() => transport.reveal())}
-              >
-                在 Finder 中显示
-              </button>
-            </div>
-            {unreadable > 0 && (
-              <p className="notice warning">
-                有 {unreadable} 份归档摘要无法读取，原文件未处理；可在 Finder
-                中核对。其他归档仍可打开。
+            )}
+            {notice && (
+              <p className="notice" role="status">
+                {notice}
               </p>
             )}
-            {!complete && (
-              <p className="notice warning">
-                目录超过本次 1,024 项读取范围。可在 Finder 管理，或选择确切归档文件打开。
-              </p>
-            )}
-            {list.length
-              ? list.map((h) => (
+            {busy && <p role="status">正在核对或保存归档…</p>}
+            {preview ? (
+              <>
+                <strong>{scope(preview.counts)}</strong>
+                <p>
+                  先保存并核对完整归档，再从活动历史移出。原计划、逐项结果、收据、事件及核查标记都会保留。
+                </p>
+                <p>
+                  本批预留容量 {bytes(preview.reservedBytes)}
+                  ，归档仍占磁盘空间。归档含个人路径和检查结果，不含原文件正文；导出后请妥善保管。
+                </p>
+                <p>未知结果保持未知，不代表操作成功或文件已恢复。</p>
+                <label className="uninstall-ack">
+                  <input
+                    type="checkbox"
+                    checked={ack}
+                    disabled={busy}
+                    onChange={(e) => setAck(e.target.checked)}
+                  />
+                  我已核对归档范围，了解原证据会保留，活动历史将移入归档。
+                </label>
+                <div className="modal-actions">
                   <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setPreview(null)
+                      setAck(false)
+                    }}
+                  >
+                    返回
+                  </button>
+                  <button
+                    className="button primary"
+                    disabled={busy || !ack}
+                    onClick={() => void run(save, true)}
+                  >
+                    保存归档并释放容量
+                  </button>
+                </div>
+              </>
+            ) : selected ? (
+              <>
+                <strong>
+                  {selected.kind === 'cleanup' &&
+                  'method' in selected.summary &&
+                  selected.summary.method === 'move'
+                    ? '文件移动'
+                    : archiveKindName[selected.kind]}{' '}
+                  · {archiveStateName(selected.summary.state)}
+                </strong>
+                {detail && (
+                  <>
+                    {selected.kind === 'cleanup' && (
+                      <CleanupResultSummary detail={detail as ExecutionDetail} />
+                    )}
+                    {'path' in detail && <p className="mono full-path">{detail.path}</p>}
+                    {detail.reviewedAt !== null && (
+                      <p className="notice">已人工核查；原结果保持，核查不证明操作成功或已恢复。</p>
+                    )}
+                    {'reason' in detail && <p>{detail.reason}</p>}
+                    {'items' in detail &&
+                      detail.items.map((item, i) => (
+                        <article className="saved-plan-row" key={i}>
+                          <div>
+                            <strong>
+                              {'path' in item
+                                ? item.path
+                                : item.step === 'generators'
+                                  ? 'Quick Look 生成器列表'
+                                  : '缩略图缓存'}{' '}
+                              ·{' '}
+                              {archiveStateName(
+                                item.state,
+                                'method' in detail ? detail.method : undefined,
+                              )}
+                            </strong>
+                            <p>
+                              {'step' in item ? refreshReason(item.reason, item.stop) : item.reason}
+                            </p>
+                            {'targetPath' in item && item.targetPath && (
+                              <p className="mono full-path">→ {item.targetPath}</p>
+                            )}
+                            {'receipt' in item && item.receipt && (
+                              <p className="mono full-path">
+                                当时移入位置：{item.receipt.destination}
+                              </p>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    {'receipt' in detail && detail.receipt && (
+                      <p className="mono full-path">
+                        当时移入位置：{detail.receipt.actual.destination}
+                      </p>
+                    )}
+                    <p className="muted">
+                      收据记录的是当时位置，当前可能已变化。需要取回时请在 Finder
+                      核对对象；原位置已有同名对象时不要覆盖。
+                    </p>
+                    <details>
+                      <summary>原始执行记录</summary>
+                      <pre
+                        className="mono full-path"
+                        style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                      >
+                        {JSON.stringify(detail, null, 2)}
+                      </pre>
+                    </details>
+                  </>
+                )}
+                <div className="modal-actions">
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      request.current++
+                      setSelected(null)
+                      setDetail(null)
+                    }}
+                  >
+                    返回归档
+                  </button>
+                </div>
+              </>
+            ) : view ? (
+              <>
+                <p>
+                  {dateTime(view.header.createdAt)} · {scope(view.header.counts)} · 只读
+                </p>
+                {view.entries.map((e) => (
+                  <button
+                    key={e.kind + e.id}
                     className="saved-plan-row"
                     disabled={busy}
-                    key={h.id}
-                    onClick={() => void run(() => openArchive(h.id))}
+                    onClick={() => void run(() => read(e))}
                   >
                     <span>
-                      <strong>{dateTime(h.createdAt)}</strong>
-                      <small>{scope(h.counts)}</small>
+                      <strong>
+                        {e.kind === 'cleanup' &&
+                        'method' in e.summary &&
+                        e.summary.method === 'move'
+                          ? '文件移动'
+                          : archiveKindName[e.kind]}{' '}
+                        · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
+                      </strong>
+                      <small>
+                        {archiveStateName(e.summary.state)}
+                        {e.summary.reviewedAt !== null ? ' · 已人工核查' : ''}
+                      </small>
                     </span>
-                    <span>只读查看</span>
+                    <span>查看记录</span>
                   </button>
-                ))
-              : !busy && <p className="muted">暂无本机执行归档。</p>}
+                ))}
+                <div className="modal-actions">
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setView(null)
+                      setNotice('')
+                      void run(refresh)
+                    }}
+                  >
+                    返回列表
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        if (await transport.export(view.header.id))
+                          setNotice('归档已导出；本机归档继续保留。')
+                      }, true)
+                    }
+                  >
+                    导出归档…
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => setRetireHeader(view.header)}
+                  >
+                    导出后整理本机副本…
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>
+                  归档已结束且完成必要核查的执行记录，可释放活动历史的 64 批 / 64 MiB
+                  预留上限。运行中或未核查的未知结果须先处理。
+                </p>
+                <div className="modal-actions">
+                  <button
+                    className="button primary"
+                    disabled={busy || needsRefresh}
+                    onClick={() =>
+                      void run(async () => {
+                        const p = archivePreview(await transport.prepare())
+                        setPreview(p)
+                        setAck(false)
+                      })
+                    }
+                  >
+                    检查当前执行记录
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const raw = await transport.import()
+                        if (raw === null) return
+                        const h = archiveHeader(raw)
+                        await refresh()
+                        await openArchive(h.id)
+                      }, true)
+                    }
+                  >
+                    打开归档文件…
+                  </button>
+                  <button
+                    className="button text"
+                    disabled={busy}
+                    onClick={() => void run(() => transport.reveal())}
+                  >
+                    在 Finder 中显示
+                  </button>
+                </div>
+                <p>
+                  归档正文合计 {bytes(list.reduce((sum, h) => sum + h.payloadBytes, 0))}
+                  ，实际磁盘占用可能不同。
+                </p>
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => setRetireHeader(null)}
+                >
+                  查看副本整理记录
+                </button>
+                {unreadable > 0 && (
+                  <p className="notice warning">
+                    有 {unreadable} 份归档摘要无法读取，原文件未处理；可在 Finder
+                    中核对。其他归档仍可打开。
+                  </p>
+                )}
+                {!complete && (
+                  <p className="notice warning">
+                    目录超过本次 1,024 项读取范围。可在 Finder 管理，或选择确切归档文件打开。
+                  </p>
+                )}
+                {list.length
+                  ? list.map((h) => (
+                      <button
+                        className="saved-plan-row"
+                        disabled={busy}
+                        key={h.id}
+                        onClick={() => void run(() => openArchive(h.id))}
+                      >
+                        <span>
+                          <strong>{dateTime(h.createdAt)}</strong>
+                          <small>{scope(h.counts)}</small>
+                        </span>
+                        <span>只读查看</span>
+                      </button>
+                    ))
+                  : !busy && <p className="muted">暂无本机执行归档。</p>}
+              </>
+            )}
           </>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { useLanguage } from '../../../src/i18n/locale'
 import { useState, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ExecutionArchiveCenter } from '../../../src/components/ExecutionArchiveCenter'
@@ -45,7 +46,8 @@ export function mount(mode = 'normal') {
     reservedBytes: 1024 * 1024,
   }
   const calls: { command: string; args: unknown }[] = []
-  let saved = mode.startsWith('existing'),
+  let retired = false
+  let saved = mode.startsWith('existing') || mode.startsWith('retirement'),
     changed = 0,
     reject = mode === 'save-error',
     release: (() => void) | null = null
@@ -66,7 +68,7 @@ export function mount(mode = 'normal') {
     },
     list: async () => {
       call('list')
-      return { archives: saved ? [header] : [], complete: true, unreadable: 0 }
+      return { archives: saved && !retired ? [header] : [], complete: true, unreadable: 0 }
     },
     view: async (id) => {
       call('view', { id })
@@ -99,6 +101,111 @@ export function mount(mode = 'normal') {
       call('reveal')
     },
   }
+  if (mode.startsWith('retirement')) {
+    const draft = {
+      id: 'b1000000-0000-4000-8000-000000000001',
+      header,
+      path: `/Users/demo/Library/Application Support/MooMole/execution-archives/${archiveId}.moomole-history`,
+      exported: '/Volumes/Owned/执行记录.moomole-history',
+      bytes: header.payloadBytes + 300,
+      sha256: 'b'.repeat(64),
+      createdAt: at - (mode === 'retirement-expired' ? 120001 : 0),
+      expiresAt: at + 120000 - (mode === 'retirement-expired' ? 120001 : 0),
+    }
+    const record = {
+      id: draft.id,
+      requestId: 'c1000000-0000-4000-8000-000000000001',
+      draft,
+      state: 'moved',
+      phase: 'finished',
+      reason: '已移入废纸篓，并核对实际目标身份与原路径范围。',
+      createdAt: at,
+      finishedAt: (at + 1) as number | null,
+      receipt: {
+        destination: `/Users/demo/.Trash/${archiveId}.moomole-history`,
+        device: '16777240',
+        inode: '3268991',
+      } as Record<string, string> | null,
+      reviewedAt: null as number | null,
+    }
+    let rows =
+      mode === 'retirement-history-unknown'
+        ? [
+            {
+              ...record,
+              state: 'unknown',
+              receipt: null,
+              reason: '上次归档副本整理已中断，请核对本机副本、导出副本和废纸篓；不会重放。',
+            },
+          ]
+        : mode === 'retirement-history-running'
+          ? [{ ...record, state: 'running', phase: 'intent', finishedAt: null, receipt: null }]
+          : ([] as (typeof record)[])
+    let release: (() => void) | undefined
+    Object.assign(window, {
+      __TAURI_INTERNALS__: {
+        invoke: async (command: string, args: Record<string, unknown> = {}) => {
+          call(command, args)
+          if (command === 'get_archive_retirements')
+            return {
+              records: rows,
+              activeRequests: rows.filter((r) => r.state === 'running').map((r) => r.requestId),
+            }
+          if (command === 'prepare_archive_retirement') {
+            if (mode === 'retirement-dialog-cancel') return null
+            if (mode === 'retirement-prepare-stop')
+              return new Promise((_, reject) => {
+                release = () => reject(Error('归档副本整理已停止，尚未处理的文件保留。'))
+              })
+            return {
+              ...draft,
+              ...(mode === 'retirement-mismatch'
+                ? { header: { ...header, payloadSha256: 'c'.repeat(64) } }
+                : {}),
+            }
+          }
+          if (command === 'execute_archive_retirement') {
+            const result = { ...record, requestId: String(args.requestId) }
+            if (mode === 'retirement-run-stop')
+              return new Promise((resolve) => {
+                rows = [
+                  { ...result, state: 'running', phase: 'intent', finishedAt: null, receipt: null },
+                ]
+                release = () => {
+                  rows = [
+                    {
+                      ...result,
+                      state: 'cancelled',
+                      receipt: null,
+                      reason: '归档副本整理已停止，尚未处理的文件保留。',
+                    },
+                  ]
+                  resolve(rows[0])
+                }
+              })
+            retired = true
+            rows = [result]
+            return result
+          }
+          if (command === 'discard_archive_retirement') return null
+          if (command === 'acknowledge_archive_retirement') {
+            rows = rows.map((r) => (r.id === args.id ? { ...r, reviewedAt: Date.now() } : r))
+            return null
+          }
+          if (command === 'cancel_task') {
+            release?.()
+            rows = rows.map((r) =>
+              r.state === 'running'
+                ? { ...r, state: 'cancelled', phase: 'finished', finishedAt: Date.now() }
+                : r,
+            )
+            return null
+          }
+          throw Error(command)
+        },
+      },
+    })
+  }
   Object.assign(window, {
     archiveFixture: {
       calls,
@@ -115,6 +222,7 @@ export function mount(mode = 'normal') {
     'position:fixed;inset:0;z-index:100;background:var(--background);padding:20px'
   document.body.append(host)
   function Fixture() {
+    useLanguage()
     const [signal, setSignal] = useState(0)
     return (
       <>

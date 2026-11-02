@@ -12001,5 +12001,171 @@
     "办公文件预览达到本轮处理时限，请在对应应用中查看。",
     "Office preview reached its processing time limit. View the file in the corresponding app.",
     "Office ファイルのプレビューが処理時間の上限に達しました。対応アプリで確認してください。"
+  ],
+  [
+    "归档副本结果已保存，但列表刷新失败，请返回后重新读取。",
+    "The archive-copy result was saved, but the list could not refresh. Go back and read it again.",
+    "アーカイブコピーの結果は保存されましたが、一覧の更新に失敗しました。戻って再読み取りしてください。"
+  ],
+  ["归档副本整理", "Archive copy management", "アーカイブコピーの整理"],
+  ["整理本机归档副本", "Manage local archive copies", "ローカルアーカイブコピーの整理"],
+  [
+    "先保存并核对完整导出副本，再单独确认将所选本机副本移入废纸篓。活动历史、原文件和导出副本保留，不会清空废纸篓或立即释放磁盘空间。",
+    "Save and verify a complete exported copy first, then separately confirm moving the selected local copy to Trash. Active history, original files and the exported copy are retained. Trash is not emptied and disk space is not freed immediately.",
+    "完全な書き出しコピーを保存・検証してから、選択したローカルコピーをゴミ箱に移す操作を別途確認します。活動履歴、元のファイル、書き出したコピーは保持します。ゴミ箱は空にせず、ディスク容量も直ちには解放されません。"
+  ],
+  [
+    "同盘导出会暂时增加占用；需要迁出本机时，请自行选择合适的外接位置。关闭或取消后，已明确保存的导出文件仍保留。",
+    "Exporting to the same disk temporarily uses more space. Choose an appropriate external location to move evidence off this Mac. Exported files you chose to save remain after closing or cancelling.",
+    "同じディスクへの書き出しは一時的に使用量を増やします。この Mac の外へ保管する場合は適切な外付けの保存先を選んでください。閉じたり中止したりしても、明示的に保存した書き出しファイルは保持します。"
+  ],
+  [
+    "所选归档：{0} · 正文 {1}",
+    "Selected archive: {0} · Payload {1}",
+    "選択アーカイブ：{0} · 本文 {1}"
+  ],
+  ["所选归档：", "Selected archive:", "選択アーカイブ："],
+  ["· 正文", "· Payload", "· 本文"],
+  ["保存完整副本并检查…", "Save and verify a complete copy…", "完全なコピーを保存して検証…"],
+  ["本机副本", "Local copy", "ローカルコピー"],
+  ["完整导出副本", "Complete exported copy", "完全な書き出しコピー"],
+  ["文件大小", "File size", "ファイルサイズ"],
+  [
+    "已核对整份字节和归档内容。处理前会再次检查两份文件；两分钟有效，过期后需重新检查。",
+    "The complete bytes and archive contents were checked. Both files will be checked again before processing. Confirmation expires after two minutes.",
+    "全バイトとアーカイブ内容を検証しました。処理前に両方のファイルを再確認します。確認の有効期限は 2 分です。"
+  ],
+  [
+    "我已核对完整导出位置，确认仅将这份本机归档副本移入废纸篓。",
+    "I have checked the complete exported copy’s location and confirm moving only this local archive copy to Trash.",
+    "完全な書き出しコピーの場所を確認し、このローカルアーカイブコピーだけをゴミ箱へ移すことに同意します。"
+  ],
+  ["确认整理本机副本", "Confirm local copy cleanup", "ローカルコピーの整理を確認"],
+  [
+    "归档副本确认已过期，已保存的导出文件保留。",
+    "Archive-copy confirmation expired. The saved export is retained.",
+    "コピー整理の確認期限が切れました。保存済みの書き出しファイルは保持します。"
+  ],
+  [
+    "正在保存、核对或整理归档副本…",
+    "Saving, verifying or processing the archive copy…",
+    "アーカイブコピーを保存・検証・整理中…"
+  ],
+  [
+    "请先等待正在进行的副本整理，或核查下方未知结果；不会自动重复执行。",
+    "Wait for ongoing copy processing or review the unknown results below. Nothing is repeated automatically.",
+    "進行中のコピー整理が完了するのを待つか、以下の不明な結果を確認してください。自動で繰り返すことはありません。"
+  ],
+  ["返回归档列表", "Back to archive list", "アーカイブ一覧に戻る"],
+  ["取消本次整理", "Cancel this cleanup", "今回の整理を中止"],
+  ["停止副本整理", "Stop copy processing", "コピー整理を停止"],
+  ["刷新副本整理记录", "Refresh copy records", "コピー整理記録を更新"],
+  ["副本整理记录", "Copy processing records", "コピー整理の記録"],
+  [
+    "暂无归档副本整理记录。",
+    "No archive-copy processing records yet.",
+    "アーカイブコピーの整理記録はまだありません。"
+  ],
+  ["本机副本已移入废纸篓", "Local copy moved to Trash", "ローカルコピーをゴミ箱に移しました"],
+  ["副本整理结果待核实", "Copy processing result needs review", "コピー整理の結果は要確認"],
+  ["副本整理进行中", "Copy processing in progress", "コピー整理中"],
+  ["副本整理已停止", "Copy processing stopped", "コピー整理を停止しました"],
+  ["本机副本保留", "Local copy retained", "ローカルコピーを保持しました"],
+  ["完整导出位置", "Complete export location", "完全な書き出しの保存先"],
+  ["系统返回位置", "Location returned by the system", "システムが返した場所"],
+  ["停止此副本整理", "Stop this copy operation", "このコピー整理を停止"],
+  [
+    "我已核对本机、导出和废纸篓的实际文件，了解未知结果不会改为成功。",
+    "I checked the actual local, exported and Trash files and understand that unknown results will remain unknown.",
+    "ローカル、書き出し先、ゴミ箱の実際のファイルを確認しました。不明な結果を成功に変更しないことを理解しています。"
+  ],
+  ["记录副本核查", "Record copy review", "コピーの確認を記録"],
+  [
+    "已人工核查；原结果保留。",
+    "Manually reviewed; the original result is retained.",
+    "手動確認済み。元の結果を保持します。"
+  ],
+  ["导出后整理本机副本…", "Export and manage local copy…", "書き出してローカルコピーを整理…"],
+  [
+    "归档正文合计 {0}，实际磁盘占用可能不同。",
+    "Archive payload total: {0}. Actual disk usage may differ.",
+    "アーカイブ本文の合計 {0}。実際のディスク使用量とは異なる場合があります。"
+  ],
+  ["归档正文合计", "Archive payload total:", "アーカイブ本文の合計"],
+  [
+    "，实际磁盘占用可能不同。",
+    ". Actual disk usage may differ.",
+    "。実際のディスク使用量とは異なる場合があります。"
+  ],
+  ["查看副本整理记录", "View copy processing records", "コピー整理記録を表示"],
+  [
+    "归档副本整理数据无法核对，请保留证据并刷新；不会自动重试。",
+    "Archive-copy data could not be verified. Keep the evidence and refresh; nothing will be retried automatically.",
+    "アーカイブコピーのデータを照合できません。証拠を保持して更新してください。自動で再試行はしません。"
+  ],
+  [
+    "归档副本整理已停止，尚未处理的文件保留。",
+    "Archive-copy processing stopped. Unprocessed files are retained.",
+    "アーカイブコピーの整理を停止しました。未処理のファイルは保持します。"
+  ],
+  [
+    "上次归档副本整理已中断，请核对本机副本、导出副本和废纸篓；不会重放。",
+    "The previous archive-copy operation was interrupted. Check the local copy, export and Trash; it will not be replayed.",
+    "前回のアーカイブコピー整理が中断されました。ローカルコピー、書き出し先、ゴミ箱を確認してください。再実行はしません。"
+  ],
+  [
+    "正在复查归档和完整导出副本。",
+    "Rechecking the archive and complete exported copy.",
+    "アーカイブと完全な書き出しコピーを再確認中です。"
+  ],
+  [
+    "归档或导出位置已受保护或无法核对，原副本保留。",
+    "The archive or export location is protected or cannot be verified. The local copy is retained.",
+    "アーカイブまたは書き出し先が保護対象か確認不能のため、元のコピーを保持します。"
+  ],
+  [
+    "归档必须完整保存在本机，未请求下载。",
+    "The archive must be fully available locally. No download was requested.",
+    "アーカイブは完全にローカルに存在する必要があります。ダウンロードは要求していません。"
+  ],
+  [
+    "请将完整副本保存到此应用数据目录以外的位置。",
+    "Save the complete copy outside this app’s data directory.",
+    "完全なコピーはこのアプリのデータディレクトリ外に保存してください。"
+  ],
+  [
+    "导出副本与原归档不一致，原副本保留。",
+    "The export does not match the archive. The local copy is retained.",
+    "書き出したコピーが元のアーカイブと一致しないため、元のコピーを保持します。"
+  ],
+  [
+    "归档副本确认已变化或过期，请重新核对。",
+    "Archive-copy confirmation changed or expired. Check again.",
+    "アーカイブコピーの確認内容が変更されたか期限切れです。再確認してください。"
+  ],
+  [
+    "原归档或完整导出副本已变化，未处理本机副本。",
+    "The archive or its complete export changed. The local copy was not processed.",
+    "元のアーカイブまたは完全な書き出しコピーが変更されたため、ローカルコピーは処理しませんでした。"
+  ],
+  [
+    "系统调用后导出副本无法再次核对，请保留两处证据并人工核查。",
+    "The export could not be verified after the system operation. Preserve evidence at both locations and review manually.",
+    "システム操作後に書き出しコピーを再検証できませんでした。両方の場所の証拠を保持し、手動で確認してください。"
+  ],
+  [
+    "归档副本结果未可靠落盘，请刷新记录并核查实际文件；不会自动重试。",
+    "The archive-copy result was not saved reliably. Refresh records and check the actual files; nothing will be retried automatically.",
+    "アーカイブコピーの結果を確実に保存できませんでした。記録を更新し実際のファイルを確認してください。自動再試行はしません。"
+  ],
+  [
+    "请先核查归档副本整理的进行中或未知结果。",
+    "Review ongoing or unknown archive-copy results first.",
+    "進行中または不明なアーカイブコピー整理の結果を先に確認してください。"
+  ],
+  [
+    "归档副本检查等待超时，系统读取或文件窗口可能仍未结束；不会自动重试。",
+    "Waiting for the archive-copy check timed out. A system read or file dialog may still be pending; nothing will be retried automatically.",
+    "コピー確認の待機がタイムアウトしました。システム読み取りまたはファイル選択画面がまだ終了していない可能性があります。自動再試行はしません。"
   ]
 ]

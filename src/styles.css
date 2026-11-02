@@ -3837,6 +3837,15 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
   text-align: left;
 }
+.archive-retirement-panel {
+  display: grid;
+  gap: 12px;
+}
+.archive-retirement-panel article {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
 
 .quick-cleanup {
   display: grid;
