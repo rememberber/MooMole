@@ -79,3 +79,7 @@ describe('Mole large-file result boundaries', () => {
       expect(largeFileInScope(path, '/root')).toBe(false)
   })
 })
+it('common camera RAW suffixes join the image filter without treating names as decoding evidence', () => {
+  for (const ext of ['DNG', 'CR2', 'CR3', 'NEF', 'NRW', 'ARW', 'RAF', 'RW2', 'ORF', 'PEF'])
+    expect(fileKind(file(`/Users/owned/photo.${ext}`))).toBe('image')
+})

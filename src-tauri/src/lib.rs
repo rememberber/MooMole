@@ -15,6 +15,16 @@ pub fn run_native_video_worker() -> bool {
         false
     }
 }
+/// Internal bounded RAW worker; no Tauri state, window, database or mutation.
+pub fn run_native_raw_worker() -> bool {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.len() == 2 && args[1] == "--moomole-raw-worker-v1" {
+        personal_files::raw_photo::worker::run();
+        true
+    } else {
+        false
+    }
+}
 mod ai_scan;
 mod analysis_protocol;
 mod app_associations;
@@ -2471,6 +2481,7 @@ pub fn run() {
             personal_files::schedule::runtime::remove_folder_schedule,
             personal_files::schedule::runtime::start_folder_scan,
             personal_files::preview::preview_personal_file,
+            personal_files::raw_photo::commands::preview_raw_photo,
             personal_files::preview::stream::prepare_media_preview,
             personal_files::preview::stream::prepare_media_comparison,
             personal_files::preview::stream::release_media_comparison,

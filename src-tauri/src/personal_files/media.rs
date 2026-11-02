@@ -10,7 +10,9 @@ use core_foundation_sys::{
         kCFBooleanFalse, kCFBooleanTrue, kCFNumberSInt64Type, CFNumberCreate, CFNumberGetTypeID,
         CFNumberGetValue,
     },
-    string::{kCFStringEncodingUTF8, CFStringCreateWithBytes},
+    string::{
+        kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCString, CFStringGetLength,
+    },
 };
 use std::{ffi::c_void, ptr};
 type Ref = *const c_void;
@@ -36,17 +38,25 @@ struct Rect {
 extern "C" {
     fn CGImageSourceCreateWithData(data: Ref, options: Ref) -> Ref;
     fn CGImageSourceGetCount(source: Ref) -> usize;
+    fn CGImageSourceGetType(source: Ref) -> Ref;
     fn CGImageSourceCopyPropertiesAtIndex(source: Ref, index: usize, options: Ref) -> Ref;
     fn CGImageSourceCreateThumbnailAtIndex(source: Ref, index: usize, options: Ref) -> Ref;
     fn CGImageDestinationCreateWithData(data: Ref, kind: Ref, count: usize, options: Ref) -> Ref;
     fn CGImageDestinationAddImage(dest: Ref, image: Ref, properties: Ref);
     fn CGImageDestinationFinalize(dest: Ref) -> bool;
     static kCGImageSourceShouldCache: Ref;
+    static kCGImageSourceTypeIdentifierHint: Ref;
     static kCGImageSourceCreateThumbnailFromImageAlways: Ref;
     static kCGImageSourceCreateThumbnailWithTransform: Ref;
     static kCGImageSourceThumbnailMaxPixelSize: Ref;
     static kCGImagePropertyPixelWidth: Ref;
     static kCGImagePropertyPixelHeight: Ref;
+}
+#[link(name = "CoreServices", kind = "framework")]
+extern "C" {
+    fn UTTypeConformsTo(kind: Ref, parent: Ref) -> u8;
+    fn UTTypeCreatePreferredIdentifierForTag(class: Ref, tag: Ref, conforming: Ref) -> Ref;
+    static kUTTagClassFilenameExtension: Ref;
 }
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
@@ -153,10 +163,90 @@ impl Raster {
         })
     }
     pub(super) fn decode(bytes: &[u8], max: u32) -> Result<Self, String> {
+        Self::decode_kind(bytes, max, None).map(|r| r.0)
+    }
+    pub(super) fn decode_raw(
+        bytes: &[u8],
+        max: u32,
+        extension: &str,
+    ) -> Result<(Self, String), String> {
+        let (r, t) = Self::decode_kind(bytes, max, Some(extension))?;
+        Ok((r, t.ok_or("系统未确认 RAW 类型。")?))
+    }
+    fn decode_kind(
+        bytes: &[u8],
+        max: u32,
+        raw: Option<&str>,
+    ) -> Result<(Self, Option<String>), String> {
         unsafe {
             let data = data(bytes)?;
-            let options = dictionary(&[kCGImageSourceShouldCache], &[kCFBooleanFalse.cast()])?;
+            let hint = if let Some(extension) = raw {
+                let tag = cf(CFStringCreateWithBytes(
+                    ptr::null(),
+                    extension.as_ptr(),
+                    extension.len() as isize,
+                    kCFStringEncodingUTF8,
+                    0,
+                )
+                .cast())?;
+                Some(cf(UTTypeCreatePreferredIdentifierForTag(
+                    kUTTagClassFilenameExtension,
+                    tag.0,
+                    ptr::null(),
+                ))?)
+            } else {
+                None
+            };
+            let options = if let Some(hint) = hint.as_ref() {
+                dictionary(
+                    &[kCGImageSourceShouldCache, kCGImageSourceTypeIdentifierHint],
+                    &[kCFBooleanFalse.cast(), hint.0],
+                )?
+            } else {
+                dictionary(&[kCGImageSourceShouldCache], &[kCFBooleanFalse.cast()])?
+            };
             let source = cf(CGImageSourceCreateWithData(data.0, options.0))?;
+            let raw_type = if raw.is_some() {
+                let kind = CGImageSourceGetType(source.0);
+                let parent = cf(CFStringCreateWithBytes(
+                    ptr::null(),
+                    b"public.camera-raw-image".as_ptr(),
+                    b"public.camera-raw-image".len() as isize,
+                    kCFStringEncodingUTF8,
+                    0,
+                )
+                .cast())?;
+                if kind.is_null()
+                    || UTTypeConformsTo(kind, parent.0) == 0
+                    || CGImageSourceGetCount(source.0) != 1
+                {
+                    return Err("系统未确认这是支持的单张 RAW 照片，原文件保留。".into());
+                }
+                let len = CFStringGetLength(kind.cast());
+                let mut text = [0i8; 257];
+                if !(1..=256).contains(&len)
+                    || CFStringGetCString(
+                        kind.cast(),
+                        text.as_mut_ptr(),
+                        257,
+                        kCFStringEncodingUTF8,
+                    ) == 0
+                {
+                    return Err("RAW 类型标识无法读取。".into());
+                }
+                let text = std::ffi::CStr::from_ptr(text.as_ptr())
+                    .to_str()
+                    .map_err(|_| "RAW 类型标识无法读取。")?;
+                if !text
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b".-".contains(&b))
+                {
+                    return Err("RAW 类型标识无法核对。".into());
+                }
+                Some(text.to_string())
+            } else {
+                None
+            };
             let props = cf(CGImageSourceCopyPropertiesAtIndex(source.0, 0, options.0))?;
             let width = number(props.0, kCGImagePropertyPixelWidth)?;
             let height = number(props.0, kCGImagePropertyPixelHeight)?;
@@ -187,12 +277,15 @@ impl Raster {
             if CGImageGetWidth(image.0) > max as usize || CGImageGetHeight(image.0) > max as usize {
                 return Err("系统缩略图大小无法核对。".into());
             }
-            Ok(Self {
-                width,
-                height,
-                frames: CGImageSourceGetCount(source.0),
-                image,
-            })
+            Ok((
+                Self {
+                    width,
+                    height,
+                    frames: CGImageSourceGetCount(source.0),
+                    image,
+                },
+                raw_type,
+            ))
         }
     }
     pub(super) fn png(&self) -> Result<String, String> {
@@ -364,6 +457,37 @@ fn fixture_scene(width: usize, height: usize, other: bool) -> Vec<u8> {
             NSDataBase64DecodingOptions::empty(),
         )
         .unwrap()
+        .to_vec()
+    }
+}
+
+#[cfg(test)]
+pub(super) fn fixture_tiff() -> Vec<u8> {
+    unsafe {
+        let image = Raster::decode(&fixture_png(128, 96), 384).unwrap();
+        let bytes = cf(CFDataCreateMutable(ptr::null(), 0).cast()).unwrap();
+        let kind = cf(CFStringCreateWithBytes(
+            ptr::null(),
+            b"public.tiff".as_ptr(),
+            11,
+            kCFStringEncodingUTF8,
+            0,
+        )
+        .cast())
+        .unwrap();
+        let dest = cf(CGImageDestinationCreateWithData(
+            bytes.0,
+            kind.0,
+            1,
+            ptr::null(),
+        ))
+        .unwrap();
+        CGImageDestinationAddImage(dest.0, image.image.0, ptr::null());
+        assert!(CGImageDestinationFinalize(dest.0));
+        std::slice::from_raw_parts(
+            CFDataGetBytePtr(bytes.0.cast()),
+            CFDataGetLength(bytes.0.cast()) as usize,
+        )
         .to_vec()
     }
 }

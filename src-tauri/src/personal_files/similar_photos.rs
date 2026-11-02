@@ -42,6 +42,8 @@ pub(crate) struct Image {
     pub thumbnail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub captured_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_type: Option<String>,
     #[serde(skip_serializing)]
     digest: String,
     #[serde(skip_serializing)]
@@ -109,6 +111,7 @@ fn image(item: &Item, bytes: &[u8], sequences: bool) -> Result<(Image, vision::F
             width: raster.width,
             height: raster.height,
             thumbnail,
+            raw_type: None,
             captured_at: capture.as_ref().map(|c| c.label.clone()),
             capture,
             parent: Path::new(&item.path)
@@ -141,14 +144,23 @@ pub(super) fn collect_with_sequence(
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
-        if ![
-            "png", "jpg", "jpeg", "heic", "heif", "webp", "tif", "tiff", "bmp",
-        ]
-        .contains(&extension.as_str())
+        let raw = raw_photo::supported(Path::new(&item.path));
+        if !raw
+            && ![
+                "png", "jpg", "jpeg", "heic", "heif", "webp", "tif", "tiff", "bmp",
+            ]
+            .contains(&extension.as_str())
         {
             continue;
         }
-        if item.size > 32 * 1024 * 1024 {
+        if raw && sequences
+            || item.size
+                > if raw {
+                    raw_photo::FILE_LIMIT
+                } else {
+                    32 * 1024 * 1024
+                }
+        {
             scan.report.skipped += 1;
             scan.report.complete = false;
             continue;
@@ -163,10 +175,23 @@ pub(super) fn collect_with_sequence(
             break;
         }
         reserved_read = reserved_read.saturating_add(item.size);
-        let result = preview::read(item, rules, 32 * 1024 * 1024, true).and_then(|bytes| {
-            bytes_read += bytes.len() as u64;
-            image(item, &bytes, sequences)
-        });
+        let result = if raw {
+            raw_photo::analyze(item, rules, job.clone(), started, 384, &mut bytes_read).and_then(
+                |out| {
+                    let (mut row, feature) = image(item, &raw_photo::png_bytes(&out.png)?, false)?;
+                    row.width = out.width;
+                    row.height = out.height;
+                    row.digest = out.sha256;
+                    row.raw_type = Some(out.type_identifier);
+                    Ok((row, feature))
+                },
+            )
+        } else {
+            preview::read(item, rules, 32 * 1024 * 1024, true).and_then(|bytes| {
+                bytes_read += bytes.len() as u64;
+                image(item, &bytes, sequences)
+            })
+        };
         match result {
             Ok((row, feature)) => {
                 total_thumbs += row.thumbnail.len();
@@ -390,15 +415,16 @@ pub(super) fn verify(plan: &Plan, item: &Item, job: &Job, rules: &[String]) -> R
         }
         return Ok(());
     }
-    let chosen = preview::read(item, rules, 32 * 1024 * 1024, true)?;
-    let keeper = preview::read(&p.keeper, rules, 32 * 1024 * 1024, true)?;
-    if format!("{:x}", Sha256::digest(chosen))
+    let began = Instant::now();
+    let chosen = raw_photo::content(item, rules, job, began, None, &mut 0)?;
+    let keeper = raw_photo::content(&p.keeper, rules, job, began, None, &mut 0)?;
+    if chosen
         != p.selected
             .iter()
             .find(|s| s.id == item.id)
             .ok_or("所选照片证据缺失。")?
             .digest
-        || format!("{:x}", Sha256::digest(keeper)) != p.digest
+        || keeper != p.digest
     {
         return Err("照片或保留原件的内容已变化，本项保留。".into());
     }

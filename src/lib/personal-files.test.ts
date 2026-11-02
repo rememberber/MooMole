@@ -376,3 +376,28 @@ it('AI focus only annotates exact fresh file IDs and cannot add an execution obj
     expect(() => readPersonalSnapshot(altered)).toThrow()
   }
 })
+it('RAW comparison binds its metadata to a retained RAW path and keeps exact identities', () => {
+  const source = report()
+  source.items[0] = { ...source.items[0], path: source.root + '/one.dng', name: 'one.dng' }
+  source.items[1] = { ...source.items[1], path: source.root + '/two.png', name: 'two.png' }
+  source.similarPhotos = {
+    method: 'visionFeaturePrintV2',
+    groups: [{ id: first, itemIds: [first, second] }],
+    images: source.items.map((i, n) => ({
+      id: i.id,
+      width: 640,
+      height: 480,
+      thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAA=',
+      ...(n === 0 ? { rawType: 'com.adobe.raw-image' } : {}),
+    })),
+    checkedFiles: 2,
+    bytesRead: 20000,
+  }
+  const value = { phase: 'ready', requestId: first, runId: null, report: source, error: null }
+  expect(readPersonalSnapshot(value).report?.similarPhotos?.images[0].rawType).toBe(
+    'com.adobe.raw-image',
+  )
+  const bad = structuredClone(value)
+  bad.report.similarPhotos!.images[1].rawType = 'com.adobe.raw-image'
+  expect(() => readPersonalSnapshot(bad)).toThrow()
+})

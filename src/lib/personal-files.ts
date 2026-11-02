@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { ExecutionDetail } from '../types'
+import { rawPhoto } from './file-preview'
 import { fileKind, type FileKind } from './large-files'
 import { getLocale } from '../i18n/locale'
 import { readBrowserProfile, type BrowserProfile } from './browser-downloads'
@@ -43,7 +44,14 @@ export interface PersonalReport {
   similarPhotos?: {
     method: 'visionFeaturePrintV2' | 'videoFramesVisionV2'
     groups: { id: string; itemIds: string[]; captureSpanMs?: number }[]
-    images: { id: string; width: number; height: number; thumbnail: string; capturedAt?: string }[]
+    images: {
+      id: string
+      width: number
+      height: number
+      thumbnail: string
+      capturedAt?: string
+      rawType?: string
+    }[]
     checkedFiles: number
     bytesRead: number
     sequence?: { missingMetadata: number }
@@ -407,6 +415,14 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
           width = number(p.width),
           height = number(p.height)
         if (
+          (p.rawType !== undefined &&
+            (videoMethod ||
+              !!sequence ||
+              typeof p.rawType !== 'string' ||
+              !p.rawType ||
+              p.rawType.length > 256 ||
+              !/^[a-zA-Z0-9.-]+$/.test(p.rawType) ||
+              !rawPhoto(report!.items.find((i) => i.id === key)?.path ?? ''))) ||
           !covered.has(key) ||
           imageIds.has(key) ||
           !width ||
@@ -426,6 +442,7 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
           width,
           height,
           thumbnail: p.thumbnail as string,
+          ...(p.rawType === undefined ? {} : { rawType: p.rawType as string }),
           ...(sequence ? { capturedAt: captureTime(p.capturedAt).label } : {}),
         }
       })

@@ -17,6 +17,7 @@ pub(crate) mod folder_archive;
 mod media;
 pub(crate) mod movement;
 pub(crate) mod preview;
+pub(crate) mod raw_photo;
 mod scan;
 pub(crate) mod schedule;
 pub(crate) mod similar_photos;

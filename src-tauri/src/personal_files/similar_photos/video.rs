@@ -204,6 +204,7 @@ fn analyze(
         height: output.height,
         thumbnail: frames[1].thumbnail.clone(),
         captured_at: None,
+        raw_type: None,
         digest,
         capture: None,
         parent: Path::new(&item.path)

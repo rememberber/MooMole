@@ -1,3 +1,4 @@
+import { rawPhoto } from './file-preview'
 import { getLocale } from '../i18n/locale'
 import type { Analysis, LargeFile } from '../types'
 
@@ -23,6 +24,7 @@ const extensions: Record<Exclude<FileKind, 'all' | 'other'>, string[]> = {
 export function fileKind(file: LargeFile): Exclude<FileKind, 'all'> {
   const name = file.path.slice(file.path.lastIndexOf('/') + 1)
   const dot = name.lastIndexOf('.')
+  if (dot > 0 && rawPhoto(file.path)) return 'image'
   const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
   for (const [kind, values] of Object.entries(extensions))
     if (values.includes(ext)) return kind as Exclude<FileKind, 'all' | 'other'>

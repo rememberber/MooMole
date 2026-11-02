@@ -12572,5 +12572,32 @@
     "压缩包正文已解压并核验，原压缩包保留；原权限、时间、所有者与嵌入元数据未应用。",
     "Archive data was extracted and verified. The source archive was kept; original permissions, times, ownership and embedded metadata were not applied.",
     "アーカイブのデータを展開して検証しました。元のアーカイブを保持し、元の権限、時刻、所有者、埋め込みメタデータは適用していません。"
+  ],
+  [
+    "正在读取 RAW 系统预览；关闭窗口会停止本次任务。",
+    "Reading the system RAW preview; closing this window stops the task.",
+    "RAW のシステムプレビューを読み込み中です。ウィンドウを閉じると処理を停止します。"
+  ],
+  [
+    "这是系统生成的 RAW 预览，不代表完整动态范围、全部像素细节或编辑后的效果。RAW 原片与 JPEG 不等价；原片和 XMP 等附属文件不会因预览而改写。",
+    "This system RAW preview does not show the full dynamic range, all pixel details, or your edits. A RAW original and a JPEG are not equivalent; previewing changes neither the original nor sidecars such as XMP.",
+    "これはシステムが生成した RAW プレビューです。完全なダイナミックレンジ、全画素の詳細、編集結果を示すものではありません。RAW 原本と JPEG は同等ではありません。プレビューで原本や XMP などの付属ファイルは変更されません。"
+  ],
+  ["· RAW 系统预览", "· System RAW preview", "· RAW システムプレビュー"],
+  [
+    "支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32 MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。RAW 可参加视觉相似比较，每份最多 256 MiB；本轮不读取 RAW 的连拍线索。照片图库、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。",
+    "Supports static JPEG, PNG, HEIC/HEIF, WebP, TIFF and BMP images, up to 32 MiB and 80 million pixels each. Sequence candidates must share a parent folder, camera and date/time-zone clues, fall within two seconds of the earliest image in the group, and be visually similar. Metadata may be wrong; missing data is never inferred from filenames or modification times, and an unknown time zone is not treated as local. RAW files can join visual comparison, up to 256 MiB each; RAW sequence metadata is not read in this version. Photo libraries, animations, authoritative burst relationships and videos are retained. Results are marked incomplete when file, read or time limits are reached.",
+    "JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP の静止画に対応し、1 枚につき最大 32 MiB・8,000 万画素です。連続撮影候補は、同じ親フォルダ、カメラ、日付・タイムゾーン情報を持ち、グループ内の最初の写真から 2 秒以内で、見た目が似ている必要があります。メタデータは誤っている場合があります。不足情報をファイル名や更新日時から推測せず、不明なタイムゾーンをローカル時間として扱いません。RAW は最大 256 MiB で見た目の比較に参加できますが、RAW の連写情報は読み取りません。写真ライブラリ、アニメーション、正式な連写関係、動画は保持します。件数・読み取り量・時間の上限に達した場合、結果を未完了と表示します。"
+  ],
+  [
+    "RAW 系统预览只供对照，RAW 原片与 JPEG 的信息和编辑能力不同，不能视为等价备份；不自动挑选或配对删除。每份 RAW 最多 256 MiB，系统不支持或解码失败时保留；XMP 等附属文件不会随同名照片自动处理。",
+    "System RAW previews are for comparison only. RAW originals and JPEGs differ in information and editing capability and are not equivalent backups. Nothing is selected or paired for deletion automatically. Each RAW file is limited to 256 MiB; unsupported files and decode failures are retained. Sidecars such as XMP are not handled automatically with photos of the same name.",
+    "RAW のシステムプレビューは比較用です。RAW 原本と JPEG は情報量や編集能力が異なり、同等のバックアップではありません。自動選択やペアでの削除は行いません。RAW は 1 ファイル最大 256 MiB で、未対応やデコード失敗のファイルは保持します。同名の写真に合わせて XMP などの付属ファイルを自動処理することはありません。"
+  ],
+  ["RAW 系统预览", "System RAW preview", "RAW システムプレビュー"],
+  [
+    "本次涉及 RAW 原片。系统预览或保留 JPEG 不能替代 RAW 的原始信息；请先核对需要保留的原片。只处理所列文件，不自动处理同名 JPEG 或 XMP。",
+    "This selection includes RAW originals. A system preview or retained JPEG cannot replace the original RAW information. Check which originals you need to keep. Only the listed files are handled; same-name JPEG or XMP files are not included automatically.",
+    "選択には RAW 原本が含まれます。システムプレビューや保持した JPEG は RAW の元情報の代わりにはなりません。必要な原本を確認してください。処理対象は一覧のファイルのみで、同名の JPEG や XMP は自動で含めません。"
   ]
 ]

@@ -7,5 +7,8 @@ fn main() {
     if moomole_lib::run_native_video_worker() {
         return;
     }
+    if moomole_lib::run_native_raw_worker() {
+        return;
+    }
     moomole_lib::run()
 }

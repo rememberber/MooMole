@@ -16,6 +16,12 @@ pub(crate) mod stream;
     rename_all_fields = "camelCase"
 )]
 pub(crate) enum Content {
+    RawImage {
+        data_url: String,
+        width: u64,
+        height: u64,
+        type_identifier: String,
+    },
     Image {
         data_url: String,
         width: u64,
@@ -49,10 +55,10 @@ pub(crate) enum Content {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Preview {
-    scan_id: String,
-    item_id: String,
-    path: String,
-    content: Content,
+    pub(super) scan_id: String,
+    pub(super) item_id: String,
+    pub(super) path: String,
+    pub(super) content: Content,
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,7 +180,7 @@ fn selected(
 ) -> Result<Item, String> {
     selected_context(state, domain, scan_id, item_id).map(|(item, _, _)| item)
 }
-fn selected_context(
+pub(super) fn selected_context(
     state: &crate::AppState,
     domain: Domain,
     scan_id: &str,

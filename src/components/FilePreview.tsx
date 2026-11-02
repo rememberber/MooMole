@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import {
   previewFile,
+  rawPhoto,
+  cancelRawPreview,
   readFilePreview,
   releaseMediaPreview,
   type PreviewContent,
@@ -174,11 +176,19 @@ function Preview({
   useEffect(() => {
     let live = true
     let lease: string | null = null
+    let inFlight = false
+    const requestId = rawPhoto(target.path) ? crypto.randomUUID() : undefined
     setPending(true)
     setError('')
     setReport(null)
-    void transport(target, page)
+    void Promise.resolve()
+      .then(() => {
+        if (!live) return undefined
+        inFlight = true
+        return transport(target, page, requestId)
+      })
       .then((raw) => {
+        if (!inFlight) return
         const r = readFilePreview(raw, target, page)
         if (r.content.kind === 'media') lease = r.content.leaseId
         if (live) setReport(r)
@@ -188,10 +198,12 @@ function Preview({
         if (live) setError(String(e).replace(/^Error: /, ''))
       })
       .finally(() => {
+        inFlight = false
         if (live) setPending(false)
       })
     return () => {
       live = false
+      if (inFlight && requestId) void cancelRawPreview(requestId).catch(() => {})
       if (lease) void release(lease).catch(() => {})
     }
   }, [target, page, transport, release])
@@ -202,10 +214,22 @@ function Preview({
       <p className="mono full-path" data-i18n="off">
         {target.path}
       </p>
-      {pending && <p role="status">正在读取预览…</p>}
+      {pending && (
+        <p role="status">
+          {rawPhoto(target.path)
+            ? '正在读取 RAW 系统预览；关闭窗口会停止本次任务。'
+            : '正在读取预览…'}
+        </p>
+      )}
       {error && (
         <p className="notice warning" role="alert">
           {error}
+        </p>
+      )}
+      {c?.kind === 'rawImage' && (
+        <p className="notice warning">
+          这是系统生成的 RAW 预览，不代表完整动态范围、全部像素细节或编辑后的效果。RAW 原片与 JPEG
+          不等价；原片和 XMP 等附属文件不会因预览而改写。
         </p>
       )}
       {c?.kind === 'media' ? (
@@ -285,9 +309,14 @@ function Preview({
         c && (
           <figure className="file-preview-image">
             <img src={c.dataUrl} alt={target.path.split('/').at(-1) ?? ''} data-i18n="off" />
-            {c.kind === 'image' && (
+            {(c.kind === 'image' || c.kind === 'rawImage') && (
               <figcaption>
-                {c.width} × {c.height} 像素{c.frames > 1 ? ' · 多帧图片，仅显示第一帧' : ''}
+                {c.width} × {c.height} 像素
+                {c.kind === 'rawImage'
+                  ? ' · RAW 系统预览'
+                  : c.frames > 1
+                    ? ' · 多帧图片，仅显示第一帧'
+                    : ''}
               </figcaption>
             )}
           </figure>

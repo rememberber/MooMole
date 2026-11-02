@@ -99,3 +99,34 @@ it('rejects malformed, over-budget or mismatched office excerpts instead of disp
     ),
   ).toThrow()
 })
+it('RAW previews require RAW metadata and cannot fall back to a plain image or a different source', () => {
+  const target: PreviewTarget = {
+      domain: 'personalFiles',
+      scanId: 'scan',
+      itemId: 'item',
+      path: '/Users/owned/photo.DNG',
+    },
+    content = {
+      kind: 'rawImage',
+      dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAA=',
+      width: 4928,
+      height: 3264,
+      typeIdentifier: 'com.adobe.raw-image',
+    }
+  expect(readFilePreview({ ...target, content }, target, 1).content.kind).toBe('rawImage')
+  for (const patch of [
+    { kind: 'image', frames: 1 },
+    { width: 0 },
+    { width: 60001 },
+    { width: 10000, height: 10000 },
+    { typeIdentifier: '' },
+    { typeIdentifier: 'file:///secret' },
+    { typeIdentifier: 'a'.repeat(257) },
+  ])
+    expect(() =>
+      readFilePreview({ ...target, content: { ...content, ...patch } }, target, 1),
+    ).toThrow()
+  expect(() => readFilePreview({ ...target, path: '/other.dng', content }, target, 1)).toThrow()
+  const other = { ...target, path: '/Users/owned/photo.png' }
+  expect(() => readFilePreview({ ...other, content }, other, 1)).toThrow()
+})

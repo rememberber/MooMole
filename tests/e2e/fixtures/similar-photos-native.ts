@@ -4,10 +4,12 @@ import { installPersonalMock } from './personal-files-native'
 const thumbnail =
   'data:image/png;base64,' +
   readFileSync(new URL('../../fixtures/preview.png', import.meta.url)).toString('base64')
-export async function installSimilarMock(page: Page) {
+export async function installSimilarMock(page: Page, raw = false) {
   await installPersonalMock(page, false, true)
   await page.addInitScript(
-    ({ thumbnail }) => {
+    ({ thumbnail, raw }) => {
+      const rawRequests = new Set<string>()
+      let releaseRaw: (() => void) | undefined
       const native = (window as any).__TAURI_INTERNALS__,
         original = native.invoke
       const aliases: Record<string, string> = {
@@ -20,10 +22,17 @@ export async function installSimilarMock(page: Page) {
       const convert = (report: any) => {
         if (!report) return report
         const video = sessionStorage.getItem('video-candidates') === 'true'
-        const items = report.items.map((i: any) => ({
+        const rawImages = raw && !video && sessionStorage.getItem('photo-sequences') !== 'true'
+        const items = report.items.map((i: any, index: number) => ({
           ...i,
-          name: i.name.replace(/\.(txt|png|mp4)$/, video ? '.mp4' : '.png'),
-          path: i.path.replace(/\.(txt|png|mp4)$/, video ? '.mp4' : '.png'),
+          name: i.name.replace(
+            /\.(txt|png|mp4|dng|nef)$/,
+            video ? '.mp4' : rawImages ? ['.dng', '.nef', '.png'][index] : '.png',
+          ),
+          path: i.path.replace(
+            /\.(txt|png|mp4|dng|nef)$/,
+            video ? '.mp4' : rawImages ? ['.dng', '.nef', '.png'][index] : '.png',
+          ),
         }))
         const { duplicates, ...base } = report
         return {
@@ -60,6 +69,9 @@ export async function installSimilarMock(page: Page) {
               width: 128 * (index + 1),
               height: 96 * (index + 1),
               thumbnail,
+              ...(rawImages && index < 2
+                ? { rawType: index === 0 ? 'com.adobe.raw-image' : 'com.nikon.raw-image' }
+                : {}),
               ...(sessionStorage.getItem('photo-sequences') === 'true'
                 ? { capturedAt: `2026:10:31 12:00:00.${100 + index * 300}+08:00` }
                 : {}),
@@ -93,6 +105,56 @@ export async function installSimilarMock(page: Page) {
                 ? 'MooMole.similar-videos.v1'
                 : 'MooMole.similar-photos.v1',
           }
+        if (command === 'cancel_task' && rawRequests.has(args.taskId)) {
+          rawRequests.delete(args.taskId)
+          return null
+        }
+        if (command === 'preview_raw_photo') {
+          const report = JSON.parse(sessionStorage.getItem('personal-report')!),
+            item = report.items.find((i: any) => i.id === args.itemId)
+          if (
+            !item ||
+            args.domain !== 'similarPhotos' ||
+            args.scanId !== report.id ||
+            !args.requestId
+          )
+            throw Error('wrong RAW source')
+          rawRequests.add(args.requestId)
+          const value = {
+            scanId: args.scanId,
+            itemId: item.id,
+            path: item.path,
+            content: {
+              kind: 'rawImage',
+              dataUrl: thumbnail,
+              width: 4928,
+              height: 3264,
+              typeIdentifier: item.path.endsWith('.nef')
+                ? 'com.nikon.raw-image'
+                : 'com.adobe.raw-image',
+            },
+          }
+          const mode = sessionStorage.getItem('raw-preview-mode')
+          if (mode === 'unsupported') {
+            rawRequests.delete(args.requestId)
+            throw Error('System RAW decoder does not support this sample')
+          }
+          if (mode === 'pending') {
+            return new Promise((resolve) => {
+              releaseRaw = () => resolve(value)
+              Object.assign(window, { releaseOwnedRawPreview: () => releaseRaw?.() })
+            })
+          }
+          rawRequests.delete(args.requestId)
+          return mode === 'mismatch'
+            ? { ...value, path: '/other.dng' }
+            : mode === 'wrongKind'
+              ? {
+                  ...value,
+                  content: { kind: 'image', dataUrl: thumbnail, width: 128, height: 96, frames: 1 },
+                }
+              : value
+        }
         if (command === 'preview_personal_file') {
           const report = JSON.parse(sessionStorage.getItem('personal-report')!),
             item = report.items.find((i: any) => i.id === args.itemId)
@@ -108,6 +170,6 @@ export async function installSimilarMock(page: Page) {
         return original(aliases[command] ?? command, args)
       }
     },
-    { thumbnail },
+    { thumbnail, raw },
   )
 }

@@ -7,6 +7,7 @@ export interface PreviewTarget {
 }
 export type PreviewContent =
   | { kind: 'image'; dataUrl: string; width: number; height: number; frames: number }
+  | { kind: 'rawImage'; dataUrl: string; width: number; height: number; typeIdentifier: string }
   | { kind: 'pdf'; dataUrl: string; page: number; pages: number }
   | { kind: 'text'; text: string; truncated: boolean }
   | {
@@ -31,13 +32,25 @@ export interface FilePreviewReport {
   path: string
   content: PreviewContent
 }
-export type PreviewTransport = (target: PreviewTarget, page: number) => Promise<unknown>
-export const previewFile: PreviewTransport = (target, page) =>
+export type PreviewTransport = (
+  target: PreviewTarget,
+  page: number,
+  requestId?: string,
+) => Promise<unknown>
+export const rawPhoto = (path: string) =>
+  /\.(dng|cr2|cr3|crw|nef|nrw|arw|sr2|srf|raf|rw2|orf|pef|srw|3fr|fff|iiq|rwl|raw|erf|mrw|mos|mef|kdc|dcr)$/i.test(
+    path,
+  )
+export const cancelRawPreview = (taskId: string) => invoke<void>('cancel_task', { taskId })
+export const previewFile: PreviewTransport = (target, page, requestId) =>
   invoke(
-    /\.(wav|mp3|m4a|mp4|m4v|mov)$/i.test(target.path)
-      ? 'prepare_media_preview'
-      : 'preview_personal_file',
+    rawPhoto(target.path)
+      ? 'preview_raw_photo'
+      : /\.(wav|mp3|m4a|mp4|m4v|mov)$/i.test(target.path)
+        ? 'prepare_media_preview'
+        : 'preview_personal_file',
     {
+      ...(rawPhoto(target.path) ? { requestId } : {}),
       domain: target.domain,
       scanId: target.scanId,
       itemId: target.itemId,
@@ -91,21 +104,28 @@ export function readFilePreview(
     r.itemId !== target.itemId ||
     r.path !== target.path ||
     !c ||
+    (rawPhoto(target.path) && c.kind !== 'rawImage') ||
     (c.kind === 'text'
       ? typeof c.text !== 'string' ||
         new TextEncoder().encode(c.text).length > 65536 ||
         typeof c.truncated !== 'boolean'
       : c.kind === 'document'
         ? !validDocument(c, target, page)
-        : c.kind === 'image' || c.kind === 'pdf'
+        : c.kind === 'image' || c.kind === 'rawImage' || c.kind === 'pdf'
           ? typeof c.dataUrl !== 'string' ||
             !/^data:image\/png;base64,iVBOR[A-Za-z0-9+/=]+$/.test(c.dataUrl) ||
             c.dataUrl.length > 5_592_432 ||
-            (c.kind === 'image'
+            (c.kind === 'image' || c.kind === 'rawImage'
               ? !positive(c.width, 60000) ||
                 !positive(c.height, 60000) ||
                 c.width * c.height > 80_000_000 ||
-                !positive(c.frames, Number.MAX_SAFE_INTEGER)
+                (c.kind === 'image'
+                  ? !positive(c.frames, Number.MAX_SAFE_INTEGER)
+                  : !rawPhoto(target.path) ||
+                    typeof c.typeIdentifier !== 'string' ||
+                    c.typeIdentifier.length > 256 ||
+                    !c.typeIdentifier ||
+                    !/^[a-zA-Z0-9.-]+$/.test(c.typeIdentifier))
               : c.page !== page || !positive(c.pages, 10000) || !positive(c.page, c.pages))
           : c.kind === 'media'
             ? !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(c.leaseId) ||

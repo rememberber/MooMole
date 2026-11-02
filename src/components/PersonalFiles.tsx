@@ -15,7 +15,7 @@ import { ExecutionLocation } from './ExecutionLocation'
 import { FilePreview } from './FilePreview'
 import { VideoComparison } from './VideoComparison'
 import { comparableVideo, type VideoTarget } from '../lib/video-comparison'
-import type { PreviewTarget } from '../lib/file-preview'
+import { rawPhoto, type PreviewTarget } from '../lib/file-preview'
 import type { FileArchiveTarget } from '../lib/file-archive'
 import { transferTransport, type TransferTarget } from '../lib/file-transfer'
 import {
@@ -361,11 +361,20 @@ export function PersonalFiles({
               <>
                 {' '}
                 支持 JPEG、PNG、HEIC/HEIF、WebP、TIFF、BMP 静态图片；每张最多 32
-                MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。照片图库、RAW、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
+                MiB、八千万像素。连续拍摄候选限定同一父目录、相同相机与日期/时区线索、距本组最早照片两秒以内，并核对视觉相似。元数据可能错误，缺失时不按文件名或修改时间推测；未知时区不当成本地时区。RAW
+                可参加视觉相似比较，每份最多 256 MiB；本轮不读取 RAW
+                的连拍线索。照片图库、动态图、权威连拍关系与视频保留。达到数量、读取或时间上限时，结果会标记为未完整覆盖。
               </>
             )}
           </p>
         </details>
+      )}
+      {mode === 'similar' && !videoCandidates && !photoSequences && (
+        <p className="notice warning">
+          RAW 系统预览只供对照，RAW 原片与 JPEG
+          的信息和编辑能力不同，不能视为等价备份；不自动挑选或配对删除。每份 RAW 最多 256
+          MiB，系统不支持或解码失败时保留；XMP 等附属文件不会随同名照片自动处理。
+        </p>
       )}
       {c.error && (
         <p className="notice warning" role="alert">
@@ -772,6 +781,7 @@ export function PersonalFiles({
                           </div>
                         </>
                       )}
+                      {photo?.rawType && <span className="tag">RAW 系统预览</span>}
                       {photo?.capturedAt && (
                         <p className="muted">
                           拍摄时间：<span data-i18n="off">{photo.capturedAt}</span>
@@ -972,6 +982,13 @@ export function PersonalFiles({
           {mode === 'similar' && photoSequences && (
             <p className="notice">
               连续拍摄仅是元数据与视觉线索，不能证明照片可以互相替代。请核对所选帧与保留帧的表情、清晰度和独有内容；处理前仍会核验双方完整内容。
+            </p>
+          )}
+          {(confirmation.items.some((i) => rawPhoto(i.path)) ||
+            confirmation.keptFiles?.some((i) => rawPhoto(i.path))) && (
+            <p className="notice warning">
+              本次涉及 RAW 原片。系统预览或保留 JPEG 不能替代 RAW
+              的原始信息；请先核对需要保留的原片。只处理所列文件，不自动处理同名 JPEG 或 XMP。
             </p>
           )}
           {mode === 'chat' && (
