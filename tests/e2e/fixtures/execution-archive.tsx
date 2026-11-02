@@ -1,3 +1,5 @@
+import { archivedJournals } from '../../fixtures/archived-journals'
+import { journalSummary, isJournalKind } from '../../../src/lib/archived-journals'
 import { useLanguage } from '../../../src/i18n/locale'
 import { useState, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -16,8 +18,19 @@ export function mount(mode = 'normal') {
     reviewedAt: at,
     retainedForReview: false,
   }
-  const details = { cleanup, uninstall, maintenance }
+  const details = {
+    cleanup,
+    uninstall,
+    maintenance,
+    ...(mode === 'v4' ? archivedJournals(at) : {}),
+  }
   const summaries = Object.entries(details).map(([kind, detail]) => {
+    if (isJournalKind(kind))
+      return {
+        kind,
+        id: detail.id,
+        summary: journalSummary(kind, detail as ReturnType<typeof archivedJournals>['moleClean']),
+      }
     const summary = { ...detail } as Record<string, unknown>
     for (const k of [
       'items',
@@ -33,10 +46,15 @@ export function mount(mode = 'normal') {
   })
   const header = {
     format: 'MooMole execution evidence',
-    version: 1,
+    version: mode === 'v4' ? 4 : 1,
     id: archiveId,
     createdAt: at,
-    counts: { cleanup: 1, uninstall: 1, maintenance: 1 },
+    counts: {
+      cleanup: 1,
+      uninstall: 1,
+      maintenance: 1,
+      ...(mode === 'v4' ? { moleClean: 1, extraction: 1, managedApp: 1 } : {}),
+    },
     payloadSha256: 'a'.repeat(64),
     payloadBytes: 12345,
   }

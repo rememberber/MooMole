@@ -1,6 +1,6 @@
 use super::*;
 use rusqlite::{params, Connection};
-pub(super) const TABLE:&str="CREATE TABLE IF NOT EXISTS zip_extractions(id TEXT PRIMARY KEY,request_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL CHECK(length(CAST(body AS BLOB))<=131072));";
+pub(crate) const TABLE:&str="CREATE TABLE IF NOT EXISTS zip_extractions(id TEXT PRIMARY KEY,request_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL CHECK(length(CAST(body AS BLOB))<=131072));";
 fn valid(r: &Record) -> Result<(), String> {
     let id = |s: &str| uuid::Uuid::parse_str(s).is_ok();
     let hash = |s: &str| {
@@ -68,7 +68,7 @@ fn valid(r: &Record) -> Result<(), String> {
     }
     Ok(())
 }
-pub(super) fn list(c: &Connection) -> Result<Vec<Record>, String> {
+pub(crate) fn list(c: &Connection) -> Result<Vec<Record>, String> {
     let exists: i64 = c
         .query_row(
             "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='zip_extractions'",

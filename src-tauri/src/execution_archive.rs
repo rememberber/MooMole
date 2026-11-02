@@ -20,6 +20,7 @@ use std::{
     },
     path::{Path, PathBuf},
 };
+mod extensions;
 pub(crate) mod retirement;
 const MAX_BODY: usize = 128 * 1024 * 1024;
 const MAX_ROWS: usize = 32768;
@@ -60,6 +61,9 @@ pub(crate) enum Kind {
     Cleanup,
     Uninstall,
     Maintenance,
+    MoleClean,
+    Extraction,
+    ManagedApp,
 }
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -67,12 +71,24 @@ pub(crate) struct Counts {
     pub cleanup: usize,
     pub uninstall: usize,
     pub maintenance: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub mole_clean: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub extraction: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub managed_app: usize,
+}
+fn is_zero(v: &usize) -> bool {
+    *v == 0
 }
 impl Counts {
     fn total(&self) -> usize {
         self.cleanup
             .saturating_add(self.uninstall)
             .saturating_add(self.maintenance)
+            .saturating_add(self.mole_clean)
+            .saturating_add(self.extraction)
+            .saturating_add(self.managed_app)
     }
 }
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -137,6 +153,7 @@ fn memory() -> Result<Connection, String> {
         db.execute_batch(schema).map_err(err)?;
     }
     crate::execution_schema::upgrade(&db)?;
+    extensions::init(&db)?;
     Ok(db)
 }
 fn ids(db: &Connection, table: &str) -> Result<Vec<String>, String> {
@@ -211,6 +228,7 @@ fn entries(db: &Connection) -> Result<(Vec<Entry>, Counts, i64), String> {
             out.push(Entry { kind, id, summary });
         }
     }
+    extensions::entries(db, &mut out, &mut counts, &mut reserved)?;
     if counts.total() == 0
         || counts.total() > 64
         || reserved > crate::execution_admission::MAX_RESERVED
@@ -224,12 +242,30 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     let moves = saved_entries.iter().any(|e| {
         e.kind == Kind::Cleanup && e.summary.get("method").and_then(Value::as_str) == Some("move")
     });
+    let extended = counts.mole_clean + counts.extraction + counts.managed_app > 0;
+    let limit = if extended {
+        extensions::MAX_ROWS
+    } else {
+        MAX_ROWS
+    };
     let mut tables = Vec::new();
     let mut rows = 0;
     let mut bytes = 0;
-    for (table, width) in TABLES.iter().zip(WIDTHS) {
+    for (index, (table, width)) in TABLES
+        .iter()
+        .zip(WIDTHS)
+        .chain(extensions::TABLES.iter().map(|(t, w)| (t, *w)))
+        .enumerate()
+    {
+        if index >= TABLES.len() && !extended {
+            break;
+        }
+        if index >= TABLES.len() && !extensions::exists(db, table)? {
+            tables.push(Vec::new());
+            continue;
+        }
         if *table == crate::cleanup_space::TABLE && !crate::cleanup_space::has_rows(db)? {
-            if moves {
+            if moves || extended {
                 tables.push(Vec::new());
             }
             continue;
@@ -237,7 +273,7 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
         let mut q = db
             .prepare(&format!(
                 "SELECT * FROM {table} ORDER BY rowid LIMIT {}",
-                MAX_ROWS + 1
+                limit + 1
             ))
             .map_err(err)?;
         if q.column_count() != width {
@@ -247,7 +283,7 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
         let mut data = Vec::new();
         while let Some(row) = cursor.next().map_err(err)? {
             rows += 1;
-            if rows > MAX_ROWS {
+            if rows > limit {
                 return Err("归档条目超过预算。".into());
             }
             let mut cells = Vec::new();
@@ -279,7 +315,9 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
         return Err("归档读回不一致。".into());
     }
     Ok(Evidence {
-        version: if moves {
+        version: if extended {
+            4
+        } else if moves {
             3
         } else if tables.len() == 11 {
             1
@@ -293,12 +331,22 @@ fn collect(db: &Connection) -> Result<Evidence, String> {
     })
 }
 fn rebuild(tables: &Tables) -> Result<Connection, String> {
-    if ![11, 12].contains(&tables.len()) || tables.iter().map(Vec::len).sum::<usize>() > MAX_ROWS {
+    let limit = if tables.len() == 16 {
+        extensions::MAX_ROWS
+    } else {
+        MAX_ROWS
+    };
+    if ![11, 12, 16].contains(&tables.len()) || tables.iter().map(Vec::len).sum::<usize>() > limit {
         return Err("归档表集合或数量无效。".into());
     }
     let mut db = memory()?;
     let t = db.transaction().map_err(err)?;
-    for ((table, width), rows) in TABLES.iter().zip(WIDTHS).zip(tables) {
+    for ((table, width), rows) in TABLES
+        .iter()
+        .zip(WIDTHS)
+        .chain(extensions::TABLES.iter().map(|(t, w)| (t, *w)))
+        .zip(tables)
+    {
         let mut insert = t
             .prepare(&format!(
                 "INSERT INTO {table} VALUES ({})",
@@ -404,7 +452,23 @@ fn header(reader: &mut impl BufRead, length: u64) -> Result<Header, String> {
     let h: Header = serde_json::from_slice(&bytes).map_err(err)?;
     valid_id(&h.id)?;
     if h.format != "MooMole execution evidence"
-        || ![1, 2, 3].contains(&h.version)
+        || ![1, 2, 3, 4].contains(&h.version)
+        || (h.version < 4
+            && [
+                h.counts.mole_clean,
+                h.counts.extraction,
+                h.counts.managed_app,
+            ]
+            .iter()
+            .any(|n| *n > 0))
+        || (h.version == 4
+            && [
+                h.counts.mole_clean,
+                h.counts.extraction,
+                h.counts.managed_app,
+            ]
+            .iter()
+            .all(|n| *n == 0))
         || h.created_at < 0
         || h.counts.total() == 0
         || h.counts.total() > 64
@@ -457,7 +521,15 @@ fn load(path: &Path, private: bool) -> Result<Loaded, String> {
         return Err("读取期间归档已变化。".into());
     }
     let tables: Tables = serde_json::from_slice(&bytes).map_err(err)?;
-    if tables.len() != if h.version == 1 { 11 } else { 12 } {
+    if tables.len()
+        != if h.version == 4 {
+            16
+        } else if h.version == 1 {
+            11
+        } else {
+            12
+        }
+    {
         return Err("归档版本与表集合不一致。".into());
     }
     let database = rebuild(&tables)?;
@@ -564,7 +636,9 @@ fn archive_with(
     if names.len() > 64 {
         return Err("数据库结构超过归档验证范围。".into());
     }
-    for name in names.iter().filter(|name| !TABLES.contains(&name.as_str())) {
+    for name in names.iter().filter(|name| {
+        !TABLES.contains(&name.as_str()) && !extensions::TABLES.iter().any(|(t, _)| t == name)
+    }) {
         let quoted = name.replace('"', "\"\"");
         let mut q = t
             .prepare(&format!("PRAGMA foreign_key_list(\"{quoted}\")"))
@@ -574,7 +648,10 @@ fn archive_with(
             .map_err(err)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(err)?;
-        if references.iter().any(|r| TABLES.contains(&r.as_str())) {
+        if references
+            .iter()
+            .any(|r| TABLES.contains(&r.as_str()) || extensions::TABLES.iter().any(|(t, _)| t == r))
+        {
             return Err("其他表引用执行证据，未释放活动记录。".into());
         }
     }
@@ -633,7 +710,14 @@ fn archive_with(
             Kind::Cleanup => ROOTS[0],
             Kind::Uninstall => ROOTS[1],
             Kind::Maintenance => ROOTS[2],
+            Kind::MoleClean => "mole_clean_runs",
+            Kind::Extraction => "zip_extractions",
+            Kind::ManagedApp => "managed_app_runs",
         };
+        if e.kind == Kind::MoleClean {
+            t.execute("DELETE FROM mole_clean_events WHERE run_id=?1", [&e.id])
+                .map_err(err)?;
+        }
         if t.execute(&format!("DELETE FROM {table} WHERE id=?1"), [e.id])
             .map_err(|e| format!("归档副本已保存，活动记录提交失败；请刷新核对：{e}"))?
             != 1
@@ -709,6 +793,9 @@ pub(crate) fn detail(root: &Path, id: &str, kind: Kind, run: &str) -> Result<Val
         Kind::Cleanup => serde_json::to_value(execution::detail(&d.database, run)?),
         Kind::Uninstall => serde_json::to_value(uninstall::detail(&d.database, run)?),
         Kind::Maintenance => serde_json::to_value(maintenance::detail(&d.database, run)?),
+        Kind::MoleClean | Kind::Extraction | Kind::ManagedApp => {
+            return extensions::detail(&d.database, kind, run)
+        }
     }
     .map_err(err)
 }

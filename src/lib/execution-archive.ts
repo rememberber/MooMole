@@ -1,4 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
+import {
+  isJournalKind,
+  readJournalSummary,
+  readJournalRecord,
+  journalSummary,
+  type JournalKind,
+  type JournalSummary,
+  type JournalRecord,
+} from './archived-journals'
 import type { ExecutionDetail, ExecutionSummary } from '../types'
 import {
   parseUninstallDetail,
@@ -12,10 +21,17 @@ import {
   type RefreshDetail,
   type RefreshSummary,
 } from './quicklook-refresh'
-export type ArchiveKind = 'cleanup' | 'uninstall' | 'maintenance'
-export type ArchiveCounts = { cleanup: number; uninstall: number; maintenance: number }
+export type ArchiveKind = 'cleanup' | 'uninstall' | 'maintenance' | JournalKind
+export type ArchiveCounts = {
+  cleanup: number
+  uninstall: number
+  maintenance: number
+  moleClean?: number
+  extraction?: number
+  managedApp?: number
+}
 export type ArchiveHeader = {
-  version: 1 | 2 | 3
+  version: 1 | 2 | 3 | 4
   id: string
   createdAt: number
   counts: ArchiveCounts
@@ -26,10 +42,10 @@ export type ArchivePreview = { counts: ArchiveCounts; fingerprint: string; reser
 export type ArchiveEntry = {
   kind: ArchiveKind
   id: string
-  summary: ExecutionSummary | UninstallSummary | RefreshSummary
+  summary: ExecutionSummary | UninstallSummary | RefreshSummary | JournalSummary
 }
 export type ArchiveView = { header: ArchiveHeader; entries: ArchiveEntry[] }
-export type ArchiveDetail = ExecutionDetail | UninstallDetail | RefreshDetail
+export type ArchiveDetail = ExecutionDetail | UninstallDetail | RefreshDetail | JournalRecord
 export type ArchiveTransport = {
   prepare: () => Promise<unknown>
   archive: (fingerprint: string) => Promise<unknown>
@@ -68,7 +84,11 @@ export function counts(raw: unknown): ArchiveCounts {
       uninstall: integer(v.uninstall),
       maintenance: integer(v.maintenance),
     }
-  const total = result.cleanup + result.uninstall + result.maintenance
+  for (const key of ['moleClean', 'extraction', 'managedApp'] as const) {
+    const n = v[key] === undefined ? 0 : integer(v[key])
+    if (n) (result as ArchiveCounts)[key] = n
+  }
+  const total = Object.values(result).reduce((a, b) => a + b, 0)
   if (total < 1 || total > 64) fail()
   return result
 }
@@ -76,16 +96,19 @@ export function archiveHeader(raw: unknown): ArchiveHeader {
   const v = object(raw)
   if (
     v.format !== 'MooMole execution evidence' ||
-    ![1, 2, 3].includes(v.version as number) ||
+    ![1, 2, 3, 4].includes(v.version as number) ||
     integer(v.payloadBytes) > 128 * 1024 * 1024 ||
     v.payloadBytes === 0
   )
     fail()
+  const scope = counts(v.counts),
+    extra = (scope.moleClean ?? 0) + (scope.extraction ?? 0) + (scope.managedApp ?? 0)
+  if ((v.version === 4 && extra === 0) || (v.version !== 4 && extra > 0)) fail()
   return {
     version: v.version as ArchiveHeader['version'],
     id: id(v.id),
     createdAt: integer(v.createdAt),
-    counts: counts(v.counts),
+    counts: scope,
     payloadSha256: digest(v.payloadSha256),
     payloadBytes: integer(v.payloadBytes),
   }
@@ -135,9 +158,17 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
   const entries: ArchiveEntry[] = v.entries.map((raw): ArchiveEntry => {
     const row = object(raw),
       kind = row.kind
-    if (kind !== 'cleanup' && kind !== 'uninstall' && kind !== 'maintenance') return fail()
-    const summary =
-      kind === 'cleanup'
+    if (
+      kind !== 'cleanup' &&
+      kind !== 'uninstall' &&
+      kind !== 'maintenance' &&
+      !isJournalKind(kind)
+    )
+      return fail()
+    if (isJournalKind(kind) && header.version < 4) fail()
+    const summary = isJournalKind(kind)
+      ? readJournalSummary(row.summary, kind)
+      : kind === 'cleanup'
         ? cleanupSummary(row.summary)
         : kind === 'uninstall'
           ? parseUninstallSummary(row.summary)
@@ -158,18 +189,33 @@ export function archiveView(raw: unknown, expectedId: string): ArchiveView {
           ('itemState' in summary && summary.itemState === 'uncertain')))
     )
       fail()
-    found[kind]++
+    found[kind] = (found[kind] ?? 0) + 1
     return { kind, id: summary.id, summary }
   })
   if (
     new Set(entries.map((e) => e.kind + e.id)).size !== entries.length ||
-    Object.keys(found).some((k) => found[k as ArchiveKind] !== header.counts[k as ArchiveKind])
+    (
+      ['cleanup', 'uninstall', 'maintenance', 'moleClean', 'extraction', 'managedApp'] as const
+    ).some((k) => (found[k] ?? 0) !== (header.counts[k] ?? 0))
   )
     fail()
   return { header, entries }
 }
 export function archiveDetail(raw: unknown, entry: ArchiveEntry): ArchiveDetail {
   const v = object(raw)
+  if (isJournalKind(entry.kind)) {
+    const record = readJournalRecord(v, entry.kind),
+      summary = journalSummary(entry.kind, record)
+    if (
+      record.id !== entry.id ||
+      Object.entries(entry.summary).some(
+        ([k, value]) =>
+          JSON.stringify(summary[k as keyof JournalSummary]) !== JSON.stringify(value),
+      )
+    )
+      fail()
+    return record
+  }
   const parsed =
     entry.kind === 'uninstall'
       ? parseUninstallDetail(v, entry.id)
@@ -192,6 +238,9 @@ export const archiveKindName: Record<ArchiveKind, string> = {
   cleanup: '清理',
   uninstall: '卸载',
   maintenance: '维护',
+  moleClean: '完整清理',
+  extraction: '压缩包解压',
+  managedApp: 'Homebrew 卸载',
 }
 export const archiveStateName = (state: string, method?: string) =>
   method === 'move' && state === 'moved'
@@ -212,3 +261,10 @@ export const archiveStateName = (state: string, method?: string) =>
         pending: '未开始',
         intent: '等待完成证据',
       }[state] ?? '状态待核实')
+
+export const archiveEntryStateName = (kind: ArchiveKind, state: string) =>
+  kind === 'moleClean' && state === 'failed'
+    ? '执行失败，需核对已发生的结果'
+    : kind === 'managedApp' && state === 'removed'
+      ? '包与原 App 已核对不再存在'
+      : ({ retained: '已保留', unknown: '结果待核实' }[state] ?? archiveStateName(state))

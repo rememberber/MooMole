@@ -2,7 +2,7 @@ use super::plan::Plan;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 pub(crate) const RESERVED_BYTES: i64 = 12 * 1024 * 1024;
-const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS mole_clean_runs(id TEXT PRIMARY KEY, plan TEXT NOT NULL, state TEXT NOT NULL, created_at INTEGER NOT NULL, finished_at INTEGER, before_bytes INTEGER, after_bytes INTEGER, error TEXT, diagnostic TEXT NOT NULL DEFAULT '', reviewed_at INTEGER); CREATE TABLE IF NOT EXISTS mole_clean_events(run_id TEXT NOT NULL REFERENCES mole_clean_runs(id), seq INTEGER NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, detail TEXT NOT NULL, token TEXT NOT NULL, PRIMARY KEY(run_id,seq));";
+pub(crate) const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS mole_clean_runs(id TEXT PRIMARY KEY, plan TEXT NOT NULL, state TEXT NOT NULL, created_at INTEGER NOT NULL, finished_at INTEGER, before_bytes INTEGER, after_bytes INTEGER, error TEXT, diagnostic TEXT NOT NULL DEFAULT '', reviewed_at INTEGER); CREATE TABLE IF NOT EXISTS mole_clean_events(run_id TEXT NOT NULL REFERENCES mole_clean_runs(id), seq INTEGER NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, detail TEXT NOT NULL, token TEXT NOT NULL, PRIMARY KEY(run_id,seq));";
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Event {
@@ -87,6 +87,16 @@ pub fn finish(
     Ok(())
 }
 pub fn read(db: &Connection, id: &str) -> Result<Option<Record>, String> {
+    read_limited(db, id, 2000)
+}
+pub(crate) fn read_complete(db: &Connection, id: &str) -> Result<Option<Record>, String> {
+    let r = read_limited(db, id, 20000)?;
+    if r.as_ref().is_some_and(|r| r.events_truncated) {
+        return Err("完整清理事件超过归档范围，未释放记录。".into());
+    }
+    Ok(r)
+}
+fn read_limited(db: &Connection, id: &str, limit: usize) -> Result<Option<Record>, String> {
     init(db)?;
     let raw=db.query_row("SELECT plan,state,created_at,finished_at,before_bytes,after_bytes,error,diagnostic,reviewed_at FROM mole_clean_runs WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,Option<i64>>(3)?,r.get::<_,Option<u64>>(4)?,r.get::<_,Option<u64>>(5)?,r.get::<_,Option<String>>(6)?,r.get::<_,String>(7)?,r.get::<_,Option<i64>>(8)?))).optional().map_err(|e|e.to_string())?;
     let Some((
@@ -103,7 +113,7 @@ pub fn read(db: &Connection, id: &str) -> Result<Option<Record>, String> {
     else {
         return Ok(None);
     };
-    let mut s=db.prepare("SELECT seq,kind,path,detail,token FROM mole_clean_events WHERE run_id=?1 ORDER BY seq DESC LIMIT 2001").map_err(|e|e.to_string())?;
+    let mut s=db.prepare(&format!("SELECT seq,kind,path,detail,token FROM mole_clean_events WHERE run_id=?1 ORDER BY seq DESC LIMIT {}",limit+1)).map_err(|e|e.to_string())?;
     let mut events = s
         .query_map([id], |r| {
             Ok(Event {
@@ -117,8 +127,8 @@ pub fn read(db: &Connection, id: &str) -> Result<Option<Record>, String> {
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
-    let events_truncated = events.len() > 2000;
-    events.truncate(2000);
+    let events_truncated = events.len() > limit;
+    events.truncate(limit);
     events.reverse();
     Ok(Some(Record {
         id: id.into(),

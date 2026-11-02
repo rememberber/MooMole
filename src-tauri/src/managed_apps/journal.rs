@@ -1,6 +1,6 @@
 use super::*;
 use rusqlite::{params, Connection};
-const TABLE:&str="CREATE TABLE IF NOT EXISTS managed_app_runs(id TEXT PRIMARY KEY,request_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL CHECK(length(CAST(body AS BLOB))<=32768));";
+pub(crate) const TABLE:&str="CREATE TABLE IF NOT EXISTS managed_app_runs(id TEXT PRIMARY KEY,request_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL CHECK(length(CAST(body AS BLOB))<=32768));";
 fn valid(r: &Record) -> Result<(), String> {
     let uuid = |s: &str| uuid::Uuid::parse_str(s).is_ok();
     let clean =
@@ -46,7 +46,7 @@ fn valid(r: &Record) -> Result<(), String> {
     }
     Ok(())
 }
-pub(super) fn list(c: &Connection) -> Result<Vec<Record>, String> {
+pub(crate) fn list(c: &Connection) -> Result<Vec<Record>, String> {
     let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='managed_app_runs' AND type='table')",[],|r|r.get(0)).map_err(|e|e.to_string())?;
     if !exists {
         return Ok(vec![]);

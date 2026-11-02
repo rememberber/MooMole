@@ -1706,6 +1706,7 @@ export default function App() {
             </div>
           )}
           <ManagedAppCenter
+            refreshSignal={historyEpoch}
             desktop={api.desktop}
             target={managedTarget}
             onClose={() => setManagedTarget(null)}
@@ -1919,6 +1920,7 @@ export default function App() {
             </section>
           )}
           <MoleCleanupCenter
+            refreshSignal={historyEpoch}
             desktop={api.desktop}
             enabled={canRun && !executionActive}
             openSignal={moleCleanSignal}

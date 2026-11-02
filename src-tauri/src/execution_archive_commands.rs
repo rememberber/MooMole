@@ -36,20 +36,7 @@ fn idle(state: &AppState) -> Result<(), String> {
             .lock()
             .map_err(|_| "无法核对修改任务。")?
             .values()
-            .any(|j| {
-                matches!(
-                    j.kind,
-                    super::engine::TaskKind::LogTrash
-                        | super::engine::TaskKind::PersonalTrash
-                        | super::engine::TaskKind::PersonalMove
-                        | super::engine::TaskKind::FileRestore
-                        | super::engine::TaskKind::PersonalArchive
-                        | super::engine::TaskKind::StartupManagement
-                        | super::engine::TaskKind::PersonalTransfer
-                        | super::engine::TaskKind::AppTrash
-                        | super::engine::TaskKind::MaintenanceRefresh
-                )
-            })
+            .any(|j| j.kind.exclusive_operation())
     {
         return Err("请等待修改任务结束后再归档执行记录。".into());
     }
@@ -87,20 +74,7 @@ pub(crate) async fn archive_execution_history(
                 .lock()
                 .map_err(|_| "无法核对修改任务。")?
                 .values()
-                .any(|j| {
-                    matches!(
-                        j.kind,
-                        super::engine::TaskKind::LogTrash
-                            | super::engine::TaskKind::PersonalTrash
-                            | super::engine::TaskKind::PersonalMove
-                            | super::engine::TaskKind::FileRestore
-                            | super::engine::TaskKind::PersonalArchive
-                            | super::engine::TaskKind::StartupManagement
-                            | super::engine::TaskKind::PersonalTransfer
-                            | super::engine::TaskKind::AppTrash
-                            | super::engine::TaskKind::MaintenanceRefresh
-                    )
-                })
+                .any(|j| j.kind.exclusive_operation())
         {
             return Err("任务状态已变化，请稍后重新检查归档。".into());
         }

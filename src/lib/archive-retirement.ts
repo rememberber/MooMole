@@ -50,7 +50,10 @@ const sameHeader = (a: ArchiveHeader, b: ArchiveHeader) =>
   a.payloadBytes === b.payloadBytes &&
   a.counts.cleanup === b.counts.cleanup &&
   a.counts.uninstall === b.counts.uninstall &&
-  a.counts.maintenance === b.counts.maintenance
+  a.counts.maintenance === b.counts.maintenance &&
+  (['moleClean', 'extraction', 'managedApp'] as const).every(
+    (k) => (a.counts[k] ?? 0) === (b.counts[k] ?? 0),
+  )
 const sameDraft = (a: RetirementDraft, b: RetirementDraft) =>
   sameHeader(a.header, b.header) &&
   (['id', 'path', 'exported', 'bytes', 'sha256', 'createdAt', 'expiresAt'] as const).every(

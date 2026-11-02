@@ -1,3 +1,6 @@
+import { translate } from '../i18n/translate'
+import { ArchivedJournalDetail } from './ArchivedJournalDetail'
+import { isJournalKind, type JournalRecord } from '../lib/archived-journals'
 import { ArchiveRetirementPanel } from './ArchiveRetirementPanel'
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
@@ -13,6 +16,7 @@ import {
   archiveDetail,
   archiveKindName,
   archiveStateName,
+  archiveEntryStateName,
   type ArchiveTransport,
   type ArchivePreview,
   type ArchiveHeader,
@@ -22,7 +26,10 @@ import {
 } from '../lib/execution-archive'
 const message = (e: unknown) => String(e).replace(/^Error: /, '')
 const scope = (v: ArchiveHeader['counts']) =>
-  `清理与移动 ${v.cleanup} 批 · 卸载 ${v.uninstall} 批 · 维护 ${v.maintenance} 批`
+  translate(`清理与移动 ${v.cleanup} 批 · 卸载 ${v.uninstall} 批 · 维护 ${v.maintenance} 批`) +
+  (v.moleClean ? translate(` · 完整清理 ${v.moleClean} 批`) : '') +
+  (v.extraction ? translate(` · 压缩包解压 ${v.extraction} 批`) : '') +
+  (v.managedApp ? translate(` · Homebrew 卸载 ${v.managedApp} 批`) : '')
 export function ExecutionArchiveCenter({
   openSignal,
   enabled,
@@ -265,67 +272,79 @@ export function ExecutionArchiveCenter({
                   selected.summary.method === 'move'
                     ? '文件移动'
                     : archiveKindName[selected.kind]}{' '}
-                  · {archiveStateName(selected.summary.state)}
+                  · {archiveEntryStateName(selected.kind, selected.summary.state)}
                 </strong>
-                {detail && (
-                  <>
-                    {selected.kind === 'cleanup' && (
-                      <CleanupResultSummary detail={detail as ExecutionDetail} />
-                    )}
-                    {'path' in detail && <p className="mono full-path">{detail.path}</p>}
-                    {detail.reviewedAt !== null && (
-                      <p className="notice">已人工核查；原结果保持，核查不证明操作成功或已恢复。</p>
-                    )}
-                    {'reason' in detail && <p>{detail.reason}</p>}
-                    {'items' in detail &&
-                      detail.items.map((item, i) => (
-                        <article className="saved-plan-row" key={i}>
-                          <div>
-                            <strong>
-                              {'path' in item
-                                ? item.path
-                                : item.step === 'generators'
-                                  ? 'Quick Look 生成器列表'
-                                  : '缩略图缓存'}{' '}
-                              ·{' '}
-                              {archiveStateName(
-                                item.state,
-                                'method' in detail ? detail.method : undefined,
-                              )}
-                            </strong>
-                            <p>
-                              {'step' in item ? refreshReason(item.reason, item.stop) : item.reason}
-                            </p>
-                            {'targetPath' in item && item.targetPath && (
-                              <p className="mono full-path">→ {item.targetPath}</p>
-                            )}
-                            {'receipt' in item && item.receipt && (
-                              <p className="mono full-path">
-                                当时移入位置：{item.receipt.destination}
+                {detail && isJournalKind(selected.kind) ? (
+                  <ArchivedJournalDetail
+                    key={selected.kind + selected.id}
+                    kind={selected.kind}
+                    record={detail as JournalRecord}
+                  />
+                ) : (
+                  detail && (
+                    <>
+                      {selected.kind === 'cleanup' && (
+                        <CleanupResultSummary detail={detail as ExecutionDetail} />
+                      )}
+                      {'path' in detail && <p className="mono full-path">{detail.path}</p>}
+                      {detail.reviewedAt !== null && (
+                        <p className="notice">
+                          已人工核查；原结果保持，核查不证明操作成功或已恢复。
+                        </p>
+                      )}
+                      {'reason' in detail && <p>{detail.reason}</p>}
+                      {'items' in detail &&
+                        detail.items.map((item, i) => (
+                          <article className="saved-plan-row" key={i}>
+                            <div>
+                              <strong>
+                                {'path' in item
+                                  ? item.path
+                                  : item.step === 'generators'
+                                    ? 'Quick Look 生成器列表'
+                                    : '缩略图缓存'}{' '}
+                                ·{' '}
+                                {archiveStateName(
+                                  item.state,
+                                  'method' in detail ? detail.method : undefined,
+                                )}
+                              </strong>
+                              <p>
+                                {'step' in item
+                                  ? refreshReason(item.reason, item.stop)
+                                  : item.reason}
                               </p>
-                            )}
-                          </div>
-                        </article>
-                      ))}
-                    {'receipt' in detail && detail.receipt && (
-                      <p className="mono full-path">
-                        当时移入位置：{detail.receipt.actual.destination}
+                              {'targetPath' in item && item.targetPath && (
+                                <p className="mono full-path">→ {item.targetPath}</p>
+                              )}
+                              {'receipt' in item && item.receipt && (
+                                <p className="mono full-path">
+                                  当时移入位置：{item.receipt.destination}
+                                </p>
+                              )}
+                            </div>
+                          </article>
+                        ))}
+                      {'receipt' in detail && detail.receipt && (
+                        <p className="mono full-path">
+                          当时移入位置：{detail.receipt.actual.destination}
+                        </p>
+                      )}
+                      <p className="muted">
+                        收据记录的是当时位置，当前可能已变化。需要取回时请在 Finder
+                        核对对象；原位置已有同名对象时不要覆盖。
                       </p>
-                    )}
-                    <p className="muted">
-                      收据记录的是当时位置，当前可能已变化。需要取回时请在 Finder
-                      核对对象；原位置已有同名对象时不要覆盖。
-                    </p>
-                    <details>
-                      <summary>原始执行记录</summary>
-                      <pre
-                        className="mono full-path"
-                        style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-                      >
-                        {JSON.stringify(detail, null, 2)}
-                      </pre>
-                    </details>
-                  </>
+                      <details>
+                        <summary>原始执行记录</summary>
+                        <pre
+                          className="mono full-path"
+                          style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                        >
+                          {JSON.stringify(detail, null, 2)}
+                        </pre>
+                      </details>
+                    </>
+                  )
                 )}
                 <div className="modal-actions">
                   <button
@@ -363,7 +382,7 @@ export function ExecutionArchiveCenter({
                         · {'name' in e.summary ? e.summary.name : dateTime(e.summary.createdAt)}
                       </strong>
                       <small>
-                        {archiveStateName(e.summary.state)}
+                        {archiveEntryStateName(e.kind, e.summary.state)}
                         {e.summary.reviewedAt !== null ? ' · 已人工核查' : ''}
                       </small>
                     </span>
@@ -408,6 +427,9 @@ export function ExecutionArchiveCenter({
                 <p>
                   归档已结束且完成必要核查的执行记录，可释放活动历史的 64 批 / 64 MiB
                   预留上限。运行中或未核查的未知结果须先处理。
+                </p>
+                <p className="muted">
+                  应用更新、启动管理及其他恢复流程所需记录继续保留，不在本次归档范围内。
                 </p>
                 <div className="modal-actions">
                   <button

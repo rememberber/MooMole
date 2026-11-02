@@ -12878,5 +12878,90 @@
     "Live Photo 照片未取得本批已移入收据，短视频保留。",
     "No completed photo Trash receipt exists in this batch. The paired movie is retained.",
     "この処理に写真のゴミ箱への移動完了記録がないため、対応する短い動画を保持しました。"
+  ],
+  ["操作意图", "Operation intent", "操作の意図"],
+  ["已移除", "Removed", "削除済み"],
+  ["清理范围", "Cleanup scope", "クリーンアップ範囲"],
+  ["引擎记录", "Engine record", "エンジン記録"],
+  ["授权记录", "Authorization record", "認証記録"],
+  [
+    "完整清理沿用当时的 Mole 永久删除方式；归档不提供文件恢复。",
+    "Full cleanup used Mole’s permanent deletion at the time. This archive cannot restore files.",
+    "完全クリーンアップは当時の Mole の完全削除方式を使用しています。このアーカイブからファイルは復元できません。"
+  ],
+  ["包含系统范围", "Includes system scope", "システム範囲を含む"],
+  ["仅当前账户范围", "Current account only", "現在のアカウントのみ"],
+  [
+    "当时的清理范围与保护路径",
+    "Cleanup scope and protected paths at the time",
+    "当時のクリーンアップ範囲と保護パス"
+  ],
+  [
+    "当时可用空间：{0} → {1}",
+    "Available space at the time: {0} → {1}",
+    "当時の空き容量：{0} → {1}"
+  ],
+  ["当时可用空间：", "Available space at the time:", "当時の空き容量："],
+  ["未测得", "Not measured", "未測定"],
+  [
+    "完整事件 {0} 条 · 第 {1} / {2} 页",
+    "All {0} events · Page {1} / {2}",
+    "全 {0} 件のイベント · {1} / {2} ページ"
+  ],
+  ["完整事件", "All events", "すべてのイベント"],
+  ["条 · 第", "events · Page", "件 · ページ"],
+  ["上一页事件", "Previous events", "前のイベント"],
+  ["下一页事件", "Next events", "次のイベント"],
+  ["当时的诊断记录", "Diagnostics at the time", "当時の診断記録"],
+  [
+    "原压缩包与当时输出位置",
+    "Original archive and recorded output location",
+    "元の圧縮ファイルと当時の出力先"
+  ],
+  [
+    "{0} 个文件 · {1} 个目录 · {2}",
+    "{0} files · {1} directories · {2}",
+    "{0} ファイル · {1} ディレクトリ · {2}"
+  ],
+  ["个目录 ·", "directories ·", "ディレクトリ ·"],
+  ["当时的校验证据", "Verification evidence at the time", "当時の検証証拠"],
+  [
+    "归档仅保留当时的解压证据，不重新解压、覆盖或删除当前位置。",
+    "This archive preserves extraction evidence from the time. It does not extract again, overwrite, or delete anything at those locations.",
+    "当時の展開証拠のみを保存しています。現在の場所で再展開、上書き、削除は行いません。"
+  ],
+  [
+    "Homebrew 卸载没有废纸篓收据；归档不会重新调用包管理器，也不提供应用恢复。",
+    "Homebrew uninstall has no Trash receipt. This archive does not run the package manager again or restore the app.",
+    "Homebrew のアンインストールにはゴミ箱の記録がありません。パッケージ管理の再実行やアプリの復元は行いません。"
+  ],
+  [" · 完整清理 {0} 批", " · Full cleanup: {0} batches", " · 完全クリーンアップ {0} 件"],
+  [" · 压缩包解压 {0} 批", " · Extraction: {0} batches", " · 圧縮ファイル展開 {0} 件"],
+  [
+    " · Homebrew 卸载 {0} 批",
+    " · Homebrew uninstall: {0} batches",
+    " · Homebrew アンインストール {0} 件"
+  ],
+  [
+    "应用更新、启动管理及其他恢复流程所需记录继续保留，不在本次归档范围内。",
+    "Records needed for app updates, startup management, and other recovery flows are retained outside this archive scope.",
+    "アプリ更新、起動管理、その他の復元に必要な記録は引き続き保持され、今回のアーカイブ対象に含まれません。"
+  ],
+  [
+    "归档扩展记录无法核对；不会恢复执行或重新调用命令。",
+    "The additional archived record could not be verified. Execution will not resume and no command will be run again.",
+    "追加のアーカイブ記録を確認できません。実行の再開やコマンドの再実行は行いません。"
+  ],
+  ["压缩包解压", "Archive extraction", "圧縮ファイル展開"],
+  ["Homebrew 卸载", "Homebrew uninstall", "Homebrew アンインストール"],
+  [
+    "执行失败，需核对已发生的结果",
+    "Execution failed; review the results that occurred",
+    "実行失敗。実際の結果を確認してください"
+  ],
+  [
+    "包与原 App 已核对不再存在",
+    "Package and original app verified absent",
+    "パッケージと元のアプリが存在しないことを確認済み"
   ]
 ]

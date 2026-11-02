@@ -34,12 +34,14 @@ export function MoleCleanupCenter({
   enabled,
   openSignal,
   historySignal,
+  refreshSignal = 0,
   onActiveChange,
 }: {
   desktop: boolean
   enabled: boolean
   openSignal: number
   historySignal: number
+  refreshSignal?: number
   onActiveChange: (active: boolean) => void
 }) {
   useNow()
@@ -62,6 +64,8 @@ export function MoleCleanupCenter({
   const epoch = useRef(0),
     live = useRef(true),
     reading = useRef(false),
+    historyGeneration = useRef(0),
+    refreshPending = useRef(false),
     pending = useRef(false),
     selection = useRef(selected),
     currentPlan = useRef(plan),
@@ -72,16 +76,22 @@ export function MoleCleanupCenter({
   async function read(id = selection.current, quiet = false) {
     if (!desktop || reading.current) return
     reading.current = true
+    const generation = historyGeneration.current
     try {
       const next = await moleCleanTransport.read(id)
-      if (!live.current) return
+      if (!live.current || generation !== historyGeneration.current) return
       setSnapshot(next)
       setTrackingError('')
       callback.current(!!next.activeRequest)
     } catch (e) {
-      if (live.current && !quiet) setTrackingError(String(e).replace(/^Error: /, ''))
+      if (live.current && generation === historyGeneration.current && !quiet)
+        setTrackingError(String(e).replace(/^Error: /, ''))
     } finally {
       reading.current = false
+      if (live.current && refreshPending.current) {
+        refreshPending.current = false
+        void read(null)
+      }
     }
   }
   useEffect(() => {
@@ -99,6 +109,15 @@ export function MoleCleanupCenter({
     const timer = setInterval(() => void read(), 1000)
     return () => clearInterval(timer)
   }, [desktop, open, snapshot?.activeRequest, trackingError])
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      historyGeneration.current++
+      setSelected(null)
+      setSnapshot(null)
+      if (reading.current) refreshPending.current = true
+      else void read(null)
+    }
+  }, [refreshSignal])
   async function prepare(includeSystem: boolean) {
     if (pending.current || !desktop || !enabled || snapshot?.activeRequest) return
     pending.current = true

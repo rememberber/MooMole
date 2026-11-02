@@ -111,3 +111,77 @@ test('closing a pending read does not reopen the archive when its response arriv
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect(await calls(page, 'archive')).toHaveLength(0)
 })
+
+test('v4 includes all shared-capacity journals and reads full Mole pages without offering mutation', async ({
+  page,
+}) => {
+  await mount(page, 'v4')
+  const d = page.getByRole('dialog')
+  await d.getByRole('button', { name: '检查当前执行记录' }).click()
+  await expect(d).toContainText('完整清理 1 批 · 压缩包解压 1 批 · Homebrew 卸载 1 批')
+  await d.getByRole('checkbox').check()
+  await d.getByRole('button', { name: '保存归档并释放容量' }).dblclick()
+  await expect(d.getByRole('button', { name: /查看记录/ })).toHaveCount(6)
+  await d.getByRole('button', { name: /完整清理 · Mole/ }).click()
+  await expect(d).toContainText('执行失败，需核对已发生的结果')
+  await expect(d).not.toContainText('失败，未作修改')
+  await expect(d).toContainText('完整事件 2101 条 · 第 1 / 22 页')
+  await expect(d.locator('article')).toHaveCount(100)
+  await expect(d.getByRole('button', { name: '上一页事件' })).toBeDisabled()
+  for (let page = 2; page <= 22; page++) await d.getByRole('button', { name: '下一页事件' }).click()
+  await expect(d).toContainText('owned event 2101')
+  await expect(d.locator('article')).toHaveCount(1)
+  await expect(d.getByRole('button', { name: '下一页事件' })).toBeDisabled()
+  await expect(d.locator('details').filter({ hasText: '原始执行记录' }).locator('pre')).toHaveCount(
+    0,
+  )
+  await d.getByRole('button', { name: '返回归档', exact: true }).click()
+  for (const kind of ['压缩包解压', 'Homebrew 卸载']) {
+    await d.getByRole('button', { name: new RegExp(kind + ' ·') }).click()
+    await expect(d).toContainText(
+      kind === '压缩包解压' ? '/absent/source.tar.gz' : '/opt/homebrew/bin/brew',
+    )
+    await expect(d).not.toContainText('当时移入位置')
+    await expect(d.getByRole('button', { name: /执行|重新解压|恢复|核查|卸载/ })).toHaveCount(0)
+    await d.getByText('原始执行记录', { exact: true }).click()
+    await expect(d.locator('pre')).toContainText('"phase": "finished"')
+    await d.getByRole('button', { name: '返回归档', exact: true }).click()
+  }
+  await d.getByRole('button', { name: '导出归档…' }).click()
+  expect(await calls(page, 'archive')).toHaveLength(1)
+  expect(await calls(page, 'export')).toHaveLength(1)
+  expect(await page.evaluate(() => window.archiveFixture.changed())).toBe(1)
+  expect(
+    (await page.evaluate(() => window.archiveFixture.calls)).every((c) =>
+      ['list', 'prepare', 'archive', 'view', 'detail', 'export'].includes(c.command),
+    ),
+  ).toBe(true)
+})
+for (const language of ['zh', 'en', 'ja'] as const)
+  test(`v4 ${language} review fits a compact desktop and preserves raw paths`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 960, height: 780 })
+    await mount(page, 'v4')
+    // Switch only after locating the Chinese fixture launcher.
+    await page.evaluate(
+      async (language) => (await import('/src/i18n/locale.ts')).setLanguagePreference(language),
+      language,
+    )
+    const d = page.getByRole('dialog')
+    const prepare = {
+      zh: '检查当前执行记录',
+      en: 'Check current execution records',
+      ja: '現在の実行記録を確認',
+    }[language]
+    await d.getByRole('button', { name: prepare, exact: true }).click()
+    expect(await d.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+    if (language === 'en') await expect(d).not.toContainText(/[\p{Script=Han}]/u)
+    await d.screenshot({ path: testInfo.outputPath(`archive-v4-${language}-confirm.png`) })
+    await d.getByRole('checkbox').check()
+    await d.locator('button.primary').click()
+    await d.getByRole('button').filter({ hasText: /Mole/ }).click()
+    await expect(d).toContainText('/absent/historical-account')
+    expect(await d.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+    await d.screenshot({ path: testInfo.outputPath(`archive-v4-${language}-detail.png`) })
+  })

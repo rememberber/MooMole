@@ -595,3 +595,5 @@ pub(super) fn retirement_fixture() -> (tempfile::TempDir,Connection,PathBuf,Head
     let preview=prepare(&mut f.db).unwrap();let header=archive(&mut f.db,&root,&preview.fingerprint,db::now()).unwrap();
     (f.root,f.db,root,header)
 }
+
+mod extensions;

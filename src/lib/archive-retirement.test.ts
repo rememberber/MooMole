@@ -83,3 +83,22 @@ it('rejects invented success and active-request mismatches while retaining unkno
   ])
     expect(() => retirementSnapshot(raw)).toThrow()
 })
+
+it('binds all six v4 journal counts when retiring a verified local archive copy', () => {
+  const h = {
+      ...header,
+      version: 4 as const,
+      counts: { ...header.counts, moleClean: 1, extraction: 1, managedApp: 1 },
+    },
+    expected = { ...h },
+    raw = { ...draft, header: h }
+  const parsed = retirementDraft(raw, expected)
+  expect(parsed.header.counts).toEqual(h.counts)
+  for (const key of ['moleClean', 'extraction', 'managedApp'] as const) {
+    const changed = { ...raw, header: { ...h, counts: { ...h.counts, [key]: 2 } } }
+    expect(() => retirementDraft(changed, expected)).toThrow()
+    expect(() =>
+      retirementRecord({ ...record, draft: changed }, parsed, record.requestId),
+    ).toThrow()
+  }
+})

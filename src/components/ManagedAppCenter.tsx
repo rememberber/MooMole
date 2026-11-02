@@ -14,6 +14,7 @@ export function ManagedAppCenter({
   target,
   onClose,
   historyVisible,
+  refreshSignal = 0,
   desktop,
   enabled,
   onActiveChange,
@@ -22,6 +23,7 @@ export function ManagedAppCenter({
   target: UninstallTarget | null
   onClose: () => void
   historyVisible: boolean
+  refreshSignal?: number
   desktop: boolean
   enabled: boolean
   onActiveChange: (v: boolean) => void
@@ -74,7 +76,7 @@ export function ManagedAppCenter({
       live = false
       if (timer) clearTimeout(timer)
     }
-  }, [desktop, historyVisible, target, onActiveChange, busy])
+  }, [desktop, historyVisible, target, onActiveChange, busy, refreshSignal])
   useEffect(() => {
     const current = ++generation.current
     let live = true,
