@@ -24,7 +24,14 @@ fn main() {
             .flag("-fobjc-arc")
             .flag("-fblocks")
             .compile("moomole_live_photo");
+        println!("cargo:rerun-if-changed=native/storage_notifications.m");
+        cc::Build::new()
+            .file("native/storage_notifications.m")
+            .flag("-fobjc-arc")
+            .flag("-fblocks")
+            .compile("moomole_storage_notifications");
         for framework in [
+            "UserNotifications",
             "Photos",
             "AppKit",
             "Foundation",

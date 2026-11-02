@@ -96,6 +96,7 @@ mod space_explanation;
 mod startup_management;
 mod status_watch;
 mod storage_monitor;
+mod storage_notifications;
 mod tasks;
 mod tree;
 mod uninstall_confirmation;
@@ -2462,6 +2463,7 @@ pub fn run() {
             personal_files::automation::runtime::start(app.state::<AppState>().inner().clone());
             personal_files::preview::stream::start(app.state::<AppState>().inner().clone());
             menu_bar::start(app.handle());
+            storage_notifications::start(app.handle());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
             // Restore only after database ownership, without holding a mutex
@@ -2475,6 +2477,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            storage_notifications::get_storage_notifications,
+            storage_notifications::request_storage_notification_permission,
+            storage_notifications::configure_storage_notifications,
+            storage_notifications::test_storage_notification,
             storage_monitor::get_storage_monitor,
             storage_monitor::configure_storage_monitor,
             storage_monitor::sample_storage_monitor,

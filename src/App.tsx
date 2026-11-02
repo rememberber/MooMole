@@ -1,3 +1,5 @@
+import { StorageNotifications } from './components/StorageNotifications'
+import { storageNotificationsTransport } from './lib/storage-notifications'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
@@ -2547,6 +2549,10 @@ export default function App() {
                 enabled={api.desktop}
                 transport={storageMonitorTransport}
                 onAnalyze={() => changePage('analyze')}
+              />
+              <StorageNotifications
+                enabled={api.desktop}
+                transport={storageNotificationsTransport}
               />
               <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
               <ScheduledFiles

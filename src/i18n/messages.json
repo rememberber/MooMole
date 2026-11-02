@@ -12963,5 +12963,132 @@
     "包与原 App 已核对不再存在",
     "Package and original app verified absent",
     "パッケージと元のアプリが存在しないことを確認済み"
-  ]
+  ],
+  ["低空间系统提醒", "Low-space system reminders", "空き容量のシステム通知"],
+  ["刷新提醒状态", "Refresh reminder status", "通知の状態を更新"],
+  [
+    "默认关闭。仅在 MooMole 运行、定期空间观察已开启且最近样本可靠低于所选阈值时提醒。同一次低空间状态只提交一次，恢复到阈值以上 1 GiB 后再触发；不处理文件。",
+    "Off by default. Reminders require MooMole to be running, scheduled observations enabled, and a reliable recent reading below your threshold. Each low-space episode is submitted once; another can start after space recovers to 1 GiB above the threshold. No files are processed.",
+    "初期状態はオフです。MooMole が起動中で定期観測が有効、かつ信頼できる直近の記録がしきい値未満の場合のみ通知します。同じ容量不足では一度だけ送信し、しきい値より 1 GiB 多く回復すると再度通知できます。ファイルは処理しません。"
+  ],
+  ["低空间系统提醒已开启", "Low-space system reminders are on", "空き容量のシステム通知はオンです"],
+  [
+    "低空间系统提醒已关闭",
+    "Low-space system reminders are off",
+    "空き容量のシステム通知はオフです"
+  ],
+  [
+    "尚未申请系统通知权限",
+    "System notification permission has not been requested",
+    "システム通知の許可は未申請です"
+  ],
+  ["系统已允许通知", "System notifications are allowed", "システム通知が許可されています"],
+  ["系统已拒绝通知", "System notifications are denied", "システム通知は拒否されています"],
+  [
+    "系统通知权限或显示方式待核对",
+    "Check system notification permission and display settings",
+    "システム通知の許可と表示設定を確認してください"
+  ],
+  [
+    "定期空间观察当前关闭，自动提醒不会运行；请在上方单独保存观察设置。",
+    "Scheduled observations are off, so automatic reminders will not run. Save observation settings separately above.",
+    "定期観測がオフのため、自動通知は動作しません。上の観測設定を別途保存してください。"
+  ],
+  ["申请系统通知权限", "Request system notification permission", "システム通知の許可を申請"],
+  ["关闭低空间提醒", "Turn off low-space reminders", "空き容量の通知をオフにする"],
+  ["开启低空间提醒", "Turn on low-space reminders", "空き容量の通知をオンにする"],
+  [
+    "申请权限不会开启提醒或定期采集。macOS 的专注模式、显示设置以及 App 在前台等情况可能影响显示；“已提交”只表示系统接受请求。可在系统设置的“通知”中核对 MooMole。",
+    "Requesting permission does not enable reminders or scheduled observations. Focus mode, display settings, and having the app in the foreground can affect visibility. “Submitted” only means macOS accepted the request. Check MooMole under Notifications in System Settings.",
+    "許可の申請だけでは通知や定期観測は有効になりません。集中モード、表示設定、アプリの前面表示などが通知の表示に影響する場合があります。「送信済み」は macOS が要求を受け付けたことのみを示します。システム設定の「通知」で MooMole を確認してください。"
+  ],
+  ["测试提醒与最近记录", "Test reminder and recent records", "テスト通知と最近の記録"],
+  [
+    "我确认向本机提交一条测试通知，不改变定期观察或提醒开关。",
+    "I confirm submitting one test notification on this Mac without changing scheduled observations or reminder settings.",
+    "定期観測や通知の設定を変更せず、この Mac にテスト通知を一件送信することを確認します。"
+  ],
+  ["发送一条测试提醒", "Send one test reminder", "テスト通知を一件送信"],
+  ["暂无系统提醒记录。", "No system reminder records yet.", "システム通知の記録はまだありません。"],
+  ["测试提醒", "Test reminder", "テスト通知"],
+  ["低空间提醒", "Low-space reminder", "空き容量の通知"],
+  [
+    "当时可用空间 {0} · 阈值 {1}",
+    "Available space at the time: {0} · Threshold: {1}",
+    "当時の空き容量 {0} · しきい値 {1}"
+  ],
+  ["当时可用空间", "Available space at the time", "当時の空き容量"],
+  ["· 阈值", "· Threshold", "· しきい値"],
+  [
+    "最多保留最近 50 条提交记录。中断或未知不会自动重发；关闭开关不会撤回已交给 macOS 的通知。",
+    "Keeps up to 50 recent submission records. Interrupted or unknown submissions are never resent automatically. Turning reminders off does not recall notifications already submitted to macOS.",
+    "最新の送信記録を最大 50 件保存します。中断や不明の結果は自動再送しません。オフにしても macOS に送信済みの通知は取り消されません。"
+  ],
+  [
+    "系统提醒状态无法核对，请刷新；不会自动申请权限或重新发送。",
+    "System reminder status could not be verified. Refresh to check; permission will not be requested and notifications will not be resent automatically.",
+    "システム通知の状態を確認できません。更新してください。許可の自動申請や自動再送は行いません。"
+  ],
+  [
+    "正在提交，显示结果尚未知",
+    "Submitting; display status is unknown",
+    "送信中。表示結果は不明です"
+  ],
+  [
+    "已提交给 macOS，不代表已显示",
+    "Submitted to macOS; display is not confirmed",
+    "macOS に送信済み。表示は未確認です"
+  ],
+  ["本次未能提交", "Could not submit this time", "今回は送信できませんでした"],
+  [
+    "提交结果未知，不会自动重试",
+    "Submission result unknown; no automatic retry",
+    "送信結果は不明です。自動再試行はしません"
+  ],
+  [
+    "请在打包后的 macOS App 中使用系统提醒。",
+    "Use system reminders in the packaged macOS app.",
+    "パッケージ化した macOS アプリでシステム通知をご利用ください。"
+  ],
+  [
+    "系统尚未允许提醒，请检查 macOS 通知设置。",
+    "System reminders are not allowed. Check macOS notification settings.",
+    "システム通知が許可されていません。macOS の通知設定を確認してください。"
+  ],
+  [
+    "系统授权尚未取得结果；未开启提醒，请核对系统提示后刷新。",
+    "System permission has not returned a result. Reminders remain off; check the system prompt, then refresh.",
+    "システム許可の結果を取得できていません。通知は有効になっていません。システムの確認画面を確認して更新してください。"
+  ],
+  [
+    "提醒设置来自其他版本，原设置保持，请使用相应版本打开。",
+    "Reminder settings use another version. The original settings are preserved; open them with a compatible version.",
+    "通知設定は別のバージョンのものです。元の設定を保持しています。対応するバージョンで開いてください。"
+  ],
+  [
+    "另一项提醒操作仍在进行，请稍后刷新。",
+    "Another reminder operation is still running. Refresh shortly.",
+    "別の通知操作が進行中です。しばらくしてから更新してください。"
+  ],
+  [
+    "上次提交在应用退出前没有取得完整结果，不会重新发送。",
+    "The previous submission had no complete result before the app exited. It will not be resent.",
+    "前回の送信はアプリ終了前に完全な結果を取得できませんでした。再送しません。"
+  ],
+  [
+    "未及时取得系统提交结果；通知可能已经提交，不会自动重发。",
+    "The system submission result did not arrive in time. The notification may already be submitted and will not be resent automatically.",
+    "システムへの送信結果を時間内に取得できませんでした。送信済みの可能性があるため、自動再送しません。"
+  ],
+  [
+    "系统提醒未取得可靠结果，请刷新核对；不会自动申请权限或重新发送。",
+    "No reliable system reminder result was received. Refresh to check; permission requests and resubmission are never automatic.",
+    "システム通知の確かな結果を取得できませんでした。更新して確認してください。許可申請や再送は自動では行いません。"
+  ],
+  [
+    "请先确认首次使用说明。",
+    "Confirm the first-use notice first.",
+    "初回利用時の説明を先に確認してください。"
+  ],
+  ["应用正在退出。", "The app is closing.", "アプリを終了しています。"]
 ]

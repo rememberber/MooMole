@@ -5064,3 +5064,13 @@ input[type='checkbox'] {
 .live-photo-ack input {
   flex-shrink: 0;
 }
+
+.storage-notification-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 20px;
+  line-height: 1.6;
+}
+.storage-notification-body > details > :not(summary) {
+  margin-top: 12px;
+}
