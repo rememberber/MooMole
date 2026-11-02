@@ -5014,3 +5014,53 @@ input[type='checkbox'] {
   color: var(--muted);
   text-align: center;
 }
+
+.live-photo-pairs {
+  display: grid;
+  gap: 12px;
+}
+.live-photo-scope {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+.live-photo-scope .personal-path {
+  display: grid;
+  min-width: 0;
+}
+.live-photo-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.live-photo-row > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.live-photo-row strong {
+  overflow-wrap: anywhere;
+}
+.live-photo-resources {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.live-photo-confirmation-items {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+}
+.live-photo-confirmation-items p {
+  margin: 0;
+}
+.live-photo-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+}
+.live-photo-ack input {
+  flex-shrink: 0;
+}

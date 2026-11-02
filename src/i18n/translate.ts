@@ -18,6 +18,7 @@ const literalValues = new Map<string, readonly number[]>([
     '移除保护 {0}',
     '审阅 {0}',
     '选择 {0}',
+    '选择 Live Photo {0}',
     '对比 {0}',
     '查看 {0}',
     '查看 {0} 详情',

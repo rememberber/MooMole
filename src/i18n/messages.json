@@ -12734,5 +12734,149 @@
     "已安装收据的实际目标与所选 App 不同，保留。",
     "The installed receipt points to a different target than the selected app. Retained.",
     "インストール記録の実際の対象が選択したアプリと異なるため、保持しました。"
+  ],
+  ["文件整理类型", "File organization type", "ファイル整理の種類"],
+  ["普通文件", "Ordinary files", "通常のファイル"],
+  [
+    "Live Photo 确认缺少配对范围。",
+    "The Live Photo confirmation is missing its pair scope.",
+    "Live Photo の確認にペアの範囲がありません。"
+  ],
+  ["Live Photo 导出目录", "Live Photo export folder", "Live Photo の書き出しフォルダ"],
+  ["扫描 Live Photo 对", "Scan Live Photo pairs", "Live Photo のペアをスキャン"],
+  ["停止本次扫描或处理", "Stop this scan or operation", "今回のスキャンまたは処理を停止"],
+  [
+    "核对普通文件夹中已导出的照片与短视频。相同文件名只用于寻找候选，系统需确认两份资源可组成 Live Photo；不进入照片图库，也不判断它们重复或可以丢弃。",
+    "Check exported photos and short movies in an ordinary folder. Matching names only identify candidates; the system must confirm that both resources form a Live Photo. This does not open the Photos library or decide whether files are duplicates or disposable.",
+    "通常のフォルダに書き出した写真と短い動画を確認します。同名は候補の検索にのみ使い、両方のリソースで Live Photo を構成できることをシステムで確認します。写真ライブラリには入らず、重複や不要とは判断しません。"
+  ],
+  ["Live Photo 范围与处理方式", "Live Photo scope and handling", "Live Photo の範囲と処理方法"],
+  [
+    "当前核对同一文件夹、同名的 JPEG/HEIC/HEIF 与 MOV。缺失、同名多份、错配、受保护或无法确认的资源保留；改名、其他格式和图库内资源需另行检查。",
+    "Currently checks JPEG/HEIC/HEIF and MOV resources with the same base name in the same folder. Missing, ambiguous, mismatched, protected or unverifiable resources are retained. Renamed files, other formats and library resources need separate checks.",
+    "同じフォルダで同じ基本名の JPEG/HEIC/HEIF と MOV を確認します。欠落、同名の複数候補、不一致、保護、確認不能のリソースは保持します。改名、他の形式、ライブラリ内のリソースは別途確認が必要です。"
+  ],
+  [
+    "默认不选，每次最多 10 对。照片和短视频一起进入确认，但系统按文件依次移入废纸篓；停止或失败可能只完成其中一份，必须查看逐文件结果。不会清空废纸篓或承诺立即释放空间。",
+    "Nothing is selected by default; up to 10 pairs per operation. Both resources enter confirmation together, but the system moves files to Trash in sequence. Stopping or failure may leave only one completed; check each file result. This does not empty Trash or promise immediate space recovery.",
+    "初期状態では未選択で、1 回に最大 10 ペアです。写真と短い動画を一緒に確認しますが、ゴミ箱にはファイルごとに順番に移動します。停止や失敗で片方だけ完了する場合があるため、個別の結果を確認してください。ゴミ箱の消去や即時の空き容量確保は行いません。"
+  ],
+  [
+    "正在核对或处理 Live Photo 资源，可停止并核对实际结果。",
+    "Checking or processing Live Photo resources. You can stop and check actual results.",
+    "Live Photo のリソースを確認または処理中です。停止して実際の結果を確認できます。"
+  ],
+  [
+    "已核对 {0} 组同名候选，系统确认 {1} 对；未确认 {2} 组，缺失或歧义资源 {3} 份。",
+    "Checked {0} same-name candidates; the system confirmed {1} pairs. {2} candidates remain unconfirmed; {3} resources are missing a unique partner.",
+    "同名候補 {0} 組を確認し、システムで {1} ペアを確認しました。未確認は {2} 組、対応先が欠落または曖昧なリソースは {3} 件です。"
+  ],
+  [
+    "组同名候选，系统确认",
+    "same-name candidates; system confirmed",
+    "組の同名候補を確認、システムで確認"
+  ],
+  ["对；未确认", "pairs; unconfirmed", "ペア、未確認"],
+  [
+    "组，缺失或歧义资源",
+    "candidates; unpaired or ambiguous resources",
+    "組、欠落または曖昧なリソース"
+  ],
+  ["份。", "resources.", "件。"],
+  [
+    "本次未完整覆盖目录；未显示的资源保持原样，不能据此认定没有其他 Live Photos。",
+    "This scan did not cover the whole folder. Unlisted resources are unchanged; other Live Photos may exist.",
+    "今回のスキャンはフォルダ全体を網羅していません。未表示のリソースは変更せず、他の Live Photos がないとは判断できません。"
+  ],
+  [
+    "目录已改变或扫描已过期，请重新扫描 Live Photo 对。",
+    "The folder changed or the scan expired. Scan Live Photo pairs again.",
+    "フォルダが変わったかスキャン期限が切れました。Live Photo のペアを再スキャンしてください。"
+  ],
+  ["搜索 Live Photo", "Search Live Photos", "Live Photo を検索"],
+  ["名称或路径", "Name or path", "名前またはパス"],
+  ["两份均早于", "Both modified before", "両方の更新日時"],
+  ["Live Photo 修改时间", "Live Photo modification time", "Live Photo の更新日時"],
+  ["不限", "Any", "指定なし"],
+  ["180 天", "180 days", "180 日"],
+  ["365 天", "365 days", "365 日"],
+  ["合计大小", "Combined size", "合計サイズ"],
+  ["Live Photo 合计大小", "Live Photo combined size", "Live Photo の合計サイズ"],
+  ["已选 {0} 对 · {1} 份文件", "Selected {0} pairs · {1} files", "{0} ペアを選択 · {1} ファイル"],
+  ["对 ·", "pairs ·", "ペア ·"],
+  ["份文件", "files", "ファイル"],
+  ["审阅所选整对文件", "Review selected pairs", "選択したペアを確認"],
+  ["Live Photo 配对资源", "Live Photo paired resources", "Live Photo のペアのリソース"],
+  ["选择 Live Photo {0}", "Select Live Photo {0}", "Live Photo {0} を選択"],
+  ["预览照片", "Preview photo", "写真をプレビュー"],
+  ["预览短视频", "Preview short movie", "短い動画をプレビュー"],
+  [
+    "没有匹配的已确认 Live Photo 对，可调整筛选或检查导出资源。",
+    "No confirmed Live Photo pairs match. Adjust filters or check the exported resources.",
+    "一致する確認済みの Live Photo ペアがありません。絞り込みを変更するか書き出したリソースを確認してください。"
+  ],
+  ["Live Photo 逐文件结果", "Live Photo results by file", "Live Photo のファイル別結果"],
+  [
+    "已移入 {0} / {1} 份文件 · 待核实 {2} 份",
+    "Moved {0} / {1} files to Trash · {2} unconfirmed",
+    "{0} / {1} ファイルをゴミ箱に移動 · 要確認 {2} 件"
+  ],
+  ["份文件 · 待核实", "files · unconfirmed", "ファイル · 要確認"],
+  [
+    "请核对照片和短视频各自的结果；一份完成不代表整对完成。",
+    "Check the photo and movie results separately; one completed file does not mean the pair completed.",
+    "写真と短い動画の結果をそれぞれ確認してください。片方の完了はペア全体の完了を意味しません。"
+  ],
+  ["本项未确认完成", "Completion unconfirmed for this file", "このファイルの完了は未確認"],
+  [
+    "确认处理 Live Photo 整对文件",
+    "Confirm processing whole Live Photo pairs",
+    "Live Photo ペア全体の処理を確認"
+  ],
+  [
+    "将所选照片及对应短视频依次移入废纸篓。动态、声音与照片可能各含独有内容；停止或失败可能只完成一部分，请按收据核对。",
+    "Move the selected photos and paired movies to Trash in sequence. Motion, audio and photos may each contain unique content. Stopping or failure may partially complete; check the receipts.",
+    "選択した写真と対応する短い動画を順番にゴミ箱へ移動します。動き、音声、写真にはそれぞれ固有の内容がある場合があります。停止や失敗で一部のみ完了することがあるため、記録で確認してください。"
+  ],
+  [
+    "本次 {0} 对 · {1} 份文件",
+    "This operation: {0} pairs · {1} files",
+    "今回 {0} ペア · {1} ファイル"
+  ],
+  ["本次", "This operation", "今回"],
+  [
+    "我已核对两份资源，了解逐文件处理、部分完成及废纸篓恢复的边界。",
+    "I checked both resources and understand file-by-file processing, partial completion and Trash recovery limits.",
+    "両方のリソースを確認し、ファイルごとの処理、一部のみの完了、ゴミ箱からの復元の制限を理解しました。"
+  ],
+  [
+    "确认已过期，请关闭后重新审阅。",
+    "Confirmation expired. Close and review again.",
+    "確認期限が切れました。閉じて再確認してください。"
+  ],
+  [
+    "确认移入所选整对文件",
+    "Confirm moving selected pairs to Trash",
+    "選択したペアのゴミ箱への移動を確認"
+  ],
+  [
+    "此入口不支持 Live Photo 扫描。",
+    "This entry does not support Live Photo scanning.",
+    "この入口では Live Photo のスキャンに対応していません。"
+  ],
+  [
+    "Live Photo 必须同时选择照片和短视频，不能只处理其中一份。",
+    "Select both the photo and movie of a Live Photo; processing only one is not allowed here.",
+    "Live Photo の写真と短い動画を両方選択してください。ここでは片方だけの処理はできません。"
+  ],
+  [
+    "系统 Live Photo 配对未在期限内完成，保留。",
+    "System Live Photo pairing did not finish in time. Retained.",
+    "システムの Live Photo ペア確認が期限内に完了しなかったため、保持しました。"
+  ],
+  [
+    "Live Photo 照片未取得本批已移入收据，短视频保留。",
+    "No completed photo Trash receipt exists in this batch. The paired movie is retained.",
+    "この処理に写真のゴミ箱への移動完了記録がないため、対応する短い動画を保持しました。"
   ]
 ]

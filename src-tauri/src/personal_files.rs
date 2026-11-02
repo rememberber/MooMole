@@ -14,6 +14,7 @@ pub(crate) mod automation;
 pub(crate) mod commands;
 pub(crate) mod duplicates;
 pub(crate) mod folder_archive;
+pub(crate) mod live_photos;
 mod media;
 pub(crate) mod movement;
 pub(crate) mod preview;
@@ -84,6 +85,8 @@ pub(crate) struct Report {
     similar_photos: Option<similar_photos::Report>,
     #[serde(skip_serializing_if = "Option::is_none")]
     software_content: Option<software_content::Info>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    live_photos: Option<live_photos::Report>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -107,6 +110,8 @@ pub(crate) struct Plan {
     pub software_content: Option<software_content::Binding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub automation: Option<automation::Binding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_photos: Option<Vec<live_photos::Proof>>,
 }
 impl Plan {
     pub(crate) fn origin(&self) -> &'static str {
@@ -152,6 +157,8 @@ impl Plan {
                     similar_photos::revision(proof)
                 } else if self.duplicates.is_some() {
                     duplicates::REVISION
+                } else if self.live_photos.is_some() {
+                    live_photos::REVISION
                 } else if self.movement.is_some() {
                     movement::REVISION
                 } else {
@@ -181,6 +188,17 @@ impl Plan {
             })
         {
             return Err("个人文件计划无法核对，请重新扫描。".into());
+        }
+        if let Some(proof) = &self.live_photos {
+            if self.automation.is_some()
+                || self.software_content.is_some()
+                || self.similar_photos.is_some()
+                || self.duplicates.is_some()
+                || self.movement.is_some()
+            {
+                return Err("Live Photo 计划不能混入其他处理方式。".into());
+            }
+            live_photos::validate_record(proof, &self.items)?;
         }
         if let Some(binding) = &self.automation {
             if self.software_content.is_some()
@@ -233,6 +251,8 @@ pub(crate) struct Confirmation {
     movement: Option<movement::Confirmation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     kept_files: Option<Vec<FileRow>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    live_photo_pairs: Option<Vec<live_photos::Pair>>,
 }
 #[derive(Default)]
 pub(crate) struct Store {
@@ -312,6 +332,12 @@ impl Store {
             .as_ref()
             .map(|r| similar_photos::selection(r, &scan.items, &items))
             .transpose()?;
+        let live = scan
+            .report
+            .live_photos
+            .as_ref()
+            .map(|r| live_photos::selection(r, &items))
+            .transpose()?;
         let plan = Plan {
             module: if scan.software_content.is_some() {
                 software_content::MODULE
@@ -328,6 +354,8 @@ impl Store {
                 software_content::REVISION
             } else if let Some(proof) = &similar {
                 similar_photos::revision(proof)
+            } else if live.is_some() {
+                live_photos::REVISION
             } else if proof.is_some() {
                 duplicates::REVISION
             } else {
@@ -345,6 +373,7 @@ impl Store {
             similar_photos: similar,
             software_content: scan.software_content.clone(),
             automation: None,
+            live_photos: live,
         };
         plan.validate_record()?;
         let confirmation = Confirmation {
@@ -354,6 +383,7 @@ impl Store {
             expires_at,
             items: plan.items.iter().map(row).collect(),
             movement: None,
+            live_photo_pairs: plan.live_photos.as_deref().map(live_photos::rows),
             kept_files: if let Some(proof) = &plan.similar_photos {
                 Some(proof.iter().map(|p| row(&p.keeper)).collect())
             } else {

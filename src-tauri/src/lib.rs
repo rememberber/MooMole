@@ -25,6 +25,15 @@ pub fn run_native_raw_worker() -> bool {
         false
     }
 }
+pub fn run_native_live_photo_worker() -> bool {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.len() == 2 && args[1] == "--moomole-live-photo-worker-v1" {
+        personal_files::live_photos::worker::run();
+        true
+    } else {
+        false
+    }
+}
 mod ai_scan;
 mod analysis_protocol;
 mod app_associations;
@@ -2507,6 +2516,7 @@ pub fn run() {
             personal_files::commands::discard_duplicate_trash,
             personal_files::commands::execute_duplicate_trash,
             personal_files::commands::start_personal_scan,
+            personal_files::commands::start_live_photo_scan,
             personal_files::commands::prepare_personal_trash,
             personal_files::commands::prepare_personal_move,
             personal_files::commands::discard_personal_trash,

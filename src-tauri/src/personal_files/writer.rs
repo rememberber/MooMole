@@ -64,6 +64,13 @@ fn validate(
     if plan.similar_photos.is_some() {
         similar_photos::validate_keeper(plan, item)?;
     }
+    if let Some(peer) = live_photos::peer(plan, item)? {
+        if protected(Path::new(&peer.path), &settings.protected_paths)?
+            || AnchoredPath::open(Path::new(&peer.path))?.witness != peer.witness
+        {
+            return Err("Live Photo 短视频已保护或身份变化，本对保留。".into());
+        }
+    }
     if let Some(movement) = &plan.movement {
         movement.validate_directory(settings)?;
         if movement
@@ -204,6 +211,9 @@ where
             // Only path-level Mole protection is applicable to manual personal
             // selection. Cache module/activity eligibility is never fabricated.
             let mut requested = vec![(item.id.clone(), item.path.clone(), "unsupported".into())];
+            if let Some(peer) = live_photos::peer(&plan, item)? {
+                requested.push((peer.id.clone(), peer.path.clone(), "unsupported".into()));
+            }
             if let Some(target) = plan
                 .movement
                 .as_ref()
@@ -299,6 +309,16 @@ where
                     }
                     if saved.similar_photos.is_some() {
                         similar_photos::verify(&saved, &one, &control, &settings.protected_paths)?;
+                    }
+                    if saved.live_photos.is_some() {
+                        live_photos::verify(
+                            &saved,
+                            &one,
+                            &control,
+                            &settings.protected_paths,
+                            &*db.lock().map_err(|e| e.to_string())?,
+                            &bound_run,
+                        )?;
                     }
                     if policy_stamp(&own_home)? != stamp {
                         return Err("Mole 保护配置已变化，请重新检查。".into());

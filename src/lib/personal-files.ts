@@ -12,6 +12,11 @@ export interface PersonalFile {
   size: number
   modifiedAt: number
 }
+export interface LivePhotoPair {
+  id: string
+  photoId: string
+  movieId: string
+}
 export interface PersonalReport {
   id: string
   root: string
@@ -22,6 +27,13 @@ export interface PersonalReport {
   skipped: number
   visited: number
   items: PersonalFile[]
+  livePhotos?: {
+    pairs: LivePhotoPair[]
+    checkedCandidates: number
+    rejectedCandidates: number
+    unpairedFiles: number
+    bytesRead: number
+  }
   aiFocus?: {
     snapshotId: string
     agentId: string
@@ -87,6 +99,7 @@ export interface PersonalConfirmation {
   expiresAt: number
   items: PersonalFile[]
   movement?: PersonalMovement & { targets: { id: string; destination: string | null }[] }
+  livePhotoPairs?: LivePhotoPair[]
   keptFiles?: PersonalFile[]
 }
 export interface PersonalMovement {
@@ -102,6 +115,7 @@ export interface PersonalTransport {
     photoSequences?: boolean,
     videoCandidates?: boolean,
   ) => Promise<void>
+  startLive?: (root: string, requestId: string) => Promise<void>
   startFromAi?: (snapshotId: string, evidenceIds: string[], requestId: string) => Promise<string>
   prepare: (scanId: string, selectedIds: string[], movement?: PersonalMovement) => Promise<unknown>
   discard: (confirmationId: string) => Promise<void>
@@ -111,6 +125,7 @@ export interface PersonalTransport {
 }
 export const personalTransport: PersonalTransport = {
   read: () => invoke('get_personal_files'),
+  startLive: (root, requestId) => invoke('start_live_photo_scan', { root, requestId }),
   start: (root, requestId) => invoke('start_personal_scan', { root, requestId }),
   startFromAi: (snapshotId, evidenceIds, requestId) =>
     invoke('start_personal_from_ai', { snapshotId, evidenceIds, requestId }),
@@ -229,6 +244,37 @@ function files(raw: unknown, root: string, max: number): PersonalFile[] {
     fail()
   return rows
 }
+function livePairs(raw: unknown, items: PersonalFile[], exact = true): LivePhotoPair[] {
+  if (!Array.isArray(raw) || raw.length > 64) return fail()
+  const used = new Set<string>(),
+    pairIds = new Set<string>()
+  const pairs = raw.map((value) => {
+    const p = object(value),
+      pairId = id(p.id),
+      photoId = id(p.photoId),
+      movieId = id(p.movieId)
+    const photo = items.find((i) => i.id === photoId),
+      movie = items.find((i) => i.id === movieId)
+    if (
+      !photo ||
+      !movie ||
+      photoId === movieId ||
+      used.has(photoId) ||
+      used.has(movieId) ||
+      pairIds.has(pairId) ||
+      !/\.(jpe?g|heic|heif)$/i.test(photo.path) ||
+      !/\.mov$/i.test(movie.path) ||
+      photo.path.replace(/\.[^.]+$/, '') !== movie.path.replace(/\.[^.]+$/, '')
+    )
+      return fail()
+    used.add(photoId)
+    used.add(movieId)
+    pairIds.add(pairId)
+    return { id: pairId, photoId, movieId }
+  })
+  if (exact && used.size !== items.length) return fail()
+  return pairs
+}
 export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
   const v = object(raw)
   if (
@@ -261,6 +307,27 @@ export function readPersonalSnapshot(raw: unknown): PersonalSnapshot {
       skipped: number(r.skipped),
       visited: number(r.visited),
       items: files(r.items, root, 2000),
+    }
+    if (r.livePhotos !== undefined) {
+      if (
+        r.aiFocus !== undefined ||
+        r.duplicates !== undefined ||
+        r.similarPhotos !== undefined ||
+        r.softwareContent !== undefined
+      )
+        fail()
+      const live = object(r.livePhotos),
+        pairs = livePairs(live.pairs, report.items)
+      const checkedCandidates = number(live.checkedCandidates),
+        rejectedCandidates = number(live.rejectedCandidates)
+      if (checkedCandidates > 64 || pairs.length + rejectedCandidates !== checkedCandidates) fail()
+      report.livePhotos = {
+        pairs,
+        checkedCandidates,
+        rejectedCandidates,
+        unpairedFiles: number(live.unpairedFiles),
+        bytesRead: number(live.bytesRead),
+      }
     }
     if (r.aiFocus !== undefined) {
       const a = object(r.aiFocus)
@@ -654,6 +721,25 @@ export function readPersonalConfirmation(
     if (new Set(paths).size !== paths.length) fail()
     movement = { directory, conflict: m.conflict as PersonalMovement['conflict'], targets }
   } else if (v.movement !== undefined) fail()
+  let livePhotoPairs: LivePhotoPair[] | undefined
+  if (report.livePhotos) {
+    if (expectedMovement) fail()
+    livePhotoPairs = livePairs(v.livePhotoPairs, rows)
+    if (
+      !livePhotoPairs.length ||
+      livePhotoPairs.length > 10 ||
+      livePhotoPairs.some(
+        (p) =>
+          !report.livePhotos!.pairs.some(
+            (original) =>
+              original.id === p.id &&
+              original.photoId === p.photoId &&
+              original.movieId === p.movieId,
+          ),
+      )
+    )
+      fail()
+  } else if (v.livePhotoPairs !== undefined) fail()
   let keptFiles: PersonalFile[] | undefined
   if (report.duplicates || report.similarPhotos) {
     keptFiles = files(v.keptFiles, root, 20)
@@ -684,6 +770,7 @@ export function readPersonalConfirmation(
     createdAt,
     expiresAt,
     items: rows,
+    ...(livePhotoPairs ? { livePhotoPairs } : {}),
     ...(movement ? { movement } : {}),
     ...(keptFiles ? { keptFiles } : {}),
   }

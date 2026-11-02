@@ -151,6 +151,12 @@ export function usePersonalFiles(
       dispatch('scanning', (id) =>
         transport.start(root.trim(), id, photoSequences, videoCandidates),
       ),
+    startLive: () =>
+      dispatch('scanning', (id) => {
+        if (!transport.startLive || (transport.origin && transport.origin !== 'personalFiles'))
+          throw Error('此入口不支持 Live Photo 扫描。')
+        return transport.startLive(root.trim(), id)
+      }),
     fromAi: (snapshotId: string, evidenceIds: string[]) =>
       dispatch('scanning', async (requestId) => {
         if (!transport.startFromAi || (transport.origin && transport.origin !== 'personalFiles'))

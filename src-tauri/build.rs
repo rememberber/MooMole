@@ -18,6 +18,21 @@ fn main() {
         cc::Build::new()
             .file("native/process_state.c")
             .compile("moomole_process_state");
+        println!("cargo:rerun-if-changed=native/live_photo.m");
+        cc::Build::new()
+            .file("native/live_photo.m")
+            .flag("-fobjc-arc")
+            .flag("-fblocks")
+            .compile("moomole_live_photo");
+        for framework in [
+            "Photos",
+            "AppKit",
+            "Foundation",
+            "CoreFoundation",
+            "CoreGraphics",
+        ] {
+            println!("cargo:rustc-link-lib=framework={framework}");
+        }
     }
     tauri_build::build()
 }

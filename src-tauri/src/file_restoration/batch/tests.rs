@@ -73,6 +73,7 @@ impl Fixture {
             similar_photos: None,
             software_content: None,
             automation: None,
+            live_photos: None,
         };
         let mut db = db::open_owned(&home.join("app.sqlite")).unwrap();
         db::save_settings(&db, &settings).unwrap();

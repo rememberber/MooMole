@@ -80,6 +80,7 @@ export function PersonalFiles({
     report = c.snapshot.report
   const fresh =
     !!report &&
+    !report.livePhotos &&
     c.root.trim().replace(/\/+$/, '') === report.root &&
     (mode !== 'similar' ||
       (!!report.similarPhotos?.sequence === photoSequences &&

@@ -42,6 +42,7 @@ import {
 import { usePersonalFiles } from './lib/use-personal-files'
 import type { BrowserProfile } from './lib/browser-downloads'
 import { ManagedAppCenter } from './components/ManagedAppCenter'
+import { LivePhotoPairs } from './components/LivePhotoPairs'
 import { BrowserDownloadsPicker } from './components/BrowserDownloadsPicker'
 import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
@@ -323,6 +324,7 @@ export default function App() {
   }, [data?.home, softwareSource])
   const aiScan = useAiScan(data?.home ?? '')
   const personalFiles = usePersonalFiles(page === 'personalFiles', data?.home ?? '')
+  const [personalMode, setPersonalMode] = useState<'files' | 'livePhotos'>('files')
   const duplicates = usePersonalFiles(
     page === 'duplicateFiles',
     data?.home ?? '',
@@ -1286,15 +1288,21 @@ export default function App() {
                       <Square size={13} />
                       {activeFiles.stopping
                         ? '正在停止…'
-                        : activeFiles.snapshot.phase === 'processing'
-                          ? '停止后续项目'
-                          : '停止扫描'}
+                        : page === 'personalFiles' && personalMode === 'livePhotos'
+                          ? '停止本次扫描或处理'
+                          : activeFiles.snapshot.phase === 'processing'
+                            ? '停止后续项目'
+                            : '停止扫描'}
                     </button>
                   ) : (
                     <button
                       className="button primary compact"
                       type="button"
-                      onClick={() => void activeFiles.start()}
+                      onClick={() =>
+                        page === 'personalFiles' && personalMode === 'livePhotos'
+                          ? void activeFiles.startLive()
+                          : void activeFiles.start()
+                      }
                       disabled={!canRun || executionActive || !activeFiles.root.trim()}
                     >
                       <Search size={15} />
@@ -1304,7 +1312,9 @@ export default function App() {
                           : '查找相似照片'
                         : page === 'duplicateFiles'
                           ? '查找重复文件'
-                          : '扫描文件'}
+                          : personalMode === 'livePhotos'
+                            ? '扫描 Live Photo 对'
+                            : '扫描文件'}
                     </button>
                   ))}
                 {page === 'personalFiles' && (
@@ -1973,7 +1983,39 @@ export default function App() {
             />
           )}
 
-          {(page === 'personalFiles' || page === 'duplicateFiles' || page === 'similarPhotos') && (
+          {page === 'personalFiles' && (
+            <div className="software-content-modes" role="tablist" aria-label="文件整理类型">
+              <button
+                role="tab"
+                aria-selected={personalMode === 'files'}
+                className={`button compact ${personalMode === 'files' ? 'primary' : 'secondary'}`}
+                disabled={personalFiles.running}
+                onClick={() => setPersonalMode('files')}
+              >
+                普通文件
+              </button>
+              <button
+                role="tab"
+                aria-selected={personalMode === 'livePhotos'}
+                className={`button compact ${personalMode === 'livePhotos' ? 'primary' : 'secondary'}`}
+                disabled={personalFiles.running}
+                onClick={() => setPersonalMode('livePhotos')}
+              >
+                Live Photos
+              </button>
+            </div>
+          )}
+          {page === 'personalFiles' && personalMode === 'livePhotos' && (
+            <LivePhotoPairs
+              controller={personalFiles}
+              enabled={canRun && !executionActive}
+              protectedPaths={data.settings.protectedPaths}
+              onHistory={() => changePage('history')}
+            />
+          )}
+          {((page === 'personalFiles' && personalMode === 'files') ||
+            page === 'duplicateFiles' ||
+            page === 'similarPhotos') && (
             <PersonalFiles
               key={page}
               mode={

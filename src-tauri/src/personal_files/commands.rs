@@ -80,6 +80,24 @@ pub(crate) fn start_personal_scan(
     start(root, request_id, Domain::PersonalFiles, state)
 }
 #[tauri::command]
+pub(crate) fn start_live_photo_scan(
+    root: String,
+    request_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    start_with_source(
+        root,
+        request_id,
+        Domain::PersonalFiles,
+        None,
+        false,
+        None,
+        false,
+        true,
+        state,
+    )
+}
+#[tauri::command]
 pub(crate) fn start_personal_from_ai(
     snapshot_id: String,
     evidence_ids: Vec<String>,
@@ -144,7 +162,9 @@ fn start(
     domain: Domain,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    start_with_source(root, request_id, domain, None, false, None, false, state)
+    start_with_source(
+        root, request_id, domain, None, false, None, false, false, state,
+    )
 }
 fn start_with_source(
     root: String,
@@ -154,6 +174,7 @@ fn start_with_source(
     photo_sequences: bool,
     browser_profile: Option<software_content::browser_profiles::Selection>,
     video_candidates: bool,
+    live_photo_pairs: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let operation = state.updates.installation.enter()?;
@@ -217,7 +238,13 @@ fn start_with_source(
                     similar_photos::collect(scan, job, &settings.protected_paths)
                 }
             }),
-            Domain::PersonalFiles => Ok(scan),
+            Domain::PersonalFiles => {
+                if live_photo_pairs {
+                    live_photos::collect(scan, job, &settings.protected_paths)
+                } else {
+                    Ok(scan)
+                }
+            }
             Domain::SoftwareContent => Ok(scan),
         });
         match result {
@@ -468,6 +495,7 @@ pub(crate) fn start_similar_scan(
         photo_sequences.unwrap_or(false),
         None,
         video_candidates.unwrap_or(false),
+        false,
         state,
     )
 }
@@ -578,6 +606,7 @@ pub(crate) fn start_software_content(
         Some(source),
         false,
         browser_profile,
+        false,
         false,
         state,
     )

@@ -319,6 +319,7 @@ pub(super) fn collect_profile(
         skipped,
         visited,
         items: items.iter().map(row).collect(),
+        live_photos: None,
         ai_focus: None,
         duplicates: None,
         similar_photos: None,

@@ -32,7 +32,7 @@ pub(super) fn supported(path: &Path) -> bool {
         .and_then(|s| s.to_str())
         .is_some_and(|s| ["mp4", "m4v", "mov"].contains(&s.to_ascii_lowercase().as_str()))
 }
-pub(super) fn content(
+pub(in crate::personal_files) fn content(
     item: &Item,
     rules: &[String],
     job: &Job,
