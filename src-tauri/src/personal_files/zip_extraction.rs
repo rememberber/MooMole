@@ -227,7 +227,7 @@ impl Plan {
             None,
         )
     }
-    pub(super) fn prepare_password(
+    fn prepare_password(
         root: &Path,
         directory: &str,
         filename: &str,

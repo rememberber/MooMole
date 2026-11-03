@@ -97,6 +97,7 @@ mod startup_management;
 mod status_watch;
 mod storage_monitor;
 mod storage_notifications;
+mod main_app_login;
 mod tasks;
 mod tree;
 mod uninstall_confirmation;
@@ -2464,6 +2465,7 @@ pub fn run() {
             personal_files::preview::stream::start(app.state::<AppState>().inner().clone());
             menu_bar::start(app.handle());
             storage_notifications::start(app.handle());
+            app.manage(main_app_login::Controller::default());
             let preference = language::saved(&app.state::<AppState>());
             language::apply_menu(app.handle(), &preference)?;
             // Restore only after database ownership, without holding a mutex
@@ -2478,6 +2480,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap,
             storage_notifications::get_storage_notifications,
+            main_app_login::get_main_app_login,
+            main_app_login::set_main_app_login,
+            main_app_login::acknowledge_main_app_login,
             storage_notifications::request_storage_notification_permission,
             storage_notifications::configure_storage_notifications,
             storage_notifications::test_storage_notification,

@@ -131,13 +131,16 @@ test('ongoing management exposes the real reminder control without requesting pe
   const region = page.getByRole('region', { name: '低空间系统提醒' })
   await expect(region).toContainText('低空间系统提醒已关闭')
   await expect(region.getByRole('button', { name: '申请系统通知权限' })).toBeEnabled()
+  const login = page.getByRole('region', { name: 'MooMole 登录启动', exact: true })
+  await expect(login).toBeVisible()
+  await expect(login.getByRole('button', { name: '开启登录启动', exact: true })).toBeDisabled()
   const commands = await page.evaluate(
     () =>
       JSON.parse(sessionStorage.getItem('mock-native-commands') ?? '[]') as { command: string }[],
   )
   expect(
     commands.filter((c) =>
-      /request_storage_notification|configure_storage_notifications|test_storage_notification/.test(
+      /request_storage_notification|configure_storage_notifications|test_storage_notification|set_main_app_login|acknowledge_main_app_login/.test(
         c.command,
       ),
     ),

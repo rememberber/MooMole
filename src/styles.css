@@ -5074,3 +5074,12 @@ input[type='checkbox'] {
 .storage-notification-body > details > :not(summary) {
   margin-top: 12px;
 }
+.main-app-login {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.main-app-login p,
+.main-app-login .modal-actions {
+  margin: 0;
+}

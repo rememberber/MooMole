@@ -30,6 +30,11 @@ fn main() {
             .flag("-fobjc-arc")
             .flag("-fblocks")
             .compile("moomole_storage_notifications");
+        println!("cargo:rerun-if-changed=native/main_app_login.m");
+        cc::Build::new()
+            .file("native/main_app_login.m")
+            .flag("-fobjc-arc")
+            .compile("moomole_main_app_login");
         println!("cargo:rerun-if-changed=native/archive_quarantine.m");
         cc::Build::new()
             .file("native/archive_quarantine.m")
@@ -38,6 +43,7 @@ fn main() {
         for framework in [
             "CoreServices",
             "UserNotifications",
+            "ServiceManagement",
             "Photos",
             "AppKit",
             "Foundation",

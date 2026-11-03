@@ -1,4 +1,163 @@
 [
+  ["MooMole 登录启动", "MooMole login startup", "MooMole のログイン起動"],
+  ["登录时打开 MooMole", "Open MooMole at login", "ログイン時に MooMole を開く"],
+  [
+    "仅设置当前运行的 MooMole 副本。系统允许后，后续登录会按正常方式打开窗口；菜单栏、定期采集和清理偏好保持独立，不会默认处理文件。",
+    "This sets only the running copy of MooMole. Once allowed by macOS, it opens normally at later logins. Menu bar, monitoring and cleanup preferences stay independent; no files are processed by default.",
+    "実行中の MooMole のコピーのみを設定します。システムが許可すると、次回以降のログイン時に通常のウインドウを開きます。メニューバー、定期記録、整理設定は独立しており、既定ではファイルを処理しません。"
+  ],
+  [
+    "正在等待系统登录设置结果…",
+    "Waiting for the system login setting result…",
+    "システムのログイン設定の結果を待機中…"
+  ],
+  [
+    "尚未取得系统登录状态",
+    "System login status has not been obtained",
+    "システムのログイン状態をまだ取得していません"
+  ],
+  [
+    "系统尚未确认此副本的登录服务；可明确请求注册，是否生效以返回状态为准。",
+    "The system has not confirmed a login service for this copy. You may explicitly request registration; the returned status determines whether it is enabled.",
+    "このコピーのログインサービスをシステムがまだ確認できていません。明示的に登録を要求でき、有効かどうかは返された状態で確認します。"
+  ],
+  [
+    "我已核对当前应用的登录启动设置。",
+    "I have reviewed this app's login startup setting.",
+    "このアプリのログイン起動設定を確認しました。"
+  ],
+  ["刷新登录启动状态", "Refresh login startup status", "ログイン起動の状態を更新"],
+  ["关闭登录启动", "Disable opening at login", "ログイン時の起動を無効化"],
+  ["开启登录启动", "Enable opening at login", "ログイン時の起動を有効化"],
+  ["在系统登录项中核对", "Check System Login Items", "システムのログイン項目で確認"],
+  [
+    "当前副本与最近 50 次登录设置记录",
+    "Current copy and last 50 login setting records",
+    "現在のコピーと直近 50 件のログイン設定記録"
+  ],
+  [
+    "系统已接受登录设置",
+    "The system accepted the login setting",
+    "システムがログイン設定を受け付けました"
+  ],
+  [
+    "系统已是所选登录状态",
+    "The system already has the selected login state",
+    "システムはすでに選択したログイン状態です"
+  ],
+  ["登录设置未提交", "Login setting was not submitted", "ログイン設定は送信していません"],
+  [
+    "登录设置结果待核对",
+    "Login setting result needs review",
+    "ログイン設定の結果を確認してください"
+  ],
+  ["登录设置请求处理中", "Login setting request is in progress", "ログイン設定の要求を処理中"],
+  [
+    "已核对系统登录状态，保留原结果",
+    "I checked system login status; retain the original result",
+    "システムのログイン状態を確認し、元の結果を保持する"
+  ],
+  [
+    "已记录人工核查，原结果未更改。",
+    "Manual review was recorded. The original result is unchanged.",
+    "手動確認を記録しました。元の結果は変更していません。"
+  ],
+  [
+    "登录启动状态无法核对，请刷新记录；不会自动重新提交设置。",
+    "Login startup status could not be verified. Refresh records; settings will not be resubmitted automatically.",
+    "ログイン起動の状態を確認できません。記録を更新してください。設定を自動で再送信しません。"
+  ],
+  ["登录时不自动打开", "Does not open automatically at login", "ログイン時に自動で開きません"],
+  [
+    "macOS 已允许登录启动",
+    "macOS allows opening at login",
+    "macOS がログイン時の起動を許可しています"
+  ],
+  [
+    "登录启动等待系统批准",
+    "Opening at login awaits system approval",
+    "ログイン時の起動はシステムの承認待ちです"
+  ],
+  [
+    "系统未找到可用的登录服务",
+    "The system did not find an available login service",
+    "システムが利用可能なログインサービスを見つけられませんでした"
+  ],
+  [
+    "系统登录设置仍在处理中，请稍后刷新。",
+    "System login settings are still being processed. Refresh later.",
+    "システムのログイン設定を処理中です。しばらくしてから更新してください。"
+  ],
+  [
+    "请从安装后的 MooMole 应用中设置登录启动。",
+    "Configure opening at login from the installed MooMole app.",
+    "インストールした MooMole アプリからログイン起動を設定してください。"
+  ],
+  [
+    "上次登录设置结果待核对，请先刷新系统状态并核查记录。",
+    "The previous login setting result needs review. Refresh system status and check the records first.",
+    "前回のログイン設定の結果を確認する必要があります。先にシステムの状態を更新し、記録を確認してください。"
+  ],
+  [
+    "等待系统请求超时，请刷新记录；请求可能仍在进行，不会自动重试。",
+    "Waiting for the system request timed out. Refresh records; it may still be running and will not retry automatically.",
+    "システム要求の待機がタイムアウトしました。記録を更新してください。要求は継続中の可能性があり、自動再試行しません。"
+  ],
+  [
+    "系统状态读取尚未结束，请稍后刷新。",
+    "System status is still being read. Refresh later.",
+    "システムの状態を読み取り中です。しばらくしてから更新してください。"
+  ],
+  [
+    "macOS 未接受登录启动请求，请在系统登录项中核对。",
+    "macOS did not accept the login startup request. Check System Login Items.",
+    "macOS がログイン起動の要求を受け付けませんでした。システムのログイン項目で確認してください。"
+  ],
+  [
+    "先前登录设置未确认结束，重开只保留未知记录，不重新提交。",
+    "The earlier login setting did not finish with a confirmed result. Reopening retains an unknown record and does not resubmit it.",
+    "以前のログイン設定は完了を確認できませんでした。再起動後も不明な記録として保持し、再送信しません。"
+  ],
+  [
+    "已在系统请求前停止，未提交登录启动变更。",
+    "Stopped before the system request. No login startup change was submitted.",
+    "システムへの要求前に停止し、ログイン起動の変更は送信していません。"
+  ],
+  [
+    "登录启动状态未知，请检查系统登录项和最近记录。",
+    "Login startup status is unknown. Check System Login Items and recent records.",
+    "ログイン起動の状態が不明です。システムのログイン項目と最近の記録を確認してください。"
+  ],
+  [
+    "无法保存登录设置记录，请先核对系统状态；不会自动重试。",
+    "The login setting record could not be saved. Check system status first; no automatic retry occurs.",
+    "ログイン設定の記録を保存できません。先にシステムの状態を確認してください。自動再試行しません。"
+  ],
+  [
+    "登录设置历史格式无法核对，请保留记录并检查。",
+    "The login setting history format could not be verified. Retain and check the records.",
+    "ログイン設定履歴の形式を確認できません。記録を保持して確認してください。"
+  ],
+  [
+    "系统返回的登录设置状态无法核对。",
+    "The login setting state returned by the system could not be verified.",
+    "システムから返されたログイン設定の状態を確認できません。"
+  ],
+  [
+    "请明确确认当前应用的登录启动设置。",
+    "Explicitly confirm this app's login startup setting.",
+    "このアプリのログイン起動設定を明示的に確認してください。"
+  ],
+  [
+    "此系统尚不支持本轮登录启动接口。",
+    "This system does not support this login startup interface.",
+    "このシステムは今回のログイン起動インターフェイスに対応していません。"
+  ],
+  [
+    "登录设置结果未知，请核对系统状态；不会自动重复提交。",
+    "The login setting result is unknown. Check system status; it will not be resubmitted automatically.",
+    "ログイン設定の結果が不明です。システムの状態を確認してください。自動で再送信しません。"
+  ],
   [
     "这是密码保护的 ZIP。解压结果为明文，文件名和历史范围仍可见；密码不写入历史，解压完成后请妥善保管输出文件。",
     "This ZIP is password protected. Extracted files are plaintext, and filenames and history scope remain visible. The password is not saved in history; protect the extracted files.",

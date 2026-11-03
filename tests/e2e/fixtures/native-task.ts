@@ -98,6 +98,13 @@ export async function installTaskMock(
               }
             }
             if (command === 'get_ai_scan') return null
+            if (command === 'get_main_app_login')
+              return {
+                system: null,
+                records: [],
+                activeRequests: [],
+                error: 'loginRequiresPackagedApp',
+              }
             if (
               command === 'get_transfer_restorations' ||
               command === 'get_application_restorations' ||

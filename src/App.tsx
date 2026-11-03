@@ -1,4 +1,6 @@
 import { StorageNotifications } from './components/StorageNotifications'
+import { MainAppLogin } from './components/MainAppLogin'
+import { mainAppLoginTransport } from './lib/main-app-login'
 import { storageNotificationsTransport } from './lib/storage-notifications'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -2597,6 +2599,7 @@ export default function App() {
                 transport={storageNotificationsTransport}
               />
               <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
+              <MainAppLogin enabled={api.desktop} transport={mainAppLoginTransport} />
               <ScheduledFiles
                 enabled={api.desktop && data.engine.available}
                 controller={scheduledFiles}
