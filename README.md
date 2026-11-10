@@ -34,9 +34,9 @@ The interface supports Simplified Chinese, English and Japanese. Switch at any t
 
 <!-- release:start -->
 
-Latest published version: **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)** (2026-10-29), bundled with **Mole CLI 1.65.0**. This learning and research release includes real cleanup, app uninstall and Quick Look maintenance within the limits below. Full permission/fault, installation/upgrade and corresponding-source/license acceptance remains incomplete; see [execution acceptance](docs/first-release-execution.md) and the release notes.
+Latest published version: **[0.3.0](https://github.com/rememberber/MooMole/releases/tag/v0.3.0)** (2026-11-10), bundled with **Mole CLI 1.65.0**.
 
-New in 0.2.0: quick cleanup with verified user-cache execution, AI deep scan through local agents, Chinese/English/Japanese switching, restored window dragging and restrained task animations. The [release notes](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) are available in English, Simplified Chinese and Japanese.
+This learning and research release provides cleanup, app uninstall and Quick Look maintenance within the limits below. Full permission/fault, installation/upgrade and corresponding-source/license acceptance remains incomplete. Release notes are available in English, Simplified Chinese and Japanese.
 
 <!-- release:end -->
 
@@ -58,14 +58,14 @@ Moving to Trash does not immediately free space. Cancellation stops only work no
 
 <!-- downloads:start -->
 
-Download the architecture-matched **0.2.0** DMG below. Packages use free ad-hoc signing; they do not have Apple Developer ID signing or notarization. A paid Apple developer account is not required.
-
 | Mac | Download |
 | --- | --- |
-| Apple Silicon (`arm64`) | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-arm64.dmg) |
-| Intel (`x64`) | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
+| Apple Silicon (`arm64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-x64.dmg) |
 
-Check the chip/processor in [About This Mac](https://support.apple.com/guide/mac-help/mchlea7173f3/mac). Verify file size and SHA-512 on the [release page](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) or against [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS), open the DMG, copy the app to Applications, then launch from that location. Matching source, dependency materials and validation manifests are in each architecture’s `materials.zip` on the release page.
+Verify file size and SHA-512, open the DMG and copy MooMole to Applications. Matching source and dependency materials are in the architecture's materials ZIP. Packages use ad-hoc signing without Apple Developer ID signing or notarization.
+
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.0) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.0/SHA512SUMS)
 
 <!-- downloads:end -->
 

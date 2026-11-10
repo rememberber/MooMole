@@ -34,9 +34,9 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 <!-- release:start -->
 
-最新公开版本为 **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)**（2026-10-29），内置 **Mole CLI 1.65.0**。这是学习研究版本，已提供下表限定范围内的真实清理、应用卸载和 Quick Look 维护。完整权限/故障、安装升级及对应源码/许可验收仍未完成，具体见 [执行验收](docs/first-release-execution.md) 和发布说明。
+最新公开版本为 **[0.3.0](https://github.com/rememberber/MooMole/releases/tag/v0.3.0)**（2026-11-10），内置 **Mole CLI 1.65.0**。
 
-0.2.0 新增速战速决与经过验证的用户缓存处理、本机 Agent 驱动的 AI 深度扫描、中英日免重启切换、窗口拖动修复及克制的任务动效。[发布说明](https://github.com/rememberber/MooMole/releases/tag/v0.2.0) 提供英、中、日三语。
+这是学习研究版本，提供下表限定范围内的真实清理、应用卸载和 Quick Look 维护。完整权限/故障、安装升级及对应源码/许可验收仍未完成。发布说明提供英、中、日三语。
 
 <!-- release:end -->
 
@@ -58,14 +58,14 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 <!-- downloads:start -->
 
-可从下方下载与本机架构匹配的 **0.2.0** DMG。安装包采用免费 ad-hoc 签名，没有 Apple Developer ID 签名或公证，不要求购买 Apple 开发者账户。
-
 | Mac 类型 | 下载 |
 | --- | --- |
-| Apple 芯片（`arm64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-arm64.dmg) |
-| Intel（`x64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
+| Apple 芯片 (`arm64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-x64.dmg) |
 
-可在[关于本机](https://support.apple.com/zh-cn/guide/mac-help/mchlea7173f3/mac)查看芯片或处理器。核对[发布页](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)或 [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS) 中的大小和 SHA-512，再打开 DMG，将应用复制到“应用程序”并从安装位置启动。对应架构的 `materials.zip` 包含匹配的源码、依赖材料和校验清单。
+核对大小和 SHA-512 后打开 DMG，将 MooMole 复制到“应用程序”。对应架构的 materials ZIP 提供源码与依赖材料。安装包采用免费 ad-hoc 签名，没有 Apple Developer ID 签名或公证。
+
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.0) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.0/SHA512SUMS)
 
 <!-- downloads:end -->
 

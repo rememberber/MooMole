@@ -34,9 +34,9 @@ Mole CLI の機能を分かりやすい操作で利用できる、非公式の m
 
 <!-- release:start -->
 
-最新の公開版は **[0.2.0](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)**（2026-10-29）で、**Mole CLI 1.65.0** を内蔵しています。学習・研究向けのリリースとして、下表の範囲でクリーンアップ、App のアンインストール、Quick Look メンテナンスを実行できます。権限・障害、インストール・更新、完全な対応ソース・ライセンスの受け入れは未完了です。[実行検証](docs/first-release-execution.md)とリリースノートをご覧ください。
+最新の公開版は **[0.3.0](https://github.com/rememberber/MooMole/releases/tag/v0.3.0)**（2026-11-10）で、**Mole CLI 1.65.0** を内蔵しています。
 
-0.2.0 では、検証済みユーザーキャッシュを扱うクイッククリーン、ローカル Agent による AI 詳細スキャン、中英日の即時切り替え、ウィンドウドラッグの修正、控えめなタスクアニメーションを追加しました。[リリースノート](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)は英語・簡体字中国語・日本語で提供します。
+学習・研究向けのリリースとして、下表の範囲でクリーンアップ、App のアンインストール、Quick Look メンテナンスを実行できます。権限・障害、インストール・更新、完全な対応ソース・ライセンスの受け入れは未完了です。リリースノートは英語・簡体字中国語・日本語で提供します。
 
 <!-- release:end -->
 
@@ -58,14 +58,14 @@ Mole CLI の機能を分かりやすい操作で利用できる、非公式の m
 
 <!-- downloads:start -->
 
-下記からアーキテクチャに合う **0.2.0** DMG をダウンロードできます。無料の ad-hoc 署名を使用し、Apple Developer ID 署名や Apple 公証はありません。有料 Apple 開発者アカウントは不要です。
-
 | Mac | ダウンロード |
 | --- | --- |
-| Apple Silicon（`arm64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-arm64.dmg) |
-| Intel（`x64`） | [MooMole 0.2.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.2.0/MooMole-0.2.0-mac-x64.dmg) |
+| Apple Silicon (`arm64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-x64.dmg) |
 
-[この Mac について](https://support.apple.com/ja-jp/guide/mac-help/mchlea7173f3/mac)でチップ・プロセッサを確認できます。[リリースページ](https://github.com/rememberber/MooMole/releases/tag/v0.2.0)または [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.2.0/SHA512SUMS) のサイズと SHA-512 を照合し、DMG を開いて App を「アプリケーション」にコピーし、インストール先から起動してください。各アーキテクチャの `materials.zip` には、対応するソース、依存資料、検証マニフェストが含まれます。
+サイズと SHA-512 を照合し、DMG を開いて MooMole を「アプリケーション」にコピーしてください。各アーキテクチャの materials ZIP は対応ソースと依存資料を含みます。無料の ad-hoc 署名を使用し、Apple Developer ID 署名や公証はありません。
+
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.0) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.0/SHA512SUMS)
 
 <!-- downloads:end -->
 
