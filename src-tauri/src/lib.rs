@@ -39,7 +39,6 @@ mod analysis_protocol;
 mod app_associations;
 mod app_background;
 mod app_control;
-mod managed_apps;
 mod app_discovery;
 mod app_icons;
 mod app_inspection;
@@ -53,6 +52,7 @@ mod application_update;
 mod clean_preview;
 mod cleanup_preparation;
 mod cleanup_space;
+mod managed_apps;
 // Native cleanup requires a sealed cache/log confirmation and fresh per-item checks.
 mod cleanup_target;
 mod db;
@@ -77,6 +77,7 @@ mod installers;
 mod instance;
 mod language;
 mod log_cleanup;
+mod main_app_login;
 mod maintenance;
 mod menu_bar;
 mod mole_history;
@@ -97,7 +98,6 @@ mod startup_management;
 mod status_watch;
 mod storage_monitor;
 mod storage_notifications;
-mod main_app_login;
 mod tasks;
 mod tree;
 mod uninstall_confirmation;
@@ -2262,7 +2262,7 @@ async fn open_update_releases() -> Result<(), String> {
 }
 
 pub fn run() {
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .register_asynchronous_uri_scheme_protocol(
             personal_files::preview::stream::SCHEME,
             personal_files::preview::stream::handle,
@@ -2400,7 +2400,9 @@ pub fn run() {
                     jobs: Arc::new(Mutex::new(HashMap::new())),
                     results: Arc::new(Mutex::new(tasks::Results::default())),
                     archive_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-                    archive_retirement: Arc::new(Mutex::new(execution_archive::retirement::Store::default())),
+                    archive_retirement: Arc::new(Mutex::new(
+                        execution_archive::retirement::Store::default(),
+                    )),
                     icon_slots: Arc::new(tokio::sync::Semaphore::new(2)),
                     preview_slots: Arc::new(tokio::sync::Semaphore::new(1)),
                     media_slots: Arc::new(tokio::sync::Semaphore::new(2)),
@@ -2422,7 +2424,9 @@ pub fn run() {
                     mole_clean: Arc::new(mole_clean::Controller::default()),
                     device_backups: Arc::new(Mutex::new(device_backups::Store::default())),
                     application_updates: Arc::new(Mutex::new(application_update::Store::default())),
-                    app_update_discovery: Arc::new(Mutex::new(app_update_discovery::Store::default())),
+                    app_update_discovery: Arc::new(Mutex::new(
+                        app_update_discovery::Store::default(),
+                    )),
                     personal_archives: Arc::new(Mutex::new(
                         personal_files::archive::Store::default(),
                     )),
@@ -2476,7 +2480,8 @@ pub fn run() {
                 window_placement.capture(&window.as_ref().window());
             }
             Ok(())
-        })
+        });
+    let app = builder
         .invoke_handler(tauri::generate_handler![
             bootstrap,
             storage_notifications::get_storage_notifications,

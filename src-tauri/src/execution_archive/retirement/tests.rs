@@ -119,7 +119,7 @@ fn real_archive_retirement_preserves_export_and_unknown_without_touching_origina
     let mut reports = vec![];
     for lost in [false, true] {
         let (mut t, database, root, h, copy) = fixture();
-        fs::write(t.path().join("untouched.txt"),"owned original keep").unwrap();
+        fs::write(t.path().join("untouched.txt"), "owned original keep").unwrap();
         let control = job();
         let plan = Plan::prepare(&root, &h.id, &copy, &[], &control).unwrap();
         let source = PathBuf::from(&plan.draft.path);
@@ -182,7 +182,10 @@ fn real_archive_retirement_preserves_export_and_unknown_without_touching_origina
             assert!(journal::admission(&reopened).is_err());
         }
         assert_eq!(super::super::load(&copy, false).unwrap().header, h);
-        assert_eq!(fs::read_to_string(t.path().join("untouched.txt")).unwrap(),"owned original keep");
+        assert_eq!(
+            fs::read_to_string(t.path().join("untouched.txt")).unwrap(),
+            "owned original keep"
+        );
         fs::rename(&receipt.destination, &source).unwrap();
         assert_eq!(fs::read(&source).unwrap(), original);
         assert_eq!(fs::read(&copy).unwrap(), original);

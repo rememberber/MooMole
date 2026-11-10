@@ -14,9 +14,11 @@ test('maintenance browsing and keyboard expansion never dispatch checks, authori
     ).__TAURI_INTERNALS__
     const original = native.invoke
     native.invoke = async (command, args) => {
-      const commands = JSON.parse(sessionStorage.getItem('catalog-commands') ?? '[]')
-      commands.push(command)
-      sessionStorage.setItem('catalog-commands', JSON.stringify(commands))
+      if (command !== 'get_managed_apps') {
+        const commands = JSON.parse(sessionStorage.getItem('catalog-commands') ?? '[]')
+        commands.push(command)
+        sessionStorage.setItem('catalog-commands', JSON.stringify(commands))
+      }
       return original(command, args)
     }
   })
@@ -122,6 +124,9 @@ test('explicit setting inspection exposes protection, preserves prior results on
           'get_mounted_volumes',
           'get_folder_schedules',
           'get_scheduled_files',
+          'get_managed_apps',
+          'get_zip_extractions',
+          'get_retained_application_history',
           'plugin:event|listen',
           'plugin:event|unlisten',
         ].includes(command) &&

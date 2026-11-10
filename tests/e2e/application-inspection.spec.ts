@@ -1238,6 +1238,9 @@ test('opening details checks only the chosen task entry and distinguishes runnin
     'get_mounted_volumes',
     'get_folder_schedules',
     'get_scheduled_files',
+    'get_managed_apps',
+    'get_zip_extractions',
+    'get_retained_application_history',
     'plugin:event|listen',
     'application_icon',
     'inspect_application',
@@ -1296,6 +1299,7 @@ test('background-only restrictions keep root observations, unknowns and client p
   await expect(inspection).toContainText('Mole 要求保留 · 当前仅供查看')
   await expect(inspection).toContainText('此后台应用受 Mole 目录范围限制')
   await expect(inspection).toContainText('请保留并通过所属应用处理')
+  await page.mouse.move(0, 0)
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 960, height: 780 })
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme)
