@@ -20,7 +20,11 @@ export function mount(mode = 'normal', count = 2) {
     prepare: async (comparisonId, items) => {
       host.dataset.request = comparisonId
       host.dataset.reads = String(Number(host.dataset.reads ?? 0) + 1)
-      if (mode === 'late') await new Promise((r) => setTimeout(r, 300))
+      if (mode === 'late') {
+        await new Promise<void>((resolve) => {
+          host.addEventListener('complete-preparation', () => resolve(), { once: true })
+        })
+      }
       return {
         comparisonId,
         scanId: uuid(10),

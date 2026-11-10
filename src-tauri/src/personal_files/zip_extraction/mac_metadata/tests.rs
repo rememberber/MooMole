@@ -333,17 +333,12 @@ fn restored_read_only_directories_clean_up_on_cancel_but_replacements_are_retain
     s.restore(p.metadata.as_ref().unwrap(), &job(), Instant::now())
         .unwrap();
     let stage = out.join(s.name.to_str().unwrap());
-    fs::rename(
-        stage.join("Original/Empty"),
-        stage.join("Original/OldEmpty"),
-    )
-    .unwrap();
-    fs::create_dir(stage.join("Original/Empty")).unwrap();
-    fs::write(
-        stage.join("Original/Empty/user.txt"),
-        b"unexpected user content",
-    )
-    .unwrap();
+    // Some macOS hosts require write access to rename the directory itself.
+    let empty = stage.join("Original/Empty");
+    fs::set_permissions(&empty, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::rename(&empty, stage.join("Original/OldEmpty")).unwrap();
+    fs::create_dir(&empty).unwrap();
+    fs::write(empty.join("user.txt"), b"unexpected user content").unwrap();
     assert!(s
         .verify_metadata(
             &p.entries,

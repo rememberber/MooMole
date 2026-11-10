@@ -113,9 +113,12 @@ test('wrong members and late completion never enable selection or resume a close
     (await page.locator('#video-comparison-fixture').getAttribute('data-request')) as string,
   )
   modal = await mount(page, 'late')
+  const fixture = page.locator('#video-comparison-fixture')
   await expect(modal.getByText('正在准备所选视频…')).toBeVisible()
   await modal.getByRole('button', { name: '取消对比', exact: true }).click()
-  await expect(page.locator('#video-comparison-fixture')).toHaveAttribute('data-releases', '2')
+  await expect(fixture).toHaveAttribute('data-releases', '1')
+  await fixture.dispatchEvent('complete-preparation')
+  await expect(fixture).toHaveAttribute('data-releases', '2')
   await expect(modal).toHaveCount(0)
 })
 test('expiration stops both players and revokes the comparison', async ({ page }) => {
