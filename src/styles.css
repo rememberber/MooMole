@@ -18,6 +18,7 @@
   --selected: #e9ebef;
   --button: #25272c;
   --on-button: #fff;
+  --compact-control-height: 29px;
   --lavender: #f0eefb;
   --lavender-ink: #9384cb;
   --mint: #eaf4ef;
@@ -344,14 +345,14 @@ button svg {
   color: var(--text);
 }
 .button.compact {
-  min-height: 29px;
+  min-height: var(--compact-control-height);
   font-size: 10px;
   padding: 0 10px;
   border-radius: 7px;
 }
 .icon-button {
-  width: 29px;
-  height: 29px;
+  width: var(--compact-control-height);
+  height: var(--compact-control-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -464,11 +465,6 @@ h3 {
   color: var(--subtle);
   font-size: 11px;
 }
-.status-interval select {
-  padding: 5px 7px;
-  min-height: 29px;
-  font-size: 11px;
-}
 .status-trend svg {
   display: block;
   width: 100%;
@@ -549,8 +545,6 @@ h3 {
 .status-network-choice select {
   min-width: 0;
   max-width: 75%;
-  padding: 4px 7px;
-  font-size: 11px;
 }
 .status-rates {
   display: grid;
@@ -897,8 +891,11 @@ h3 {
   background: var(--soft);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 3px 6px;
+  padding: 0 6px;
   color: var(--subtle);
+}
+.path-bar .button.compact {
+  min-height: calc(var(--compact-control-height) - 2px);
 }
 .path-bar:focus-within {
   outline: 2px solid #9c8bce;
@@ -907,13 +904,6 @@ h3 {
 .analysis-recent {
   width: 98px;
   flex-shrink: 0;
-  min-height: 30px;
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 11px;
 }
 .path-bar input {
   flex: 1;
@@ -974,6 +964,7 @@ h3 {
 }
 .search-field input {
   width: 160px;
+  min-height: var(--compact-control-height);
   color: var(--text);
   background: transparent;
   border: 0;
@@ -1209,12 +1200,6 @@ h3 {
 }
 .analysis-filters select {
   max-width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  background: var(--surface);
-  font-size: 11px;
 }
 .analysis-map-section {
   padding: 20px;
@@ -1553,12 +1538,6 @@ h3 {
 }
 .application-library select {
   max-width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  background: var(--surface);
-  font-size: 11px;
 }
 .application-scope,
 .application-refresh {
@@ -1697,12 +1676,6 @@ h3 {
   margin-left: auto;
 }
 .process-toolbar select {
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 9px;
-  font-size: 11px;
   max-width: 100%;
 }
 .process-summary,
@@ -1827,14 +1800,6 @@ h3 {
 .task-history-toolbar .search-field input {
   width: 100%;
   min-width: 0;
-}
-.task-history-toolbar select {
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  background: var(--surface);
-  font-size: 11px;
 }
 .task-history-summary,
 .task-history-scope {
@@ -2088,11 +2053,6 @@ h3 {
 .modal-body .field input {
   width: 100%;
   min-width: 0;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
 }
 .modal.uninstall-modal {
   width: 620px;
@@ -2180,13 +2140,38 @@ h3 {
   color: var(--muted);
   line-height: 1.7;
 }
-select {
-  background: var(--surface);
+select,
+:is(
+    .installer-filters,
+    .project-filters,
+    .execution-filters,
+    .personal-filters,
+    .personal-path,
+    .scheduled-file-form,
+    .modal-body .field,
+    .ai-path-input,
+    .ai-list-toolbar
+  )
+  input:is(:not([type]), [type='text'], [type='search'], [type='number']),
+.quick-search {
+  height: var(--compact-control-height);
+  background-color: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 0 8px;
   font-size: 11px;
+}
+select {
+  appearance: none;
+  padding-inline-end: 24px;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--subtle) 50%) right 12px center / 4px 4px no-repeat,
+    linear-gradient(135deg, var(--subtle) 50%, transparent 50%) right 8px center / 4px 4px no-repeat,
+    var(--surface);
+}
+select:disabled {
+  opacity: 0.4;
 }
 .settings-description {
   font-size: 12px;
@@ -2617,6 +2602,11 @@ input[type='checkbox'] {
   animation-play-state: paused !important;
 }
 @media (forced-colors: active) {
+  select {
+    appearance: auto;
+    background-image: none;
+    padding-inline-end: 8px;
+  }
   .workspace-atmosphere,
   .dust-cloud,
   .motion-scan::after {
@@ -2777,7 +2767,8 @@ input[type='checkbox'] {
   background: transparent;
   width: 100%;
   min-width: 0;
-  padding: 9px 0;
+  min-height: calc(var(--compact-control-height) - 2px);
+  padding: 0;
   color: var(--text);
   outline: none;
 }
@@ -3260,12 +3251,7 @@ input[type='checkbox'] {
 
 .execution-filters input,
 .execution-filters select {
-  min-height: 34px;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--soft);
-  color: var(--text);
+  background-color: var(--soft);
 }
 :root[data-theme='dark'] .notice.warning {
   color: var(--peach-ink);
@@ -3293,11 +3279,7 @@ input[type='checkbox'] {
   border-top: 1px solid var(--border);
 }
 .mole-history select {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  background: var(--soft);
+  background-color: var(--soft);
 }
 .mole-history-path,
 .mole-history-detail {
@@ -3843,17 +3825,6 @@ input[type='checkbox'] {
   flex: 1;
   min-width: 160px;
 }
-.personal-path input,
-.personal-scope select,
-.personal-filters input,
-.personal-filters select {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 6px;
-  padding: 8px;
-  font-size: 12px;
-}
 .personal-summary,
 .personal-row small {
   color: var(--muted);
@@ -4043,11 +4014,6 @@ input[type='checkbox'] {
 .quick-search {
   flex: 1;
   min-width: 180px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
 }
 .quick-group-tools {
   display: flex;
@@ -4118,6 +4084,7 @@ input[type='checkbox'] {
 }
 .ai-path-input {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 .ai-path-input input {

@@ -307,6 +307,14 @@ test('pinned common locations set one explicit root without scanning and retain 
   await expect(toolbar).toContainText('/Users/demo/Downloads')
   await page.setViewportSize({ width: 960, height: 680 })
   expect((await toolbar.boundingBox())!.height).toBeLessThanOrEqual(64)
+  const controls = await toolbar.locator('select, button').evaluateAll((elements) =>
+    elements.map((element) => {
+      const { top, height } = element.getBoundingClientRect()
+      return { top, height }
+    }),
+  )
+  expect(controls).toHaveLength(3)
+  expect(new Set(controls.map(({ top, height }) => `${top}:${height}`)).size).toBe(1)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.evaluate(() => sessionStorage.setItem('installer-missing', 'yes'))
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
@@ -327,6 +335,13 @@ test('type and name filters preserve scan coverage, clear without rescanning and
   await page.getByRole('button', { name: '选择目录', exact: true }).click()
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   const region = page.getByRole('region', { name: '安装包扫描结果' })
+  const filters = region.getByRole('group', { name: '安装包列表筛选' })
+  await expect(filters).toBeVisible()
+  const heights = await filters
+    .locator('input, select')
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))
+  expect(heights).toHaveLength(3)
+  expect(new Set(heights).size).toBe(1)
   await expect(region.getByRole('article').first()).toHaveAttribute(
     'aria-label',
     '/fixture/downloads/Tool.dmg',
