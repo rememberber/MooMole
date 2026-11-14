@@ -295,6 +295,7 @@ export function AiDeepScan({
                 </select>
               </div>
               <div className="ai-findings">
+                {!visible.length && <p className="empty-inline">没有匹配的建议。</p>}
                 {visible.map((f) => {
                   const e = snapshot.evidence.find((e) => e.id === f.evidenceId)
                   if (!e) return null
@@ -400,7 +401,6 @@ export function AiDeepScan({
                     </button>
                   </div>
                 )}
-              {!visible.length && <p className="muted">没有匹配的建议。</p>}
               <div className="ai-review-actions">
                 <span className="muted">
                   已选 {chosen.length} 项；大小可能存在父子重复，不作为释放空间估算。

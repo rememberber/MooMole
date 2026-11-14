@@ -1,5 +1,41 @@
 import { expect, test } from '@playwright/test'
 
+test('cleanup filters stay separated from result groups and the empty state', async ({ page }) => {
+  for (const mode of ['software', 'normal', 'essential']) {
+    await page.goto('/')
+    await page.evaluate(
+      async (mode) => (await import('/tests/e2e/fixtures/quick-cleanup.tsx')).mount(mode),
+      mode,
+    )
+    const view = page.locator('#quick-fixture')
+    if (mode === 'essential') await view.getByText('审阅清理项目', { exact: true }).click()
+    const search = view.getByRole('searchbox')
+    const filters = search.locator('..')
+    const groups = view.locator('.quick-review > .quick-group')
+    for (const [width, height] of [
+      [1200, 820],
+      [960, 680],
+    ]) {
+      await page.setViewportSize({ width, height })
+      await expect(groups.nth(1)).toBeVisible()
+      const [toolbar, first, second] = await Promise.all([
+        filters.boundingBox(),
+        groups.first().boundingBox(),
+        groups.nth(1).boundingBox(),
+      ])
+      expect(first!.y - (toolbar!.y + toolbar!.height)).toBeGreaterThanOrEqual(12)
+      expect(second!.y - (first!.y + first!.height)).toBeGreaterThanOrEqual(12)
+    }
+    if (mode === 'software') {
+      await search.fill('no-match')
+      const empty = view.getByText('没有匹配的软件缓存候选', { exact: false })
+      await expect(empty).toBeVisible()
+      const [toolbar, result] = await Promise.all([filters.boundingBox(), empty.boundingBox()])
+      expect(result!.y - (toolbar!.y + toolbar!.height)).toBeGreaterThanOrEqual(12)
+    }
+  }
+})
+
 test('verified rebuildable caches default selected; logs, protection, unsupported and expiry stay guarded', async ({
   page,
 }) => {

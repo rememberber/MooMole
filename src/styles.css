@@ -261,6 +261,10 @@ button svg {
   margin: 0 auto;
   padding: 16px 18px 24px;
 }
+.main-content[data-page='storageMonitor'] > section + .card,
+.main-content[data-page='history'] > :is(section, button) + .card {
+  margin-block-start: 12px;
+}
 .engine-summary {
   display: flex;
   align-items: center;
@@ -1662,6 +1666,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 20px;
+  margin-block-start: 12px;
   padding: 25px;
 }
 .device-card > div {
@@ -3837,6 +3842,12 @@ input[type='checkbox'] {
   display: grid;
   gap: 12px;
 }
+.quick-cleanup > .notice {
+  margin-block-end: 0;
+}
+.quick-review > * + * {
+  margin-block-start: 12px;
+}
 .personal-files {
   display: grid;
   gap: 12px;
@@ -3957,6 +3968,9 @@ input[type='checkbox'] {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+.quick-intro + .quick-cleanup {
+  margin-block-start: 12px;
 }
 .quick-empty {
   padding: 24px;
@@ -4434,6 +4448,9 @@ input[type='checkbox'] {
   gap: 8px;
   margin-bottom: 14px;
 }
+.software-content-modes + .preview-banner {
+  margin-block-start: 0;
+}
 .software-source {
   display: flex;
   align-items: center;
@@ -4635,7 +4652,8 @@ input[type='checkbox'] {
   margin: 14px 0;
 }
 
-.browser-downloads-picker {
+.browser-downloads-picker,
+.software-content-scope {
   margin-bottom: 12px;
 }
 .browser-history-path {
@@ -4828,9 +4846,6 @@ input[type='checkbox'] {
 .quick-review-details > summary {
   cursor: pointer;
   font-weight: 550;
-}
-.quick-review-details[open] > summary {
-  margin-bottom: 15px;
 }
 @media (max-width: 1050px) {
   .overview-volume-grid {

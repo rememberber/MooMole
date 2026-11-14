@@ -1697,7 +1697,12 @@ export default function App() {
                 : '只读检查'}
           </span>
         </header>
-        <main className="main-content" tabIndex={-1} aria-label={`${pageName}内容`}>
+        <main
+          className="main-content"
+          data-page={page}
+          tabIndex={-1}
+          aria-label={`${pageName}内容`}
+        >
           {page === 'apps' && (
             <div className="software-content-modes" role="tablist" aria-label="应用管理类型">
               <button
@@ -2116,7 +2121,7 @@ export default function App() {
                 />
               )}
               {softwareSource === 'vlcPlaylist' && (
-                <div className="personal-scope">
+                <div className="personal-scope software-content-scope">
                   <label className="personal-path">
                     <span>播放列表来源</span>
                     <input aria-label="播放列表来源" value={mediaPlaylist} readOnly />
@@ -2139,7 +2144,7 @@ export default function App() {
                 </div>
               )}
               {softwareSource === 'musicLibrary' && (
-                <div className="personal-scope">
+                <div className="personal-scope software-content-scope">
                   <label className="personal-path">
                     <span>Music 导出资料库来源</span>
                     <input aria-label="Music 导出资料库来源" value={musicLibrary} readOnly />
@@ -2162,7 +2167,7 @@ export default function App() {
                 </div>
               )}
               {softwareSource === 'telegramExport' && (
-                <div className="personal-scope">
+                <div className="personal-scope software-content-scope">
                   <label className="personal-path">
                     <span>聊天导出来源</span>
                     <input aria-label="聊天导出来源" value={telegramExport} readOnly />

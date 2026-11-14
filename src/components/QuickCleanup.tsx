@@ -298,7 +298,9 @@ export function QuickCleanup({
               扫描已过期、缺少有效凭据或当前为浏览器示例。请在桌面 App 中重新扫描。
             </p>
           )}
-          <ReviewContainer className={essential ? 'card quick-review-details' : undefined}>
+          <ReviewContainer
+            className={essential ? 'quick-review card quick-review-details' : 'quick-review'}
+          >
             {essential && <summary>审阅清理项目</summary>}
             <div className="quick-action">
               <input
