@@ -125,7 +125,6 @@ export function ArchiveRetirementPanel({
   }
   return (
     <section className="archive-retirement-panel" aria-label="归档副本整理">
-      <h2>整理本机归档副本</h2>
       <p>
         先保存并核对完整导出副本，再单独确认将所选本机副本移入废纸篓。活动历史、原文件和导出副本保留，不会清空废纸篓或立即释放磁盘空间。
       </p>

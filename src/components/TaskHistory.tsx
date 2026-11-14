@@ -210,10 +210,14 @@ export function TaskHistory({
         </details>
       </section>
       {selected != null && (
-        <Modal title="检查任务详情" onClose={closeDetail} className="task-detail-modal">
+        <Modal
+          title="检查任务详情"
+          heading={detail ? taskKindName(detail.kind) : undefined}
+          onClose={closeDetail}
+          className="task-detail-modal"
+        >
           {detail ? (
             <>
-              <h2>{taskKindName(detail.kind)}</h2>
               <p className="task-detail-state">{taskStateName(detail.state)}</p>
               <dl className="task-detail-fields">
                 <dt>记录目录</dt>

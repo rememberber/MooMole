@@ -1866,15 +1866,11 @@ h3 {
   margin-top: 10px;
 }
 .modal.task-detail-modal {
-  width: min(680px, calc(100vw - 60px));
-  padding: 28px;
-  overflow: auto;
+  width: 680px;
+}
+.task-detail-modal .modal-body {
   font-size: 12px;
   line-height: 1.8;
-}
-.task-detail-modal h2 {
-  padding-right: 24px;
-  font-size: 16px;
 }
 .task-detail-state {
   margin: 4px 0 16px;
@@ -1892,9 +1888,6 @@ h3 {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.task-detail-modal > .button {
-  margin-top: 14px;
 }
 .task-detail-modal .task-history-scope {
   padding: 12px 0 0;
@@ -1974,19 +1967,24 @@ h3 {
   margin-top: 5px;
 }
 .modal {
+  width: 600px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 48px);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 17px;
   color: var(--text);
   background: var(--surface);
   box-shadow: 0 20px 100px #00000025;
-  max-height: calc(100vh - 72px);
+  overflow: hidden;
 }
 .modal::backdrop {
   background: #14151b55;
   backdrop-filter: blur(3px);
 }
 .modal[open] {
+  display: flex;
+  flex-direction: column;
   animation: dialog-arrive 160ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 .modal[open]::backdrop {
@@ -2010,29 +2008,94 @@ h3 {
     opacity: 1;
   }
 }
-.modal.uninstall-modal {
-  width: min(620px, calc(100vw - 48px));
+.modal-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 54px;
+  padding: 10px 16px 10px 24px;
+  border-bottom: 1px solid var(--border);
 }
-.uninstall-modal > p,
-.uninstall-modal > strong,
-.uninstall-modal details,
-.uninstall-ack {
+.modal-title {
+  font-size: 16px;
+  line-height: 1.4;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
-.uninstall-modal > p,
-.uninstall-modal details {
-  margin-block: 14px;
-  line-height: 1.65;
+.modal-close {
+  width: 32px;
+  height: 32px;
 }
+.modal-body {
+  min-height: 0;
+  padding: 20px 24px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.modal-body > :where(dl, .notice) {
+  margin-block: 0;
+}
+.modal-body > * + * {
+  margin-block-start: 12px;
+}
+.modal-body .button {
+  max-width: 100%;
+  white-space: normal;
+}
+.modal-body pre {
+  max-width: 100%;
+  overflow: auto;
+}
+.modal-body :is(summary, .confirm-check) {
+  cursor: pointer;
+}
+.button-row,
+.dialog-actions,
+.modal-actions,
+.inline-actions,
+.section-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dialog-actions,
+.modal-actions {
+  justify-content: flex-end;
+}
+.confirm-check,
 .uninstall-ack {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  line-height: 1.7;
+  gap: 8px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
 }
+.confirm-check input,
 .uninstall-ack input {
-  margin-top: 5px;
-  flex: none;
+  margin-block-start: 4px;
+  flex-shrink: 0;
+}
+.modal-body .field {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+.modal-body .field input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+}
+.modal.uninstall-modal {
+  width: 620px;
 }
 .uninstall-progress {
   display: flex;
@@ -2047,37 +2110,23 @@ h3 {
 .uninstall-progress p {
   margin: 5px 0 0;
 }
-.uninstall-modal .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-.modal-close {
-  position: absolute;
-  right: 16px;
-  top: 15px;
-  z-index: 1;
-}
-.settings-modal[open] {
-  display: flex;
+.settings-modal {
   width: 810px;
-  min-height: 510px;
-  max-width: calc(100vw - 80px);
+  min-height: min(510px, calc(100vh - 48px));
+}
+.settings-modal .modal-body {
+  display: flex;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
 }
 .settings-nav {
   background: var(--soft);
   width: 184px;
-  padding: 24px 12px;
+  padding: 16px 12px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
-}
-.settings-label {
-  display: block;
-  font-size: 11px;
-  color: var(--muted);
-  margin: 1px 13px 27px;
+  overflow-y: auto;
 }
 .settings-nav button {
   display: flex;
@@ -2094,14 +2143,14 @@ h3 {
 }
 .settings-content {
   flex: 1;
-  padding: 35px 31px;
+  padding: 20px 24px 24px;
   overflow-y: auto;
-  max-height: calc(100vh - 72px);
+  overscroll-behavior: contain;
   min-width: 0;
+  margin: 0;
 }
 .settings-content h2 {
-  font-size: 18px;
-  margin-bottom: 34px;
+  margin-bottom: 18px;
 }
 .settings-content .section-label {
   display: block;
@@ -2184,11 +2233,6 @@ select {
 .cleanup-visibility p {
   margin: 10px 0;
 }
-.cleanup-visibility .button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 .update-check {
   margin-bottom: 18px;
   padding-bottom: 12px;
@@ -2269,23 +2313,8 @@ select {
 }
 .welcome-modal {
   width: 480px;
-  padding: 35px;
 }
-.welcome-symbol {
-  width: 57px;
-  height: 57px;
-  display: grid;
-  place-items: center;
-  background: var(--lavender);
-  color: var(--lavender-ink);
-  border-radius: 16px;
-  margin-bottom: 27px;
-}
-.welcome-modal h2 {
-  font-size: 25px;
-  margin-bottom: 19px;
-}
-.welcome-modal > p {
+.welcome-modal .modal-body > p {
   font-size: 12px;
   line-height: 1.9;
   color: var(--subtle);
@@ -2321,6 +2350,8 @@ input[type='checkbox'] {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 26px;
 }
 .error-text {
@@ -2503,11 +2534,7 @@ input[type='checkbox'] {
   animation-name: dust-gather;
 }
 .cleanup-motion-heading {
-  margin: 0 24px 14px 0;
   min-height: 52px;
-}
-.cleanup-motion-heading h2 {
-  margin: 0;
 }
 :where(.motion-scan) {
   position: relative;
@@ -2663,18 +2690,8 @@ input[type='checkbox'] {
   .task-toast span {
     display: none;
   }
-  .settings-modal[open] {
-    max-width: calc(100vw - 30px);
-  }
   .settings-nav {
     width: 140px;
-  }
-  .settings-content {
-    padding: 32px 20px;
-  }
-  .welcome-modal {
-    max-width: calc(100vw - 30px);
-    padding: 28px;
   }
   .cache-card {
     gap: 12px;
@@ -2880,6 +2897,7 @@ input[type='checkbox'] {
 }
 .full-path {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   background: var(--soft);
   padding: 9px 12px;
   border-radius: 7px;
@@ -2933,21 +2951,7 @@ input[type='checkbox'] {
 }
 
 .review-plan-modal {
-  padding: 30px;
-  width: min(740px, calc(100vw - 60px));
-  max-height: calc(100vh - 70px);
-  overflow: auto;
-}
-.review-plan-modal > h2 {
-  font-size: 21px;
-  margin-bottom: 10px;
-}
-.review-plan-modal > .muted {
-  margin-bottom: 20px;
-  line-height: 1.7;
-}
-.review-plan-modal .notice {
-  margin-block: 16px;
+  width: 740px;
 }
 .plan-summary {
   display: flex;
@@ -3136,7 +3140,7 @@ input[type='checkbox'] {
   line-height: 1.7;
 }
 .execution-modal {
-  width: min(900px, calc(100vw - 48px));
+  width: 900px;
 }
 .execution-recovery {
   display: flex;
@@ -3263,7 +3267,7 @@ input[type='checkbox'] {
   background: var(--soft);
   color: var(--text);
 }
-:root[data-theme='dark'] .execution-modal .notice.warning {
+:root[data-theme='dark'] .notice.warning {
   color: var(--peach-ink);
 }
 
@@ -3435,18 +3439,6 @@ input[type='checkbox'] {
 }
 .maintenance-review {
   width: 640px;
-  max-width: calc(100vw - 80px);
-  padding: 24px;
-  overflow: auto;
-}
-.maintenance-review h2 {
-  padding-right: 32px;
-}
-.maintenance-review .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 24px;
 }
 .maintenance-review-item p {
   line-height: 1.8;
@@ -3703,39 +3695,6 @@ input[type='checkbox'] {
   border-top: 1px solid var(--border);
   padding-top: 8px;
 }
-.maintenance-refresh-modal,
-.file-restoration-modal,
-.mounted-volume-modal,
-.scheduled-file-modal {
-  width: min(600px, calc(100vw - 48px));
-  padding: 24px;
-  max-height: calc(100dvh - 40px);
-  overflow-y: auto;
-}
-.maintenance-refresh-modal h2,
-.file-restoration-modal h2,
-.mounted-volume-modal h2,
-.scheduled-file-modal h2 {
-  padding-right: 32px;
-  margin-bottom: 12px;
-}
-.maintenance-refresh-modal > p,
-.file-restoration-modal > p,
-.mounted-volume-modal > p,
-.scheduled-file-modal > p {
-  line-height: 1.7;
-  margin: 12px 0;
-}
-.maintenance-refresh-modal .modal-actions,
-.file-restoration-modal .modal-actions,
-.mounted-volume-modal .modal-actions,
-.scheduled-file-modal .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
 .scheduled-file-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3816,10 +3775,6 @@ input[type='checkbox'] {
   margin: 6px 0 0;
 }
 
-.execution-archive-content > h2 {
-  font-size: 21px;
-  margin-bottom: 10px;
-}
 .execution-archive-content > p {
   margin-block: 12px;
   line-height: 1.6;
@@ -3931,6 +3886,55 @@ input[type='checkbox'] {
 }
 .personal-row p {
   margin: 4px 0;
+}
+.personal-list > article:not(.personal-row, .duplicate-group) {
+  min-width: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.personal-list > article:last-child {
+  border-bottom: 0;
+}
+.personal-list > article > :is(div, .full-path) {
+  min-width: 0;
+}
+.personal-list > article > .full-path {
+  display: block;
+}
+.personal-list > article > small {
+  color: var(--subtle);
+}
+.personal-list > article pre {
+  white-space: pre-wrap;
+}
+.personal-list > article:not(.personal-row) .inline-actions {
+  margin-top: 8px;
+}
+.personal-list > article:has(> div + .button) {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.personal-list > article:has(> div + .button) > div {
+  flex: 1;
+}
+.personal-list > article > div > small.full-path {
+  display: block;
+}
+.scheduled-management {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.scheduled-management > .notice {
+  margin: 0;
+}
+.scheduled-management .section-toolbar h3 {
+  margin-inline-end: auto;
 }
 .personal-result {
   padding: 16px;
@@ -4357,8 +4361,7 @@ input[type='checkbox'] {
 }
 
 .file-preview-modal {
-  width: min(880px, calc(100vw - 48px));
-  padding: 24px;
+  width: 880px;
 }
 .file-preview-image {
   margin: 12px 0;
@@ -4459,22 +4462,18 @@ input[type='checkbox'] {
   font-size: 13px;
 }
 
-.device-backups-modal .button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
+.device-backups-modal {
+  width: 640px;
 }
-.device-backups-modal .personal-list article > div {
-  min-width: 0;
+.backup-scan-scope p {
+  margin-top: 6px;
 }
 .device-backups-modal details.card {
   padding: 12px;
   margin: 8px 0;
 }
-.device-backups-modal summary {
-  cursor: pointer;
-  overflow-wrap: anywhere;
+.device-backups-modal details.card[open] > * + * {
+  margin-block-start: 8px;
 }
 .ai-scope-choice {
   display: flex;
@@ -4487,11 +4486,7 @@ input[type='checkbox'] {
   max-width: 100%;
 }
 .space-explanation-modal {
-  width: min(740px, calc(100vw - 40px));
-  padding: 24px;
-}
-.space-explanation-modal h2 {
-  padding-right: 40px;
+  width: 740px;
 }
 .space-explanation-modal section + section {
   margin-top: 20px;
@@ -4520,22 +4515,10 @@ input[type='checkbox'] {
   font-weight: 600;
 }
 .application-update-modal {
-  padding: 24px;
-  width: min(700px, calc(100vw - 40px));
-}
-.application-update-modal h2 {
-  margin: 0 0 16px;
+  width: 700px;
 }
 .application-update-modal details {
   margin: 14px 0;
-}
-.application-discovery-modal {
-  display: grid;
-  gap: 12px;
-}
-.application-discovery-modal h2,
-.application-discovery-modal dl {
-  margin: 0;
 }
 .application-discovery-modal section,
 .application-discovery-modal article {
@@ -4571,11 +4554,7 @@ input[type='checkbox'] {
   padding: 16px 0;
 }
 .video-comparison-modal {
-  padding: 24px;
-  width: min(1100px, calc(100vw - 40px));
-}
-.video-comparison-modal h2 {
-  margin: 0 0 12px;
+  width: 1100px;
 }
 .video-comparison-controls {
   display: flex;
@@ -4631,11 +4610,7 @@ input[type='checkbox'] {
   gap: 6px;
 }
 .transfer-restoration-modal {
-  padding: 24px;
-  width: min(700px, calc(100vw - 40px));
-}
-.transfer-restoration-modal h2 {
-  margin: 0 0 14px;
+  width: 700px;
 }
 .transfer-restoration-modal dl {
   display: grid;
@@ -4862,18 +4837,7 @@ input[type='checkbox'] {
 }
 
 .mole-clean-modal {
-  max-width: 760px;
-  width: min(760px, calc(100vw - 48px));
-  padding: 24px;
-}
-.mole-clean-modal > p {
-  line-height: 1.8;
-}
-.mole-clean-modal .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+  width: 760px;
 }
 .mole-clean-tabs {
   display: flex;

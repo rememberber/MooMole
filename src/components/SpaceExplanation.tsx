@@ -72,7 +72,6 @@ export function SpaceExplanation({
   }
   return (
     <Modal title="空间占用说明" className="space-explanation-modal" onClose={onClose}>
-      <h2>空间占用说明</h2>
       {path && (
         <section aria-label="当前项目的空间属性">
           <p className="mono full-path" data-i18n="off">

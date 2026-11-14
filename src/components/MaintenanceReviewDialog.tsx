@@ -22,7 +22,6 @@ export function MaintenanceReviewDialog({
   const stale = now < review.checkedAt || now >= review.expiresAt
   return (
     <Modal title="维护条件审阅" onClose={onClose} className="maintenance-review">
-      <h2>维护条件审阅</h2>
       <p className="muted">
         只审阅所选 {review.items.length} 项的条件与影响，不修改设置，也不生成可执行任务。
       </p>

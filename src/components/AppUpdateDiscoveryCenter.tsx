@@ -185,7 +185,6 @@ function Discovery({
       className="application-update-modal application-discovery-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>检查此应用更新</h2>
       <strong data-i18n="off">{target.name}</strong>
       <p className="mono full-path" data-i18n="off">
         {target.path}

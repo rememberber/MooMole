@@ -12,6 +12,45 @@ async function open(page: Page, mode = 'normal') {
 async function calls(page: Page) {
   return JSON.parse((await page.locator('#device-backups-fixture').getAttribute('data-calls'))!)
 }
+test('backup actions and warnings fit beneath a persistent title at the minimum window size', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 680 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const dialog = await open(page)
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'))
+  const title = dialog.getByRole('heading', { name: '设备备份', exact: true })
+  const close = dialog.getByRole('button', { name: '关闭弹窗' })
+  const scan = dialog.getByRole('button', { name: '扫描本机备份' })
+  await expect(title).toHaveCount(1)
+  await expect(scan).toBeInViewport()
+  const bounds = (await dialog.boundingBox())!
+  const titleBounds = (await title.boundingBox())!
+  const closeBounds = (await close.boundingBox())!
+  const scanBounds = (await scan.boundingBox())!
+  expect(bounds.width).toBeLessThanOrEqual(700)
+  expect(titleBounds.x - bounds.x).toBeGreaterThanOrEqual(20)
+  expect(scanBounds.x).toBe(titleBounds.x)
+  expect(scanBounds.y).toBeGreaterThan(closeBounds.y + closeBounds.height)
+
+  await dialog.getByText('扫描范围与大小说明', { exact: true }).click()
+  await expect(dialog.getByText(/不访问 iCloud/)).toBeVisible()
+  await scan.click()
+  await expect(dialog.getByRole('region', { name: '设备备份列表' }).locator('article')).toHaveCount(
+    2,
+  )
+  const body = dialog.locator('.modal-body')
+  await expect
+    .poll(() => body.evaluate((el) => el.scrollHeight - el.clientHeight))
+    .toBeGreaterThan(0)
+  const resultsCloseY = (await close.boundingBox())!.y
+  await body.evaluate((el) => (el.scrollTop = el.scrollHeight))
+  await expect(close).toBeInViewport()
+  expect((await close.boundingBox())!.y).toBeCloseTo(resultsCloseY, 0)
+  expect(await body.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await close.click()
+  await expect(dialog).toHaveCount(0)
+})
 test('whole-backup flow requires explicit scan, exact item and separate acknowledgement', async ({
   page,
 }) => {
@@ -51,7 +90,7 @@ test('unknown backup history is observed and acknowledgement never resends a req
   page,
 }) => {
   const d = await open(page, 'existing')
-  await d.locator('summary').click()
+  await d.getByRole('region', { name: '设备备份处理历史' }).locator('summary').click()
   await d.getByRole('button', { name: '核对中断结果…' }).click()
   await expect(d.getByRole('button', { name: '记录已核对', exact: true })).toBeDisabled()
   await d.getByRole('checkbox').check()

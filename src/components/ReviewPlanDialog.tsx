@@ -186,7 +186,6 @@ export function ReviewPlanDialog({
       }}
       className="review-plan-modal"
     >
-      <h2>审阅计划</h2>
       <p className="muted">已保存所选范围，可逐项查看检查结果。</p>
       <div className="notice">
         <ShieldCheck size={18} />

@@ -84,12 +84,7 @@ export function MountedVolumePicker({
   if (!open) return null
   const fresh = report && now >= report.createdAt && now < report.expiresAt
   return (
-    <Modal
-      title="选择磁盘分析"
-      className="mounted-volume-modal"
-      onClose={loading ? undefined : close}
-    >
-      <h2>选择磁盘分析</h2>
+    <Modal title="选择磁盘分析" onClose={loading ? undefined : close}>
       <p className="notice">
         从启动卷根目录、账户目录或已挂载的本地卷开始分析；列表也可能包含磁盘映像。容量是本次读取的观察值，APFS
         卷可能共享空间，不能直接相加。分析后需重新扫描、选择并确认，才会移动或清理文件。

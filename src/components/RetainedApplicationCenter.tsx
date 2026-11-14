@@ -179,7 +179,6 @@ function Retire({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>整理保留的应用版本</h2>
       <strong data-i18n="off">{source.draft.name}</strong>
       {draft && (
         <>

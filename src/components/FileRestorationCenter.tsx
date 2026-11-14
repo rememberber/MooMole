@@ -96,12 +96,7 @@ function Restoration({
   }
   const item = result?.items[0]
   return (
-    <Modal
-      className="file-restoration-modal"
-      title={result ? '文件恢复结果' : '恢复原位置'}
-      onClose={pending ? undefined : onClose}
-    >
-      <h2>{result ? '文件恢复结果' : '恢复原位置'}</h2>
+    <Modal title={result ? '文件恢复结果' : '恢复原位置'} onClose={pending ? undefined : onClose}>
       <dl>
         <dt>当前记录位置</dt>
         <dd className="mono full-path" data-i18n="off">

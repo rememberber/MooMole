@@ -210,7 +210,6 @@ function Preview({
   const c = report?.content
   return (
     <Modal title="文件内容预览" onClose={onClose} className="file-preview-modal">
-      <h2>文件内容预览</h2>
       <p className="mono full-path" data-i18n="off">
         {target.path}
       </p>

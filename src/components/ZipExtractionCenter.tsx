@@ -297,7 +297,6 @@ function Create({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>解压压缩包</h2>
       <p>
         将 ZIP、TAR 或 TAR.GZ/TGZ
         的完整内容解压到新文件夹，原压缩包保留；不覆盖已有文件，不自动打开内容。
@@ -589,7 +588,6 @@ export function ZipExtractionHistory() {
           className="application-update-modal"
           onClose={pending ? undefined : () => setSelected(null)}
         >
-          <h2>压缩包解压记录</h2>
           <Outcome record={current} onError={setError} />
           <Scope draft={current.draft} />
           {error && (

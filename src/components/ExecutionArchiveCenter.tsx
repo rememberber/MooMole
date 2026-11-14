@@ -195,7 +195,6 @@ export function ExecutionArchiveCenter({
           />
         ) : (
           <>
-            <h2>{title}</h2>
             <p className="muted">
               仅整理本机执行历史，不处理原文件或废纸篓，不恢复执行，也不会自动重试。
             </p>

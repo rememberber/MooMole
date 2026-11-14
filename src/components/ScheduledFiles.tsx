@@ -60,7 +60,7 @@ export function ScheduledFiles({
     setEdit({ id: p.id, rule: { ...p.rule, extensions: [...p.rule.extensions] } })
   }
   return (
-    <section className="card" aria-label="定期文件处理">
+    <section className="card scheduled-management" aria-label="定期文件处理">
       <div className="section-toolbar">
         <h3>定期文件处理</h3>
         <button
@@ -285,12 +285,7 @@ function RuleForm({
   }
   const fresh = draft && now >= draft.createdAt && now < draft.expiresAt
   return (
-    <Modal
-      title="预览并启用定期处理"
-      className="scheduled-file-modal"
-      onClose={c.pending ? undefined : onClose}
-    >
-      <h2>预览并启用定期处理</h2>
+    <Modal title="预览并启用定期处理" onClose={c.pending ? undefined : onClose}>
       <p className="notice warning">
         启用后，本次 App
         运行期间，后续符合条件的文件也会按规则处理，无需逐次确认。只按修改日期和扩展名判断，不代表文件近期没用或可以丢弃；新复制但保留旧修改日期的文件也可能命中。请使用用途明确的具体目录。

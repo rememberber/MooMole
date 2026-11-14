@@ -180,7 +180,6 @@ function Restore({
       className="transfer-restoration-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>从跨磁盘副本恢复</h2>
       <p>把已校验的副本复制回原文件名，不覆盖已有文件。另一磁盘的副本保留，原废纸篓项目不改动。</p>
       <dl>
         <dt>恢复来源</dt>
@@ -361,7 +360,6 @@ export function TransferRestorationHistory() {
           className="transfer-restoration-modal"
           onClose={saving ? undefined : () => setSelected(null)}
         >
-          <h2>跨磁盘恢复记录</h2>
           <p className="mono full-path">{selected.draft.originalPath}</p>
           <Result record={selected} onError={setError} />
           {error && (

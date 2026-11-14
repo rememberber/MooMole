@@ -317,7 +317,6 @@ export function LivePhotoPairs({
       )}
       {draft && (
         <Modal title="确认处理 Live Photo 整对文件" onClose={close} className="review-plan-modal">
-          <h2>确认处理 Live Photo 整对文件</h2>
           <p>
             将所选照片及对应短视频依次移入废纸篓。动态、声音与照片可能各含独有内容；停止或失败可能只完成一部分，请按收据核对。
           </p>

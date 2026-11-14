@@ -314,7 +314,6 @@ export function MoleCleanupCenter({
       )}
       {open && (
         <Modal title="Mole 一键清理" className="mole-clean-modal" onClose={close}>
-          <h2>Mole 一键清理</h2>
           <div className="mole-clean-tabs">
             <button
               className="button secondary compact"

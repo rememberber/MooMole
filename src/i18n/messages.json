@@ -9346,9 +9346,19 @@
   ["设备备份…", "Device backups…", "デバイスのバックアップ…"],
   ["设备备份", "Device backups", "デバイスのバックアップ"],
   [
-    "管理本机 iPhone、iPad 的整份备份或已复制的备份目录。备份可能是唯一恢复来源，较旧不代表可以删除；不拆删内部文件，不访问 iCloud 备份。",
-    "Manage whole local iPhone and iPad backups or copied backup folders. A backup may be the only recovery source; age does not make it disposable. No partial deletion or iCloud backup access.",
-    "Mac 上の iPhone・iPad のバックアップ全体やコピーを管理します。唯一の復元元である可能性があり、古さは削除の根拠になりません。内部ファイルの一部削除や iCloud バックアップへのアクセスは行いません。"
+    "请在当前任务结束后扫描备份。",
+    "Wait for the current task to finish before scanning backups.",
+    "現在のタスクが完了してからバックアップをスキャンしてください。"
+  ],
+  [
+    "检查本机 iPhone、iPad 的备份，或选择存放备份副本的文件夹。",
+    "Check iPhone and iPad backups on this Mac or choose a folder containing backup copies.",
+    "この Mac にある iPhone・iPad のバックアップを確認するか、バックアップのコピーがあるフォルダを選択します。"
+  ],
+  [
+    "备份可能是唯一的恢复来源。日期较早的备份也可能需要保留。处理时以整份备份为单位。",
+    "A backup may be your only recovery source. You may still need older backups. Backups are handled as whole folders.",
+    "バックアップは唯一の復元元である場合があります。古いバックアップも必要なことがあります。処理はバックアップ全体を単位として行います。"
   ],
   ["扫描本机备份", "Scan local backups", "Mac のバックアップを調べる"],
   [
@@ -9357,10 +9367,11 @@
     "デバイスのバックアップコピーを含むフォルダを選択"
   ],
   ["选择备份副本目录…", "Choose backup copies folder…", "バックアップコピーのフォルダを選択…"],
+  ["扫描范围与大小说明", "Scan scope and reported size", "スキャン範囲とサイズについて"],
   [
-    "仅检查所选目录的直属备份。读取设备名称、状态清单与目录元数据，不解密或打开备份中的个人内容。大小是普通文件逻辑大小，不是可释放空间。",
-    "Checks only direct child backups. Reads device names, status manifests and directory metadata, without decrypting or opening personal backup content. Size is logical file size, not reclaimable space.",
-    "選択フォルダの直下だけを調べます。デバイス名、状態ファイル、ディレクトリのメタデータを読み取り、個人データの復号や閲覧はしません。サイズは論理サイズで、解放できる容量ではありません。"
+    "仅检查所选目录的直属备份，不访问 iCloud 备份。读取设备名称、状态清单与目录元数据，不解密或打开个人内容。显示的是文件逻辑大小，不是可释放空间。",
+    "Scans only backups directly inside the selected folder. iCloud backups are excluded. The scan reads device names, status manifests and folder metadata without decrypting or opening personal content. Reported size is logical file size, not reclaimable space.",
+    "選択したフォルダの直下にあるバックアップのみを調べます。iCloud バックアップは対象外です。デバイス名、状態ファイル、フォルダのメタデータを読み取り、個人データの復号や閲覧はしません。表示サイズは論理ファイルサイズで、解放可能な容量ではありません。"
   ],
   [
     "正在复查或处理整份备份；取消只停止尚未发出的请求。",

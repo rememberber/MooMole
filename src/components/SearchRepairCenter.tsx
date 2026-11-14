@@ -83,7 +83,6 @@ export function SearchRepairCenter({
   if (!open) return null
   return (
     <Modal title="更新文件搜索索引" onClose={pending ? undefined : close}>
-      <h2>更新文件搜索索引</h2>
       <p>文件存在但 Finder 或 Spotlight 搜索不到时，可选择所在文件夹重新提交索引。</p>
       <p className="notice">
         会读取所选文件夹及其子目录并更新 Spotlight 索引，可能占用 CPU

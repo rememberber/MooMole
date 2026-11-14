@@ -228,8 +228,11 @@ function Transfer({
     if (request.current) void transport.cancel(request.current).catch((e) => setError(String(e)))
   }
   return (
-    <Modal title="跨磁盘移动确认与结果" onClose={pending ? undefined : onClose}>
-      <h2>{record ? transferState[record.state] : '移动到另一磁盘'}</h2>
+    <Modal
+      title="跨磁盘移动确认与结果"
+      heading={record ? transferState[record.state] : '移动到另一磁盘'}
+      onClose={pending ? undefined : onClose}
+    >
       <p className="notice">
         先复制并校验目标文件，再将原件移入原磁盘的废纸篓。不会覆盖同名目标、永久删除原件或清空废纸篓；原磁盘空间不会因此立即释放。停止后已生成的副本会保留，原件处理未完成时会分别记录。请先关闭相关文件；本轮不完整检查所有应用占用。
       </p>
@@ -375,8 +378,11 @@ export function FileTransferHistory({
         </p>
       )}
       {selected && (
-        <Modal title="跨磁盘移动记录" onClose={() => setSelected(null)}>
-          <h2>{transferState[selected.state]}</h2>
+        <Modal
+          title="跨磁盘移动记录"
+          heading={transferState[selected.state]}
+          onClose={() => setSelected(null)}
+        >
           <p>{selected.reason}</p>
           <Items
             record={selected}

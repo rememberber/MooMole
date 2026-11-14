@@ -13,10 +13,12 @@ import { useNow } from '../lib/use-now'
 export function DeviceBackups({
   openSignal,
   enabled,
+  blockedReason,
   onActiveChange,
 }: {
   openSignal: number
   enabled: boolean
+  blockedReason?: string
   onActiveChange: (active: boolean) => void
 }) {
   const [open, setOpen] = useState(false),
@@ -111,17 +113,12 @@ export function DeviceBackups({
     fresh = report && now >= report.createdAt && now < report.expiresAt
   return (
     <Modal title="设备备份" className="device-backups-modal" onClose={working ? undefined : close}>
-      <h2>设备备份</h2>
-      <p className="notice">
-        管理本机 iPhone、iPad
-        的整份备份或已复制的备份目录。备份可能是唯一恢复来源，较旧不代表可以删除；不拆删内部文件，不访问
-        iCloud 备份。
-      </p>
       {!draft && !review && (
         <>
+          <p>检查本机 iPhone、iPad 的备份，或选择存放备份副本的文件夹。</p>
           <div className="button-row">
             <button
-              className="button secondary"
+              className="button primary"
               disabled={working || !enabled}
               onClick={() => void scan(null)}
             >
@@ -140,9 +137,21 @@ export function DeviceBackups({
               选择备份副本目录…
             </button>
           </div>
-          <p className="muted">
-            仅检查所选目录的直属备份。读取设备名称、状态清单与目录元数据，不解密或打开备份中的个人内容。大小是普通文件逻辑大小，不是可释放空间。
+          {!enabled && !working && blockedReason && (
+            <p className="muted" role="status">
+              {blockedReason}
+            </p>
+          )}
+          <p className="notice warning">
+            备份可能是唯一的恢复来源。日期较早的备份也可能需要保留。处理时以整份备份为单位。
           </p>
+          <details className="backup-scan-scope">
+            <summary>扫描范围与大小说明</summary>
+            <p className="muted">
+              仅检查所选目录的直属备份，不访问 iCloud
+              备份。读取设备名称、状态清单与目录元数据，不解密或打开个人内容。显示的是文件逻辑大小，不是可释放空间。
+            </p>
+          </details>
           {working && (
             <p role="status">
               {view?.phase === 'processing'
@@ -165,7 +174,12 @@ export function DeviceBackups({
               {!report.items.length && (
                 <p>本次未列出备份；缺失、权限受限和未知格式不表示备份不存在。</p>
               )}
-              <div className="card personal-list" role="region" aria-label="设备备份列表">
+              <div
+                className="card personal-list"
+                role="region"
+                aria-label="设备备份列表"
+                hidden={!report.items.length}
+              >
                 {report.items.map((item) => (
                   <article key={item.id}>
                     <div>

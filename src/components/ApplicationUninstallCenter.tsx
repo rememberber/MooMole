@@ -518,7 +518,6 @@ export function ApplicationUninstallCenter({
           }
           className="review-plan-modal uninstall-modal"
         >
-          <h2>{title}</h2>
           {requestId ? (
             <>
               {detail ? (

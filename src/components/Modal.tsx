@@ -4,6 +4,7 @@ import { restoreFocus } from '../lib/focus-return'
 
 export function Modal({
   title,
+  heading = title,
   children,
   onClose,
   returnFocus,
@@ -11,6 +12,7 @@ export function Modal({
   className = '',
 }: {
   title: string
+  heading?: ReactNode
   children: ReactNode
   onClose?: () => void
   returnFocus?: () => HTMLElement | null
@@ -56,12 +58,20 @@ export function Modal({
         }
       }}
     >
-      {onClose && (
-        <button className="icon-button modal-close" onClick={onClose} aria-label="关闭弹窗">
-          <X size={18} />
-        </button>
-      )}
-      {children}
+      <div className="modal-header">
+        <h2 className="modal-title">{heading}</h2>
+        {onClose && (
+          <button
+            type="button"
+            className="icon-button modal-close"
+            onClick={onClose}
+            aria-label="关闭弹窗"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+      <div className="modal-body">{children}</div>
     </dialog>
   )
 }

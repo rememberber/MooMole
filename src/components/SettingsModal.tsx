@@ -107,7 +107,6 @@ export function SettingsModal({
   return (
     <Modal title="设置" onClose={close} returnFocus={returnFocus} className="settings-modal">
       <nav className="settings-nav" aria-label="设置分类">
-        <span className="settings-label">设置</span>
         {(
           [
             ['general', Settings2, '通用'],

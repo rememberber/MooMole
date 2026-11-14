@@ -201,7 +201,6 @@ function Update({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>更新此应用</h2>
       <strong data-i18n="off">{target.name}</strong>
       <p className="mono full-path">{target.path}</p>
       <p>选择从可信来源下载并解压的新版 .app。请先自行退出应用；核对完成后才会替换。</p>
@@ -372,7 +371,6 @@ function History({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>应用更新记录</h2>
       <p>旧包与未完成的暂存包不会自动删除。请先核对实际位置，再决定如何恢复或保留。</p>
       {error && (
         <p role="alert" className="notice warning">

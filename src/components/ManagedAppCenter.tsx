@@ -172,7 +172,6 @@ export function ManagedAppCenter({
               }
             }}
           >
-            <h2>{upgrade ? '通过 Homebrew 升级' : '通过 Homebrew 卸载'}</h2>
             <p className="mono full-path" data-i18n="off">
               {target.path}
             </p>

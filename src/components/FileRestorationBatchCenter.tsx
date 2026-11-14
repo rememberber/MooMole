@@ -102,11 +102,9 @@ function Batch({
   const valid = draft && now >= draft.createdAt && now < draft.expiresAt
   return (
     <Modal
-      className="file-restoration-modal"
       title={result ? '批量恢复结果' : '批量恢复原位置'}
       onClose={pending ? undefined : onClose}
     >
-      <h2>{result ? '批量恢复结果' : '批量恢复原位置'}</h2>
       <p className="notice">
         逐项核对收据和原位置，同卷移回普通文件；不覆盖、不改名、不创建目录。检查未通过时请返回调整选择；执行时遇到冲突或变化则保留该项，继续处理其余项。取消会保留已经恢复的文件，没有整批撤销。
       </p>

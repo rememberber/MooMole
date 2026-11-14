@@ -179,7 +179,6 @@ function Restore({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>恢复此前应用版本</h2>
       <strong data-i18n="off">{source.draft.name}</strong>
       <dl className="application-update-facts">
         <dt>版本</dt>

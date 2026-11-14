@@ -268,6 +268,13 @@ export function StartupManagement({
       {draft && (
         <Modal
           title={result ? '启动操作结果' : '确认启动配置操作'}
+          heading={
+            result
+              ? startupRecordName(result)
+              : draft.action === 'pause'
+                ? '暂停此登录配置'
+                : '恢复此登录配置'
+          }
           onClose={
             pending
               ? undefined
@@ -277,13 +284,6 @@ export function StartupManagement({
                 }
           }
         >
-          <h2>
-            {result
-              ? startupRecordName(result)
-              : draft.action === 'pause'
-                ? '暂停此登录配置'
-                : '恢复此登录配置'}
-          </h2>
           <p className="notice">
             暂停可能中断后台同步或更新；恢复可能立即执行当前程序。停止只阻止后续步骤，已完成的更名或系统请求不会自动撤销。未知结果须在历史核对，不会自动重试。
           </p>
@@ -357,8 +357,11 @@ export function StartupManagement({
         </Modal>
       )}
       {selected && (
-        <Modal title="启动管理记录" onClose={() => setSelected(null)}>
-          <h2>{startupRecordName(selected)}</h2>
+        <Modal
+          title="启动管理记录"
+          heading={startupRecordName(selected)}
+          onClose={() => setSelected(null)}
+        >
           <p>{selected.reason}</p>
           <p className="mono full-path" data-i18n="off">
             {selected.path}

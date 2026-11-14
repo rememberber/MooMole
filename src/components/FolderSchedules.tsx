@@ -102,7 +102,7 @@ export function FolderSchedules({
     )
   }
   return (
-    <section className="card" aria-label="目录定期扫描">
+    <section className="card scheduled-management" aria-label="目录定期扫描">
       <div className="section-toolbar">
         <h3>目录定期扫描</h3>
         <button

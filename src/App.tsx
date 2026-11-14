@@ -1840,6 +1840,13 @@ export default function App() {
           <DeviceBackups
             openSignal={deviceBackupsOpenSignal}
             enabled={canRun}
+            blockedReason={
+              !api.desktop
+                ? undefined
+                : !data.engine.available
+                  ? (data.engine.reason ?? '当前引擎不可用。')
+                  : '请在当前任务结束后扫描备份。'
+            }
             onActiveChange={setDeviceBackupsActive}
           />
           {spaceExplanation && (
@@ -2849,9 +2856,6 @@ export default function App() {
       )}
       {!data.settings.acknowledged && (
         <Modal title="欢迎使用 MooMole" className="welcome-modal">
-          <div className="welcome-symbol">
-            <ShieldCheck size={30} strokeWidth={1.4} />
-          </div>
           <p>
             MooMole
             是独立的非官方学习研究项目。使用前请理解操作影响并备份重要数据，由此产生的问题与使用风险由使用者自行承担。

@@ -972,7 +972,6 @@ export function PersonalFiles({
       {!api.desktop && <p className="notice">浏览器预览不能读取或处理本机文件，请使用桌面 App。</p>}
       {confirmation && (
         <Modal title={title} onClose={pending ? undefined : close} className="review-plan-modal">
-          <h2>{title}</h2>
           {mode === 'downloads' && (
             <p className="notice" data-i18n="off">
               {

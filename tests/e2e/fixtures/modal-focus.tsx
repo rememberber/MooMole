@@ -36,7 +36,6 @@ function Fixture() {
       <button onClick={() => setRequired(true)}>打开必读说明</button>
       {visible && (
         <Modal title="测试弹窗" onClose={() => setVisible(false)} returnFocus={returnFocus}>
-          <h2>测试弹窗</h2>
           <button onClick={() => setChild(true)}>打开内层弹窗</button>
           {['hidden', 'disabled', 'missing'].map((state) => (
             <button key={state} onClick={() => setEntryState(state)}>
@@ -51,21 +50,12 @@ function Fixture() {
           >
             切换到另一弹窗
           </button>
-          {child && (
-            <Modal title="内层弹窗" onClose={() => setChild(false)}>
-              <h2>内层弹窗</h2>
-            </Modal>
-          )}
+          {child && <Modal title="内层弹窗" onClose={() => setChild(false)}></Modal>}
         </Modal>
       )}
-      {replacement && (
-        <Modal title="另一弹窗" onClose={() => setReplacement(false)}>
-          <h2>另一弹窗</h2>
-        </Modal>
-      )}
+      {replacement && <Modal title="另一弹窗" onClose={() => setReplacement(false)}></Modal>}
       {required && (
         <Modal title="必读说明">
-          <h2>必读说明</h2>
           <button onClick={() => setRequired(false)}>已阅读说明</button>
         </Modal>
       )}

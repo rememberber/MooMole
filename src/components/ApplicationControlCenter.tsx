@@ -73,7 +73,6 @@ function Control({
   }
   return (
     <Modal title={title} onClose={pending ? undefined : onClose}>
-      <h2>{title}</h2>
       <strong data-i18n="off">{target.name}</strong>
       <p className="mono full-path">{target.path}</p>
       <p className="notice">

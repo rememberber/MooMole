@@ -260,7 +260,6 @@ function Create({
       className="application-update-modal"
       onClose={pending ? undefined : onClose}
     >
-      <h2>归档整个文件夹</h2>
       <p>
         创建包含目录、空目录、普通文件和 Mac 元数据的 ZIP，原文件保留；归档本身不释放原文件占用。
       </p>
@@ -508,7 +507,6 @@ export function FolderArchiveHistory() {
           className="application-update-modal"
           onClose={pending ? undefined : () => setSelected(null)}
         >
-          <h2>整份文件夹归档记录</h2>
           <Outcome record={current} onError={setError} />
           <Scope draft={current.draft} />
           {error && (

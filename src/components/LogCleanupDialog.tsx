@@ -83,19 +83,22 @@ export function LogCleanupDialog({
   const evidence = result ?? (consumed ? execution : null)
   const remaining = evidence?.itemCount ? 1 - evidence.movedCount / evidence.itemCount : 1
   const moving = busy && !cancelling && (!evidence || evidence.state === 'running')
+  const title = result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'
   return (
     <Modal
-      title={result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}
+      title={title}
+      heading={
+        <span className="motion-summary cleanup-motion-heading motion-scan" data-scanning={moving}>
+          <DustCloud
+            remaining={remaining}
+            phase={moving ? 'working' : consumed ? 'settled' : expired ? 'paused' : 'detected'}
+          />
+          <span>{title}</span>
+        </span>
+      }
       onClose={close}
       className="review-plan-modal"
     >
-      <div className="motion-summary cleanup-motion-heading motion-scan" data-scanning={moving}>
-        <DustCloud
-          remaining={remaining}
-          phase={moving ? 'working' : consumed ? 'settled' : expired ? 'paused' : 'detected'}
-        />
-        <h2>{result ? '清理结果' : busy ? '正在清理' : '确认移入废纸篓'}</h2>
-      </div>
       {result ? (
         <>
           <p role="status">

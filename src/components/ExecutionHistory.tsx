@@ -251,7 +251,6 @@ export function ExecutionHistory({
           }
           className="review-plan-modal execution-modal"
         >
-          <h2>逐项执行结果</h2>
           {detailError && (
             <div className="notice warning" role="alert">
               <p>{detailError}</p>

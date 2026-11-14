@@ -104,7 +104,6 @@ function Archive({
   }
   return (
     <Modal title="归档所选文件" onClose={pending ? undefined : onClose}>
-      <h2>归档所选文件</h2>
       <p className="notice">
         创建 ZIP 并逐项校验，原文件保留；归档本身不释放原文件占用。ZIP
         不加密，仅保存文件内容和相对路径，暂不保存 Finder 标签、扩展属性、资源分支或原始权限。
@@ -292,8 +291,11 @@ export function FileArchiveHistory() {
         </button>
       ))}
       {selected && (
-        <Modal title="文件归档记录" onClose={() => setSelected(null)}>
-          <h2>{fileArchiveStates[selected.state]}</h2>
+        <Modal
+          title="文件归档记录"
+          heading={fileArchiveStates[selected.state]}
+          onClose={() => setSelected(null)}
+        >
           <p>{selected.reason}</p>
           <p className="mono full-path" data-i18n="off">
             {selected.outputPath}

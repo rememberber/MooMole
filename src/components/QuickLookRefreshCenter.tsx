@@ -399,9 +399,7 @@ export function QuickLookRefreshCenter({
           title={mode === 'prepare' ? '刷新预览' : '维护结果'}
           onClose={close}
           returnFocus={() => focusReturnTarget(opener.current)}
-          className="maintenance-refresh-modal"
         >
-          <h2>{mode === 'prepare' ? '刷新预览' : '维护结果'}</h2>
           {mode === 'prepare' ? (
             <>
               <p>预览异常时，可刷新 Quick Look 的缩略图缓存和生成器列表。</p>
