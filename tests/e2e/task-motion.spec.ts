@@ -161,7 +161,12 @@ test('running global task feedback keeps fixed positioning and never squeezes th
   for (const width of [960, 1200]) {
     await page.setViewportSize({ width, height: 800 })
     expect(await toast.evaluate((el) => getComputedStyle(el).position)).toBe('fixed')
-    expect((await page.locator('.workspace').boundingBox())!.width).toBeGreaterThan(width - 180)
+    const sidebar = (await page.locator('.sidebar').boundingBox())!
+    const workspace = (await page.locator('.workspace').boundingBox())!
+    const toastBounds = (await toast.boundingBox())!
+    expect(workspace.x).toBe(sidebar.x + sidebar.width)
+    expect(workspace.x + workspace.width).toBe(width)
+    expect(toastBounds.x + toastBounds.width / 2).toBeCloseTo(workspace.x + workspace.width / 2)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
   await toast.getByRole('button', { name: '取消', exact: true }).click()

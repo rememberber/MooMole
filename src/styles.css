@@ -101,11 +101,12 @@ button svg {
   flex-shrink: 0;
 }
 .app-shell {
+  --sidebar-width: 216px;
   min-height: 100vh;
   display: flex;
 }
 .sidebar {
-  width: 176px;
+  width: var(--sidebar-width);
   background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
   padding: 0 16px 18px;
@@ -158,8 +159,8 @@ button svg {
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 35px;
-  padding: 0 13px;
+  min-height: 35px;
+  padding: 7px 13px;
   border-radius: 9px;
   text-align: left;
   color: var(--subtle);
@@ -171,9 +172,7 @@ button svg {
 }
 .main-nav button > span:not(.active-dot) {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .main-nav button.active {
   background: var(--selected);
@@ -183,6 +182,7 @@ button svg {
 .active-dot {
   width: 4px;
   height: 4px;
+  flex-shrink: 0;
   background: var(--text);
   border-radius: 100%;
   margin-left: auto;
@@ -204,9 +204,8 @@ button svg {
   background: var(--selected);
 }
 .workspace {
-  --workspace-inset: 176px;
   flex: 1;
-  margin-left: 176px;
+  margin-left: var(--sidebar-width);
   min-width: 0;
   position: relative;
   isolation: isolate;
@@ -1939,7 +1938,7 @@ h3 {
 .task-toast {
   position: fixed;
   bottom: 22px;
-  left: calc(50% + 88px);
+  left: calc(50% + var(--sidebar-width) / 2);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -2364,7 +2363,7 @@ input[type='checkbox'] {
 /* Quiet task feedback: monochrome, local to a summary, and driven by real state. */
 .workspace-atmosphere {
   position: fixed;
-  inset: 52px 0 0 var(--workspace-inset);
+  inset: 52px 0 0 var(--sidebar-width);
   z-index: -1;
   overflow: hidden;
   contain: strict;
@@ -2597,26 +2596,18 @@ input[type='checkbox'] {
   }
 }
 @media (max-width: 1050px) {
-  .sidebar {
-    width: 166px;
-  }
-  .workspace {
-    --workspace-inset: 166px;
-    margin-left: 166px;
-  }
   .main-content {
     padding: 16px 18px 24px;
   }
   .topbar {
     padding: 8px 18px;
   }
-  .task-toast {
-    left: calc(50% + 83px);
-  }
 }
 @media (max-width: 760px) {
+  .app-shell {
+    --sidebar-width: 70px;
+  }
   .sidebar {
-    width: 70px;
     padding: 0 9px 18px;
   }
   .brand {
@@ -2636,10 +2627,6 @@ input[type='checkbox'] {
     justify-content: center;
     font-size: 0;
     padding: 12px 0;
-  }
-  .workspace {
-    --workspace-inset: 70px;
-    margin-left: 70px;
   }
   .main-content {
     padding: 14px 14px 24px;
@@ -2665,7 +2652,6 @@ input[type='checkbox'] {
     font-size: 19px;
   }
   .task-toast {
-    left: calc(50% + 35px);
     min-width: 0;
     width: calc(100% - 100px);
   }

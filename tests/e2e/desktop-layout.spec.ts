@@ -2,6 +2,43 @@ import { expect, test } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { analysis } from './fixtures/analysis-explorer'
 
+for (const [locale, longLabel] of [
+  ['zh-CN', '相似照片与视频'],
+  ['en', 'Similar photos and videos'],
+  ['ja', 'ソフトウェアのクリーンアップ'],
+] as const) {
+  test.describe(locale, () => {
+    test.use({ locale })
+
+    test('shows full sidebar labels at the default and minimum desktop sizes', async ({ page }) => {
+      await page.goto('/')
+      const nav = page.locator('.main-nav')
+      const longItem = nav.getByRole('button', { name: longLabel, exact: true })
+      await longItem.click()
+      await expect(longItem).toHaveAttribute('aria-current', 'page')
+
+      for (const [width, height] of [
+        [1200, 820],
+        [960, 680],
+      ]) {
+        await page.setViewportSize({ width, height })
+        await expect(longItem.locator('span').first()).toBeVisible()
+        const clippedLabels = await nav
+          .locator('button > span:first-of-type')
+          .evaluateAll((labels) =>
+            labels
+              .filter(
+                (label) =>
+                  label.scrollWidth > label.clientWidth || label.scrollHeight > label.clientHeight,
+              )
+              .map((label) => label.textContent),
+          )
+        expect(clippedLabels, `${locale} at ${width} × ${height}`).toEqual([])
+      }
+    })
+  })
+}
+
 test('compact desktop shell puts actions in the toolbar and results above the fold without duplicate page chrome', async ({
   page,
 }) => {
