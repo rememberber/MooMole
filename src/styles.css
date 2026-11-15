@@ -3091,8 +3091,17 @@ input[type='checkbox'] {
   border-top: 1px solid var(--border);
   text-align: left;
 }
-.saved-plan-row:hover {
+.list-toolbar + .saved-plan-row {
+  border-top: 0;
+}
+.saved-plan-row.compact {
+  padding-block: 10px;
+}
+.saved-plan-row:not(:disabled):hover {
   background: var(--soft);
+}
+.saved-plan-row:focus-visible {
+  outline-offset: -2px;
 }
 .saved-plan-row > span:first-of-type {
   flex: 1;
@@ -3108,6 +3117,9 @@ input[type='checkbox'] {
   display: block;
   font-size: 10px;
   margin-top: 7px;
+}
+.saved-plan-row.compact small {
+  margin-top: 4px;
 }
 .saved-plan-row > span:last-of-type {
   font-size: 11px;

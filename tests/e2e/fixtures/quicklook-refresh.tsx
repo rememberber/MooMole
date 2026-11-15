@@ -37,6 +37,17 @@ export function mount(mode = 'normal') {
     release: ((v: unknown) => void) | null = null,
     rejectCancel: ((e: Error) => void) | null = null
   const calls: { command: string; id?: string }[] = []
+  const history =
+    mode === 'history'
+      ? ['completed', 'interrupted', 'cancelled', 'completed', 'interrupted', 'completed'].map(
+          (state, index) => {
+            const row = refreshDetailRaw(crypto.randomUUID(), state, Date.now() - index * 3600_000)
+            return state === 'interrupted'
+              ? { ...row, reviewedAt: row.finishedAt, retainedForReview: false }
+              : row
+          },
+        )
+      : null
   let changed = () => {}
   function finish(state = 'completed') {
     record = refreshDetailRaw(id, state, record?.createdAt)
@@ -69,8 +80,13 @@ export function mount(mode = 'normal') {
       if (mode === 'lost') throw new Error('响应通道中断')
       return new Promise((r) => (resolve = r))
     },
-    read: async (request) => ({ version: 1, requestId: request, active, record }),
-    list: async () => (record ? [record] : []),
+    read: async (request) => ({
+      version: 1,
+      requestId: request,
+      active,
+      record: history ? (history.find((row) => row.id === request) ?? null) : record,
+    }),
+    list: async () => history ?? (record ? [record] : []),
     cancel: async (request) => {
       calls.push({ command: 'cancel', id: request })
       if (mode === 'cancel-error') throw new Error('取消响应暂时不可用')

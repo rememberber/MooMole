@@ -359,9 +359,9 @@ export function QuickLookRefreshCenter({
           </section>
         )}
       {historyVisible && (
-        <section aria-label="维护记录">
-          <div className="section-heading">
-            <h3>预览刷新</h3>
+        <section className="card record-list" aria-label="维护记录">
+          <div className="list-toolbar">
+            <h2>预览刷新</h2>
             <button
               className="button secondary compact"
               disabled={!enabled}
@@ -371,26 +371,30 @@ export function QuickLookRefreshCenter({
             </button>
           </div>
           {historyError && (
-            <p role="alert" className="error-text">
+            <p className="notice warning" role="alert">
               {historyError}
             </p>
           )}
           {records.length === 0 ? (
             <p className="muted">尚无预览刷新记录。</p>
           ) : (
-            <div className="maintenance-list">
-              {records.map((row) => (
-                <button
-                  className="button secondary"
-                  key={row.id}
-                  disabled={(active || submitting.current) && row.id !== current.current}
-                  onClick={() => showRecord(row.id)}
-                >
-                  {dateTime(row.createdAt)} · {refreshStateName(row.state)} · {row.succeededCount}/
-                  {row.selectedCount} 项完成{row.reviewedAt !== null ? ' · 已人工核查' : ''}
-                </button>
-              ))}
-            </div>
+            records.map((row) => (
+              <button
+                className="saved-plan-row compact"
+                key={row.id}
+                disabled={(active || submitting.current) && row.id !== current.current}
+                onClick={() => showRecord(row.id)}
+              >
+                <span>
+                  <strong>{refreshStateName(row.state)}</strong>
+                  <small>
+                    {dateTime(row.createdAt)} · {row.succeededCount}/{row.selectedCount} 项完成
+                    {row.reviewedAt !== null ? ' · 已人工核查' : ''}
+                  </small>
+                </span>
+                <span>查看结果</span>
+              </button>
+            ))
           )}
         </section>
       )}

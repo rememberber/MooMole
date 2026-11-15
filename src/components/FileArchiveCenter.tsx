@@ -332,16 +332,6 @@ export function FileArchiveHistory() {
                       : '尚未开始'}
             </p>
           ))}
-          <button
-            className="button secondary"
-            onClick={() =>
-              void api
-                .reveal(selected.outputPath.slice(0, selected.outputPath.lastIndexOf('/')))
-                .catch((e) => setError(String(e)))
-            }
-          >
-            在 Finder 中查看目标目录
-          </button>
           {['uncertain', 'interrupted'].includes(selected.state) && !selected.reviewedAt && (
             <>
               <label className="confirm-check">
@@ -364,9 +354,21 @@ export function FileArchiveHistory() {
               </button>
             </>
           )}
-          <button className="button secondary" onClick={() => setSelected(null)}>
-            关闭归档记录
-          </button>
+          <div className="modal-actions">
+            <button
+              className="button secondary"
+              onClick={() =>
+                void api
+                  .reveal(selected.outputPath.slice(0, selected.outputPath.lastIndexOf('/')))
+                  .catch((e) => setError(String(e)))
+              }
+            >
+              在 Finder 中查看目标目录
+            </button>
+            <button className="button secondary" onClick={() => setSelected(null)}>
+              关闭归档记录
+            </button>
+          </div>
         </Modal>
       )}
     </section>

@@ -399,19 +399,21 @@ export function StartupManagement({
                 </button>
               </>
             )}
-          <button
-            className="button secondary"
-            onClick={() =>
-              void api
-                .reveal(selected.target.slice(0, selected.target.lastIndexOf('/')))
-                .catch((e) => setError(String(e)))
-            }
-          >
-            在 Finder 中查看目标目录
-          </button>
-          <button className="button secondary" onClick={() => setSelected(null)}>
-            关闭启动记录
-          </button>
+          <div className="modal-actions">
+            <button
+              className="button secondary"
+              onClick={() =>
+                void api
+                  .reveal(selected.target.slice(0, selected.target.lastIndexOf('/')))
+                  .catch((e) => setError(String(e)))
+              }
+            >
+              在 Finder 中查看目标目录
+            </button>
+            <button className="button secondary" onClick={() => setSelected(null)}>
+              关闭启动记录
+            </button>
+          </div>
         </Modal>
       )}
     </>

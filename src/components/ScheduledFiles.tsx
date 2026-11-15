@@ -138,8 +138,8 @@ export function ScheduledFiles({
         <p className="muted">尚未配置定期处理，不会自动移动或删除文件。</p>
       )}
       {c.view?.activeRequests.map((id) => (
-        <div key={id} role="status">
-          <span>定期处理正在收集实际结果。</span>
+        <div className="button-row" key={id}>
+          <span role="status">定期处理正在收集实际结果。</span>
           <button
             className="button secondary compact"
             disabled={c.pending}

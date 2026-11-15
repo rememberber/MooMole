@@ -12,6 +12,28 @@ async function prepare(page: Page) {
   await d.getByRole('button', { name: '检查所选步骤' }).click()
   return d
 }
+test('populated maintenance history keeps one full-width row per result', async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 680 })
+  await mount(page, 'history')
+  const history = page.getByRole('region', { name: '维护记录' })
+  const rows = history.getByRole('button', { name: /项完成/ })
+  await expect(rows).toHaveCount(6)
+  const card = (await history.boundingBox())!
+  let previousBottom = 0
+  for (const row of await rows.all()) {
+    const { x, y, width, height } = (await row.boundingBox())!
+    expect(x).toBeCloseTo(card.x + 1)
+    expect(width).toBeCloseTo(card.width - 2)
+    expect(y).toBeGreaterThanOrEqual(previousBottom)
+    expect(await row.evaluate((el) => el.scrollWidth)).toBeLessThanOrEqual(width)
+    previousBottom = y + height
+  }
+  await rows.filter({ hasText: '已人工核查' }).first().click()
+  const result = page.getByRole('dialog', { name: '维护结果' })
+  await expect(result.getByRole('status')).toHaveText('维护已中断')
+  await result.getByRole('button', { name: '完成', exact: true }).click()
+  await expect(rows.filter({ hasText: '已人工核查' }).first()).toBeFocused()
+})
 test('read-only prepare needs explicit acknowledgement and submits exactly once', async ({
   page,
 }) => {

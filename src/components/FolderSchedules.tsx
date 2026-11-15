@@ -209,8 +209,8 @@ export function FolderSchedules({
         </div>
       )}
       {!!view?.activeRequests.length && (
-        <div role="status">
-          <p>目录扫描正在运行，可以停止；部分结果不会替换完整比较基线。</p>
+        <div className="button-row">
+          <p role="status">目录扫描正在运行，可以停止；部分结果不会替换完整比较基线。</p>
           {view.activeRequests.map((id) => (
             <button
               key={id}
