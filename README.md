@@ -40,7 +40,9 @@ This learning and research release provides cleanup, app uninstall and Quick Loo
 
 <!-- release:end -->
 
-| Feature | What you can do in 0.3.0 |
+Version 0.3.1 shows full sidebar labels, improves dialog layouts at smaller window sizes, and makes backup actions and Quick Look history easier to find. Space Monitoring puts the latest reading and trend above the recording controls.
+
+| Feature | What you can do |
 | --- | --- |
 | Cleanup | Run [full Mole cleanup](docs/mole-clean-parity.md) from the disk overview after confirming its scope. It permanently deletes eligible items and can empty Trash. Use [item-by-item review](docs/quick-cleanup.md) to move supported caches and logs to Trash. |
 | Software cleanup and AI | Review files from supported browsers, Mail and selected media exports. Optional [AI deep scan](docs/ai-deep-scan.md) uses an installed Codex CLI or Claude Code agent and requires consent before sharing selected metadata with its model service. Suggestions go through the same review. See [software cleanup](docs/software-cleanup.md). |
