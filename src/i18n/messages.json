@@ -8508,6 +8508,7 @@
   ],
   ["持续管理", "Ongoing care", "継続管理"],
   ["持续空间管理", "Ongoing storage care", "継続的な容量管理"],
+  ["空间观察", "Storage monitoring", "容量の観測"],
   ["定期记录空间", "Record storage periodically", "容量を定期的に記録"],
   ["记录间隔", "Record interval", "記録間隔"],
   ["空间记录间隔", "Storage record interval", "容量の記録間隔"],

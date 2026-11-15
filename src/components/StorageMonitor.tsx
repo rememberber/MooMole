@@ -103,52 +103,9 @@ export function StorageMonitor({
           .join(' ')
       : ''
   return (
-    <section className="storage-monitor" aria-label="持续空间管理">
-      <div className="storage-monitor-settings">
-        <label>
-          <input
-            type="checkbox"
-            checked={config.enabled}
-            disabled={!enabled || pending || !view}
-            onChange={(e) => edit({ enabled: e.target.checked })}
-          />
-          定期记录空间
-        </label>
-        <label>
-          记录间隔
-          <select
-            aria-label="空间记录间隔"
-            value={config.intervalMinutes}
-            disabled={!enabled || pending || !view}
-            onChange={(e) => edit({ intervalMinutes: Number(e.target.value) })}
-          >
-            <option value={15}>每 15 分钟</option>
-            <option value={60}>每小时</option>
-            <option value={360}>每 6 小时</option>
-          </select>
-        </label>
-        <label>
-          低空间提示
-          <select
-            aria-label="低空间阈值"
-            value={config.warnBelowBytes}
-            disabled={!enabled || pending || !view}
-            onChange={(e) => edit({ warnBelowBytes: Number(e.target.value) })}
-          >
-            {[5, 10, 20].map((n) => (
-              <option key={n} value={n * 1024 ** 3}>
-                {bytes(n * 1024 ** 3)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="button secondary compact"
-          disabled={!enabled || pending || !view}
-          onClick={() => void run(true)}
-        >
-          保存观察设置
-        </button>
+    <section className="card storage-monitor" aria-label="持续空间管理">
+      <div className="list-toolbar">
+        <h2>空间观察</h2>
         <button
           className="button primary compact"
           disabled={!enabled || pending || view?.collecting}
@@ -157,67 +114,120 @@ export function StorageMonitor({
           {pending || view?.collecting ? '正在记录…' : '记录当前空间'}
         </button>
       </div>
-      <p className="muted">
-        仅在 MooMole 运行时按间隔记录本账户所在卷的容量。休眠后只补一次当前观察，退出 App
-        后停止；设置会保留到下次打开。最多保留 720 条样本。
-      </p>
-      {view && (
-        <p role="status">
-          {view.config.enabled ? '定期空间观察已开启' : '定期空间观察已关闭'} ·{' '}
-          {view.samples.length} 条真实记录
-        </p>
-      )}
-      {!enabled && <p className="notice">请在桌面 App 中记录真实空间趋势。</p>}
-      {(error || view?.error) && (
-        <p className="notice warning" role="alert">
-          {error || view?.error}
-        </p>
-      )}
-      {latest ? (
-        <>
-          <div className="storage-monitor-reading">
-            <div>
-              <span>账户所在卷可用空间</span>
-              <strong>{bytes(latest.availableBytes)}</strong>
-              <small>
-                {dateTime(latest.measuredAt)} · {fresh ? '最近观察' : '历史观察，当前状态未知'}
-              </small>
-            </div>
-            <button className="button secondary compact" onClick={onAnalyze}>
-              分析空间去向
-            </button>
-          </div>
-          {low && (
-            <p className="notice warning" role="status">
-              {fresh
-                ? '最近观察的可用空间低于提醒阈值，建议检查大文件与可整理内容。'
-                : '上次观察的可用空间低于阈值，请先记录当前空间再判断。'}
-            </p>
-          )}
-          {points ? (
-            <figure className="storage-trend">
-              <svg viewBox="0 0 600 128" role="img" aria-label="同一卷可用空间趋势">
-                <line x1="8" y1="112" x2="592" y2="112" stroke="var(--border)" />
-                <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" />
-              </svg>
-              <figcaption>
-                {dateTime(start)} — {dateTime(end)} · 仅连接最近同一卷的真实观察点
-              </figcaption>
-            </figure>
-          ) : (
-            <p className="muted">
-              至少两条时间递增的同卷记录才展示趋势。卷变化或时间回拨不合并推算。
-            </p>
-          )}
-          <p className="muted">
-            可用空间以系统当前向本账户报告的数值为准。APFS
-            共享容量、缓存、快照与其他应用活动可能导致波动，变化不等于本次清理效果。开启菜单栏后，也可在那里查看最近的低空间提示。
+      <div className="card-stack">
+        {view && (
+          <p role="status">
+            {view.config.enabled ? '定期空间观察已开启' : '定期空间观察已关闭'} ·{' '}
+            {view.samples.length} 条真实记录
           </p>
-        </>
-      ) : (
-        <p className="muted">尚无空间记录。可先记录一次，再开启定期观察。</p>
-      )}
-      <p className="muted">记录仅保存在本机。采集与低空间提示不会自动处理文件。</p>
+        )}
+        {!enabled && <p className="notice">请在桌面 App 中记录真实空间趋势。</p>}
+        {(error || view?.error) && (
+          <p className="notice warning" role="alert">
+            {error || view?.error}
+          </p>
+        )}
+        {latest ? (
+          <>
+            <div className="storage-monitor-reading">
+              <div>
+                <span>账户所在卷可用空间</span>
+                <strong>{bytes(latest.availableBytes)}</strong>
+                <small>
+                  {dateTime(latest.measuredAt)} · {fresh ? '最近观察' : '历史观察，当前状态未知'}
+                </small>
+              </div>
+              <button className="button secondary compact" onClick={onAnalyze}>
+                分析空间去向
+              </button>
+            </div>
+            {low && (
+              <p className="notice warning" role="status">
+                {fresh
+                  ? '最近观察的可用空间低于提醒阈值，建议检查大文件与可整理内容。'
+                  : '上次观察的可用空间低于阈值，请先记录当前空间再判断。'}
+              </p>
+            )}
+            {points ? (
+              <figure className="storage-trend">
+                <svg viewBox="0 0 600 128" role="img" aria-label="同一卷可用空间趋势">
+                  <line x1="8" y1="112" x2="592" y2="112" stroke="var(--border)" />
+                  <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" />
+                </svg>
+                <figcaption>
+                  {dateTime(start)} — {dateTime(end)} · 仅连接最近同一卷的真实观察点
+                </figcaption>
+              </figure>
+            ) : (
+              <p className="muted">
+                至少两条时间递增的同卷记录才展示趋势。卷变化或时间回拨不合并推算。
+              </p>
+            )}
+            <p className="muted">
+              可用空间以系统当前向本账户报告的数值为准。APFS
+              共享容量、缓存、快照与其他应用活动可能导致波动，变化不等于本次清理效果。开启菜单栏后，也可在那里查看最近的低空间提示。
+            </p>
+          </>
+        ) : (
+          view && <p className="muted">尚无空间记录。可先记录一次，再开启定期观察。</p>
+        )}
+      </div>
+      <div className="card-stack storage-monitor-configuration">
+        <div className="storage-monitor-settings">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.enabled}
+              disabled={!enabled || pending || !view}
+              onChange={(e) => edit({ enabled: e.target.checked })}
+            />
+            定期记录空间
+          </label>
+          <label>
+            记录间隔
+            <select
+              aria-label="空间记录间隔"
+              value={config.intervalMinutes}
+              disabled={!enabled || pending || !view}
+              onChange={(e) => edit({ intervalMinutes: Number(e.target.value) })}
+            >
+              <option value={15}>每 15 分钟</option>
+              <option value={60}>每小时</option>
+              <option value={360}>每 6 小时</option>
+            </select>
+          </label>
+          <label>
+            低空间阈值
+            <select
+              value={config.warnBelowBytes}
+              disabled={!enabled || pending || !view}
+              onChange={(e) => edit({ warnBelowBytes: Number(e.target.value) })}
+            >
+              {[5, 10, 20].map((n) => (
+                <option key={n} value={n * 1024 ** 3}>
+                  {bytes(n * 1024 ** 3)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="storage-monitor-notes muted">
+          <p>
+            仅在 MooMole 运行时按间隔记录本账户所在卷的容量。休眠后只补一次当前观察，退出 App
+            后停止；设置会保留到下次打开。最多保留 720 条样本。
+          </p>
+          <p>记录仅保存在本机。采集与低空间提示不会自动处理文件。</p>
+        </div>
+        <div className="modal-actions">
+          <button
+            className="button secondary compact"
+            disabled={!enabled || pending || !view}
+            onClick={() => void run(true)}
+          >
+            保存观察设置
+          </button>
+        </div>
+      </div>
     </section>
   )
 }
