@@ -34,7 +34,7 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 <!-- release:start -->
 
-最新公开版本为 **[0.3.0](https://github.com/rememberber/MooMole/releases/tag/v0.3.0)**（2026-11-10），内置 **Mole CLI 1.65.0**。
+最新公开版本为 **[0.3.1](https://github.com/rememberber/MooMole/releases/tag/v0.3.1)**（2026-11-15），内置 **Mole CLI 1.65.0**。
 
 这是学习研究版本，提供下表限定范围内的真实清理、应用卸载和 Quick Look 维护。完整权限/故障、安装升级及对应源码/许可验收仍未完成。发布说明提供英、中、日三语。
 
@@ -62,12 +62,12 @@ Mole CLI 的非官方 macOS 可视化客户端，在 CLI 能力之上提供更�
 
 | Mac 类型 | 下载 |
 | --- | --- |
-| Apple 芯片 (`arm64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-arm64.dmg) |
-| Intel (`x64`) | [MooMole 0.3.0 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.0/MooMole-0.3.0-mac-x64.dmg) |
+| Apple 芯片 (`arm64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-x64.dmg) |
 
 核对大小和 SHA-512 后打开 DMG，将 MooMole 复制到“应用程序”。对应架构的 materials ZIP 提供源码与依赖材料。安装包采用免费 ad-hoc 签名，没有 Apple Developer ID 签名或公证。
 
-[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.0) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.0/SHA512SUMS)
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.1) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.1/SHA512SUMS)
 
 <!-- downloads:end -->
 
