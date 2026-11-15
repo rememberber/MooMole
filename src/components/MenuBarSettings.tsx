@@ -45,7 +45,7 @@ export function MenuBarSettings({
     }
   }
   return (
-    <section className="card" aria-label="菜单栏持续管理">
+    <section className="card card-stack" aria-label="菜单栏持续管理">
       <label className="confirm-check">
         <input
           type="checkbox"
@@ -59,13 +59,6 @@ export function MenuBarSettings({
         菜单栏可查看容量、打开空间趋势或单次记录。是否定期记录仍由观察设置决定；退出 MooMole
         后停止，不添加登录启动项、不自动处理文件。
       </p>
-      <button
-        className="button secondary compact"
-        disabled={!enabled || !view || pending}
-        onClick={() => void save()}
-      >
-        {pending ? '正在保存…' : '保存菜单栏设置'}
-      </button>
       {view && (
         <p role="status">
           {view.visible
@@ -78,6 +71,15 @@ export function MenuBarSettings({
           {error || view?.error}
         </p>
       )}
+      <div className="button-row">
+        <button
+          className="button secondary compact"
+          disabled={!enabled || !view || pending}
+          onClick={() => void save()}
+        >
+          {pending ? '正在保存…' : '保存菜单栏设置'}
+        </button>
+      </div>
     </section>
   )
 }

@@ -59,20 +59,22 @@ export function ApplicationRestorationCenter({
   return (
     <>
       {view.activeRequests.length > 0 && !source && (
-        <section className="card" role="status">
+        <section className="card card-stack" role="status">
           <p>旧版应用恢复仍在进行，请在更新记录中核对两份应用。</p>
-          <button className="button secondary compact" onClick={onHistory}>
-            查看应用恢复记录
-          </button>
-          <button
-            className="button secondary compact"
-            onClick={() => {
-              for (const request of view.activeRequests)
-                void api.cancel(request).catch(() => setEpoch((v) => v + 1))
-            }}
-          >
-            停止旧版恢复
-          </button>
+          <div className="button-row">
+            <button className="button secondary compact" onClick={onHistory}>
+              查看应用恢复记录
+            </button>
+            <button
+              className="button secondary compact"
+              onClick={() => {
+                for (const request of view.activeRequests)
+                  void api.cancel(request).catch(() => setEpoch((v) => v + 1))
+              }}
+            >
+              停止旧版恢复
+            </button>
+          </div>
         </section>
       )}
       {source && (

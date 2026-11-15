@@ -58,20 +58,22 @@ export function TransferRestorationCenter({
   return (
     <>
       {view.activeRequests.length > 0 && !target && (
-        <section className="card" role="status">
+        <section className="card card-stack" role="status">
           <p>跨磁盘恢复仍在进行，原副本保持。请在恢复记录中核对结果。</p>
-          <button className="button secondary compact" onClick={onHistory}>
-            查看跨磁盘恢复记录
-          </button>
-          <button
-            className="button secondary compact"
-            onClick={() => {
-              for (const request of view.activeRequests)
-                void api.cancel(request).catch(() => setEpoch((v) => v + 1))
-            }}
-          >
-            停止后续恢复
-          </button>
+          <div className="button-row">
+            <button className="button secondary compact" onClick={onHistory}>
+              查看跨磁盘恢复记录
+            </button>
+            <button
+              className="button secondary compact"
+              onClick={() => {
+                for (const request of view.activeRequests)
+                  void api.cancel(request).catch(() => setEpoch((v) => v + 1))
+              }}
+            >
+              停止后续恢复
+            </button>
+          </div>
         </section>
       )}
       {target && (
@@ -325,7 +327,7 @@ export function TransferRestorationHistory() {
     }
   }, [epoch])
   return (
-    <section className="card" aria-label="跨磁盘恢复记录">
+    <section className="card record-list" aria-label="跨磁盘恢复记录">
       <div className="list-toolbar">
         <h2>跨磁盘恢复记录</h2>
         <button className="button secondary compact" onClick={() => setEpoch((v) => v + 1)}>

@@ -74,20 +74,22 @@ export function ZipExtractionCenter({
   return (
     <>
       {view.activeRequests.length > 0 && !open && (
-        <section className="card" role="status">
+        <section className="card card-stack" role="status">
           <p>压缩包解压仍在进行，请在历史中核对结果。</p>
-          <button className="button secondary compact" onClick={onHistory}>
-            查看解压记录
-          </button>
-          <button
-            className="button secondary compact"
-            onClick={() => {
-              for (const request of view.activeRequests)
-                void transport.cancel(request).catch(() => setEpoch((v) => v + 1))
-            }}
-          >
-            停止解压
-          </button>
+          <div className="button-row">
+            <button className="button secondary compact" onClick={onHistory}>
+              查看解压记录
+            </button>
+            <button
+              className="button secondary compact"
+              onClick={() => {
+                for (const request of view.activeRequests)
+                  void transport.cancel(request).catch(() => setEpoch((v) => v + 1))
+              }}
+            >
+              停止解压
+            </button>
+          </div>
         </section>
       )}
       {open && (
@@ -552,7 +554,7 @@ export function ZipExtractionHistory() {
   }, [epoch])
   const current = view.records.find((r) => r.id === selected)
   return (
-    <section className="card" aria-label="压缩包解压记录">
+    <section className="card record-list" aria-label="压缩包解压记录">
       <div className="list-toolbar">
         <h2>压缩包解压记录</h2>
         <button className="button secondary compact" onClick={() => setEpoch((v) => v + 1)}>

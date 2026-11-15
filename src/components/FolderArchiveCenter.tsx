@@ -61,20 +61,22 @@ export function FolderArchiveCenter({
   return (
     <>
       {view.activeRequests.length > 0 && !open && (
-        <section className="card" role="status">
+        <section className="card card-stack" role="status">
           <p>整份文件夹归档仍在进行，请在历史中核对结果。</p>
-          <button className="button secondary compact" onClick={onHistory}>
-            查看文件夹归档记录
-          </button>
-          <button
-            className="button secondary compact"
-            onClick={() => {
-              for (const request of view.activeRequests)
-                void transport.cancel(request).catch(() => setEpoch((v) => v + 1))
-            }}
-          >
-            停止文件夹归档
-          </button>
+          <div className="button-row">
+            <button className="button secondary compact" onClick={onHistory}>
+              查看文件夹归档记录
+            </button>
+            <button
+              className="button secondary compact"
+              onClick={() => {
+                for (const request of view.activeRequests)
+                  void transport.cancel(request).catch(() => setEpoch((v) => v + 1))
+              }}
+            >
+              停止文件夹归档
+            </button>
+          </div>
         </section>
       )}
       {open && (
@@ -471,7 +473,7 @@ export function FolderArchiveHistory() {
   }, [epoch])
   const current = view.records.find((r) => r.id === selected)
   return (
-    <section className="card" aria-label="整份文件夹归档记录">
+    <section className="card record-list" aria-label="整份文件夹归档记录">
       <div className="list-toolbar">
         <h2>整份文件夹归档记录</h2>
         <button className="button secondary compact" onClick={() => setEpoch((v) => v + 1)}>

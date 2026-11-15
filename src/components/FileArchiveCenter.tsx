@@ -253,7 +253,7 @@ export function FileArchiveHistory() {
     if (api.desktop) void load()
   }, [])
   return (
-    <section className="card" aria-label="文件归档记录">
+    <section className="card record-list" aria-label="文件归档记录">
       <div className="list-toolbar">
         <h2>文件归档记录</h2>
         <button

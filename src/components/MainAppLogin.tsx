@@ -93,7 +93,7 @@ export function MainAppLogin({
     }
   }
   return (
-    <section className="card main-app-login" aria-label="MooMole 登录启动">
+    <section className="card card-stack" aria-label="MooMole 登录启动">
       <strong>登录时打开 MooMole</strong>
       <p>
         仅设置当前运行的 MooMole
@@ -117,7 +117,7 @@ export function MainAppLogin({
           系统尚未确认此副本的登录服务；可明确请求注册，是否生效以返回状态为准。
         </p>
       )}
-      <label className="application-update-consent">
+      <label className="confirm-check">
         <input
           type="checkbox"
           checked={ack}
@@ -149,7 +149,7 @@ export function MainAppLogin({
           在系统登录项中核对
         </button>
       </div>
-      <details>
+      <details className="card-details">
         <summary>当前副本与最近 50 次登录设置记录</summary>
         {system && (
           <p className="mono full-path" data-i18n="off">
@@ -157,7 +157,7 @@ export function MainAppLogin({
           </p>
         )}
         {view?.records.map((r) => (
-          <article key={r.id} className="card">
+          <article key={r.id} className="card card-stack">
             <strong>
               {r.state === 'accepted'
                 ? '系统已接受登录设置'
@@ -175,13 +175,15 @@ export function MainAppLogin({
             {r.after && <p>{loginStatus[r.after.status]}</p>}
             {r.error && <p>{loginError(r.error)}</p>}
             {r.state === 'unknown' && r.reviewedAt === null && (
-              <button
-                className="button secondary compact"
-                disabled={pending || active || !system || system.status === 'notFound'}
-                onClick={() => void review(r.id)}
-              >
-                已核对系统登录状态，保留原结果
-              </button>
+              <div className="button-row">
+                <button
+                  className="button secondary compact"
+                  disabled={pending || active || !system || system.status === 'notFound'}
+                  onClick={() => void review(r.id)}
+                >
+                  已核对系统登录状态，保留原结果
+                </button>
+              </div>
             )}
             {r.reviewedAt !== null && <p>已记录人工核查，原结果未更改。</p>}
           </article>

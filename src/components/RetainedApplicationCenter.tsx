@@ -59,20 +59,22 @@ export function RetainedApplicationCenter({
   return (
     <>
       {view.activeRequests.length > 0 && !source && (
-        <section className="card" role="status">
+        <section className="card card-stack" role="status">
           <p>保留版本整理仍在进行，请查看处理记录。</p>
-          <button className="button secondary compact" onClick={onHistory}>
-            查看保留版本整理记录
-          </button>
-          <button
-            className="button secondary compact"
-            onClick={() => {
-              for (const request of view.activeRequests)
-                void api.cancel(request).catch(() => setEpoch((v) => v + 1))
-            }}
-          >
-            停止保留版本整理
-          </button>
+          <div className="button-row">
+            <button className="button secondary compact" onClick={onHistory}>
+              查看保留版本整理记录
+            </button>
+            <button
+              className="button secondary compact"
+              onClick={() => {
+                for (const request of view.activeRequests)
+                  void api.cancel(request).catch(() => setEpoch((v) => v + 1))
+              }}
+            >
+              停止保留版本整理
+            </button>
+          </div>
         </section>
       )}
       {source && (

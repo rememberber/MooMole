@@ -370,6 +370,27 @@ button svg {
   border-radius: 9px;
   overflow: hidden;
 }
+.card-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.card-stack > .notice {
+  margin: 0;
+}
+.card-stack .button {
+  max-width: 100%;
+  white-space: normal;
+}
+.card-details > :not(summary) {
+  margin-block-start: 12px;
+}
+.main-content > .card-stack[role='status'] {
+  margin-block-end: 12px;
+}
 .section-label {
   font-size: 10px;
   color: var(--muted);
@@ -3052,6 +3073,15 @@ input[type='checkbox'] {
 .saved-plans {
   margin-bottom: 24px;
 }
+.record-list > p:not(.notice) {
+  padding: 12px 21px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.record-list > .notice {
+  margin: 12px 21px;
+  overflow-wrap: anywhere;
+}
 .saved-plan-row {
   display: flex;
   width: 100%;
@@ -5005,13 +5035,4 @@ input[type='checkbox'] {
 }
 .storage-notification-body > details > :not(summary) {
   margin-top: 12px;
-}
-.main-app-login {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-}
-.main-app-login p,
-.main-app-login .modal-actions {
-  margin: 0;
 }

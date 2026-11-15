@@ -343,7 +343,7 @@ export function FileTransferHistory({
     }
   }, [epoch])
   return (
-    <section className="card" aria-label="跨磁盘移动记录">
+    <section className="card record-list" aria-label="跨磁盘移动记录">
       <div className="list-toolbar">
         <h2>跨磁盘移动记录</h2>
         <button
