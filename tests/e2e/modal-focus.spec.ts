@@ -148,6 +148,52 @@ test('a required notice still blocks Escape and backdrop dismissal', async ({ pa
   await expect(opener).toBeFocused()
 })
 
+test('a pointer drag out of a dialog leaves it open, and a backdrop click restores focus', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await settings(page).click()
+  const dialog = settingsDialog(page)
+  await expect(dialog).toBeVisible()
+  const heading = (await dialog.getByRole('heading', { name: '设置', exact: true }).boundingBox())!
+  await page.mouse.move(heading.x + 2, heading.y + 2)
+  await page.mouse.down()
+  await page.mouse.move(5, 5)
+  await page.mouse.up()
+  await expect(dialog).toBeVisible()
+  await page.mouse.click(5, 5)
+  await expect(dialog).toHaveCount(0)
+  await expect(settings(page)).toBeFocused()
+})
+
+test('scrolling the modal backdrop keeps the underlying page in place', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('main').evaluate((main) => {
+    main.style.minHeight = '300vh'
+    window.scrollTo(0, 100)
+  })
+  await settings(page).click()
+  const dialog = settingsDialog(page)
+  await expect(dialog).toBeVisible()
+  const start = await page.evaluate(() => window.scrollY)
+  await page.mouse.move(5, 5)
+  await page.mouse.wheel(0, 350)
+  await dialog.getByRole('button', { name: '关于', exact: true }).click()
+  expect(await page.evaluate(() => window.scrollY)).toBe(start)
+  const body = dialog.locator('.settings-content')
+  await body.evaluate((element) => (element.style.maxHeight = '120px'))
+  await body.hover()
+  await page.mouse.wheel(0, 350)
+  await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+  await page.mouse.wheel(0, 1500)
+  expect(await page.evaluate(() => window.scrollY)).toBe(start)
+  await page.mouse.click(5, 5)
+  await expect(dialog).toHaveCount(0)
+  await page.mouse.move(5, 5)
+  await page.mouse.wheel(0, 350)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(start)
+})
+
 test('execution details return to the row after success or read failure, then fall back when the row disappears', async ({
   page,
 }) => {

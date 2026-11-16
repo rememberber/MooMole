@@ -1967,6 +1967,11 @@ h3 {
 .modal::backdrop {
   background: #14151b55;
   backdrop-filter: blur(3px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.modal:modal {
+  overscroll-behavior: contain;
 }
 .modal[open] {
   display: flex;

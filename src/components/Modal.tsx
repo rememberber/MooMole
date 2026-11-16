@@ -1,6 +1,35 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { restoreFocus } from '../lib/focus-return'
+
+function isBackdrop(event: MouseEvent<HTMLDialogElement>) {
+  if (event.target !== event.currentTarget) return false
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect()
+  return (
+    event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom
+  )
+}
+
+function containWheel(event: WheelEvent) {
+  if (event.ctrlKey) return
+  // WebKit can chain wheel events through a non-scrolling backdrop or body.
+  // Leave the default behavior to scrollable controls and to an inner modal.
+  for (const node of event.composedPath()) {
+    if (node === event.currentTarget) break
+    if (node instanceof HTMLDialogElement) return
+    if (!(node instanceof HTMLElement)) continue
+    const scrollsVertically = event.deltaY !== 0 && node.scrollHeight > node.clientHeight
+    const scrollsHorizontally = event.deltaX !== 0 && node.scrollWidth > node.clientWidth
+    if (!scrollsVertically && !scrollsHorizontally) continue
+    const { overflowX, overflowY } = getComputedStyle(node)
+    if (
+      (scrollsVertically && /^(auto|scroll)$/.test(overflowY)) ||
+      (scrollsHorizontally && /^(auto|scroll)$/.test(overflowX))
+    )
+      return
+  }
+  event.preventDefault()
+}
 
 export function Modal({
   title,
@@ -20,13 +49,18 @@ export function Modal({
   className?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const pressedBackdrop = useRef(false)
+  const closedBy = onClose ? (dismissOnBackdrop ? 'any' : 'closerequest') : 'none'
+  const needsBackdropFallback = closedBy === 'any' && !('closedBy' in HTMLDialogElement.prototype)
   const returnTarget = useRef(returnFocus)
   returnTarget.current = returnFocus
   useLayoutEffect(() => {
     const dialog = ref.current!
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     dialog.showModal()
+    dialog.addEventListener('wheel', containWheel, { passive: false })
     return () => {
+      dialog.removeEventListener('wheel', containWheel)
       const ownedFocus =
         dialog.contains(document.activeElement) || document.activeElement === document.body
       // Close before React removes the native dialog. Passive cleanup runs too
@@ -40,23 +74,29 @@ export function Modal({
       ref={ref}
       className={`modal ${className}`}
       aria-label={title}
+      closedby={closedBy}
       onCancel={(event) => {
         event.preventDefault()
         event.stopPropagation()
         onClose?.()
       }}
-      onClick={(event) => {
-        if (dismissOnBackdrop && event.target === ref.current) {
-          const rect = ref.current!.getBoundingClientRect()
-          if (
-            event.clientX < rect.left ||
-            event.clientX > rect.right ||
-            event.clientY < rect.top ||
-            event.clientY > rect.bottom
-          )
-            onClose?.()
-        }
-      }}
+      onPointerDown={
+        needsBackdropFallback
+          ? (event) => {
+              pressedBackdrop.current = event.button === 0 && isBackdrop(event)
+            }
+          : undefined
+      }
+      onPointerCancel={needsBackdropFallback ? () => (pressedBackdrop.current = false) : undefined}
+      onClick={
+        needsBackdropFallback
+          ? (event) => {
+              const dismiss = pressedBackdrop.current && isBackdrop(event)
+              pressedBackdrop.current = false
+              if (dismiss) onClose?.()
+            }
+          : undefined
+      }
     >
       <div className="modal-header">
         <h2 className="modal-title">{heading}</h2>
