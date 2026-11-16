@@ -290,11 +290,12 @@ export async function installPersonalMock(
                   : undefined
               if (movement) sessionStorage.setItem('personal-movement', JSON.stringify(movement))
               else sessionStorage.removeItem('personal-movement')
+              const createdAt = Date.now()
               return {
                 id: uuid(6),
                 root,
-                createdAt: Date.now(),
-                expiresAt: Date.now() + 30000,
+                createdAt,
+                expiresAt: Math.min(createdAt + 30000, source.expiresAt),
                 items,
                 ...(movement ? { movement } : {}),
                 ...(duplicates
