@@ -15,12 +15,14 @@ import { Modal } from './Modal'
 
 export function StartupManagement({
   visible,
+  labelledBy,
   historyVisible,
   enabled,
   toolbar,
   onActiveChange,
 }: {
   visible: boolean
+  labelledBy: string
   historyVisible: boolean
   enabled: boolean
   toolbar: HTMLElement | null
@@ -167,70 +169,76 @@ export function StartupManagement({
     <>
       {tools}
       {visible && (
-        <section aria-label="启动与后台管理">
-          <p className="notice">
-            管理当前用户 LaunchAgents
-            目录中的登录配置。暂停会保留配置文件并改变名称，再请求移除相同程序的后台注册；恢复后程序可能立即运行。可能影响同步、更新或其他工作，请逐项确认。文件在启动目录不表示当前正在运行或系统允许启动。
-          </p>
-          <p className="muted">
-            现代登录项、其他账户、系统服务与管理员安装的后台项目请在系统登录项设置中管理；本页不代表全部后台来源。
-          </p>
-          {report && !report.complete && (
-            <p className="notice warning" role="status">
-              本轮未完整读取，未检查的范围仍未知；请结合系统登录项设置核对。
+        <div role="tabpanel" aria-labelledby={labelledBy} tabIndex={0}>
+          <section aria-label="启动与后台管理">
+            <p className="notice">
+              管理当前用户 LaunchAgents
+              目录中的登录配置。暂停会保留配置文件并改变名称，再请求移除相同程序的后台注册；恢复后程序可能立即运行。可能影响同步、更新或其他工作，请逐项确认。文件在启动目录不表示当前正在运行或系统允许启动。
             </p>
-          )}
-          {report && !fresh && (
-            <p className="notice warning" role="status">
-              启动配置清单已过期，请重新读取。
+            <p className="muted">
+              现代登录项、其他账户、系统服务与管理员安装的后台项目请在系统登录项设置中管理；本页不代表全部后台来源。
             </p>
-          )}
-          {!report && !active && (
-            <p className="muted">读取用户登录配置，或打开系统登录项设置查看其他来源。</p>
-          )}
-          {active && <p role="status">正在检查或处理启动配置；停止不会撤销已完成的配置更改。</p>}
-          {report && (
-            <div className="card personal-list" role="region" aria-label="用户启动配置列表">
-              {!report.items.length && <p>本轮目录未发现可识别配置，不代表没有登录项。</p>}
-              {report.items.map((row) => (
-                <article key={row.id}>
-                  <div>
-                    <strong data-i18n="off">
-                      {row.program
-                        .split('/')
-                        .find((p) => p.endsWith('.app'))
-                        ?.slice(0, -4) ||
-                        row.program.split('/').pop() ||
-                        row.name}
-                    </strong>
-                    <span> · {row.paused ? '已暂停的配置' : '启动目录中的配置'}</span>
-                    <small className="mono full-path" data-i18n="off">
-                      {row.path}
-                    </small>
-                    <details>
-                      <summary>程序与参数</summary>
-                      <p className="mono full-path" data-i18n="off">
-                        {row.label}
-                      </p>
-                      <p className="mono full-path" data-i18n="off">
-                        {row.program}
-                      </p>
-                      <pre data-i18n="off">{JSON.stringify(row.arguments, null, 2)}</pre>
-                    </details>
-                    {row.reason && <p className="muted">{row.reason}</p>}
-                  </div>
-                  <button
-                    className="button secondary compact"
-                    disabled={!enabled || active || !!checking || !fresh || !row.eligible}
-                    onClick={() => void prepare(row)}
-                  >
-                    {checking === row.id ? '正在检查…' : row.paused ? '恢复此配置…' : '暂停此配置…'}
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+            {report && !report.complete && (
+              <p className="notice warning" role="status">
+                本轮未完整读取，未检查的范围仍未知；请结合系统登录项设置核对。
+              </p>
+            )}
+            {report && !fresh && (
+              <p className="notice warning" role="status">
+                启动配置清单已过期，请重新读取。
+              </p>
+            )}
+            {!report && !active && (
+              <p className="muted">读取用户登录配置，或打开系统登录项设置查看其他来源。</p>
+            )}
+            {active && <p role="status">正在检查或处理启动配置；停止不会撤销已完成的配置更改。</p>}
+            {report && (
+              <div className="card personal-list" role="region" aria-label="用户启动配置列表">
+                {!report.items.length && <p>本轮目录未发现可识别配置，不代表没有登录项。</p>}
+                {report.items.map((row) => (
+                  <article key={row.id}>
+                    <div>
+                      <strong data-i18n="off">
+                        {row.program
+                          .split('/')
+                          .find((p) => p.endsWith('.app'))
+                          ?.slice(0, -4) ||
+                          row.program.split('/').pop() ||
+                          row.name}
+                      </strong>
+                      <span> · {row.paused ? '已暂停的配置' : '启动目录中的配置'}</span>
+                      <small className="mono full-path" data-i18n="off">
+                        {row.path}
+                      </small>
+                      <details>
+                        <summary>程序与参数</summary>
+                        <p className="mono full-path" data-i18n="off">
+                          {row.label}
+                        </p>
+                        <p className="mono full-path" data-i18n="off">
+                          {row.program}
+                        </p>
+                        <pre data-i18n="off">{JSON.stringify(row.arguments, null, 2)}</pre>
+                      </details>
+                      {row.reason && <p className="muted">{row.reason}</p>}
+                    </div>
+                    <button
+                      className="button secondary compact"
+                      disabled={!enabled || active || !!checking || !fresh || !row.eligible}
+                      onClick={() => void prepare(row)}
+                    >
+                      {checking === row.id
+                        ? '正在检查…'
+                        : row.paused
+                          ? '恢复此配置…'
+                          : '暂停此配置…'}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       )}
       {(historyVisible || visible) && view.records.length > 0 && (
         <section className="card" aria-label="启动管理记录">

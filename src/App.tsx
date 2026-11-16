@@ -2,7 +2,7 @@ import { StorageNotifications } from './components/StorageNotifications'
 import { MainAppLogin } from './components/MainAppLogin'
 import { mainAppLoginTransport } from './lib/main-app-login'
 import { storageNotificationsTransport } from './lib/storage-notifications'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   BrainCircuit,
@@ -93,6 +93,7 @@ import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { deferredView } from './components/DeferredView'
 import { Modal } from './components/Modal'
+import { ModeTabs } from './components/ModeTabs'
 import { focusReturnTarget, restoreFocus } from './lib/focus-return'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
 import { MoleCleanupCenter } from './components/MoleCleanupCenter'
@@ -413,12 +414,14 @@ export default function App() {
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
   const installers = useInstallers(page === 'installers', data?.home ?? '')
-  const [toolbarScrolled, setToolbarScrolled] = useState(() => window.scrollY > 0)
-  useEffect(() => {
-    const update = () => setToolbarScrolled(window.scrollY > 0)
-    update()
-    window.addEventListener('scroll', update, { passive: true })
-    return () => window.removeEventListener('scroll', update)
+  const observeToolbarScroll = useCallback((sentinel: HTMLDivElement | null) => {
+    if (!sentinel) return
+    sentinel.toggleAttribute('data-scrolled', window.scrollY > 0)
+    const observer = new IntersectionObserver(([entry]) => {
+      sentinel.toggleAttribute('data-scrolled', entry.boundingClientRect.top < 0)
+    })
+    observer.observe(sentinel)
+    return () => observer.disconnect()
   }, [])
   const [snapshot, setSnapshot] = useState<Snapshot | null>(api.desktop ? null : demoSnapshot)
   const statusWatch = useStatusWatch(page === 'status', setSnapshot)
@@ -1084,9 +1087,9 @@ export default function App() {
       </aside>
       <div className="workspace">
         <WorkspaceAtmosphere phase={workspaceMotion} />
+        <div ref={observeToolbarScroll} className="toolbar-scroll-sentinel" aria-hidden="true" />
         <header
           className="topbar"
-          data-scrolled={toolbarScrolled}
           data-tauri-drag-region="deep"
           onMouseDown={dragWindow}
           aria-label={`${pageName}工具栏`}
@@ -1704,26 +1707,17 @@ export default function App() {
           aria-label={`${pageName}内容`}
         >
           {page === 'apps' && (
-            <div className="software-content-modes" role="tablist" aria-label="应用管理类型">
-              <button
-                role="tab"
-                aria-selected={appsTab === 'installed'}
-                className={`button compact ${appsTab === 'installed' ? 'primary' : 'secondary'}`}
-                disabled={startupActive}
-                onClick={() => setAppsTab('installed')}
-              >
-                已安装应用
-              </button>
-              <button
-                role="tab"
-                aria-selected={appsTab === 'startup'}
-                className={`button compact ${appsTab === 'startup' ? 'primary' : 'secondary'}`}
-                disabled={startupActive}
-                onClick={() => setAppsTab('startup')}
-              >
-                启动与后台
-              </button>
-            </div>
+            <ModeTabs
+              id="apps-mode"
+              label="应用管理类型"
+              value={appsTab}
+              options={[
+                ['installed', '已安装应用'],
+                ['startup', '启动与后台'],
+              ]}
+              disabled={startupActive}
+              onChange={setAppsTab}
+            />
           )}
           <ManagedAppCenter
             refreshSignal={historyEpoch}
@@ -1738,6 +1732,7 @@ export default function App() {
           />
           <StartupManagement
             visible={page === 'apps' && appsTab === 'startup'}
+            labelledBy="apps-mode-startup"
             historyVisible={page === 'history'}
             enabled={canRun && !executionActive}
             toolbar={startupToolbar}
@@ -2014,55 +2009,54 @@ export default function App() {
           )}
 
           {page === 'personalFiles' && (
-            <div className="software-content-modes" role="tablist" aria-label="文件整理类型">
-              <button
-                role="tab"
-                aria-selected={personalMode === 'files'}
-                className={`button compact ${personalMode === 'files' ? 'primary' : 'secondary'}`}
-                disabled={personalFiles.running}
-                onClick={() => setPersonalMode('files')}
-              >
-                普通文件
-              </button>
-              <button
-                role="tab"
-                aria-selected={personalMode === 'livePhotos'}
-                className={`button compact ${personalMode === 'livePhotos' ? 'primary' : 'secondary'}`}
-                disabled={personalFiles.running}
-                onClick={() => setPersonalMode('livePhotos')}
-              >
-                Live Photos
-              </button>
-            </div>
+            <ModeTabs
+              id="files-mode"
+              label="文件整理类型"
+              value={personalMode}
+              options={[
+                ['files', '普通文件'],
+                ['livePhotos', 'Live Photos'],
+              ]}
+              disabled={personalFiles.running}
+              onChange={setPersonalMode}
+            />
           )}
           {page === 'personalFiles' && personalMode === 'livePhotos' && (
-            <LivePhotoPairs
-              controller={personalFiles}
-              enabled={canRun && !executionActive}
-              protectedPaths={data.settings.protectedPaths}
-              onHistory={() => changePage('history')}
-            />
+            <div role="tabpanel" aria-labelledby="files-mode-livePhotos" tabIndex={0}>
+              <LivePhotoPairs
+                controller={personalFiles}
+                enabled={canRun && !executionActive}
+                protectedPaths={data.settings.protectedPaths}
+                onHistory={() => changePage('history')}
+              />
+            </div>
           )}
           {((page === 'personalFiles' && personalMode === 'files') ||
             page === 'duplicateFiles' ||
             page === 'similarPhotos') && (
-            <PersonalFiles
-              key={page}
-              mode={
-                page === 'similarPhotos'
-                  ? 'similar'
-                  : page === 'duplicateFiles'
-                    ? 'duplicates'
-                    : 'personal'
-              }
-              controller={activeFiles}
-              onArchive={page === 'personalFiles' ? setFileArchiveTarget : undefined}
-              onTransfer={page === 'personalFiles' ? setTransferTarget : undefined}
-              home={data.home}
-              protectedPaths={data.settings.protectedPaths}
-              enabled={canRun && !executionActive}
-              onHistory={() => changePage('history')}
-            />
+            <div
+              role={page === 'personalFiles' ? 'tabpanel' : undefined}
+              aria-labelledby={page === 'personalFiles' ? 'files-mode-files' : undefined}
+              tabIndex={page === 'personalFiles' ? 0 : undefined}
+            >
+              <PersonalFiles
+                key={page}
+                mode={
+                  page === 'similarPhotos'
+                    ? 'similar'
+                    : page === 'duplicateFiles'
+                      ? 'duplicates'
+                      : 'personal'
+                }
+                controller={activeFiles}
+                onArchive={page === 'personalFiles' ? setFileArchiveTarget : undefined}
+                onTransfer={page === 'personalFiles' ? setTransferTarget : undefined}
+                home={data.home}
+                protectedPaths={data.settings.protectedPaths}
+                enabled={canRun && !executionActive}
+                onHistory={() => changePage('history')}
+              />
+            </div>
           )}
           {page === 'aiScan' && (
             <AiDeepScan
@@ -2081,29 +2075,20 @@ export default function App() {
           )}
 
           {page === 'softwareCleanup' && (
-            <div className="software-content-modes" role="tablist" aria-label="软件内容类型">
-              <button
-                role="tab"
-                aria-selected={softwareTab === 'cache'}
-                className={`button compact ${softwareTab === 'cache' ? 'primary' : 'secondary'}`}
-                disabled={quickScanning || softwareFiles.running}
-                onClick={() => setSoftwareTab('cache')}
-              >
-                缓存
-              </button>
-              <button
-                role="tab"
-                aria-selected={softwareTab === 'attachments'}
-                className={`button compact ${softwareTab === 'attachments' ? 'primary' : 'secondary'}`}
-                disabled={quickScanning || softwareFiles.running}
-                onClick={() => setSoftwareTab('attachments')}
-              >
-                附件、下载与离线
-              </button>
-            </div>
+            <ModeTabs
+              id="software-mode"
+              label="软件内容类型"
+              value={softwareTab}
+              options={[
+                ['cache', '缓存'],
+                ['attachments', '附件、下载与离线'],
+              ]}
+              disabled={quickScanning || softwareFiles.running}
+              onChange={setSoftwareTab}
+            />
           )}
           {page === 'softwareCleanup' && softwareTab === 'attachments' && (
-            <>
+            <div role="tabpanel" aria-labelledby="software-mode-attachments" tabIndex={0}>
               <label className="software-source">
                 软件内容来源
                 <select
@@ -2217,10 +2202,14 @@ export default function App() {
                 enabled={canRun && !executionActive}
                 onHistory={() => changePage('history')}
               />
-            </>
+            </div>
           )}
           {(page === 'quickCleanup' || (page === 'softwareCleanup' && softwareTab === 'cache')) && (
-            <>
+            <div
+              role={page === 'softwareCleanup' ? 'tabpanel' : undefined}
+              aria-labelledby={page === 'softwareCleanup' ? 'software-mode-cache' : undefined}
+              tabIndex={page === 'softwareCleanup' ? 0 : undefined}
+            >
               {quickScanStatus && (
                 <p className="quick-intro motion-scan" data-scanning={quickScanning} role="status">
                   <span className="motion-text" data-active={quickScanning}>
@@ -2258,7 +2247,7 @@ export default function App() {
                 onCreatePlan={(scanId, ids) => createPlan(scanId, ids, true)}
                 onNavigate={changePage}
               />
-            </>
+            </div>
           )}
 
           {page === 'analyze' && (
@@ -2430,7 +2419,7 @@ export default function App() {
           )}
 
           {page === 'apps' && appsTab === 'installed' && (
-            <>
+            <div role="tabpanel" aria-labelledby="apps-mode-installed" tabIndex={0}>
               {registrationIntent && (
                 <p className="notice">
                   选择需要修复的确切应用，展开“位置与来源”，点击“重新注册此副本…”。请确认安装路径；结果需要回到原来的图标或打开方式中验证。
@@ -2482,7 +2471,7 @@ export default function App() {
                   </Empty>
                 </section>
               )}
-            </>
+            </div>
           )}
 
           {page === 'status' && (

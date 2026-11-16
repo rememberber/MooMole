@@ -2,6 +2,58 @@ import { expect, test } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { analysis } from './fixtures/analysis-explorer'
 
+for (const [pageName, listName, firstName, secondName] of [
+  ['应用列表', '应用管理类型', '已安装应用', '启动与后台'],
+  ['文件整理', '文件整理类型', '普通文件', 'Live Photos'],
+  ['软件清理', '软件内容类型', '缓存', '附件、下载与离线'],
+]) {
+  test(`${listName} supports keyboard navigation and explicit activation`, async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: pageName, exact: true }).click()
+    const list = page.getByRole('tablist', { name: listName, exact: true })
+    const first = list.getByRole('tab', { name: firstName, exact: true })
+    const second = list.getByRole('tab', { name: secondName, exact: true })
+    await expect(first).toHaveAttribute('tabindex', '0')
+    await expect(second).toHaveAttribute('tabindex', '-1')
+    await expect(page.getByRole('tabpanel', { name: firstName, exact: true })).toBeVisible()
+    await first.focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(second).toBeFocused()
+    await expect(first).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Home')
+    await expect(first).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(second).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(second).toHaveAttribute('aria-selected', 'true')
+    const panel = page.getByRole('tabpanel', { name: secondName, exact: true })
+    await expect(panel).toBeVisible()
+    await page.keyboard.press('Tab')
+    await expect(panel).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(second).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(first).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(first).toHaveAttribute('aria-selected', 'true')
+    await expect(panel).toHaveCount(0)
+  })
+}
+
+test('the sticky toolbar adds its divider only while the page is scrolled', async ({ page }) => {
+  await page.goto('/')
+  const toolbar = page.getByRole('banner', { name: '概览工具栏' })
+  await expect(toolbar).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)')
+  await page.locator('main').evaluate((main) => {
+    main.style.minHeight = '300vh'
+    window.scrollTo(0, 80)
+  })
+  await expect(toolbar).toHaveCSS('border-bottom-color', 'rgb(236, 238, 241)')
+  expect((await toolbar.boundingBox())!.y).toBe(0)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect(toolbar).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)')
+})
+
 for (const [locale, longLabel] of [
   ['zh-CN', '相似照片与视频'],
   ['en', 'Similar photos and videos'],

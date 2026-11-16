@@ -211,6 +211,12 @@ button svg {
   position: relative;
   isolation: isolate;
 }
+.toolbar-scroll-sentinel {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 0;
+}
 .topbar {
   position: sticky;
   top: 0;
@@ -223,7 +229,7 @@ button svg {
   border-bottom: 1px solid transparent;
   background: var(--background);
 }
-.topbar[data-scrolled='true'] {
+.toolbar-scroll-sentinel[data-scrolled] + .topbar {
   border-bottom-color: var(--border);
 }
 .toolbar-actions {
@@ -4476,7 +4482,20 @@ input[type='checkbox'] {
   gap: 8px;
   margin-bottom: 14px;
 }
-.software-content-modes + .preview-banner {
+.software-content-modes [role='tab'] {
+  position: relative;
+}
+.software-content-modes [aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 8px 2px;
+  border-block-end: 2px solid currentColor;
+}
+[role='tabpanel']:focus-visible {
+  outline: 2px solid #9c8bce;
+  outline-offset: 3px;
+}
+.software-content-modes + [role='tabpanel'] > .preview-banner:first-child {
   margin-block-start: 0;
 }
 .software-source {
