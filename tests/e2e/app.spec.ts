@@ -57,7 +57,7 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   await expect(page.getByText('浏览器预览', { exact: true })).toBeVisible()
   await expect(page.getByRole('main', { name: '概览内容' })).toBeVisible()
   await expect(page.getByRole('region', { name: '所有磁盘空间' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '开始一键清理' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '扫描可清理项' })).toBeDisabled()
   await expect(page.getByRole('button', { name: '刷新磁盘', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await expect(page.getByText('部分目录未完整测量', { exact: false })).toBeVisible()

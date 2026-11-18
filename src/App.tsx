@@ -1207,6 +1207,19 @@ export default function App() {
                 {page === 'overview' && (
                   <button
                     className="button primary compact"
+                    disabled={!canRun || executionActive}
+                    onClick={() => {
+                      changePage('quickCleanup')
+                      void scanQuickCleanup('clean')
+                    }}
+                  >
+                    <Search size={15} />
+                    扫描可清理项
+                  </button>
+                )}
+                {page === 'overview' && (
+                  <button
+                    className="button secondary compact"
                     disabled={!canRun}
                     onClick={() => void chooseAndAnalyze()}
                   >
@@ -2000,12 +2013,20 @@ export default function App() {
           )}
 
           {page === 'overview' && (
-            <StorageOverview
-              desktop={api.desktop}
-              refreshSignal={diskRefresh}
-              canClean={canRun && !executionActive}
-              onClean={() => setMoleCleanSignal((value) => value + 1)}
-            />
+            <>
+              <StorageOverview desktop={api.desktop} refreshSignal={diskRefresh} />
+              <details className="overview-clean-options">
+                <summary>Mole 完整清理</summary>
+                <p>按 Mole 规则永久删除项目，并处理当前账户废纸篓。此操作不可撤销。</p>
+                <button
+                  className="button secondary compact"
+                  disabled={!canRun || executionActive}
+                  onClick={() => setMoleCleanSignal((value) => value + 1)}
+                >
+                  查看永久删除范围…
+                </button>
+              </details>
+            </>
           )}
 
           {page === 'personalFiles' && (

@@ -4681,81 +4681,12 @@ input[type='checkbox'] {
   margin: 6px 0;
 }
 
-.overview-clean {
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  padding: 16px 8px 28px;
-}
-.overview-clean-button {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  justify-items: center;
-  gap: 12px 4px;
-  flex: 0 0 142px;
-  padding: 18px 15px 13px;
-  border: 1px solid color-mix(in srgb, var(--mint-ink) 48%, var(--border));
-  border-radius: 22px;
-  background: linear-gradient(145deg, var(--mint), var(--surface));
-  box-shadow: 0 7px 20px color-mix(in srgb, var(--mint-ink) 15%, transparent);
-  font-size: 14px;
-  font-weight: 600;
-  transition:
-    transform 150ms ease,
-    box-shadow 150ms ease;
-}
-.overview-clean-button:hover:enabled {
-  transform: translateY(-2px);
-  box-shadow: 0 9px 25px color-mix(in srgb, var(--mint-ink) 25%, transparent);
-}
-.overview-clean-button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-.overview-clean-mark {
-  grid-column: 1 / -1;
-  position: relative;
-  display: grid;
-  place-content: center;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: 45px;
-  line-height: 1;
-  font-weight: 650;
-  letter-spacing: -6px;
-  padding-right: 8px;
-}
-.overview-clean-mark > span {
-  position: absolute;
-  color: var(--mint-ink);
-  top: 13px;
-  right: 15px;
-}
-.overview-clean-mark > svg {
-  position: absolute;
-  color: var(--mint-ink);
-  right: -7px;
-  top: -2px;
-}
-.overview-clean-copy {
-  max-width: 440px;
-}
-.overview-clean-copy h2 {
-  font-size: 19px;
-  margin: 0 0 11px;
-}
-.overview-clean-copy p {
-  line-height: 1.8;
+.overview-clean-options {
+  margin-top: 20px;
   color: var(--subtle);
-  margin: 0 0 10px;
 }
-.overview-clean-copy > span {
-  font-size: 11px;
+.overview-clean-options > summary {
+  cursor: pointer;
 }
 .overview-volumes > header,
 .overview-volumes h2,
@@ -4871,15 +4802,6 @@ input[type='checkbox'] {
     grid-template-columns: 1fr;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .overview-clean-button {
-    transition: none;
-  }
-  .overview-clean-button:hover:enabled {
-    transform: none;
-  }
-}
-
 .mole-clean-modal {
   width: 760px;
 }

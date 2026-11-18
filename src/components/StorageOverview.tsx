@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { HardDrive, LoaderCircle, Sparkles, Zap } from 'lucide-react'
+import { HardDrive, LoaderCircle } from 'lucide-react'
 import { mountedVolumesTransport, type MountedVolumesReport } from '../lib/mounted-volumes'
 import { diskBytes } from '../lib/status-disks'
 import { dateTime } from '../lib/format'
@@ -39,13 +39,9 @@ const demoVolumes: MountedVolumesReport = {
 export function StorageOverview({
   desktop,
   refreshSignal,
-  canClean,
-  onClean,
 }: {
   desktop: boolean
   refreshSignal: number
-  canClean: boolean
-  onClean: () => void
 }) {
   const [report, setReport] = useState<MountedVolumesReport | null>(desktop ? null : demoVolumes)
   const [loading, setLoading] = useState(desktop)
@@ -80,28 +76,6 @@ export function StorageOverview({
   const volumes = report?.volumes.filter((v) => v.kind !== 'account') ?? []
   return (
     <>
-      <section className="overview-clean" aria-label="一键清理">
-        <button
-          className="overview-clean-button"
-          disabled={!canClean}
-          onClick={onClean}
-          aria-label="开始一键清理"
-        >
-          <span className="overview-clean-mark" aria-hidden="true">
-            m<span>·</span>
-            <Sparkles size={18} />
-          </span>
-          <span>一键清理</span>
-          <Zap size={14} aria-hidden="true" />
-        </button>
-        <div className="overview-clean-copy">
-          <h2>让空间回到你手中</h2>
-          <p>
-            使用 Mole 完整清理规则，处理缓存、过期日志、废纸篓等项目。查看范围与影响，确认后执行。
-          </p>
-          <span className="muted">沿用 Mole 保护 · 可停止 · 逐项记录</span>
-        </div>
-      </section>
       <section className="overview-volumes" aria-label="所有磁盘空间" aria-busy={loading}>
         <header>
           <h2>

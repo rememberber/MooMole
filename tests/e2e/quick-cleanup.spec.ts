@@ -64,7 +64,7 @@ test('verified rebuildable caches default selected; logs, protection, unsupporte
   await log.check()
   await quick.getByRole('searchbox', { name: '搜索清理项目' }).fill('no-match')
   await expect(quick.getByText('已选 2 项', { exact: false })).toBeVisible()
-  await quick.getByRole('button', { name: '一键清理', exact: true }).click()
+  await quick.getByRole('button', { name: '移入废纸篓…', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('quick-plan')!))).toEqual({
     scanId: 'scan',
     ids: ['log', 'cache'],
@@ -73,7 +73,7 @@ test('verified rebuildable caches default selected; logs, protection, unsupporte
   await page.clock.fastForward(11_000)
   await expect(log).toBeDisabled()
   await expect(cache).not.toBeChecked()
-  await expect(quick.getByRole('button', { name: '一键清理', exact: true })).toBeDisabled()
+  await expect(quick.getByRole('button', { name: '移入废纸篓…', exact: true })).toBeDisabled()
 })
 
 test('protecting a default selection removes it; large items are listed with bound uninstall target', async ({
@@ -137,12 +137,12 @@ test('overview cleanup offers checked recommendations immediately and keeps opti
     (await import('/tests/e2e/fixtures/quick-cleanup.tsx')).mount('essential'),
   )
   const quick = page.locator('#quick-fixture')
-  await expect(quick.getByRole('button', { name: '一键清理', exact: true })).toBeEnabled()
+  await expect(quick.getByRole('button', { name: '移入废纸篓…', exact: true })).toBeEnabled()
   const details = quick.locator('.quick-review-details')
   await expect(details).not.toHaveAttribute('open')
   await expect(quick.getByText('大文件', { exact: true })).toHaveCount(0)
   await expect(quick.getByText('大应用', { exact: true })).toHaveCount(0)
-  await quick.getByRole('button', { name: '一键清理', exact: true }).click()
+  await quick.getByRole('button', { name: '移入废纸篓…', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('quick-plan')!))).toEqual({
     scanId: 'scan',
     ids: ['cache'],

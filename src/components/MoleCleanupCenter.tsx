@@ -313,7 +313,7 @@ export function MoleCleanupCenter({
         </section>
       )}
       {open && (
-        <Modal title="Mole 一键清理" className="mole-clean-modal" onClose={close}>
+        <Modal title="Mole 完整清理" className="mole-clean-modal" onClose={close}>
           <div className="mole-clean-tabs">
             <button
               className="button secondary compact"
@@ -360,23 +360,26 @@ export function MoleCleanupCenter({
               )}
               {plan && (
                 <>
-                  <ul className="mole-clean-scopes">
-                    {moleCleanScopes.map(([id, label]) => (
-                      <li key={id}>
-                        <ShieldCheck size={13} />
-                        <span>{label}</span>
-                        {id === 'system' && !plan.system && <small>本次跳过</small>}
-                        {['largeFiles', 'projectArtifacts'].includes(id) && (
-                          <small>仅提示审阅</small>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="muted">
-                    Mole 白名单和 MooMole
-                    保护列表继续生效。正在使用、受保护、权限不足或无法确认的对象，按上游规则保留。Docker
-                    数据、本地快照和个人大文件中的提示项目不会被当作自动删除项。
-                  </p>
+                  <details>
+                    <summary>查看处理类别与保护规则</summary>
+                    <ul className="mole-clean-scopes">
+                      {moleCleanScopes.map(([id, label]) => (
+                        <li key={id}>
+                          <ShieldCheck size={13} />
+                          <span>{label}</span>
+                          {id === 'system' && !plan.system && <small>本次跳过</small>}
+                          {['largeFiles', 'projectArtifacts'].includes(id) && (
+                            <small>仅提示审阅</small>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="muted">
+                      Mole 白名单和 MooMole
+                      保护列表继续生效。正在使用、受保护、权限不足或无法确认的对象，按上游规则保留。Docker
+                      数据、本地快照和个人大文件中的提示项目不会被当作自动删除项。
+                    </p>
+                  </details>
                   <details>
                     <summary>本次操作范围与版本</summary>
                     <p>内置 Mole {plan.engineVersion}</p>

@@ -10,8 +10,9 @@ const calls = async (page: import('@playwright/test').Page) =>
   )
 async function open(page: import('@playwright/test').Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: '开始一键清理' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Mole 一键清理' })
+  await page.getByText('Mole 完整清理', { exact: true }).click()
+  await page.getByRole('button', { name: '查看永久删除范围…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Mole 完整清理' })
   await expect(dialog).toBeVisible()
   return dialog
 }
@@ -20,14 +21,17 @@ test('overview opens the complete Mole operation scope without launching a narro
   page,
 }) => {
   await installMoleCleanMock(page)
+  await page.setViewportSize({ width: 960, height: 680 })
   const dialog = await open(page)
+  const confirm = dialog.getByRole('button', { name: '确认执行完整清理' })
+  await expect(confirm).toBeInViewport({ ratio: 1 })
+  await dialog.getByText('查看处理类别与保护规则', { exact: true }).click()
   await expect(dialog.locator('.mole-clean-scopes li')).toHaveCount(15)
   await expect(dialog).toContainText('浏览器缓存')
   await expect(dialog).toContainText('开发工具与包管理器缓存')
   await expect(dialog).toContainText('失败的 Time Machine 备份')
   await expect(dialog).toContainText('会永久删除')
   await expect(dialog).toContainText('当前账户废纸篓')
-  const confirm = dialog.getByRole('button', { name: '确认执行完整清理' })
   await expect(confirm).toBeDisabled()
   expect((await calls(page)).filter((c) => c.command === 'execute_mole_cleanup')).toHaveLength(0)
   await dialog.getByRole('checkbox', { name: consent }).check()
@@ -88,7 +92,7 @@ test('one confirmed execution survives reload, resumes its original progress and
   await expect(page.getByRole('region', { name: '完整清理状态' })).toBeVisible()
   await page.reload()
   await page.getByRole('button', { name: '查看清理进度' }).click()
-  dialog = page.getByRole('dialog', { name: 'Mole 一键清理' })
+  dialog = page.getByRole('dialog', { name: 'Mole 完整清理' })
   await expect(dialog.getByRole('button', { name: '停止本次清理' })).toBeVisible()
   expect((await calls(page)).filter((c) => c.command === 'execute_mole_cleanup')).toHaveLength(1)
   await dialog.getByRole('button', { name: '停止本次清理' }).click()
@@ -133,7 +137,7 @@ test('uncertain records require explicit review, successful saving and separate 
   await installMoleCleanMock(page, 'uncertain')
   await page.goto('/')
   await page.getByRole('button', { name: '清理记录', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Mole 一键清理' })
+  const dialog = page.getByRole('dialog', { name: 'Mole 完整清理' })
   await expect(dialog).toContainText('清理结果待核查')
   await dialog.getByText('保存与核查记录', { exact: true }).click()
   const reviewed = dialog.getByRole('checkbox', {

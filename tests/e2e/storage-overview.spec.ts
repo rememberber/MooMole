@@ -47,7 +47,7 @@ test('overview shows every returned local disk including external drives, withou
   await expect(main).not.toContainText('运行时间')
   await expect(main).not.toContainText('Apple Silicon')
   await expect(overview).toContainText('容量不相加')
-  await expect(page.getByRole('button', { name: '开始一键清理' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '扫描可清理项' })).toBeEnabled()
   await expect(overview).not.toContainText('磁盘空间数据已过期')
   for (const theme of ['light', 'dark']) {
     await page.evaluate((theme) => {

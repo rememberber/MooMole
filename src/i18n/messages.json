@@ -1,4 +1,16 @@
 [
+  ["Mole 完整清理", "Full Mole cleanup", "Mole の完全クリーンアップ"],
+  [
+    "按 Mole 规则永久删除项目，并处理当前账户废纸篓。此操作不可撤销。",
+    "Permanently deletes items according to Mole rules and processes the current account’s Trash. This cannot be undone.",
+    "Mole のルールに従って項目を完全に削除し、このアカウントのゴミ箱を処理します。この操作は取り消せません。"
+  ],
+  ["查看永久删除范围…", "Review what will be permanently deleted…", "完全削除の対象を確認…"],
+  [
+    "查看处理类别与保护规则",
+    "Review categories and protection rules",
+    "対象の種類と保護ルールを確認"
+  ],
   ["MooMole 登录启动", "MooMole login startup", "MooMole のログイン起動"],
   ["登录时打开 MooMole", "Open MooMole at login", "ログイン時に MooMole を開く"],
   [

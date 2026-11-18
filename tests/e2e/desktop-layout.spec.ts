@@ -144,7 +144,7 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
       await expect(page.getByText('Fixture App', { exact: true })).toBeVisible()
     }
     if (name === '概览') {
-      const clean = page.getByRole('button', { name: '开始一键清理' })
+      const clean = page.getByRole('button', { name: '扫描可清理项' })
       await expect(clean).toBeVisible()
       expect((await clean.boundingBox())!.y).toBeLessThan(120)
       await expect(page.getByRole('region', { name: '所有磁盘空间' })).toContainText('启动磁盘')
