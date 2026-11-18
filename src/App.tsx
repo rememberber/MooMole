@@ -1313,16 +1313,6 @@ export default function App() {
                   <button
                     className="button secondary compact"
                     disabled={!api.desktop}
-                    onClick={() => setMoleCleanHistorySignal((value) => value + 1)}
-                  >
-                    <History size={15} />
-                    清理记录
-                  </button>
-                )}
-                {page === 'overview' && (
-                  <button
-                    className="button secondary compact"
-                    disabled={!api.desktop}
                     onClick={() => setDiskRefresh((value) => value + 1)}
                   >
                     <RefreshCw size={15} />

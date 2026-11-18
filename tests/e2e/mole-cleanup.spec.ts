@@ -136,7 +136,11 @@ test('uncertain records require explicit review, successful saving and separate 
 }) => {
   await installMoleCleanMock(page, 'uncertain')
   await page.goto('/')
-  await page.getByRole('button', { name: '清理记录', exact: true }).click()
+  await page.getByRole('button', { name: '操作历史', exact: true }).click()
+  await page
+    .getByRole('region', { name: '执行记录', exact: true })
+    .getByRole('button', { name: /Mole 完整清理.*查看逐项结果/ })
+    .click()
   const dialog = page.getByRole('dialog', { name: 'Mole 完整清理' })
   await expect(dialog).toContainText('清理结果待核查')
   await dialog.getByText('保存与核查记录', { exact: true }).click()
