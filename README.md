@@ -40,7 +40,7 @@ This learning and research release provides cleanup, app uninstall and Quick Loo
 
 <!-- release:end -->
 
-Version 0.3.1 shows full sidebar labels, improves dialog layouts at smaller window sizes, and makes backup actions and Quick Look history easier to find. Space Monitoring puts the latest reading and trend above the recording controls.
+Version 0.3.2 gives cleanup review and full Mole cleanup separate entry points. Recent Operations shows file, uninstall, cleanup and Quick Look results together, with a filter for files eligible for a recovery request.
 
 | Feature | What you can do |
 | --- | --- |
