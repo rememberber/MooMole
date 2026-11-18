@@ -34,7 +34,7 @@ The interface supports Simplified Chinese, English and Japanese. Switch at any t
 
 <!-- release:start -->
 
-Latest published version: **[0.3.1](https://github.com/rememberber/MooMole/releases/tag/v0.3.1)** (2026-11-15), bundled with **Mole CLI 1.65.0**.
+Latest published version: **[0.3.2](https://github.com/rememberber/MooMole/releases/tag/v0.3.2)** (2026-11-18), bundled with **Mole CLI 1.65.0**.
 
 This learning and research release provides cleanup, app uninstall and Quick Look maintenance within the limits below. Full permission/fault, installation/upgrade and corresponding-source/license acceptance remains incomplete. Release notes are available in English, Simplified Chinese and Japanese.
 
@@ -62,12 +62,12 @@ Moving to Trash does not immediately free space. Cancellation stops only work no
 
 | Mac | Download |
 | --- | --- |
-| Apple Silicon (`arm64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-arm64.dmg) |
-| Intel (`x64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-x64.dmg) |
+| Apple Silicon (`arm64`) | [MooMole 0.3.2 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.2/MooMole-0.3.2-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.2 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.2/MooMole-0.3.2-mac-x64.dmg) |
 
 Verify file size and SHA-512, open the DMG and copy MooMole to Applications. Matching source and dependency materials are in the architecture's materials ZIP. Packages use ad-hoc signing without Apple Developer ID signing or notarization.
 
-[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.1) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.1/SHA512SUMS)
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.2) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.2/SHA512SUMS)
 
 <!-- downloads:end -->
 

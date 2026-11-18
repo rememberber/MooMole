@@ -34,7 +34,7 @@ Mole CLI の機能を分かりやすい操作で利用できる、非公式の m
 
 <!-- release:start -->
 
-最新の公開版は **[0.3.1](https://github.com/rememberber/MooMole/releases/tag/v0.3.1)**（2026-11-15）で、**Mole CLI 1.65.0** を内蔵しています。
+最新の公開版は **[0.3.2](https://github.com/rememberber/MooMole/releases/tag/v0.3.2)**（2026-11-18）で、**Mole CLI 1.65.0** を内蔵しています。
 
 学習・研究向けのリリースとして、下表の範囲でクリーンアップ、App のアンインストール、Quick Look メンテナンスを実行できます。権限・障害、インストール・更新、完全な対応ソース・ライセンスの受け入れは未完了です。リリースノートは英語・簡体字中国語・日本語で提供します。
 
@@ -62,12 +62,12 @@ Mole CLI の機能を分かりやすい操作で利用できる、非公式の m
 
 | Mac | ダウンロード |
 | --- | --- |
-| Apple Silicon (`arm64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-arm64.dmg) |
-| Intel (`x64`) | [MooMole 0.3.1 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.1/MooMole-0.3.1-mac-x64.dmg) |
+| Apple Silicon (`arm64`) | [MooMole 0.3.2 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.2/MooMole-0.3.2-mac-arm64.dmg) |
+| Intel (`x64`) | [MooMole 0.3.2 DMG](https://github.com/rememberber/MooMole/releases/download/v0.3.2/MooMole-0.3.2-mac-x64.dmg) |
 
 サイズと SHA-512 を照合し、DMG を開いて MooMole を「アプリケーション」にコピーしてください。各アーキテクチャの materials ZIP は対応ソースと依存資料を含みます。無料の ad-hoc 署名を使用し、Apple Developer ID 署名や公証はありません。
 
-[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.1) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.1/SHA512SUMS)
+[Release / 发布页 / リリース](https://github.com/rememberber/MooMole/releases/tag/v0.3.2) · [SHA512SUMS](https://github.com/rememberber/MooMole/releases/download/v0.3.2/SHA512SUMS)
 
 <!-- downloads:end -->
 
