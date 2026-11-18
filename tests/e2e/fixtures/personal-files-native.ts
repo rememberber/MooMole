@@ -203,6 +203,33 @@ export async function installPersonalMock(
                 expiresAt: Date.now() + 29000,
               }
             }
+            if (command === 'execute_file_restoration') {
+              const source = result()
+              const item = source.items[0]
+              if (args.id !== uuid(99) || args.confirmed !== true || !item?.receipt)
+                throw Error('restoration confirmation mismatch')
+              return {
+                ...source,
+                id: uuid(98),
+                planId: uuid(99),
+                origin: 'fileRestoration',
+                method: 'move',
+                state: 'completed',
+                createdAt: source.createdAt + 2,
+                finishedAt: source.createdAt + 3,
+                itemCount: 1,
+                movedCount: 1,
+                items: [
+                  {
+                    ...item,
+                    path: item.receipt.destination,
+                    targetPath: item.path,
+                    state: 'moved',
+                    receipt: { ...item.receipt, destination: item.path },
+                  },
+                ],
+              }
+            }
             if (command === 'discard_file_restoration') return
             if (command === 'plugin:event|listen') throw Error('fixture polling channel')
             if (command === 'start_task') {

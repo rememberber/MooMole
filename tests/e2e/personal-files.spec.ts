@@ -211,6 +211,7 @@ test('personal selection combines filters, preserves exact IDs and requires an e
   const dialog = page.getByRole('dialog', { name: '确认处理个人文件' })
   await expect(dialog.locator('article')).toHaveCount(2)
   await expect(dialog).toContainText('不能保证文件空闲')
+  await expect(dialog).toContainText('符合条件的文件可申请恢复原位置')
   const execute = dialog.getByRole('button', { name: '确认移入废纸篓', exact: true })
   await expect(execute).toBeDisabled()
   expect(await page.evaluate(() => sessionStorage.getItem('personal-executed'))).toBeNull()
@@ -231,9 +232,21 @@ test('personal selection combines filters, preserves exact IDs and requires an e
   await main.getByRole('button', { name: '查看处理历史' }).click()
   const history = page.getByRole('region', { name: '执行记录', exact: true })
   await history.getByRole('button').filter({ hasText: '已取消' }).click()
-  await expect(page.getByRole('dialog', { name: '逐项执行结果' })).toContainText(
-    '来源：个人文件整理',
-  )
+  const detail = page.getByRole('dialog', { name: '逐项执行结果' })
+  await expect(detail).toContainText('来源：个人文件整理')
+  await detail.locator('.execution-item > summary').filter({ hasText: 'old.zip' }).click()
+  await detail.getByRole('button', { name: '恢复原位置…' }).click()
+  const restore = page.getByRole('dialog', { name: '恢复原位置', exact: true })
+  await restore.getByRole('checkbox').check()
+  await restore.getByRole('button', { name: '确认恢复这一项' }).click()
+  const restored = page.getByRole('dialog', { name: '文件恢复结果' })
+  await expect(restored).toContainText('已恢复到原位置')
+  await restored.getByRole('button', { name: '关闭', exact: true }).click()
+  await detail.getByRole('button', { name: '关闭弹窗' }).click()
+  const rows = history.getByRole('button', { name: /查看逐项结果/ })
+  await expect(rows).toHaveCount(2)
+  await expect(rows.first()).toContainText('全部移动完成')
+  await expect(rows.last()).toContainText('已取消')
 })
 test('directory changes withdraw selection and the minimum window keeps settings reachable', async ({
   page,

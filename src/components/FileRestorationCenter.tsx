@@ -19,7 +19,7 @@ export function FileRestorationCenter({
   transport: RestorationTransport
   onClose: () => void
   onActiveChange: (active: boolean) => void
-  onOutcome: () => void
+  onOutcome: (detail: ExecutionDetail | null) => void
 }) {
   return (
     target && (
@@ -45,7 +45,7 @@ function Restoration({
   transport: RestorationTransport
   onClose: () => void
   onActiveChange: (active: boolean) => void
-  onOutcome: () => void
+  onOutcome: (detail: ExecutionDetail | null) => void
 }) {
   const [draft, setDraft] = useState<RestorationDraft | null>(null),
     [checking, setChecking] = useState(true)
@@ -83,15 +83,17 @@ function Restoration({
     request.current = crypto.randomUUID()
     setPending(true)
     onActiveChange(true)
+    let outcome: ExecutionDetail | null = null
     try {
-      setResult(await transport.execute(draft, request.current))
+      outcome = await transport.execute(draft, request.current)
+      setResult(outcome)
     } catch (e) {
       setError(String(e).replace(/^Error: /, ''))
     } finally {
       setPending(false)
       busy.current = false
       onActiveChange(false)
-      onOutcome()
+      onOutcome(outcome)
     }
   }
   const item = result?.items[0]

@@ -16,7 +16,7 @@ export function FileRestorationBatchCenter({
   target: RestorationBatchTarget | null
   onClose: () => void
   onActiveChange: (v: boolean) => void
-  onOutcome: () => void
+  onOutcome: (detail: ExecutionDetail | null) => void
 }) {
   return (
     target && (
@@ -39,7 +39,7 @@ function Batch({
   target: RestorationBatchTarget
   onClose: () => void
   onActiveChange: (v: boolean) => void
-  onOutcome: () => void
+  onOutcome: (detail: ExecutionDetail | null) => void
 }) {
   const [draft, setDraft] = useState<RestorationBatchDraft | null>(null),
     [checking, setChecking] = useState(true),
@@ -88,15 +88,17 @@ function Batch({
     request.current = crypto.randomUUID()
     setPending(true)
     onActiveChange(true)
+    let outcome: ExecutionDetail | null = null
     try {
-      setResult(await restorationBatchTransport.execute(draft, request.current))
+      outcome = await restorationBatchTransport.execute(draft, request.current)
+      setResult(outcome)
     } catch (e) {
       setError(String(e).replace(/^Error: /, ''))
     } finally {
       busy.current = false
       setPending(false)
       onActiveChange(false)
-      onOutcome()
+      onOutcome(outcome)
     }
   }
   const valid = draft && now >= draft.createdAt && now < draft.expiresAt

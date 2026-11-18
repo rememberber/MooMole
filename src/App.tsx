@@ -806,6 +806,11 @@ export default function App() {
     }
   }
 
+  function recordRestorationOutcome(detail: ExecutionDetail | null) {
+    recordFileExecution(detail)
+    void refreshRecords(true).catch((error) => setError(`历史记录无法刷新：${String(error)}`))
+  }
+
   async function followTasks(records: TaskRecord[]) {
     const tasks = records.filter((task): task is TaskRecord & { kind: TaskKind } =>
       Object.hasOwn(kindNames, task.kind),
@@ -1883,17 +1888,13 @@ export default function App() {
             transport={restorationTransport}
             onClose={() => setRestorationTarget(null)}
             onActiveChange={setRestorationActive}
-            onOutcome={() => {
-              void refreshRecords(true)
-            }}
+            onOutcome={recordRestorationOutcome}
           />
           <FileRestorationBatchCenter
             target={restorationBatchTarget}
             onClose={() => setRestorationBatchTarget(null)}
             onActiveChange={setRestorationActive}
-            onOutcome={() => {
-              void refreshRecords(true)
-            }}
+            onOutcome={recordRestorationOutcome}
           />
           <MountedVolumePicker
             openSignal={volumePickerOpenSignal}

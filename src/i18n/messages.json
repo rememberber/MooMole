@@ -8120,9 +8120,9 @@
     "選択した個人ファイルには、唯一のコピーや未同期の内容が含まれる場合があります。内容を確認し、関連ファイルを閉じてください。すべてのアプリの使用状況を完全には検査しないため、未使用とは保証できません。"
   ],
   [
-    "仅将下面列出的普通文件移入废纸篓，保留文件夹。处理前重新检查路径保护、权限和文件变化；不清空废纸篓。恢复需在 Finder 中核对实际收据，原位置有同名文件时不要覆盖。",
-    "Only the regular files below will be moved to Trash; folders are retained. Path protection, permissions and file changes are checked again before processing. Trash is not emptied. To recover, verify the actual receipts in Finder and do not overwrite an existing file at the original location.",
-    "以下の通常ファイルのみをゴミ箱へ移動し、フォルダは保持します。処理前にパスの保護、権限、ファイルの変更を再検査します。ゴミ箱は空にしません。復元時は Finder で実際のレシートを確認し、元の場所にある同名ファイルを上書きしないでください。"
+    "仅将下面列出的普通文件移入废纸篓，保留文件夹和废纸篓内已有项目。处理前再次检查路径保护、权限和文件变化。操作历史提供实际收据，符合条件的文件可申请恢复原位置。手动取回时请在 Finder 核对文件和原位置，遇到同名项目不要覆盖。",
+    "Only the listed regular files move to Trash. Folders and items already in Trash are kept. MooMole checks path protection, permissions and file changes again before processing. Use the receipt in Operation History to request restoration of eligible files. For manual recovery, verify the file and its original location in Finder and leave any existing item with the same name in place.",
+    "一覧にある通常ファイルのみをゴミ箱へ移動し、フォルダとゴミ箱内の既存項目は保持します。処理前にパスの保護、権限、ファイルの変更を再確認します。条件を満たすファイルは、操作履歴の記録から元の場所への復元を申請できます。手動で戻す場合は Finder でファイルと元の場所を照合し、同名の項目を上書きしないでください。"
   ],
   [
     "我已核对所选个人文件，确认不再需要，并了解占用与恢复边界。",
