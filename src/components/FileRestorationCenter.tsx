@@ -164,7 +164,7 @@ function Restoration({
           </button>
         ) : (
           <button className="button secondary" onClick={onClose}>
-            返回历史
+            关闭
           </button>
         )}
         {!result && !request.current && (

@@ -103,6 +103,9 @@ impl Fixture {
 fn actual_restore_keeps_original_record_and_survives_reopen_and_archive() {
     let f = Fixture::new();
     let original_record = serde_json::to_value(&f.detail).unwrap();
+    let records = execution::list(&f.database.lock().unwrap()).unwrap();
+    assert_eq!(records[0].id, f.detail.summary.id);
+    assert_eq!(records[0].restorable_receipt, Some(true));
     let plan = f.plan();
     let mut store = Store::default();
     let draft = store.publish(plan);
@@ -123,6 +126,15 @@ fn actual_restore_keeps_original_record_and_survives_reopen_and_archive() {
         "owned restoration content"
     );
     let mut db = f.database.lock().unwrap();
+    assert_eq!(
+        execution::list(&db)
+            .unwrap()
+            .into_iter()
+            .find(|record| record.id == result.summary.id)
+            .unwrap()
+            .restorable_receipt,
+        Some(false)
+    );
     assert_eq!(
         serde_json::to_value(execution::detail(&db, &f.detail.summary.id).unwrap()).unwrap(),
         original_record

@@ -12,6 +12,7 @@ import { Modal } from './Modal'
 import { CleanupResultSummary } from './CleanupResultSummary'
 import { ExecutionReason } from './ExecutionReason'
 import { ExecutionLocation } from './ExecutionLocation'
+import { restorationTarget, type RestorationTarget } from '../lib/file-restoration'
 import { FilePreview } from './FilePreview'
 import { VideoComparison } from './VideoComparison'
 import { comparableVideo, type VideoTarget } from '../lib/video-comparison'
@@ -33,6 +34,7 @@ export function PersonalFiles({
   onHistory,
   onArchive,
   onTransfer,
+  onRestore,
   mode = 'personal',
   softwareSource,
   playlistPath,
@@ -46,6 +48,7 @@ export function PersonalFiles({
   onHistory: () => void
   onArchive?: (target: FileArchiveTarget) => void
   onTransfer?: (target: TransferTarget) => void
+  onRestore?: (target: RestorationTarget) => void
   mode?: 'personal' | 'duplicates' | 'similar' | 'software' | 'downloads' | 'offline' | 'chat'
   softwareSource?: string
   playlistPath?: string
@@ -78,6 +81,7 @@ export function PersonalFiles({
   useNow()
   const now = Date.now(),
     report = c.snapshot.report
+  const result = c.result
   const fresh =
     !!report &&
     !report.livePhotos &&
@@ -919,51 +923,56 @@ export function PersonalFiles({
                   : '选择下载目录或其他个人目录，再点击顶部“扫描文件”。'}
         </p>
       )}
-      {c.result && (
+      {result && (
         <section className="card personal-result" aria-label="个人文件处理结果">
           <strong>
-            {c.result.method === 'move' ? '已移动' : '已移入'} {c.result.movedCount} /{' '}
-            {c.result.itemCount} 项 · 待核实 {c.result.uncertainCount} 项
+            {result.method === 'move' ? '已移动' : '已移入'} {result.movedCount} /{' '}
+            {result.itemCount} 项 · 待核实 {result.uncertainCount} 项
           </strong>
-          <CleanupResultSummary detail={c.result} />
-          {c.result.items.map((item) => (
-            <article className="personal-result-row" key={item.id}>
-              <strong>
-                {item.state === 'moved'
-                  ? c.result!.method === 'move'
-                    ? '已移动到目标目录'
-                    : '已移入废纸篓'
-                  : item.state === 'uncertain'
-                    ? '结果待核实'
-                    : item.state === 'cancelled'
-                      ? '开始前取消'
-                      : item.state === 'skipped'
-                        ? '已跳过'
-                        : item.state === 'failed'
-                          ? '失败，未作修改'
-                          : item.state === 'pending'
-                            ? '尚未开始'
-                            : item.state === 'intent'
-                              ? '等待完成证据'
-                              : item.state === 'notStarted'
-                                ? '中断后未开始'
-                                : c.result!.method === 'move'
-                                  ? '本项尚未确认移动'
-                                  : '本项未确认移入'}
-              </strong>
-              <p className="mono full-path">{item.path}</p>
-              {item.targetPath && <p className="mono full-path">→ {item.targetPath}</p>}
-              <ExecutionReason reason={item.reason} />
-              {item.receipt && (
-                <ExecutionLocation
-                  runId={c.result!.id}
-                  itemId={item.id}
-                  onReveal={api.revealExecutionItem}
-                  method={c.result!.method}
-                />
-              )}
-            </article>
-          ))}
+          <CleanupResultSummary detail={result} />
+          {result.items.map((item) => {
+            const target = onRestore ? restorationTarget(result, item) : null
+            return (
+              <article className="personal-result-row" key={item.id}>
+                <strong>
+                  {item.state === 'moved'
+                    ? result.method === 'move'
+                      ? '已移动到目标目录'
+                      : '已移入废纸篓'
+                    : item.state === 'uncertain'
+                      ? '结果待核实'
+                      : item.state === 'cancelled'
+                        ? '开始前取消'
+                        : item.state === 'skipped'
+                          ? '已跳过'
+                          : item.state === 'failed'
+                            ? '失败，未作修改'
+                            : item.state === 'pending'
+                              ? '尚未开始'
+                              : item.state === 'intent'
+                                ? '等待完成证据'
+                                : item.state === 'notStarted'
+                                  ? '中断后未开始'
+                                  : result.method === 'move'
+                                    ? '本项尚未确认移动'
+                                    : '本项未确认移入'}
+                </strong>
+                <p className="mono full-path">{item.path}</p>
+                {item.targetPath && <p className="mono full-path">→ {item.targetPath}</p>}
+                <ExecutionReason reason={item.reason} />
+                {item.receipt && (
+                  <ExecutionLocation
+                    runId={result.id}
+                    itemId={item.id}
+                    onReveal={api.revealExecutionItem}
+                    method={result.method}
+                    canRestore={!!target}
+                    onRestore={target && onRestore ? () => onRestore(target) : undefined}
+                  />
+                )}
+              </article>
+            )
+          })}
         </section>
       )}
       <button className="button secondary compact" onClick={onHistory}>

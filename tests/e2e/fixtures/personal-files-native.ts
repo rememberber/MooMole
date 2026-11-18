@@ -190,6 +190,20 @@ export async function installPersonalMock(
             )
               return []
             if (command === 'list_executions') return read().runId ? [result()] : []
+            if (command === 'prepare_file_restoration') {
+              const record = result()
+              const item = record.items.find((item) => item.id === args.itemId)
+              if (record.id !== args.runId || !item?.receipt) throw Error('receipt mismatch')
+              return {
+                id: uuid(99),
+                sourceRunId: record.id,
+                sourceItemId: item.id,
+                currentPath: item.receipt.destination,
+                originalPath: item.path,
+                expiresAt: Date.now() + 29000,
+              }
+            }
+            if (command === 'discard_file_restoration') return
             if (command === 'plugin:event|listen') throw Error('fixture polling channel')
             if (command === 'start_task') {
               task = { id: String(args.taskId), kind: String(args.kind) }

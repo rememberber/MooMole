@@ -29,7 +29,7 @@ test('app software scan skips home analysis and routes exact IDs through review,
   await main
     .getByRole('checkbox', { name: '选择 /Users/demo/Library/Caches/com.google.Chrome' })
     .check()
-  await main.getByRole('button', { name: '清理所选', exact: true }).click()
+  await main.getByRole('button', { name: '移入废纸篓…', exact: true }).click()
   const confirmation = page.getByRole('dialog', { name: '确认移入废纸篓' })
   await expect(confirmation).toBeVisible()
   let calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem('software-ipc')!))
@@ -64,7 +64,7 @@ test('software candidates start unselected and preserve exact selections across 
   page,
 }) => {
   const view = await mount(page)
-  const action = view.getByRole('button', { name: '清理所选', exact: true })
+  const action = view.getByRole('button', { name: '移入废纸篓…', exact: true })
   await expect(action).toBeDisabled()
   await expect(view.getByText('所有软件候选默认不选。', { exact: false })).toBeVisible()
   await view.getByRole('combobox', { name: '软件类型' }).selectOption('browser')
@@ -105,7 +105,7 @@ test('software name search, literal installed names and protecting selections ke
   await checkbox.locator('..').getByRole('button', { name: '保护', exact: true }).click()
   await expect(checkbox).toBeDisabled()
   await expect(checkbox).not.toBeChecked()
-  await expect(view.getByRole('button', { name: '清理所选', exact: true })).toBeDisabled()
+  await expect(view.getByRole('button', { name: '移入废纸篓…', exact: true })).toBeDisabled()
   expect(await page.evaluate(() => sessionStorage.getItem('quick-plan'))).toBeNull()
 })
 
@@ -119,7 +119,7 @@ test('expiry withdraws selection and does not submit a stale software plan', asy
   await page.clock.fastForward(11_000)
   await expect(checkbox).toBeDisabled()
   await expect(checkbox).not.toBeChecked()
-  await expect(view.getByRole('button', { name: '清理所选', exact: true })).toBeDisabled()
+  await expect(view.getByRole('button', { name: '移入废纸篓…', exact: true })).toBeDisabled()
 })
 
 test('software cleanup is navigable in the app and fits minimum-size dark and light windows', async ({

@@ -18,6 +18,7 @@ export function mount(mode = 'normal') {
     method: 'move',
     itemCount: 1,
     movedCount: 1,
+    restorableReceipt: !['softwareLibrary', 'softwareUnknown'].includes(mode),
     uncertainCount: 0,
     items: [
       {
@@ -107,6 +108,20 @@ export function mount(mode = 'normal') {
           loadRecords={async () => [record]}
           loadDetail={async () => record}
           onRestore={active ? undefined : setTarget}
+          operations={
+            mode === 'timeline'
+              ? [
+                  {
+                    key: 'uninstall',
+                    createdAt: record.createdAt + 1,
+                    title: '卸载记录',
+                    subject: 'Example App',
+                    status: '已移入废纸篓',
+                    onOpen: () => {},
+                  },
+                ]
+              : undefined
+          }
         />
         <FileRestorationCenter
           target={target}

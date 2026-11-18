@@ -52,6 +52,9 @@ import { useStatusWatch } from './lib/use-status-watch'
 import { statusIntervals, type StatusInterval } from './lib/status-watch'
 import { statusPercent } from './lib/status-metrics'
 import { StorageOverview } from './components/StorageOverview'
+import type { OperationHistoryRow } from './components/ExecutionHistory'
+import type { MoleCleanSummary } from './lib/mole-cleanup'
+import { refreshStateName, type RefreshSummary } from './lib/quicklook-refresh'
 import { preserveExecutionProgress, watchExecution } from './lib/execution-watcher'
 import { ApplicationControlCenter } from './components/ApplicationControlCenter'
 import { ApplicationUpdateCenter } from './components/ApplicationUpdateCenter'
@@ -88,7 +91,11 @@ import { useFolderSchedules } from './lib/use-folder-schedules'
 import { useScheduledFiles } from './lib/use-scheduled-files'
 import { scheduledFilesTransport } from './lib/scheduled-files'
 import { ScheduledFiles } from './components/ScheduledFiles'
-import type { UninstallTarget } from './lib/app-uninstall'
+import {
+  uninstallStateName,
+  type UninstallSummary,
+  type UninstallTarget,
+} from './lib/app-uninstall'
 import { demoAnalysis, demoCleanup, demoCleanPreview, demoSnapshot } from './lib/demo'
 import { bytes, dateTime, kindNames, measuredBytes, percent, shortPath } from './lib/format'
 import { deferredView } from './components/DeferredView'
@@ -96,7 +103,7 @@ import { Modal } from './components/Modal'
 import { ModeTabs } from './components/ModeTabs'
 import { focusReturnTarget, restoreFocus } from './lib/focus-return'
 import { ExecutionRecoveryNotice } from './components/ExecutionRecoveryNotice'
-import { MoleCleanupCenter } from './components/MoleCleanupCenter'
+import { MoleCleanupCenter, moleCleanStateNames } from './components/MoleCleanupCenter'
 import { ProcessSnapshot } from './components/ProcessSnapshot'
 import { useMaintenance } from './lib/use-maintenance'
 import { useProjectArtifacts } from './lib/use-project-artifacts'
@@ -522,6 +529,15 @@ export default function App() {
   const [recoveryNavigation, setRecoveryNavigation] = useState(0)
   const [archiveOpenSignal, setArchiveOpenSignal] = useState(0)
   const [historyEpoch, setHistoryEpoch] = useState(0)
+  const [permanentRecords, setPermanentRecords] = useState<MoleCleanSummary[]>([])
+  const [uninstallRecords, setUninstallRecords] = useState<UninstallSummary[]>([])
+  const [previewRefreshRecords, setPreviewRefreshRecords] = useState<RefreshSummary[]>([])
+  const [operationRequest, setOperationRequest] = useState<{
+    source: 'mole' | 'uninstall' | 'refresh'
+    id: string
+    epoch: number
+  } | null>(null)
+  const currentOperationRequest = operationRequest?.epoch === historyEpoch ? operationRequest : null
   const [executionPending, setExecutionPending] = useState(false)
   const [executionTrackingError, setExecutionTrackingError] = useState('')
   const movingExecution = data?.executions.some(
@@ -1018,6 +1034,39 @@ export default function App() {
     !refreshActive &&
     analysisTask?.state !== 'starting'
   const canRun = data.engine.available && canRunWithoutEngine
+  const openRestoration = canRun && !executionActive ? setRestorationTarget : undefined
+  const operationRows: OperationHistoryRow[] =
+    page === 'history'
+      ? [
+          ...permanentRecords.map((row) => ({
+            key: `mole:${row.id}`,
+            createdAt: row.createdAt,
+            title: 'Mole 完整清理',
+            status: moleCleanStateNames[row.state],
+            disabled: moleCleanActive && row.state !== 'running',
+            onOpen: () => setOperationRequest({ source: 'mole', id: row.id, epoch: historyEpoch }),
+          })),
+          ...uninstallRecords.map((row) => ({
+            key: `uninstall:${row.id}`,
+            createdAt: row.createdAt,
+            title: '卸载记录',
+            subject: row.name,
+            status: uninstallStateName(row.itemState),
+            disabled: uninstallActive && row.state !== 'running',
+            onOpen: () =>
+              setOperationRequest({ source: 'uninstall', id: row.id, epoch: historyEpoch }),
+          })),
+          ...previewRefreshRecords.map((row) => ({
+            key: `refresh:${row.id}`,
+            createdAt: row.createdAt,
+            title: '预览刷新',
+            status: refreshStateName(row.state),
+            disabled: refreshActive && row.state !== 'running',
+            onOpen: () =>
+              setOperationRequest({ source: 'refresh', id: row.id, epoch: historyEpoch }),
+          })),
+        ]
+      : []
   const canStartAi = (aiScan.includeMole ? canRun : canRunWithoutEngine) && !executionActive
   const pageName = navigation.find(([id]) => id === page)![2]
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
@@ -1719,6 +1768,32 @@ export default function App() {
           tabIndex={-1}
           aria-label={`${pageName}内容`}
         >
+          {page === 'history' && (
+            <ExecutionHistory
+              key={`cleanup-${historyEpoch}`}
+              onReady={focusExecutionRecords}
+              initialRecords={data.executions}
+              operations={operationRows}
+              loadRecords={api.executions}
+              loadDetail={api.execution}
+              onCancel={api.cancelLogCleanup}
+              onAcknowledge={api.acknowledgeExecution}
+              onRevealReceipt={api.revealExecutionItem}
+              onRestore={openRestoration}
+              onRestoreBatch={canRun && !executionActive ? setRestorationBatchTarget : undefined}
+              onRecordsChange={(executions) => {
+                setExecutionTrackingError('')
+                setData((current) =>
+                  current
+                    ? {
+                        ...current,
+                        executions: preserveExecutionProgress(executions, current.executions),
+                      }
+                    : current,
+                )
+              }}
+            />
+          )}
           {page === 'apps' && (
             <ModeTabs
               id="apps-mode"
@@ -1772,6 +1847,10 @@ export default function App() {
             transport={api.refreshTransport}
             onActiveChange={setRefreshActive}
             initialRecords={data.maintenanceRefreshes}
+            historyRequest={
+              currentOperationRequest?.source === 'refresh' ? currentOperationRequest : null
+            }
+            onHistoryRecords={setPreviewRefreshRecords}
           />
           <TransferRestorationCenter
             target={transferRestoreTarget}
@@ -1919,6 +1998,10 @@ export default function App() {
             historyVisible={page === 'history'}
             transport={api.uninstallTransport}
             onTargetClose={() => setUninstallTarget(null)}
+            historyRequest={
+              currentOperationRequest?.source === 'uninstall' ? currentOperationRequest : null
+            }
+            onHistoryRecords={setUninstallRecords}
             onActiveChange={setUninstallActive}
             onOutcome={() => setAppsStale(true)}
           />
@@ -1961,6 +2044,10 @@ export default function App() {
             enabled={canRun && !executionActive}
             openSignal={moleCleanSignal}
             historySignal={moleCleanHistorySignal}
+            historyRequest={
+              currentOperationRequest?.source === 'mole' ? currentOperationRequest : null
+            }
+            onHistoryRecords={setPermanentRecords}
             onActiveChange={setMoleCleanActive}
           />
           <ExecutionRecoveryNotice
@@ -2072,6 +2159,7 @@ export default function App() {
                 controller={activeFiles}
                 onArchive={page === 'personalFiles' ? setFileArchiveTarget : undefined}
                 onTransfer={page === 'personalFiles' ? setTransferTarget : undefined}
+                onRestore={openRestoration}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}
@@ -2218,6 +2306,7 @@ export default function App() {
                 playlistPath={softwareSource === 'musicLibrary' ? musicLibrary : mediaPlaylist}
                 exportPath={telegramExport}
                 browserProfile={browserProfile}
+                onRestore={openRestoration}
                 home={data.home}
                 protectedPaths={data.settings.protectedPaths}
                 enabled={canRun && !executionActive}
@@ -2747,33 +2836,6 @@ export default function App() {
                   ))}
                 </section>
               )}
-              <ExecutionHistory
-                key={`cleanup-${historyEpoch}`}
-                onReady={focusExecutionRecords}
-                initialRecords={data.executions}
-                loadRecords={api.executions}
-                loadDetail={api.execution}
-                onCancel={api.cancelLogCleanup}
-                onAcknowledge={api.acknowledgeExecution}
-                onRevealReceipt={api.revealExecutionItem}
-                onRestore={
-                  api.desktop && canRun && !executionActive ? setRestorationTarget : undefined
-                }
-                onRestoreBatch={
-                  api.desktop && canRun && !executionActive ? setRestorationBatchTarget : undefined
-                }
-                onRecordsChange={(executions) => {
-                  setExecutionTrackingError('')
-                  setData((current) =>
-                    current
-                      ? {
-                          ...current,
-                          executions: preserveExecutionProgress(executions, current.executions),
-                        }
-                      : current,
-                  )
-                }}
-              />
               <FileTransferHistory
                 key={`transfers-${historyEpoch}`}
                 canRestore={canRunWithoutEngine && !executionActive}

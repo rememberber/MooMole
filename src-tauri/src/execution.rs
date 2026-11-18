@@ -79,6 +79,8 @@ pub struct Summary {
     pub uncertain_count: usize,
     pub retained_for_review: bool,
     pub reviewed_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restorable_receipt: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -640,6 +642,7 @@ fn summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<Summary> {
         uncertain_count: uncertain,
         retained_for_review: retained,
         reviewed_at: None,
+        restorable_receipt: None,
     })
 }
 
@@ -666,8 +669,55 @@ pub fn list(db: &Connection) -> Result<Vec<Summary>, String> {
             &digest,
             row.state == "interrupted" && row.uncertain_count > 0,
         )?;
+        if row.state != "running" && row.moved_count > 0 {
+            row.restorable_receipt = Some(has_restorable_receipt(db, row, &digest)?);
+        }
     }
     Ok(records)
+}
+
+fn has_restorable_receipt(db: &Connection, run: &Summary, digest: &str) -> Result<bool, String> {
+    let body: String = db
+        .query_row(
+            "SELECT snapshot FROM execution_runs WHERE id=?1",
+            [&run.id],
+            |row| row.get(0),
+        )
+        .map_err(sql)?;
+    if body.len() > MAX_PLAN || format!("{:x}", Sha256::digest(body.as_bytes())) != digest {
+        return Ok(false);
+    }
+    let Ok(plan) = saved_plan(&body) else {
+        return Ok(false);
+    };
+    if plan.id != run.plan_id
+        || plan.method != run.method
+        || !crate::file_restoration::supports_origin(plan.origin)
+    {
+        return Ok(false);
+    }
+    let mut statement = db.prepare("SELECT ordinal,item_id,path,receipt FROM execution_items WHERE run_id=?1 AND state='moved' AND receipt IS NOT NULL").map_err(sql)?;
+    let mut rows = statement.query([&run.id]).map_err(sql)?;
+    while let Some(row) = rows.next().map_err(sql)? {
+        let ordinal: usize = row.get(0).map_err(sql)?;
+        let id: String = row.get(1).map_err(sql)?;
+        let path: String = row.get(2).map_err(sql)?;
+        let Some(item) = plan.items.get(ordinal) else {
+            continue;
+        };
+        let Ok(Some(receipt)) = decode_receipt(row.get(3).map_err(sql)?) else {
+            continue;
+        };
+        if item.id == id
+            && item.path == path
+            && (run.method != "move" || Some(&receipt.destination) == item.target_path.as_ref())
+            && (plan.origin != "softwareContent"
+                || crate::personal_files::ordinary(Path::new(&path)))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 pub fn detail(db: &Connection, id: &str) -> Result<Detail, String> {

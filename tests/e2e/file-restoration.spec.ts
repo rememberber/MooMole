@@ -1,4 +1,21 @@
 import { test, expect } from '@playwright/test'
+
+test('recent operations are chronological and the restore filter keeps only eligible file records', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.evaluate(async () =>
+    (await import('/tests/e2e/fixtures/file-restoration.tsx')).mount('timeline'),
+  )
+  const history = page.getByRole('region', { name: '执行记录', exact: true })
+  const rows = history.getByRole('button', { name: /查看逐项结果/ })
+  await expect(rows.first()).toContainText('Example App')
+  await expect(rows.last()).toContainText('全部移动完成')
+  await history.getByRole('checkbox', { name: '只看可申请恢复的文件' }).check()
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('全部移动完成')
+})
+
 async function open(page: import('@playwright/test').Page, mode = 'normal') {
   await page.goto('/')
   await page.evaluate(

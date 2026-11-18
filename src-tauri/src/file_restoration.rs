@@ -149,16 +149,16 @@ impl Plan {
         }
     }
 }
+pub(crate) fn supports_origin(origin: &str) -> bool {
+    matches!(
+        origin,
+        "personalFiles" | "duplicateFiles" | "similarPhotos" | "scheduledFiles" | "softwareContent"
+    )
+}
+
 fn source(detail: &execution::Detail, item_id: &str) -> Result<Source, String> {
     if detail.summary.state == "running"
-        || !matches!(
-            detail.origin,
-            "personalFiles"
-                | "duplicateFiles"
-                | "similarPhotos"
-                | "scheduledFiles"
-                | "softwareContent"
-        )
+        || !supports_origin(detail.origin)
         || !matches!(detail.summary.method.as_str(), "trash" | "move")
     {
         return Err(

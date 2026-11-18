@@ -552,6 +552,7 @@ export interface ExecutionSummary {
   uncertainCount: number
   retainedForReview: boolean
   reviewedAt: number | null
+  restorableReceipt?: boolean
 }
 export interface ExecutionReceipt {
   destination: string

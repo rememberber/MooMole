@@ -1,4 +1,17 @@
 [
+  ["最近操作", "Recent operations", "最近の操作"],
+  [
+    "只看可申请恢复的文件",
+    "Only files eligible for a restore check",
+    "復元確認ができるファイルのみ"
+  ],
+  [
+    "当前记录中没有可申请恢复的文件。",
+    "No files in these records are eligible for a restore check.",
+    "これらの記録には復元確認ができるファイルがありません。"
+  ],
+  ["{0} · {1} 项", "{0} · {1} items", "{0} · {1} 件"],
+  ["{0} {1} 项 · 待核实 {2} 项", "{0} {1} items · {2} to verify", "{0} {1} 件 · 要確認 {2} 件"],
   ["Mole 完整清理", "Full Mole cleanup", "Mole の完全クリーンアップ"],
   [
     "按 Mole 规则永久删除项目，并处理当前账户废纸篓。此操作不可撤销。",

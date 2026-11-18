@@ -10,7 +10,11 @@ import { watchExecution, preserveExecutionProgress } from '../lib/execution-watc
 import { focusReturnTarget } from '../lib/focus-return'
 import { ExecutionReason } from './ExecutionReason'
 import { CleanupResultSummary } from './CleanupResultSummary'
-import { restorationCandidate, type RestorationTarget } from '../lib/file-restoration'
+import {
+  restorationCandidate,
+  restorationTarget,
+  type RestorationTarget,
+} from '../lib/file-restoration'
 import type { RestorationBatchTarget } from '../lib/file-restoration-batch'
 import { ScheduledRuleSummary } from './ScheduledFiles'
 
@@ -37,6 +41,17 @@ const stateName = (state: string, method = 'trash') =>
       : (stateNames[state] ?? `未知状态（${state}）`)
 const errorText = (error: unknown) => String(error).replace(/^Error: /, '')
 
+export interface OperationHistoryRow {
+  key: string
+  createdAt: number
+  title: string
+  status: string
+  subject?: string
+  reviewed?: boolean
+  disabled?: boolean
+  onOpen: () => void
+}
+
 export function ExecutionHistory({
   initialRecords,
   loadRecords,
@@ -48,6 +63,7 @@ export function ExecutionHistory({
   onReady,
   onRestore,
   onRestoreBatch,
+  operations = [],
 }: {
   onAcknowledge?: (record: ExecutionDetail) => Promise<ExecutionDetail>
   onReady?: (section: HTMLElement | null) => void
@@ -59,8 +75,10 @@ export function ExecutionHistory({
   onRevealReceipt?: RevealExecutionItem
   onRestore?: (target: RestorationTarget) => void
   onRestoreBatch?: (target: RestorationBatchTarget) => void
+  operations?: OperationHistoryRow[]
 }) {
   const [records, setRecords] = useState(initialRecords)
+  const [onlyRestorable, setOnlyRestorable] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
@@ -181,6 +199,21 @@ export function ExecutionHistory({
     setSelected(null)
     setDetail(null)
   }
+  const rows: OperationHistoryRow[] = records
+    .filter((record) => !onlyRestorable || record.restorableReceipt === true)
+    .map((record) => ({
+      key: record.id,
+      createdAt: record.createdAt,
+      title: `${stateName(record.state, record.method)} · ${record.itemCount} 项`,
+      status: `${record.method === 'move' ? '已移动' : '已移入'} ${record.movedCount} 项 · 待核实 ${record.uncertainCount} 项`,
+      reviewed: record.reviewedAt !== null,
+      onOpen: () => {
+        opener.current = document.activeElement as HTMLButtonElement
+        void open(record.id)
+      },
+    }))
+  if (!onlyRestorable) rows.push(...operations)
+  rows.sort((left, right) => right.createdAt - left.createdAt)
   return (
     <>
       <section
@@ -191,7 +224,15 @@ export function ExecutionHistory({
         aria-label="执行记录"
       >
         <div className="list-toolbar">
-          <h2>执行记录</h2>
+          <h2>最近操作</h2>
+          <label className="history-filter">
+            <input
+              type="checkbox"
+              checked={onlyRestorable}
+              onChange={(event) => setOnlyRestorable(event.target.checked)}
+            />
+            只看可申请恢复的文件
+          </label>
           <button
             ref={refreshButton}
             className="button secondary compact"
@@ -207,28 +248,29 @@ export function ExecutionHistory({
             {error}
           </p>
         )}
-        {records.length ? (
+        {rows.length ? (
           <>
             <p className="execution-retention muted">
               含移入收据或中断证据的记录会继续保留，超出普通历史保留期限。
             </p>
-            {records.map((record) => (
+            {rows.map((record) => (
               <button
                 className="saved-plan-row"
-                key={record.id}
+                key={record.key}
+                disabled={record.disabled}
                 onClick={(event) => {
-                  opener.current = event.currentTarget
-                  void open(record.id)
+                  event.currentTarget.focus({ preventScroll: true })
+                  record.onOpen()
                 }}
               >
                 <span>
                   <strong>
-                    {stateName(record.state, record.method)} · {record.itemCount} 项
+                    {record.title}
+                    {record.subject && <span data-i18n="off"> · {record.subject}</span>}
                   </strong>
                   <small>
-                    {dateTime(record.createdAt)} · {record.method === 'move' ? '已移动' : '已移入'}{' '}
-                    {record.movedCount} 项 · 待核实 {record.uncertainCount} 项
-                    {record.reviewedAt !== null ? ' · 已人工核查' : ''}
+                    {dateTime(record.createdAt)} · {record.status}
+                    {record.reviewed ? ' · 已人工核查' : ''}
                   </small>
                 </span>
                 <span>查看逐项结果</span>
@@ -238,7 +280,9 @@ export function ExecutionHistory({
           </>
         ) : (
           <p className="execution-retention muted">
-            暂无执行记录。保存计划不会执行清理；符合条件的用户缓存和日志需核对并确认处理。
+            {onlyRestorable
+              ? '当前记录中没有可申请恢复的文件。'
+              : '暂无执行记录。保存计划不会执行清理；符合条件的用户缓存和日志需核对并确认处理。'}
           </p>
         )}
       </section>
@@ -296,10 +340,13 @@ export function ExecutionHistory({
                 const before = detail,
                   request = detailRequest.current
                 const next = reviewedResult(before, await onAcknowledge(before))
-                knownReviews.current.set(before.id, next)
+                const summary = records.find((row) => row.id === next.id)
+                knownReviews.current.set(before.id, { ...summary, ...next })
                 if (request === detailRequest.current) {
                   setDetail(next)
-                  const updated = records.map((row) => (row.id === next.id ? next : row))
+                  const updated = records.map((row) =>
+                    row.id === next.id ? { ...row, ...next } : row,
+                  )
                   setRecords(updated)
                   onRecordsChange?.(updated)
                 }
@@ -311,14 +358,7 @@ export function ExecutionHistory({
               key={detail.id}
               detail={detail}
               onRevealReceipt={onRevealReceipt}
-              onRestore={
-                onRestore
-                  ? (target) => {
-                      close()
-                      onRestore(target)
-                    }
-                  : undefined
-              }
+              onRestore={onRestore}
               onRestoreBatch={
                 onRestoreBatch
                   ? (target) => {
@@ -526,17 +566,10 @@ function ExecutionResults({
                 {onRestore && restorationCandidate(detail, item) && (
                   <button
                     className="button secondary compact"
-                    onClick={() =>
-                      onRestore({
-                        runId: detail.id,
-                        itemId: item.id,
-                        currentPath: item.receipt!.destination,
-                        originalPath: item.path,
-                        ...(detail.origin === 'softwareContent'
-                          ? { softwareContent: true as const }
-                          : {}),
-                      })
-                    }
+                    onClick={() => {
+                      const target = restorationTarget(detail, item)
+                      if (target) onRestore(target)
+                    }}
                   >
                     恢复原位置…
                   </button>

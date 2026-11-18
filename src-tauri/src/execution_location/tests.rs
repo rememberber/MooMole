@@ -35,6 +35,7 @@ impl Fixture {
                 moved_count: 1,
                 uncertain_count: 0,
                 reviewed_at: None,
+                restorable_receipt: None,
                 retained_for_review: true,
             },
             revision: crate::engine::REVISION.into(),

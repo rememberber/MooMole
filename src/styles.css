@@ -983,6 +983,17 @@ h3 {
 .list-toolbar > .muted {
   font-size: 10px;
 }
+.history-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--subtle);
+  font-size: 12px;
+}
+.main-content[data-page='history'] > .execution-history {
+  margin-bottom: 12px;
+}
 .search-field {
   display: flex;
   align-items: center;

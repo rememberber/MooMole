@@ -28,6 +28,8 @@ export function QuickLookRefreshCenter({
   openSignal,
   enabled,
   historyVisible,
+  historyRequest,
+  onHistoryRecords,
   transport,
   onActiveChange,
   initialRecords,
@@ -35,6 +37,8 @@ export function QuickLookRefreshCenter({
   openSignal: number
   enabled: boolean
   historyVisible: boolean
+  historyRequest?: { id: string } | null
+  onHistoryRecords?: (records: RefreshSummary[]) => void
   transport: RefreshTransport
   onActiveChange: (active: boolean) => void
   initialRecords?: unknown
@@ -159,6 +163,12 @@ export function QuickLookRefreshCenter({
   useEffect(() => {
     if (enabled && historyVisible) void loadHistory()
   }, [enabled, historyVisible, snapshot?.record?.state, snapshot?.record?.reviewedAt])
+  useEffect(() => {
+    if (historyRequest) showRecord(historyRequest.id)
+  }, [historyRequest])
+  useEffect(() => {
+    onHistoryRecords?.(records)
+  }, [records, onHistoryRecords])
   useEffect(() => {
     if (!openSignal) return
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null

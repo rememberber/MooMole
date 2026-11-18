@@ -25,6 +25,19 @@ export interface RestorationTarget {
   originalPath: string
   softwareContent?: true
 }
+export function restorationTarget(
+  detail: ExecutionDetail,
+  item: ExecutionDetail['items'][number],
+): RestorationTarget | null {
+  if (!item.receipt || !restorationCandidate(detail, item)) return null
+  return {
+    runId: detail.id,
+    itemId: item.id,
+    currentPath: item.receipt.destination,
+    originalPath: item.path,
+    ...(detail.origin === 'softwareContent' ? { softwareContent: true } : {}),
+  }
+}
 export interface RestorationDraft {
   id: string
   sourceRunId: string

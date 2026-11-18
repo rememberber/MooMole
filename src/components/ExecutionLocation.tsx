@@ -9,12 +9,14 @@ export function ExecutionLocation({
   onReveal,
   method = 'trash',
   canRestore = false,
+  onRestore,
 }: {
   runId: string
   itemId: string
   onReveal: RevealExecutionItem
   method?: string
   canRestore?: boolean
+  onRestore?: () => void
 }) {
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState('')
@@ -38,6 +40,11 @@ export function ExecutionLocation({
   }
   return (
     <>
+      {onRestore && (
+        <button className="button secondary compact" onClick={onRestore}>
+          恢复原位置…
+        </button>
+      )}
       <button className="button secondary compact" disabled={pending} onClick={() => void reveal()}>
         <FolderOpen size={14} />
         {pending ? '正在核对位置…' : '在 Finder 中查看'}

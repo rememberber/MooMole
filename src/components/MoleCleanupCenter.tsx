@@ -10,7 +10,7 @@ import {
   type MoleCleanSnapshot,
   type MoleCleanState,
 } from '../lib/mole-cleanup'
-const stateNames: Record<MoleCleanState, string> = {
+export const moleCleanStateNames: Record<MoleCleanState, string> = {
   running: '清理进行中',
   completed: 'Mole 本轮执行结束',
   cancelled: '清理已停止',
@@ -34,6 +34,8 @@ export function MoleCleanupCenter({
   enabled,
   openSignal,
   historySignal,
+  historyRequest,
+  onHistoryRecords,
   refreshSignal = 0,
   onActiveChange,
 }: {
@@ -41,6 +43,8 @@ export function MoleCleanupCenter({
   enabled: boolean
   openSignal: number
   historySignal: number
+  historyRequest?: { id: string } | null
+  onHistoryRecords?: (records: MoleCleanSnapshot['records']) => void
   refreshSignal?: number
   onActiveChange: (active: boolean) => void
 }) {
@@ -157,6 +161,20 @@ export function MoleCleanupCenter({
     setView('history')
     void read()
   }, [historySignal])
+  useEffect(() => {
+    if (
+      !historyRequest ||
+      (snapshot?.activeRequest && snapshot.activeRequest !== historyRequest.id)
+    )
+      return
+    setOpen(true)
+    setView('history')
+    setSelected(historyRequest.id)
+    void read(historyRequest.id)
+  }, [historyRequest])
+  useEffect(() => {
+    onHistoryRecords?.(snapshot?.records ?? [])
+  }, [snapshot, onHistoryRecords])
   useEffect(() => {
     setReviewed(false)
     setClearAgreed(false)
@@ -434,7 +452,7 @@ export function MoleCleanupCenter({
                   >
                     {snapshot.records.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {dateTime(r.createdAt)} · {stateNames[r.state]}
+                        {dateTime(r.createdAt)} · {moleCleanStateNames[r.state]}
                       </option>
                     ))}
                   </select>
@@ -445,7 +463,7 @@ export function MoleCleanupCenter({
               {record && (
                 <>
                   <p className="mole-clean-run-state" role="status">
-                    <strong>{stateNames[record.state]}</strong>
+                    <strong>{moleCleanStateNames[record.state]}</strong>
                     {sectionLabel && active && <span>{sectionLabel}</span>}
                   </p>
                   {snapshot?.authorizationRequired && (

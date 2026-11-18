@@ -30,6 +30,8 @@ export function ApplicationUninstallCenter({
   target,
   enabled,
   historyVisible,
+  historyRequest,
+  onHistoryRecords,
   transport,
   onTargetClose,
   onActiveChange,
@@ -38,6 +40,8 @@ export function ApplicationUninstallCenter({
   target: UninstallTarget | null
   enabled: boolean
   historyVisible: boolean
+  historyRequest?: { id: string } | null
+  onHistoryRecords?: (records: UninstallSummary[]) => void
   transport: UninstallTransport
   onTargetClose: () => void
   onActiveChange: (active: boolean) => void
@@ -219,6 +223,14 @@ export function ApplicationUninstallCenter({
   useEffect(() => {
     if (historyVisible) void refresh()
   }, [historyVisible])
+  useEffect(() => {
+    if (!historyRequest) return
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    openRecord(historyRequest.id)
+  }, [historyRequest])
+  useEffect(() => {
+    onHistoryRecords?.(records)
+  }, [records, onHistoryRecords])
   useEffect(() => {
     if (!requestId || !enabled) return
     const controller = new AbortController()
