@@ -1570,6 +1570,9 @@ h3 {
   flex-wrap: wrap;
   gap: 12px;
 }
+.application-library {
+  overflow: visible;
+}
 .application-library .search-field {
   flex: 1;
   min-width: 180px;
@@ -1629,11 +1632,35 @@ h3 {
 }
 .application-item .app-info strong,
 .application-item .app-info small {
-  overflow-wrap: anywhere;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .application-item .app-info small {
   color: var(--subtle);
-  white-space: pre-wrap;
+}
+.application-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+.application-actions summary::-webkit-details-marker {
+  display: none;
+}
+.application-action-list {
+  position: absolute;
+  z-index: 2;
+  inset-inline-end: 0;
+  top: calc(100% + 4px);
+  display: grid;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 4px 16px #0002;
+}
+.application-action-list .button {
+  justify-content: flex-start;
 }
 .application-details {
   margin: 0 22px 14px;
@@ -4321,12 +4348,6 @@ input[type='checkbox'] {
   gap: 8px;
   align-items: center;
   font-size: 12px;
-}
-
-.application-control-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
 }
 
 .problem-repairs {

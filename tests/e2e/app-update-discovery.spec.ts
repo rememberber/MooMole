@@ -8,6 +8,7 @@ async function start(page: Page, mode = 'normal') {
     mode,
   )
   const rows = page.getByRole('region', { name: 'Mole 应用清单' }).getByRole('article')
+  await rows.first().getByText('更多操作', { exact: true }).click()
   await rows.first().getByRole('button', { name: '检查更新…', exact: true }).click()
   return page.getByRole('dialog', { name: '检查此应用更新' })
 }
@@ -57,6 +58,10 @@ for (const lang of ['en', 'ja'])
       async (mode) => (await import('/tests/e2e/fixtures/app-update-discovery.tsx')).mount(mode),
       lang === 'en' ? 'downloadEn' : 'downloadJa',
     )
+    await page
+      .getByText(lang === 'en' ? 'More actions' : 'その他の操作', { exact: true })
+      .first()
+      .click()
     await page
       .getByRole('button', {
         name: lang === 'en' ? 'Check for updates…' : '更新を確認…',
@@ -117,6 +122,7 @@ test('the actual app list routes only the retained ordinary copy into explicit d
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   const rows = page.getByRole('region', { name: 'Mole 应用清单' }).getByRole('article')
   await expect(rows).toHaveCount(5)
+  await rows.nth(1).getByText('更多操作', { exact: true }).click()
   await expect(rows.nth(1).getByRole('button', { name: '检查更新…', exact: true })).toBeDisabled()
   await page.evaluate(() => {
     const native = (
@@ -166,6 +172,7 @@ test('the actual app list routes only the retained ordinary copy into explicit d
       return original(command, args)
     }
   })
+  await rows.first().getByText('更多操作', { exact: true }).click()
   await rows.first().getByRole('button', { name: '检查更新…', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '检查此应用更新' })
   await expect(dialog).toContainText('/Applications/Example.app')
@@ -288,6 +295,10 @@ for (const lang of ['en', 'ja'])
       async (mode) => (await import('/tests/e2e/fixtures/app-update-discovery.tsx')).mount(mode),
       lang,
     )
+    await page
+      .getByText(lang === 'en' ? 'More actions' : 'その他の操作', { exact: true })
+      .first()
+      .click()
     await page
       .getByRole('button', {
         name: lang === 'en' ? 'Check for updates…' : '更新を確認…',

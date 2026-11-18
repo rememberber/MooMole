@@ -134,6 +134,7 @@ async function setup(page: Page, mode = 'normal', upgrade = false) {
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   const rows = page.getByRole('region', { name: 'Mole 应用清单' }).getByRole('article')
   await expect(rows).toHaveCount(5)
+  if (upgrade) await rows.nth(1).getByText('更多操作', { exact: true }).click()
   await rows
     .nth(1)
     .getByRole('button', { name: upgrade ? '通过 Homebrew 升级…' : '卸载…', exact: true })

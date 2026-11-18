@@ -52,7 +52,9 @@ for (const action of ['open', 'quit']) {
     await page.evaluate(async () => (await import('/tests/e2e/fixtures/app-control.tsx')).mount())
     const rows = page.getByRole('region', { name: 'Mole 应用清单' }).getByRole('article')
     const label = action === 'quit' ? '退出…' : '打开'
+    await rows.nth(1).getByText('更多操作', { exact: true }).click()
     await expect(rows.nth(1).getByRole('button', { name: label, exact: true })).toBeDisabled()
+    await rows.first().getByText('更多操作', { exact: true }).click()
     await rows.first().getByRole('button', { name: label, exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('/Applications/Example.app')
@@ -68,6 +70,7 @@ for (const action of ['open', 'quit']) {
     expect(args).toMatchObject({ taskId: 'fixture-app-task', index: 0, action, confirmed: true })
     expect(args).not.toHaveProperty('path')
     await dialog.getByRole('button', { name: '返回应用列表' }).click()
+    await rows.first().getByText('更多操作', { exact: true }).click()
     await expect(rows.first().getByRole('button', { name: label, exact: true })).toBeDisabled()
   })
 }
@@ -76,12 +79,9 @@ test('a different installation result is rejected without retry', async ({ page 
   await page.evaluate(async () =>
     (await import('/tests/e2e/fixtures/app-control.tsx')).mount('mismatch'),
   )
-  await page
-    .locator('#app-control-fixture')
-    .getByRole('article')
-    .first()
-    .getByRole('button', { name: '打开', exact: true })
-    .click()
+  const row = page.locator('#app-control-fixture').getByRole('article').first()
+  await row.getByText('更多操作', { exact: true }).click()
+  await row.getByRole('button', { name: '打开', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: '确认打开应用' }).click()
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('应用操作结果无法核对')
   await expect(page.locator('#app-control-fixture')).toHaveAttribute('data-calls', '1')
