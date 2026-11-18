@@ -1,10 +1,11 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { installSoftwareContentMock } from './fixtures/software-content-native'
 async function open(page: import('@playwright/test').Page) {
   await installSoftwareContentMock(page)
   await page.goto('/')
-  await page.getByRole('navigation').getByRole('button', { name: '软件清理', exact: true }).click()
+  await navigate(page, '软件清理')
   await page.getByRole('tab', { name: '附件、下载与离线', exact: true }).click()
   return page.getByRole('main', { name: '软件清理内容' })
 }

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { navigate } from './fixtures/navigation'
 import { installTaskMock } from './fixtures/native-task'
 import { analysis } from './fixtures/analysis-explorer'
 
@@ -9,7 +10,7 @@ for (const [pageName, listName, firstName, secondName] of [
 ]) {
   test(`${listName} supports keyboard navigation and explicit activation`, async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: pageName, exact: true }).click()
+    await navigate(page, pageName)
     const list = page.getByRole('tablist', { name: listName, exact: true })
     const first = list.getByRole('tab', { name: firstName, exact: true })
     const second = list.getByRole('tab', { name: secondName, exact: true })
@@ -66,7 +67,7 @@ for (const [locale, longLabel] of [
       await page.goto('/')
       const nav = page.locator('.main-nav')
       const longItem = nav.getByRole('button', { name: longLabel, exact: true })
-      await longItem.click()
+      await navigate(page, longLabel)
       await expect(longItem).toHaveAttribute('aria-current', 'page')
 
       for (const [width, height] of [
@@ -90,6 +91,30 @@ for (const [locale, longLabel] of [
     })
   })
 }
+
+test('sidebar groups specialist pages and keeps operation history visible at the minimum window size', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 680 })
+  await page.goto('/')
+  const nav = page.getByRole('navigation', { name: '主导航', exact: true })
+  const cleanup = nav.getByRole('button', { name: '清理工具', exact: true })
+  const search = nav.getByRole('button', { name: '文件查找', exact: true })
+  const software = nav.getByRole('button', { name: '软件清理', exact: true })
+  const history = nav.getByRole('button', { name: '操作历史', exact: true })
+  await expect(software).toHaveCount(0)
+  await cleanup.press('Enter')
+  await expect(cleanup).toHaveAttribute('aria-expanded', 'true')
+  await software.click()
+  await expect(software).toHaveAttribute('aria-current', 'page')
+  await search.click()
+  await expect(software).toHaveCount(0)
+  await expect(nav.getByRole('button', { name: '重复文件', exact: true })).toBeVisible()
+  await expect(history).toBeInViewport({ ratio: 1 })
+  await history.click()
+  await expect(history).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name: '最近操作' })).toBeInViewport()
+})
 
 test('compact desktop shell puts actions in the toolbar and results above the fold without duplicate page chrome', async ({
   page,
@@ -115,10 +140,7 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
   await page.setViewportSize({ width: 960, height: 780 })
   for (const name of ['概览', '空间分析', '清理', '应用列表', '系统状态', '操作历史']) {
-    await page
-      .getByRole('navigation', { name: '主导航' })
-      .getByRole('button', { name, exact: true })
-      .click()
+    await navigate(page, name)
     const toolbar = page.getByRole('banner', { name: `${name}工具栏` })
     await expect(toolbar).toBeVisible()
     await expect(page.getByRole('main', { name: `${name}内容` })).toBeVisible()

@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { installTaskMock } from './fixtures/native-task'
 import { expect, test, type Page } from '@playwright/test'
 async function mount(page: Page, mode = 'normal') {
@@ -127,7 +128,7 @@ test('ongoing management exposes the real reminder control without requesting pe
     }
   })
   await page.goto('/')
-  await page.getByRole('navigation').getByRole('button', { name: '持续管理', exact: true }).click()
+  await navigate(page, '持续管理')
   const region = page.getByRole('region', { name: '低空间系统提醒' })
   await expect(region).toContainText('低空间系统提醒已关闭')
   await expect(region.getByRole('button', { name: '申请系统通知权限' })).toBeEnabled()

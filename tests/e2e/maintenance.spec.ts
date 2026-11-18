@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { maintenanceReport } from './fixtures/maintenance'
@@ -244,7 +245,7 @@ test('leaving maintenance ignores late observations and does not restart inspect
   await page.getByRole('button', { name: '系统维护', exact: true }).click()
   await page.getByRole('button', { name: '检查本机设置', exact: true }).click()
   await expect(page.getByRole('button', { name: '正在检查…' })).toBeDisabled()
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
   await page.evaluate(() =>
     (window as unknown as { finishMaintenance: () => void }).finishMaintenance(),
   )
@@ -371,7 +372,7 @@ test('leaving maintenance ignores a late review response', async ({ page }) => {
     .check()
   await page.getByRole('button', { name: '审阅所选 1 项', exact: true }).click()
   await expect(page.getByRole('button', { name: '正在审阅…', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
   await page.evaluate(() => (window as unknown as { finishReview: () => void }).finishReview())
   await page.getByRole('button', { name: '系统维护', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '维护条件审阅', exact: true })).toHaveCount(0)

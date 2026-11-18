@@ -67,7 +67,7 @@ test('space guide works before scanning and leads to review without automatic pr
   await backups.getByRole('button', { name: '关闭弹窗', exact: true }).click()
   await page.getByRole('button', { name: '空间占用说明', exact: true }).click()
   await dialog.getByRole('button', { name: '审阅常用清理候选', exact: true }).click()
-  await expect(page.getByRole('main', { name: '速战速决内容', exact: true })).toBeVisible()
+  await expect(page.getByRole('main', { name: '清理空间内容', exact: true })).toBeVisible()
   const calls = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('mock-native-commands')!),
   )

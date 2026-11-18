@@ -106,9 +106,9 @@ test('navigation places quick cleanup immediately after overview', async ({ page
   await page.goto('/')
   const nav = page.getByRole('navigation', { name: '主导航' })
   const names = await nav.getByRole('button').allTextContents()
-  expect(names.slice(0, 2).map((name) => name.trim())).toEqual(['概览', '速战速决'])
-  await nav.getByRole('button', { name: '速战速决' }).click()
-  await expect(page.getByRole('main', { name: '速战速决内容' })).toBeVisible()
+  expect(names.slice(0, 2).map((name) => name.trim())).toEqual(['概览', '清理空间'])
+  await nav.getByRole('button', { name: '清理空间' }).click()
+  await expect(page.getByRole('main', { name: '清理空间内容' })).toBeVisible()
 })
 
 test('one rejected cache inspection preserves other independent recommendations', async ({

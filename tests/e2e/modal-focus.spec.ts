@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 
 const settings = (page: Page) => page.getByRole('button', { name: '设置', exact: true })
@@ -49,7 +50,7 @@ test('settings shortcut returns to the prior field and keeps the original trigge
 
 test('the protection-list entry receives focus again when settings closes', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: '清理', exact: true }).click()
+  await navigate(page, '清理')
   const opener = page.getByRole('button', { name: '管理保护列表', exact: true })
   await opener.click()
   await expect(

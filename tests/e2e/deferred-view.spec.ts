@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 async function fixture(page: Page) {
@@ -49,11 +50,11 @@ test('an unseen view loads only when opened, and returning to it never starts an
   const installer = '/src/components/Installers.tsx'
   expect(requests.filter((path) => path === installer)).toHaveLength(0)
   expect(requests.filter((path) => path === '/src/components/SettingsModal.tsx')).toHaveLength(0)
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(page.getByRole('heading', { name: '选择要查找安装包的目录' })).toBeVisible()
   expect(requests.filter((path) => path === installer)).toHaveLength(1)
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(page.getByRole('heading', { name: '选择要查找安装包的目录' })).toBeVisible()
   expect(requests.filter((path) => path === installer)).toHaveLength(1)
   await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()

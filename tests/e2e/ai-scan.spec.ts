@@ -1,11 +1,9 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test } from '@playwright/test'
 
 test('AI menu shows native agent detection, scope and explicit model consent', async ({ page }) => {
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: 'AI 深度扫描' })
-    .click()
+  await navigate(page, 'AI 深度扫描')
   await expect(page.getByRole('main', { name: 'AI 深度扫描内容' })).toBeVisible()
   await expect(page.getByRole('button', { name: '开始深度扫描' })).toBeDisabled()
   await expect(
@@ -130,7 +128,7 @@ test('native transport requires consent, retains running scan across navigation 
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   const nav = page.getByRole('navigation', { name: '主导航' })
-  await nav.getByRole('button', { name: 'AI 深度扫描' }).click()
+  await navigate(page, 'AI 深度扫描')
   const start = page.getByRole('button', { name: '开始深度扫描' })
   const consent = page.getByRole('checkbox', { name: '允许将本次路径', exact: false })
   await expect(page.getByRole('combobox', { name: '分析 Agent' })).toHaveValue('codex')
@@ -151,13 +149,13 @@ test('native transport requires consent, retains running scan across navigation 
     includeMole: false,
   })
   await nav.getByRole('button', { name: '概览', exact: true }).click()
-  await nav.getByRole('button', { name: 'AI 深度扫描' }).click()
+  await navigate(page, 'AI 深度扫描')
   await expect(page.getByRole('button', { name: '停止扫描' })).toBeVisible()
   await page.getByRole('button', { name: '停止扫描' }).click()
   await expect(page.getByText('扫描已停止', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('ai-cancel'))).toBe('ai-request')
   await page.reload()
-  await nav.getByRole('button', { name: 'AI 深度扫描' }).click()
+  await navigate(page, 'AI 深度扫描')
   await expect(page.getByText('扫描已停止', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('ai-start-count'))).toBe('1')
   for (const theme of ['light', 'dark']) {

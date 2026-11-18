@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { test, expect, type Page } from '@playwright/test'
 import { installSoftwareContentMock } from './fixtures/software-content-native'
 async function setup(page: Page, mode = 'normal') {
@@ -22,7 +23,7 @@ async function setup(page: Page, mode = 'normal') {
       }
     })
   await page.goto('/')
-  await page.getByRole('navigation').getByRole('button', { name: '软件清理', exact: true }).click()
+  await navigate(page, '软件清理')
   await page.getByRole('tab', { name: '附件、下载与离线', exact: true }).click()
   const main = page.getByRole('main', { name: '软件清理内容' })
   await main.getByRole('combobox', { name: '软件内容来源' }).selectOption('chromeDownloads')

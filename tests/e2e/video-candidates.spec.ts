@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { installSimilarMock } from './fixtures/similar-photos-native'
@@ -20,10 +21,7 @@ async function open(page: Page) {
     })
   })
   await page.goto('/')
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: '相似照片与视频', exact: true })
-    .click()
+  await navigate(page, '相似照片与视频')
   const main = page.getByRole('main', { name: '相似照片与视频内容' })
   await main.getByRole('combobox', { name: '比较方式' }).selectOption('video')
   await main.getByRole('textbox', { name: '相似视频目录' }).fill('/Users/demo/Downloads')

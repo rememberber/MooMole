@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import {
@@ -149,7 +150,7 @@ async function install(page: Page) {
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
 }
 test('manual scoped inventory displays filename clues, unknown ZIP size and accurate Finder action', async ({
   page,
@@ -211,11 +212,11 @@ test('leaving ignores late inventory and does not auto-restart', async ({ page }
   await page.evaluate(() => sessionStorage.setItem('installer-defer', 'yes'))
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   await expect(page.getByRole('button', { name: '正在扫描…' })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() =>
     (window as unknown as { finishInstallers: () => void }).finishInstallers(),
   )
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(page.getByRole('heading', { name: '目录已选择' })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('installer-calls'))).toBe('1')
 })
@@ -285,9 +286,9 @@ test('ZIP reading holds scope controls and ignores late results after navigation
   await expect(zip.getByRole('button', { name: '正在检查…', exact: true })).toBeDisabled()
   await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
   await expect(page.getByRole('combobox', { name: '安装包查找位置', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() => (window as unknown as { finishZip: () => void }).finishZip())
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(zip).not.toContainText('发现安装条目线索')
   await expect(zip.getByRole('button', { name: '重新检查', exact: true })).toBeVisible()
   await page.setViewportSize({ width: 960, height: 680 })
@@ -411,11 +412,11 @@ test('connection reading locks filters and ZIP checks and ignores late results a
   await expect(page.getByRole('combobox', { name: '安装包查找位置', exact: true })).toBeDisabled()
   await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: '检查 ZIP', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() =>
     (window as unknown as { finishConnection: () => void }).finishConnection(),
   )
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(image).not.toContainText('此路径已连接')
   await expect(image.getByRole('button', { name: '重新检查连接', exact: true })).toBeVisible()
   await page
@@ -478,9 +479,9 @@ test('usage reading locks scope and other row actions without duplicate spinners
   await expect(image.getByRole('button', { name: '检查连接', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
   await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() => (window as unknown as { finishUsage: () => void }).finishUsage())
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(image).not.toContainText('发现其他进程打开')
   await expect(image.getByRole('button', { name: '重新检查占用', exact: true })).toBeVisible()
 })
@@ -537,9 +538,9 @@ test('ZIP data test locks other operations and filters and ignores late results 
   await expect(zip.getByRole('button', { name: '重新检查', exact: true })).toBeDisabled()
   await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() => (window as unknown as { finishZipData: () => void }).finishZipData())
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(zip).not.toContainText('ZIP 数据测试通过')
   await expect(zip).toContainText('ZIP 数据尚未校验')
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
@@ -600,9 +601,9 @@ test('DMG verification locks range and other checks and ignores late data after 
   await expect(image.getByRole('button', { name: '检查连接', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: '扫描目录', exact: true })).toBeDisabled()
   await expect(page.getByRole('textbox', { name: '筛选安装包', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.evaluate(() => (window as unknown as { finishImage: () => void }).finishImage())
-  await page.getByRole('button', { name: '安装包', exact: true }).click()
+  await navigate(page, '安装包')
   await expect(image).not.toContainText('DMG 内部校验和匹配')
   await expect(image).toContainText('DMG 数据尚未校验')
 })

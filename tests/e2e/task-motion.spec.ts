@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 
@@ -95,10 +96,7 @@ test('offscreen clouds pause and candidate summaries remain compact across theme
   page,
 }) => {
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: '清理', exact: true })
-    .click()
+  await navigate(page, '清理')
   const cloud = page.locator('.clean-review .dust-cloud')
   await expect(cloud).toHaveAttribute('data-visible', 'true')
   await expect(cloud).toHaveAttribute('aria-hidden', 'true')
@@ -152,10 +150,7 @@ test('running global task feedback keeps fixed positioning and never squeezes th
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await page.getByRole('textbox', { name: '扫描目录' }).fill('/fixture')
   await page.getByRole('button', { name: '开始分析', exact: true }).click()
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: '清理', exact: true })
-    .click()
+  await navigate(page, '清理')
   const toast = page.locator('.task-toast')
   await expect(toast).toBeVisible()
   for (const width of [960, 1200]) {

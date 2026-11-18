@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test } from '@playwright/test'
 import { installSimilarMock } from './fixtures/similar-photos-native'
 test('capture-sequence comparison displays capture order and still requires choosing and confirming exact files', async ({
@@ -5,10 +6,7 @@ test('capture-sequence comparison displays capture order and still requires choo
 }) => {
   await installSimilarMock(page)
   await page.goto('/')
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: '相似照片与视频', exact: true })
-    .click()
+  await navigate(page, '相似照片与视频')
   const main = page.getByRole('main', { name: '相似照片与视频内容' })
   await main.getByRole('textbox', { name: '相似照片目录' }).fill('/Users/demo/Downloads')
   await main.getByRole('combobox', { name: '比较方式' }).selectOption('sequence')
@@ -47,10 +45,7 @@ test('changing photo comparison mode revokes the old selection until a new scan'
 }) => {
   await installSimilarMock(page)
   await page.goto('/')
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: '相似照片与视频', exact: true })
-    .click()
+  await navigate(page, '相似照片与视频')
   const main = page.getByRole('main', { name: '相似照片与视频内容' })
   await main.getByRole('textbox', { name: '相似照片目录' }).fill('/Users/demo/Downloads')
   await page.getByRole('button', { name: '查找相似照片', exact: true }).click()
@@ -69,10 +64,7 @@ test('similar photos compare side by side, keep an original and confirm exact ID
 }) => {
   await installSimilarMock(page)
   await page.goto('/')
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: '相似照片与视频', exact: true })
-    .click()
+  await navigate(page, '相似照片与视频')
   const main = page.getByRole('main', { name: '相似照片与视频内容' })
   await main.getByRole('textbox', { name: '相似照片目录' }).fill('/Users/demo/Downloads')
   await page.getByRole('button', { name: '查找相似照片', exact: true }).click()

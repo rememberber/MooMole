@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Box,
+  ChevronDown,
   ChevronRight,
   Code2,
   Cpu,
@@ -217,7 +218,7 @@ const StorageMonitor = deferredView(async () => ({
 
 const navigation = [
   ['overview', LayoutGrid, '概览'],
-  ['quickCleanup', Zap, '速战速决'],
+  ['quickCleanup', Zap, '清理空间'],
   ['softwareCleanup', Sparkles, '软件清理'],
   ['personalFiles', FolderOpen, '文件整理'],
   ['duplicateFiles', Copy, '重复文件'],
@@ -233,6 +234,26 @@ const navigation = [
   ['installers', Archive, '安装包'],
   ['history', History, '操作历史'],
 ] as const
+
+const primaryNavigation = [
+  'overview',
+  'quickCleanup',
+  'analyze',
+  'personalFiles',
+  'apps',
+  'maintenance',
+] as const
+const navigationGroups: Partial<Record<Page, { label: string; pages: readonly Page[] }>> = {
+  quickCleanup: {
+    label: '清理工具',
+    pages: ['softwareCleanup', 'cleanup', 'installers', 'projects', 'aiScan'],
+  },
+  personalFiles: { label: '文件查找', pages: ['duplicateFiles', 'similarPhotos'] },
+  maintenance: { label: '系统监测', pages: ['status', 'storageMonitor'] },
+}
+function containingGroup(page: Page) {
+  return primaryNavigation.find((id) => navigationGroups[id]?.pages.includes(page))
+}
 
 function Empty({
   icon: Icon = FolderOpen,
@@ -299,6 +320,7 @@ export default function App() {
   const folderSchedules = useFolderSchedules(api.desktop && !!data, folderScheduleTransport)
   const scheduledFiles = useScheduledFiles(api.desktop && !!data, scheduledFilesTransport)
   const [page, setPage] = useState<Page>('overview')
+  const [openNavigationGroup, setOpenNavigationGroup] = useState<Page | null>(null)
   const [diskRefresh, setDiskRefresh] = useState(0)
   const [moleCleanSignal, setMoleCleanSignal] = useState(0)
   const [moleCleanHistorySignal, setMoleCleanHistorySignal] = useState(0)
@@ -884,7 +906,7 @@ export default function App() {
     try {
       const selected = await api.chooseDirectory()
       if (selected) {
-        setPage('analyze')
+        changePage('analyze')
         setPath(selected)
         void execute('analyze', selected)
       }
@@ -974,8 +996,11 @@ export default function App() {
     void api.official().catch((error) => setError(String(error)))
   }
   function changePage(next: Page) {
+    if (next === page) return
     rememberAnalysisContext()
+    setOpenNavigationGroup(containingGroup(next) ?? (navigationGroups[next] ? next : null))
     setPage(next)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }
   function rememberAnalysisContext() {
     const current = analysisExplorer.current?.capture()
@@ -1069,6 +1094,23 @@ export default function App() {
       : []
   const canStartAi = (aiScan.includeMole ? canRun : canRunWithoutEngine) && !executionActive
   const pageName = navigation.find(([id]) => id === page)![2]
+  function pageButton(id: Page, className = '') {
+    const [, Icon, name] = navigation.find(([entry]) => entry === id)!
+    return (
+      <button
+        key={id}
+        className={`${className} ${page === id ? 'active' : ''}`}
+        onClick={() => changePage(id)}
+        aria-current={page === id ? 'page' : undefined}
+        aria-label={name}
+        title={name}
+      >
+        <Icon size={18} strokeWidth={1.7} />
+        <span>{name}</span>
+        {page === id && <span className="active-dot" />}
+      </button>
+    )
+  }
   const lastSnapshot = snapshot ? dateTime(snapshot.collected_at) : null
   const cpuUsage = statusPercent(snapshot?.cpu?.usage) ?? undefined
   const memoryUsage = statusPercent(snapshot?.memory?.used_percent) ?? undefined
@@ -1105,19 +1147,37 @@ export default function App() {
           <div>MooMole</div>
         </div>
         <nav className="main-nav" aria-label="主导航">
-          {navigation.map(([id, Icon, name]) => (
-            <button
-              key={id}
-              className={page === id ? 'active' : ''}
-              onClick={() => changePage(id)}
-              aria-current={page === id ? 'page' : undefined}
-              title={name}
-            >
-              <Icon size={18} strokeWidth={1.7} />
-              <span>{name}</span>
-              {page === id && <span className="active-dot" />}
-            </button>
-          ))}
+          <div className="main-nav-items">
+            {primaryNavigation.map((id) => {
+              const group = navigationGroups[id]
+              if (!group) return pageButton(id)
+              const expanded = openNavigationGroup === id
+              return (
+                <div className="nav-section" key={id}>
+                  <div
+                    className="nav-section-heading"
+                    data-descendant-active={(!expanded && group.pages.includes(page)) || undefined}
+                  >
+                    {pageButton(id)}
+                    <button
+                      className="nav-disclosure"
+                      aria-expanded={expanded}
+                      aria-controls={`navigation-${id}`}
+                      aria-label={group.label}
+                      title={group.label}
+                      onClick={() => setOpenNavigationGroup(expanded ? null : id)}
+                    >
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="nav-subpages" id={`navigation-${id}`} hidden={!expanded}>
+                    {group.pages.map((child) => pageButton(child, 'nav-subpage'))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {pageButton('history', 'nav-history')}
         </nav>
         <div className="sidebar-bottom">
           <button

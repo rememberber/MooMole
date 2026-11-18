@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { demoSnapshot } from '../../src/lib/demo'
@@ -30,7 +31,7 @@ async function open(page: Page) {
   await page.goto('/')
   await expect(page.getByText('系统快照进行中', { exact: true })).toBeVisible()
   await complete(page, snapshot)
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
 }
 async function start(page: Page) {
   await page.evaluate(() => sessionStorage.removeItem('mock-done'))

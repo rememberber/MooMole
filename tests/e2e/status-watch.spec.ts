@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { demoSnapshot } from '../../src/lib/demo'
@@ -84,7 +85,7 @@ async function open(page: Page) {
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
 }
 const start = (page: Page) => page.getByRole('button', { name: '持续采集', exact: true })
 const process = (page: Page) => page.getByRole('region', { name: 'Mole 进程快照' })
@@ -171,7 +172,7 @@ test('leaving status and hiding the document stop capture without automatic resu
       page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-stops') ?? '[]').length),
     )
     .toBe(1)
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
   await expect(start(page)).toBeEnabled()
   await start(page).click()
   await expect(page.getByRole('button', { name: '暂停采集', exact: true })).toBeEnabled()
@@ -217,7 +218,7 @@ test('reload stops the old session without restarting or following it as a snaps
   await expect(process(page)).toContainText('warm-1')
   const oldId = await page.evaluate(() => sessionStorage.getItem('watch-id'))
   await page.reload()
-  await page.getByRole('button', { name: '系统状态', exact: true }).click()
+  await navigate(page, '系统状态')
   await expect(start(page)).toBeEnabled()
   expect(
     await page.evaluate(() => JSON.parse(sessionStorage.getItem('watch-starts') ?? '[]').length),
@@ -752,7 +753,7 @@ test('overview uses native volumes independently of missing or contradictory Mol
     await expect(overview.getByRole('img')).toHaveAttribute('aria-label', '空间占用 75.0%')
     await expect(overview).toContainText('128 GB')
     await expect(overview).not.toContainText('Internal-looking')
-    await page.getByRole('button', { name: '系统状态', exact: true }).click()
+    await navigate(page, '系统状态')
     await expect(start(page)).toBeEnabled()
   }
 })

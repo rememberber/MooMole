@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { test, expect, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 async function setup(page: Page, engine = true) {
@@ -53,10 +54,7 @@ async function setup(page: Page, engine = true) {
   }, engine)
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: 'AI 深度扫描', exact: true })
-    .click()
+  await navigate(page, 'AI 深度扫描')
   return page.getByRole('main', { name: 'AI 深度扫描内容' })
 }
 for (const include of [false, true])
@@ -87,10 +85,7 @@ for (const include of [false, true])
       include ? '本报告范围：Mole 常用清理位置与所选目录。' : '本报告范围：仅所选目录。',
     )
     await page.reload()
-    await page
-      .getByRole('navigation', { name: '主导航' })
-      .getByRole('button', { name: 'AI 深度扫描', exact: true })
-      .click()
+    await navigate(page, 'AI 深度扫描')
     await expect(scope).toHaveValue(include ? 'combined' : 'folder')
     await expect(main.getByRole('textbox', { name: '扩展扫描目录' })).toHaveValue(
       '/Users/demo/Downloads/owned-scope',

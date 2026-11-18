@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { projectArtifactsReport, projectMeasurement } from './fixtures/project-artifacts'
@@ -192,7 +193,7 @@ async function install(page: Page) {
   await page.goto('/')
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
 }
 test('explicit scope discovery keeps protection and unknown measurement, then opens read-only space analysis', async ({
   page,
@@ -260,7 +261,7 @@ test('leaving the page ignores a late scan and never restarts it automatically',
   await expect(page.getByRole('button', { name: '正在扫描…', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: '系统维护', exact: true }).click()
   await page.evaluate(() => (window as unknown as { finishProjects: () => void }).finishProjects())
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(page.getByRole('region', { name: '工程产物结果' }).getByRole('article')).toHaveCount(
     0,
   )
@@ -321,7 +322,7 @@ test('measurement holds scope controls and ignores late responses after leaving 
   await page.evaluate(() =>
     (window as unknown as { finishMeasurement: () => void }).finishMeasurement(),
   )
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(row.getByText('未测量', { exact: true })).toBeVisible()
   await expect(row).not.toContainText('8 KB')
 })
@@ -366,7 +367,7 @@ test('Mole saved roots load explicitly, select one scope without scanning, and f
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   await expect(region).toContainText('发现 3 处 Mole 命名目录')
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(region).toContainText('发现 3 处 Mole 命名目录')
   expect(await page.evaluate(() => sessionStorage.getItem('roots-calls'))).toBe('1')
   const second = await choices.locator('option').last().getAttribute('value')
@@ -435,7 +436,7 @@ test('root reading holds other operations, withdraws cached options, and ignores
     await expect(button).toBeDisabled()
   await page.getByRole('button', { name: '概览', exact: true }).click()
   await page.evaluate(() => (window as unknown as { finishRoots: () => void }).finishRoots())
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(page.getByRole('combobox', { name: 'Mole 已保存的项目目录' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '读取 Mole 目录', exact: true })).toBeEnabled()
 })
@@ -463,7 +464,7 @@ test('project filters preserve scan coverage, protection and session state witho
   await context.selectOption('nameOnly')
   await expect(region).toContainText('客户端保护无法确认，保持现状')
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(context).toHaveValue('nameOnly')
   await expect(region.getByRole('article')).toHaveCount(1)
   expect(await page.evaluate(() => sessionStorage.getItem('project-calls'))).toBe('1')
@@ -533,7 +534,7 @@ test('project pagination retains page on navigation, resets on filtering and cla
   await expect(region.getByRole('article')).toHaveCount(15)
   await expect(pages).toContainText('第 2 / 2 页')
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(pages).toContainText('第 2 / 2 页')
   await region.getByRole('textbox', { name: '筛选工程产物' }).fill('p00/')
   await expect(pages).toHaveCount(0)
@@ -603,7 +604,7 @@ test('leaving a pending remeasurement cannot restore withdrawn content evidence'
   await page.evaluate(() =>
     (window as unknown as { finishMeasurement: () => void }).finishMeasurement(),
   )
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(row).toContainText('内容保护本次未确认')
   await expect(row).not.toContainText('wallet-keypair.json')
   await expect(row).toContainText('8 KB')
@@ -635,7 +636,7 @@ test('Git index observation is explicit and scope-bound; recorded paths stay dis
   await row.getByText('Git 索引中有记录，请先保留', { exact: true }).click()
   await expect(row.getByText('Git 索引中有记录，请先保留', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '概览', exact: true }).click()
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await expect(row.getByText('Git 索引中有记录，请先保留', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('git-calls'))).toBe('1')
   await page.setViewportSize({ width: 960, height: 680 })
@@ -688,7 +689,7 @@ test('pending Git checks hold engineering controls and ignore late success; reme
   await expect(page.getByRole('textbox', { name: '筛选工程产物' })).toBeDisabled()
   await page.getByRole('button', { name: '概览', exact: true }).click()
   await page.evaluate(() => (window as unknown as { finishGit: () => void }).finishGit())
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await row.getByText('内容保护仍未确认', { exact: true }).click()
   await expect(row).toContainText('Git 记录本次未确认')
   await expect(row).not.toContainText('web/node_modules/source.rs')
@@ -704,7 +705,7 @@ test('recent modification hints use existing measurement, withdraw on failed ret
 }) => {
   await install(page)
   await page.goto('/')
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.getByRole('button', { name: '选择目录', exact: true }).click()
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })
@@ -738,7 +739,7 @@ test('no recent observation and incomplete measurement never imply no active bui
 }) => {
   await install(page)
   await page.goto('/')
-  await page.getByRole('button', { name: '工程产物', exact: true }).click()
+  await navigate(page, '工程产物')
   await page.getByRole('button', { name: '选择目录', exact: true }).click()
   await page.getByRole('button', { name: '扫描目录', exact: true }).click()
   const row = page.getByRole('article', { name: '/fixture/projects/web/node_modules', exact: true })

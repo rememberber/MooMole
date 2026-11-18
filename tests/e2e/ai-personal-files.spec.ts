@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { test, expect, type Page } from '@playwright/test'
 import { installPersonalMock } from './fixtures/personal-files-native'
 async function setup(page: Page, mode = 'normal') {
@@ -101,10 +102,7 @@ async function setup(page: Page, mode = 'normal') {
     }
   }, mode)
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: 'AI 深度扫描', exact: true })
-    .click()
+  await navigate(page, 'AI 深度扫描')
 }
 async function transfer(page: Page) {
   const ai = page.getByRole('main', { name: 'AI 深度扫描内容' })

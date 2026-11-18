@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Locator } from '@playwright/test'
 import { installTaskMock } from './fixtures/native-task'
 import { readFileSync } from 'node:fs'
@@ -64,7 +65,7 @@ test('browser preview labels its data and cannot execute real tasks', async ({ p
   await page.getByRole('textbox', { name: '筛选目录内容' }).fill('Projects')
   await expect(page.getByRole('button', { name: 'Projects 文件夹' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Library 文件夹' })).toHaveCount(0)
-  await page.getByRole('button', { name: '清理', exact: true }).click()
+  await navigate(page, '清理')
   await expect(page.getByText('扫描与审阅不会删除文件', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: '重新扫描', exact: true })).toBeDisabled()
   expect(errors).toEqual([])
@@ -93,7 +94,7 @@ test('structured preview supports selection, subset totals, filters and diagnost
   page,
 }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: '清理', exact: true }).click()
+  await navigate(page, '清理')
   const review = page.getByRole('region', { name: 'Mole 清理项目审阅' })
   await expect(review.getByText('3 个候选路径', { exact: false })).toBeVisible()
   const parent = review.getByRole('checkbox', {
@@ -176,10 +177,7 @@ test('protecting a selected child immediately excludes it and its parent from re
 test('all primary pages render without horizontal overflow', async ({ page }) => {
   await page.goto('/')
   for (const name of ['空间分析', '清理', '应用列表', '系统状态', '操作历史', '概览']) {
-    await page
-      .getByRole('navigation', { name: '主导航' })
-      .getByRole('button', { name, exact: true })
-      .click()
+    await navigate(page, name)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)
@@ -260,7 +258,7 @@ test('purpose filters explain irreversible log loss and preserve unknown legacy 
   page,
 }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: '清理', exact: true }).click()
+  await navigate(page, '清理')
   const review = page.getByRole('region', { name: 'Mole 清理项目审阅' })
   await review.getByRole('combobox', { name: '清理项目用途' }).selectOption('logs')
   await expect(review.locator('.review-item')).toHaveCount(1)

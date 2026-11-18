@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { expect, test, type Page } from '@playwright/test'
 import { installSoftwareCleanupMock } from './fixtures/software-cleanup-native'
 
@@ -6,10 +7,7 @@ test('app software scan skips home analysis and routes exact IDs through review,
 }) => {
   await installSoftwareCleanupMock(page)
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: '软件清理', exact: true })
-    .click()
+  await navigate(page, '软件清理')
   const rescan = page.getByRole('button', { name: '重新扫描', exact: true })
   await expect(rescan).toBeEnabled()
   await rescan.click()
@@ -126,10 +124,7 @@ test('software cleanup is navigable in the app and fits minimum-size dark and li
   page,
 }) => {
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: '软件清理', exact: true })
-    .click()
+  await navigate(page, '软件清理')
   await expect(page.getByRole('main', { name: '软件清理内容' })).toBeVisible()
   await expect(page.getByText('逐项确认', { exact: true })).toBeVisible()
   const view = await mount(page)

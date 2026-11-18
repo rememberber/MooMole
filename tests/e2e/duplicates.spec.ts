@@ -1,3 +1,4 @@
+import { navigate } from './fixtures/navigation'
 import { test, expect } from '@playwright/test'
 import { installPersonalMock } from './fixtures/personal-files-native'
 
@@ -6,10 +7,7 @@ test('duplicate groups retain a copy, confirm exact IDs and finish in shared his
 }) => {
   await installPersonalMock(page, false, true)
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('button', { name: '重复文件', exact: true })
-    .click()
+  await navigate(page, '重复文件')
   const main = page.getByRole('main', { name: '重复文件内容' })
   await page.getByRole('button', { name: '查找重复文件', exact: true }).click()
   const list = main.getByRole('region', { name: '个人文件列表' })
