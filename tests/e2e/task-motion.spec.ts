@@ -96,7 +96,7 @@ test('offscreen clouds pause and candidate summaries remain compact across theme
   page,
 }) => {
   await page.goto('/')
-  await navigate(page, '清理')
+  await navigate(page, '开发缓存')
   const cloud = page.locator('.clean-review .dust-cloud')
   await expect(cloud).toHaveAttribute('data-visible', 'true')
   await expect(cloud).toHaveAttribute('aria-hidden', 'true')
@@ -150,7 +150,7 @@ test('running global task feedback keeps fixed positioning and never squeezes th
   await page.getByRole('button', { name: '空间分析', exact: true }).click()
   await page.getByRole('textbox', { name: '扫描目录' }).fill('/fixture')
   await page.getByRole('button', { name: '开始分析', exact: true }).click()
-  await navigate(page, '清理')
+  await navigate(page, '开发缓存')
   const toast = page.locator('.task-toast')
   await expect(toast).toBeVisible()
   for (const width of [960, 1200]) {

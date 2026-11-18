@@ -59,10 +59,26 @@ export function ScheduledFiles({
     await c.pause(p.id)
     setEdit({ id: p.id, rule: { ...p.rule, extensions: [...p.rule.extensions] } })
   }
+  const state = !enabled
+    ? '定期处理不可用'
+    : c.error
+      ? '定期处理状态待核实'
+      : c.running
+        ? '定期处理正在运行'
+        : !c.view
+          ? '正在读取定期处理状态…'
+          : c.view.policies.some((policy) => policy.enabled)
+            ? '定期处理已启用'
+            : c.view.policies.length
+              ? '定期处理已暂停'
+              : '定期处理已关闭'
   return (
     <section className="card scheduled-management" aria-label="定期文件处理">
       <div className="section-toolbar">
         <h3>定期文件处理</h3>
+        <span className="tag scheduled-state" role="status">
+          {state}
+        </span>
         <button
           className="button secondary compact"
           disabled={

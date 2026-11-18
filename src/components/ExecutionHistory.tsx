@@ -280,9 +280,7 @@ export function ExecutionHistory({
           </>
         ) : (
           <p className="execution-retention muted">
-            {onlyRestorable
-              ? '当前记录中没有可申请恢复的文件。'
-              : '暂无执行记录。保存计划不会执行清理；符合条件的用户缓存和日志需核对并确认处理。'}
+            {onlyRestorable ? '当前记录中没有可申请恢复的文件。' : '暂无最近操作。'}
           </p>
         )}
       </section>

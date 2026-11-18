@@ -1,4 +1,17 @@
 [
+  ["定期处理不可用", "Scheduled processing unavailable", "定期処理を利用できません"],
+  ["定期处理状态待核实", "Scheduled processing status unconfirmed", "定期処理の状態を要確認"],
+  ["定期处理正在运行", "Scheduled processing running", "定期処理を実行中"],
+  ["正在读取定期处理状态…", "Reading scheduled processing status…", "定期処理の状態を読み込み中…"],
+  ["定期处理已启用", "Scheduled processing enabled", "定期処理は有効"],
+  ["定期处理已暂停", "Scheduled processing paused", "定期処理は一時停止中"],
+  ["定期处理已关闭", "Scheduled processing off", "定期処理はオフ"],
+  ["更多维护项目", "More maintenance tools", "その他のメンテナンス項目"],
+  [
+    "选择要检查的目录，再点击顶部“{0}”。",
+    "Choose the folder to inspect, then select “{0}” in the toolbar.",
+    "確認するフォルダを選び、ツールバーの「{0}」を押してください。"
+  ],
   ["更多操作", "More actions", "その他の操作"],
   ["最近操作", "Recent operations", "最近の操作"],
   [
@@ -11,7 +24,6 @@
     "No files in these records are eligible for a restore check.",
     "これらの記録には復元確認ができるファイルがありません。"
   ],
-  ["{0} · {1} 项", "{0} · {1} items", "{0} · {1} 件"],
   ["{0} {1} 项 · 待核实 {2} 项", "{0} {1} items · {2} to verify", "{0} {1} 件 · 要確認 {2} 件"],
   ["Mole 完整清理", "Full Mole cleanup", "Mole の完全クリーンアップ"],
   [
@@ -1768,6 +1780,7 @@
   ],
   ["概览", "Overview", "概要"],
   ["清理空间", "Free up space", "空き容量を増やす"],
+  ["开发缓存", "Developer caches", "開発用キャッシュ"],
   ["清理工具", "Cleanup tools", "クリーンアップツール"],
   ["文件查找", "File search tools", "ファイル検索ツール"],
   ["系统监测", "Monitoring tools", "システム監視ツール"],
@@ -3733,11 +3746,7 @@
   ["· 已移入", "· Moved", "· 移動済み"],
   ["项 · 待核实", "items · Needs verification", "件 · 要照合"],
   ["查看逐项结果", "View item results", "項目別の結果を見る"],
-  [
-    "暂无执行记录。保存计划不会执行清理；符合条件的用户缓存和日志需核对并确认处理。",
-    "No execution records. Saving a plan does not clean. Eligible user caches and logs require review and confirmation.",
-    "実行記録はありません。プラン保存では処理せず、対象キャッシュとログは照合と確認が必要です。"
-  ],
+  ["暂无最近操作。", "No recent operations.", "最近の操作はありません。"],
   ["逐项执行结果", "Item execution results", "項目別の実行結果"],
   ["重试读取", "Retry loading", "読み取りを再試行"],
   [

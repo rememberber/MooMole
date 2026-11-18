@@ -9,6 +9,8 @@ test('duplicate groups retain a copy, confirm exact IDs and finish in shared his
   await page.goto('/')
   await navigate(page, '重复文件')
   const main = page.getByRole('main', { name: '重复文件内容' })
+  await expect(main).toContainText('再点击顶部“查找重复文件”')
+  await expect(main.getByRole('region', { name: '个人文件列表' })).toHaveCount(0)
   await page.getByRole('button', { name: '查找重复文件', exact: true }).click()
   const list = main.getByRole('region', { name: '个人文件列表' })
   await expect(list.locator('article')).toHaveCount(3)

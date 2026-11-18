@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { navigate } from './fixtures/navigation'
 
 test.describe('first launch system language', () => {
   for (const [locale, language, overview] of [
@@ -50,10 +51,10 @@ test('all main pages translate headings and keep preview boundaries', async ({ p
   await page.getByRole('combobox', { name: '界面语言', exact: true }).selectOption('en')
   await page.keyboard.press('Escape')
   for (const label of [
-    'Quick cleanup',
+    'Free up space',
     'AI deep scan',
     'Space analyzer',
-    'Cleanup',
+    'Developer caches',
     'Applications',
     'System status',
     'Maintenance',
@@ -61,7 +62,7 @@ test('all main pages translate headings and keep preview boundaries', async ({ p
     'Installers',
     'Activity history',
   ]) {
-    await page.getByRole('button', { name: label, exact: true }).click()
+    await navigate(page, label)
     await expect(page.getByRole('main')).toBeVisible()
     await expect(page.getByRole('main')).not.toContainText('正在打开…')
   }
@@ -139,6 +140,7 @@ test('maintenance search matches current-language descriptions after switching',
   await page.getByRole('combobox', { name: '界面语言', exact: true }).selectOption('en')
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Maintenance', exact: true }).click()
+  await page.getByText('More maintenance tools', { exact: true }).click()
   await page.getByRole('textbox', { name: 'Search maintenance tasks' }).fill('thumbnail')
   await expect(page.getByText('Preview and icon caches', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Settings', exact: true }).click()

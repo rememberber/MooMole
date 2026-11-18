@@ -37,7 +37,7 @@ import {
 import * as api from './lib/api'
 import { useLanguage, setLanguagePreference, setSystemLanguage } from './i18n/locale'
 import { useAiScan } from './lib/use-ai-scan'
-import { duplicateTransport, similarTransport } from './lib/personal-files'
+import { duplicateTransport, personalFileScanLabel, similarTransport } from './lib/personal-files'
 import {
   softwareContentRoot,
   softwareContentSources,
@@ -79,7 +79,11 @@ import {
 import type { TransferRestoreTarget } from './lib/transfer-restoration'
 import type { TransferTarget } from './lib/file-transfer'
 import type { FileArchiveTarget } from './lib/file-archive'
-import { restorationTransport, type RestorationTarget } from './lib/file-restoration'
+import {
+  restorationCandidate,
+  restorationTransport,
+  type RestorationTarget,
+} from './lib/file-restoration'
 import { FileRestorationBatchCenter } from './components/FileRestorationBatchCenter'
 import { MountedVolumePicker } from './components/MountedVolumePicker'
 import type { RestorationBatchTarget } from './lib/file-restoration-batch'
@@ -127,6 +131,7 @@ import type {
   Bootstrap,
   Cleanup,
   CleanPreview,
+  ExecutionDetail,
   Page,
   Settings,
   Snapshot,
@@ -225,7 +230,7 @@ const navigation = [
   ['similarPhotos', Copy, '相似照片与视频'],
   ['aiScan', BrainCircuit, 'AI 深度扫描'],
   ['analyze', HardDrive, '空间分析'],
-  ['cleanup', Sparkles, '清理'],
+  ['cleanup', Sparkles, '开发缓存'],
   ['apps', Box, '应用列表'],
   ['status', Activity, '系统状态'],
   ['maintenance', Wrench, '系统维护'],
@@ -379,66 +384,34 @@ export default function App() {
   )
   const activeFiles =
     page === 'similarPhotos' ? similar : page === 'duplicateFiles' ? duplicates : personalFiles
-  useEffect(() => {
-    const detail = personalFiles.result
+  const recordFileExecution = useCallback((detail: ExecutionDetail | null) => {
     if (!detail) return
+    const record = {
+      ...detail,
+      restorableReceipt: detail.items.some((item) => restorationCandidate(detail, item)),
+    }
     setData((current) =>
       current
         ? {
             ...current,
             executions: preserveExecutionProgress(
-              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
+              [record, ...current.executions.filter((value) => value.id !== record.id)],
               current.executions,
             ),
           }
         : current,
     )
-  }, [personalFiles.result])
-  useEffect(() => {
-    const detail = duplicates.result
-    if (!detail) return
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            executions: preserveExecutionProgress(
-              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
-              current.executions,
-            ),
-          }
-        : current,
-    )
-  }, [duplicates.result])
-  useEffect(() => {
-    const detail = similar.result
-    if (!detail) return
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            executions: preserveExecutionProgress(
-              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
-              current.executions,
-            ),
-          }
-        : current,
-    )
-  }, [similar.result])
-  useEffect(() => {
-    const detail = softwareFiles.result
-    if (!detail) return
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            executions: preserveExecutionProgress(
-              [detail, ...current.executions.filter((value) => value.id !== detail.id)],
-              current.executions,
-            ),
-          }
-        : current,
-    )
-  }, [softwareFiles.result])
+  }, [])
+  useEffect(
+    () => recordFileExecution(personalFiles.result),
+    [personalFiles.result, recordFileExecution],
+  )
+  useEffect(() => recordFileExecution(duplicates.result), [duplicates.result, recordFileExecution])
+  useEffect(() => recordFileExecution(similar.result), [similar.result, recordFileExecution])
+  useEffect(
+    () => recordFileExecution(softwareFiles.result),
+    [softwareFiles.result, recordFileExecution],
+  )
   const [maintenanceQuery, setMaintenanceQuery] = useState('')
   const maintenance = useMaintenance(page === 'maintenance')
   const projects = useProjectArtifacts(page === 'projects', data?.home ?? '')
@@ -1443,15 +1416,16 @@ export default function App() {
                       disabled={!canRun || executionActive || !activeFiles.root.trim()}
                     >
                       <Search size={15} />
-                      {page === 'similarPhotos'
-                        ? activeFiles.videoCandidates
-                          ? '查找相似视频'
-                          : '查找相似照片'
-                        : page === 'duplicateFiles'
-                          ? '查找重复文件'
-                          : personalMode === 'livePhotos'
-                            ? '扫描 Live Photo 对'
-                            : '扫描文件'}
+                      {page === 'personalFiles' && personalMode === 'livePhotos'
+                        ? '扫描 Live Photo 对'
+                        : personalFileScanLabel(
+                            page === 'similarPhotos'
+                              ? 'similar'
+                              : page === 'duplicateFiles'
+                                ? 'duplicates'
+                                : 'personal',
+                            activeFiles.videoCandidates,
+                          )}
                     </button>
                   ))}
                 {page === 'personalFiles' && (
@@ -1747,48 +1721,6 @@ export default function App() {
                     )}
                   </>
                 )}
-                {page === 'maintenance' && (
-                  <>
-                    <button
-                      className="button primary compact"
-                      disabled={!canRun}
-                      onClick={() => setRefreshOpenSignal((n) => n + 1)}
-                    >
-                      刷新预览…
-                    </button>
-                    <label className="search-field maintenance-search">
-                      <Search size={15} />
-                      <input
-                        aria-label="搜索维护项目"
-                        placeholder="搜索用途、影响或权限"
-                        value={maintenanceQuery}
-                        onChange={(event) => setMaintenanceQuery(event.target.value)}
-                      />
-                    </label>
-                    <button
-                      className="button secondary compact"
-                      disabled={!canRun || maintenance.reading || maintenance.reviewing}
-                      onClick={() => void maintenance.inspect()}
-                    >
-                      <Search size={15} />
-                      {maintenance.reading ? '正在检查…' : '检查本机设置'}
-                    </button>
-                    <button
-                      className="button secondary compact"
-                      disabled={
-                        !canRun ||
-                        maintenance.reading ||
-                        maintenance.reviewing ||
-                        maintenance.selected.length === 0
-                      }
-                      onClick={() => void maintenance.prepareReview()}
-                    >
-                      {maintenance.reviewing
-                        ? '正在审阅…'
-                        : `审阅所选${maintenance.selected.length > 0 ? ` ${maintenance.selected.length} 项` : ''}`}
-                    </button>
-                  </>
-                )}
                 {page === 'history' && (
                   <>
                     <button
@@ -1806,21 +1738,18 @@ export default function App() {
               </>
             )}
           </div>
-          <span className="read-only-tag">
-            <ShieldCheck size={13} />
-            {page === 'quickCleanup' ||
+          {(page === 'quickCleanup' ||
             page === 'softwareCleanup' ||
             page === 'personalFiles' ||
             page === 'duplicateFiles' ||
             page === 'similarPhotos' ||
             page === 'cleanup' ||
-            page === 'apps' ||
-            page === 'maintenance'
-              ? '逐项确认'
-              : moleCleanActive
-                ? '完整清理执行中'
-                : '只读检查'}
-          </span>
+            page === 'apps') && (
+            <span className="read-only-tag">
+              <ShieldCheck size={13} />
+              逐项确认
+            </span>
+          )}
         </header>
         <main
           className="main-content"
@@ -2745,21 +2674,62 @@ export default function App() {
                   changePage('apps')
                 }}
               />
-              <MaintenanceCatalog
-                query={maintenanceQuery}
-                engine={data.engine}
-                report={maintenance.report}
-                reading={maintenance.reading}
-                error={maintenance.error}
-                selected={maintenance.selected}
-                onSelect={maintenance.select}
-                reviewing={maintenance.reviewing}
-              />
+              <details className="card maintenance-tools">
+                <summary>更多维护项目</summary>
+                <div className="section-toolbar maintenance-tools-actions">
+                  <label className="search-field maintenance-search">
+                    <Search size={15} />
+                    <input
+                      aria-label="搜索维护项目"
+                      placeholder="搜索用途、影响或权限"
+                      value={maintenanceQuery}
+                      onChange={(event) => setMaintenanceQuery(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="button secondary compact"
+                    disabled={!canRun || maintenance.reading || maintenance.reviewing}
+                    onClick={() => void maintenance.inspect()}
+                  >
+                    {maintenance.reading ? '正在检查…' : '检查本机设置'}
+                  </button>
+                  <button
+                    className="button secondary compact"
+                    disabled={
+                      !canRun ||
+                      maintenance.reading ||
+                      maintenance.reviewing ||
+                      !maintenance.selected.length
+                    }
+                    onClick={() => void maintenance.prepareReview()}
+                  >
+                    {maintenance.reviewing
+                      ? '正在审阅…'
+                      : `审阅所选${maintenance.selected.length > 0 ? ` ${maintenance.selected.length} 项` : ''}`}
+                  </button>
+                </div>
+                <MaintenanceCatalog
+                  query={maintenanceQuery}
+                  engine={data.engine}
+                  report={maintenance.report}
+                  reading={maintenance.reading}
+                  error={maintenance.error}
+                  selected={maintenance.selected}
+                  onSelect={maintenance.select}
+                  reviewing={maintenance.reviewing}
+                />
+              </details>
             </>
           )}
 
           {page === 'storageMonitor' && (
             <>
+              <ScheduledFiles
+                enabled={api.desktop && data.engine.available}
+                controller={scheduledFiles}
+                chooseDirectory={() => api.chooseDirectory('选择定期处理目录')}
+                onHistory={() => changePage('history')}
+              />
               <StorageMonitor
                 enabled={api.desktop}
                 transport={storageMonitorTransport}
@@ -2771,12 +2741,6 @@ export default function App() {
               />
               <MenuBarSettings enabled={api.desktop} transport={menuBarTransport} />
               <MainAppLogin enabled={api.desktop} transport={mainAppLoginTransport} />
-              <ScheduledFiles
-                enabled={api.desktop && data.engine.available}
-                controller={scheduledFiles}
-                chooseDirectory={() => api.chooseDirectory('选择定期处理目录')}
-                onHistory={() => changePage('history')}
-              />
               <FolderSchedules
                 enabled={api.desktop}
                 controller={folderSchedules}

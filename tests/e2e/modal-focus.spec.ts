@@ -50,7 +50,7 @@ test('settings shortcut returns to the prior field and keeps the original trigge
 
 test('the protection-list entry receives focus again when settings closes', async ({ page }) => {
   await page.goto('/')
-  await navigate(page, '清理')
+  await navigate(page, '开发缓存')
   const opener = page.getByRole('button', { name: '管理保护列表', exact: true })
   await opener.click()
   await expect(

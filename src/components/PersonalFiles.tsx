@@ -2,7 +2,11 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import * as api from '../lib/api'
 import type { PersonalController } from '../lib/use-personal-files'
-import { filterPersonalFiles, type PersonalConfirmation } from '../lib/personal-files'
+import {
+  filterPersonalFiles,
+  personalFileScanLabel,
+  type PersonalConfirmation,
+} from '../lib/personal-files'
 import { fileKinds, type FileKind } from '../lib/large-files'
 import { bytes, dateTime, shortPath } from '../lib/format'
 import { pathOverlaps } from '../lib/clean-preview'
@@ -920,7 +924,7 @@ export function PersonalFiles({
                   : '选择播放列表，再点击顶部“扫描离线影音”。'
                 : mode === 'software'
                   ? '点击顶部“扫描附件副本”，查看可审阅的 Mail 附件副本。'
-                  : '选择下载目录或其他个人目录，再点击顶部“扫描文件”。'}
+                  : `选择要检查的目录，再点击顶部“${personalFileScanLabel(mode, videoCandidates)}”。`}
         </p>
       )}
       {result && (

@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 
 const groupFor: Record<string, string> = {
   软件清理: '清理工具',
-  清理: '清理工具',
+  开发缓存: '清理工具',
   安装包: '清理工具',
   工程产物: '清理工具',
   'AI 深度扫描': '清理工具',
@@ -12,6 +12,11 @@ const groupFor: Record<string, string> = {
   ソフトウェアのクリーンアップ: 'クリーンアップツール',
   系统状态: '系统监测',
   持续管理: '系统监测',
+  'AI deep scan': 'Cleanup tools',
+  'Developer caches': 'Cleanup tools',
+  'Project artifacts': 'Cleanup tools',
+  Installers: 'Cleanup tools',
+  'System status': 'Monitoring tools',
 }
 
 export async function navigate(page: Page, name: string) {

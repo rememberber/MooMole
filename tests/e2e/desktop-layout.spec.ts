@@ -139,7 +139,7 @@ test('compact desktop shell puts actions in the toolbar and results above the fo
   await page.evaluate(() => sessionStorage.setItem('mock-done', 'yes'))
   await expect(page.getByText('系统快照进行中', { exact: true })).toHaveCount(0)
   await page.setViewportSize({ width: 960, height: 780 })
-  for (const name of ['概览', '空间分析', '清理', '应用列表', '系统状态', '操作历史']) {
+  for (const name of ['概览', '空间分析', '开发缓存', '应用列表', '系统状态', '操作历史']) {
     await navigate(page, name)
     const toolbar = page.getByRole('banner', { name: `${name}工具栏` })
     await expect(toolbar).toBeVisible()

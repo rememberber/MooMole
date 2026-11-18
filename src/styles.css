@@ -3492,6 +3492,18 @@ input[type='checkbox'] {
   overflow-wrap: anywhere;
 }
 
+.maintenance-tools {
+  padding: 14px 16px;
+}
+.maintenance-tools > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+}
+.maintenance-tools-actions {
+  margin-block: 12px;
+  flex-wrap: wrap;
+}
 .maintenance-search {
   width: min(360px, 100%);
   flex: 1;
@@ -4044,7 +4056,10 @@ input[type='checkbox'] {
 .scheduled-management > .notice {
   margin: 0;
 }
-.scheduled-management .section-toolbar h3 {
+.scheduled-management .section-toolbar {
+  flex-wrap: wrap;
+}
+.scheduled-management .scheduled-state {
   margin-inline-end: auto;
 }
 .personal-result {

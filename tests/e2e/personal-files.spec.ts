@@ -108,6 +108,7 @@ test('moving requires explicit destinations and acknowledgement, keeps both name
   await expect(restoration.getByRole('button', { name: '确认恢复这一项' })).toBeDisabled()
   await restoration.getByRole('button', { name: '关闭', exact: true }).click()
   await main.getByRole('button', { name: '查看处理历史' }).click()
+  await page.getByRole('checkbox', { name: '只看可申请恢复的文件' }).check()
   await page.getByRole('button', { name: /已取消 · 2 项/ }).click()
   const history = page.getByRole('dialog', { name: '逐项执行结果' })
   await history.locator('.execution-item summary').first().click()

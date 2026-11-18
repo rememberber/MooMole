@@ -24,6 +24,7 @@ async function open(page: Page) {
   await navigate(page, '相似照片与视频')
   const main = page.getByRole('main', { name: '相似照片与视频内容' })
   await main.getByRole('combobox', { name: '比较方式' }).selectOption('video')
+  await expect(main).toContainText('再点击顶部“查找相似视频”')
   await main.getByRole('textbox', { name: '相似视频目录' }).fill('/Users/demo/Downloads')
   return main
 }

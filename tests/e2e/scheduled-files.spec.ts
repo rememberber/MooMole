@@ -9,6 +9,7 @@ async function mount(page: Page, mode = 'normal') {
 }
 async function preview(page: Page, mode = 'normal', action = 'move') {
   const region = await mount(page, mode)
+  await expect(region.locator('.scheduled-state')).toHaveText('定期处理已关闭')
   await region.getByRole('button', { name: '添加处理规则…' }).click()
   const dialog = page.getByRole('dialog', { name: '预览并启用定期处理' })
   await dialog.getByRole('button', { name: '选择源目录…' }).click()
@@ -47,6 +48,7 @@ for (const action of ['move', 'trash'])
     await dialog.getByRole('button', { name: '确认启用此处理规则' }).click()
     await expect(dialog).toHaveCount(0)
     await expect(page.getByRole('region', { name: '定期文件处理' })).toContainText('本次运行已启用')
+    await expect(page.locator('.scheduled-state')).toHaveText('定期处理已启用')
     const calls = JSON.parse(
       (await page.locator('#scheduled-files-fixture').getAttribute('data-calls'))!,
     )
@@ -126,12 +128,14 @@ test('existing active recurring work is only observed, and cancellation addresse
   page,
 }) => {
   const region = await mount(page, 'active')
+  await expect(region.locator('.scheduled-state')).toHaveText('定期处理正在运行')
   await expect(region.getByRole('button', { name: '停止本次处理' })).toBeVisible()
   await expect(page.locator('#scheduled-files-fixture')).not.toHaveAttribute(
     'data-calls',
     /run_scheduled_files|enable_scheduled_files/,
   )
   await region.getByRole('button', { name: '停止本次处理' }).click()
+  await expect(region.locator('.scheduled-state')).toHaveText('定期处理已暂停')
   await expect(region).toContainText('已暂停，需重新预览启用')
   await region.getByText('最近定期处理结果', { exact: true }).click()
   await expect(region).toContainText('未全部完成，规则已暂停')
@@ -147,6 +151,7 @@ test('a pause-save failure remains visible after successful metadata reads and n
 }) => {
   const region = await mount(page, 'pause-failure')
   await region.getByRole('button', { name: '暂停此处理规则' }).click()
+  await expect(region.locator('.scheduled-state')).toHaveText('定期处理状态待核实')
   await expect(region.getByRole('alert')).toContainText('暂停设置尚未保存')
   await region.getByRole('button', { name: '刷新定期处理' }).click()
   await expect(region.getByRole('alert')).toContainText('暂停设置尚未保存')

@@ -5,6 +5,12 @@ import { fileKind, type FileKind } from './large-files'
 import { getLocale } from '../i18n/locale'
 import { readBrowserProfile, type BrowserProfile } from './browser-downloads'
 
+export function personalFileScanLabel(mode: 'personal' | 'duplicates' | 'similar', video = false) {
+  if (mode === 'duplicates') return '查找重复文件'
+  if (mode === 'similar') return video ? '查找相似视频' : '查找相似照片'
+  return '扫描文件'
+}
+
 export interface PersonalFile {
   id: string
   path: string
